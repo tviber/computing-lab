@@ -35,6 +35,13 @@ export const labMetadata = {
     entryPath: "/labs/is-sim",
     category: "information-systems",
   },
+  "lunch-shift": {
+    title: "午市救援",
+    description:
+      "先亲手送对一张订单，再给餐馆定下接单、厨房、出餐的处理规则——看系统按规则处理 12 张订单能拿多少分。",
+    entryPath: "/labs/lunch-shift",
+    category: "information-systems",
+  },
   "image-sampling": {
     title: "空间采样",
     description: "把信号图压成格子发到低带宽接收端：格子数越少越省，但差异特征会先被抹平。",
