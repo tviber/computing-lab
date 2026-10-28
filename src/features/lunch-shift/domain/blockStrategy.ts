@@ -93,7 +93,8 @@ export function sanitizeBlockDrafts(raw: unknown): BlockDrafts {
   for (const focus of FOCUSES) {
     const entry = record[focus];
     if (!entry || typeof entry !== "object" || Array.isArray(entry)) continue;
-    const rules = (entry as Record<string, unknown>).rules;
+    const draftEntry = entry as Record<string, unknown>;
+    const rules = draftEntry.rules;
     if (!Array.isArray(rules)) continue;
     drafts[focus] = {
       rules: rules
@@ -101,6 +102,11 @@ export function sanitizeBlockDrafts(raw: unknown): BlockDrafts {
         .filter((rule): rule is BlockRule => rule !== null)
         .slice(0, MAX_RULES_PER_FOCUS),
     };
+    // Blockly workspace blob is only used to restore the editor canvas;
+    // cap it so drafts can't smuggle arbitrary payloads.
+    if (typeof draftEntry.workspace === "string" && draftEntry.workspace.length <= 200_000) {
+      drafts[focus].workspace = draftEntry.workspace;
+    }
   }
   return drafts;
 }

@@ -38,6 +38,7 @@ import {
   nextLunchStage,
 } from "../../../src/features/lunch-shift/domain/stages.ts";
 import {
+  gradeExplanation,
   gradeSystemCheck,
   isSystemExplanation,
   missedSystemCheckQuestions,
@@ -157,12 +158,14 @@ export function judgeLunchShiftSubmission(
     snapshot = draft;
     score = gradeSystemCheck(draft.answers);
     total = 6;
-    const explanationOk = isSystemExplanation(draft.explanation);
+    const explanationMissed = gradeExplanation(draft.explanation);
+    const explanationOk = isSystemExplanation(draft.explanation) && explanationMissed.length === 0;
     passed = score === total && explanationOk;
     testSummary = {
       kind: "system-check",
       missed: missedSystemCheckQuestions(draft.answers),
       explanationOk,
+      explanationMissed,
     };
   } else {
     const draft = sanitizeChallengeDraft(rawDraft);

@@ -444,3 +444,61 @@
   font-weight: 650;
   color: var(--secondary);
 }
+
+/* Blockly workspace host */
+.lunch-blockly {
+  margin: var(--space-3) 0;
+}
+.lunch-blockly-host {
+  height: 360px;
+  min-height: 280px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--paper);
+  overflow: hidden;
+}
+.lunch-blockly-host .blocklySvg {
+  border-radius: var(--radius-control);
+}
+
+/* "1 拍" explainer — cells light up in sequence, one step per cell. */
+.lunch-ticknote {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--secondary);
+}
+.lunch-ticknote-cells {
+  display: inline-flex;
+  gap: 3px;
+}
+.lunch-ticknote-cells i {
+  width: 10px;
+  height: 14px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: var(--subtle);
+  animation: lunch-tick 2.52s infinite;
+}
+@keyframes lunch-tick {
+  0%,
+  14% {
+    background: var(--accent);
+    border-color: var(--accent);
+  }
+  15%,
+  100% {
+    background: var(--subtle);
+  }
+}
+
+.lunch-journey-img {
+  display: block;
+  width: 100%;
+  max-width: 520px;
+  height: auto;
+  margin: var(--space-2) 0 var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+}

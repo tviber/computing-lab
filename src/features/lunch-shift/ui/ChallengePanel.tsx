@@ -13,6 +13,7 @@ import { EXPERIMENTS, PRACTICE_SCENARIO } from "../domain/scenarios.ts";
 import { simulate } from "../domain/simulator.ts";
 import { RuleEditor } from "./RuleEditor.tsx";
 import { RunResultView } from "./RunResultView.tsx";
+import { TickNote } from "./TickNote.tsx";
 
 function ExperimentCard({
   label,
@@ -82,6 +83,7 @@ export function ChallengePanel({
         <p className="eyebrow">规则挑战 · 目标 77 分</p>
         <h2>给餐馆定处理规则</h2>
         <p>选一站，把语句接进规则里，试运行就能看到订单的变化。</p>
+        <TickNote />
       </div>
 
       <details className="lunch-reference">

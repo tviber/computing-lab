@@ -134,6 +134,42 @@ export function isSystemExplanation(value: unknown): value is string {
   return parts.every((part) => [...part.trim()].length >= 4);
 }
 
+/**
+ * Keyword sets per explanation part — each line must name the actor or
+ * the channel, in the student's own words. Grading is keyword matching,
+ * not LLM judging: the point is to verbalize the flow, not to write prose.
+ */
+const EXPLANATION_KEYWORDS: readonly (readonly string[])[] = [
+  ["顾客", "用户", "客人", "人", "点餐", "我们"],
+  ["网络", "服务器", "网", "云", "设备", "传输"],
+  ["程序", "软件", "服务器", "系统", "计算机", "电脑", "规则"],
+  ["顾客", "用户", "页面", "屏幕", "客人", "我", "学生"],
+];
+
+/** Reference wording, shown after the student passes — not the key. */
+export const SYSTEM_EXPLANATION_REFERENCE = [
+  "顾客在柜台前提出需求",
+  "订单数据和规则经网络送到餐馆的服务器",
+  "服务器上的程序按规则处理订单",
+  "把处理结果送回页面给顾客看",
+];
+
+/**
+ * Which of the four explanation parts missed (0-based indexes). A part
+ * counts as correct when its line contains any keyword for that slot.
+ */
+export function gradeExplanation(explanation: string): number[] {
+  const parts = explanation.split("\n").map((part) => part.trim());
+  const missed: number[] = [];
+  for (let i = 0; i < EXPLANATION_KEYWORDS.length; i++) {
+    const line = parts[i] ?? "";
+    if (line.length < 4 || !EXPLANATION_KEYWORDS[i].some((word) => line.includes(word))) {
+      missed.push(i);
+    }
+  }
+  return missed;
+}
+
 export function sanitizeSystemCheckAnswers(raw: unknown): Record<string, string> {
   const answers: Record<string, string> = {};
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return answers;

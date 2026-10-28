@@ -8,6 +8,7 @@ import { FOCUSES, FOCUS_LABELS } from "../domain/contracts.ts";
 import type { ChallengeDraft, LunchTestSummary } from "../domain/protocol.ts";
 import { RuleEditor } from "./RuleEditor.tsx";
 import { RunResultView } from "./RunResultView.tsx";
+import { TickNote } from "./TickNote.tsx";
 
 export function FinalPanel({
   draft,
@@ -31,6 +32,7 @@ export function FinalPanel({
       <div>
         <p className="eyebrow">正式挑战 · 只提交一次</p>
         <h2>换了一批订单</h2>
+        <TickNote />
         <p>
           正式挑战的 12
           张订单和练习不同，写法也可能更刁钻。可以最后再调整三站规则——按提交之前的规则判分，提交后不能改。

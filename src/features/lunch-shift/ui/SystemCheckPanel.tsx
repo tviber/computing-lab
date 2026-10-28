@@ -11,6 +11,7 @@ import {
   SYSTEM_CHECK_EXPLANATIONS,
   SYSTEM_CHECK_QUESTIONS,
   SYSTEM_EXPLANATION_PARTS,
+  SYSTEM_EXPLANATION_REFERENCE,
 } from "../domain/systemCheck.ts";
 
 function Reference() {
@@ -55,6 +56,9 @@ export function SystemCheckPanel({
     return firstUnsolved < 0 ? SYSTEM_CHECK_QUESTIONS.length : firstUnsolved;
   });
   const [feedback, setFeedback] = useState<{ answer: string; correct: boolean } | null>(null);
+  // Manual validation — native radio `required` popups fired even when the
+  // student hadn't touched the form.
+  const [missing, setMissing] = useState(false);
 
   const explanationLines = draft.explanation.split("\n");
   const question = SYSTEM_CHECK_QUESTIONS[index];
@@ -85,7 +89,12 @@ export function SystemCheckPanel({
             onSubmit={(event) => {
               event.preventDefault();
               const answer = new FormData(event.currentTarget).get("answer");
-              if (typeof answer !== "string") return;
+              if (typeof answer !== "string") {
+                setFeedback(null);
+                setMissing(true);
+                return;
+              }
+              setMissing(false);
               const correct = isCorrectAnswer(question.id, answer);
               setFeedback({ answer, correct });
               onChange({
@@ -99,19 +108,25 @@ export function SystemCheckPanel({
                 <input
                   checked={draft.answers[question.id] === option.value}
                   name="answer"
-                  onChange={() =>
+                  onChange={() => {
+                    setMissing(false);
+                    setFeedback(null);
                     onChange({
                       ...draft,
                       answers: { ...draft.answers, [question.id]: option.value },
-                    })
-                  }
-                  required
+                    });
+                  }}
                   type="radio"
                   value={option.value}
                 />
                 <span>{option.label}</span>
               </label>
             ))}
+            {missing ? (
+              <p className="lunch-feedback neutral" role="status">
+                先选一个选项，再点确认。
+              </p>
+            ) : null}
             {feedback && feedback.answer === (draft.answers[question.id] ?? "") ? (
               <p
                 className={`lunch-feedback ${feedback.correct ? "success victory" : "mistake"}`}
@@ -158,13 +173,28 @@ export function SystemCheckPanel({
         <>
           <p className="eyebrow">最后一步</p>
           <h2>把刚才的订单旅程接起来</h2>
-          <p>每格一句话即可，不考字数。</p>
+          <p>
+            用自己的话说出这条流水线：每一格写一句，写到对应的对象就算对——比如第一格要说出「顾客」。
+          </p>
+          {passed ? (
+            <details className="lunch-reference" open>
+              <summary>参考说法</summary>
+              <p>{SYSTEM_EXPLANATION_REFERENCE.join(" → ")}</p>
+            </details>
+          ) : null}
           {outcome && !outcome.passed && outcome.testSummary.kind === "system-check" ? (
             <p className="lunch-feedback mistake" role="alert">
               {outcome.testSummary.missed && outcome.testSummary.missed.length > 0
                 ? `还有 ${outcome.testSummary.missed.length} 题没答对`
                 : ""}
-              {outcome.testSummary.explanationOk === false ? "；四步说明要四句都填" : ""}
+              {outcome.testSummary.explanationMissed &&
+              outcome.testSummary.explanationMissed.length > 0
+                ? `「${outcome.testSummary.explanationMissed
+                    .map((index) => SYSTEM_EXPLANATION_PARTS[index])
+                    .join("」「")}」这几格没有说到对应的对象`
+                : outcome.testSummary.explanationOk === false
+                  ? "四步说明要四句都写"
+                  : ""}
             </p>
           ) : null}
           <form

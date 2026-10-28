@@ -1,160 +1,25 @@
 /**
- * Ordered rule-list editor — the React counterpart of the Blockly
- * workspace in the standalone version. Semantics are identical: rules
- * attach under the station's start statement and run top-down; the saved
- * draft is the rules array only.
+ * Blockly rule editor — the kitchen UX ported to the lab. Rules attach
+ * under the station's start block and run top-down; the saved draft is
+ * the rules array plus workspace JSON for restoring the canvas.
  */
 
 import { useState } from "react";
-import { Icon } from "../../../shared/ui/Icon";
-import { defaultRule, ruleLabel, ruleTypesFor } from "../domain/blockStrategy.ts";
+import { ruleLabel } from "../domain/blockStrategy.ts";
 import {
-  DISHES,
   FOCUSES,
   FOCUS_LABELS,
-  NOTES,
   type BlockDrafts,
   type BlockRule,
   type Focus,
 } from "../domain/contracts.ts";
-
-const MAX_RULES = 12;
-
-const START_LABEL: Record<Focus, string> = {
-  intake: "收到顾客订单",
-  kitchen: "选择下一张订单",
-  delivery: "选择下一张订单",
-};
+import { BlocklyRuleEditor } from "./BlocklyRuleEditor.tsx";
 
 const STATION_DESC: Record<Focus, string> = {
   intake: "把顾客原话整理成小票。",
   kitchen: "每口灶空出来时，系统只从待做订单里选一张。",
   delivery: "出餐员空闲后，只从已经做好的餐里选一份送出。",
 };
-
-function RuleParams({
-  rule,
-  disabled,
-  onChange,
-}: {
-  rule: BlockRule;
-  disabled?: boolean;
-  onChange: (next: BlockRule) => void;
-}) {
-  if (rule.type === "note") {
-    return (
-      <>
-        原话包含
-        <input
-          className="lunch-rule-input"
-          disabled={disabled}
-          maxLength={20}
-          onChange={(e) => onChange({ ...rule, phrase: e.target.value })}
-          value={rule.phrase ?? ""}
-        />
-        → 备注
-        <select
-          className="field-select-inline"
-          disabled={disabled}
-          onChange={(e) => onChange({ ...rule, value: e.target.value })}
-          value={String(rule.value ?? NOTES[0])}
-        >
-          {NOTES.map((note) => (
-            <option key={note} value={note}>
-              {note}
-            </option>
-          ))}
-        </select>
-      </>
-    );
-  }
-  if (rule.type === "urgent_phrase") {
-    return (
-      <>
-        原话包含
-        <input
-          className="lunch-rule-input"
-          disabled={disabled}
-          maxLength={20}
-          onChange={(e) => onChange({ ...rule, phrase: e.target.value })}
-          value={rule.phrase ?? ""}
-        />
-        → 订单设为
-        <select
-          className="field-select-inline"
-          disabled={disabled}
-          onChange={(e) => onChange({ ...rule, value: e.target.value === "true" })}
-          value={rule.value === true ? "true" : "false"}
-        >
-          <option value="true">加急</option>
-          <option value="false">普通</option>
-        </select>
-      </>
-    );
-  }
-  if (rule.type === "synonym") {
-    return (
-      <>
-        原话中的
-        <input
-          className="lunch-rule-input"
-          disabled={disabled}
-          maxLength={20}
-          onChange={(e) => onChange({ ...rule, phrase: e.target.value })}
-          value={rule.phrase ?? ""}
-        />
-        也算
-        <input
-          className="lunch-rule-input"
-          disabled={disabled}
-          maxLength={20}
-          onChange={(e) => onChange({ ...rule, value: e.target.value })}
-          value={String(rule.value ?? "")}
-        />
-      </>
-    );
-  }
-  if (rule.type === "priority_item") {
-    return (
-      <>
-        先做/先送
-        <select
-          className="field-select-inline"
-          disabled={disabled}
-          onChange={(e) => onChange({ ...rule, value: e.target.value })}
-          value={String(rule.value ?? DISHES[0])}
-        >
-          {DISHES.map((dish) => (
-            <option key={dish} value={dish}>
-              {dish}
-            </option>
-          ))}
-        </select>
-      </>
-    );
-  }
-  if (rule.type === "priority_wait" || rule.type === "aged_urgent") {
-    return (
-      <>
-        等了
-        <input
-          className="lunch-rule-ticks"
-          disabled={disabled}
-          max={30}
-          min={1}
-          onChange={(e) => {
-            const ticks = Math.max(1, Math.min(30, Math.trunc(Number(e.target.value) || 1)));
-            onChange({ ...rule, ticks });
-          }}
-          type="number"
-          value={rule.ticks ?? 8}
-        />
-        拍{rule.type === "aged_urgent" ? "的订单算加急" : "的先处理"}
-      </>
-    );
-  }
-  return <>{ruleLabel(rule)}</>;
-}
 
 /**
  * The rule logic, spelled out as the readable if/elif/else + while-loop
@@ -265,6 +130,12 @@ function LogicExplainer({ focus, rules }: { focus: Focus; rules: BlockRule[] }) 
   );
 }
 
+const START_LABEL: Record<Focus, string> = {
+  intake: "收到顾客订单",
+  kitchen: "选择下一张订单",
+  delivery: "选择下一张订单",
+};
+
 export function RuleEditor({
   blocks,
   disabled,
@@ -275,26 +146,25 @@ export function RuleEditor({
   onChange: (next: BlockDrafts) => void;
 }) {
   const [activeFocus, setActiveFocus] = useState<Focus>("intake");
+  const [message, setMessage] = useState<string | null>(null);
   const rules = blocks[activeFocus].rules;
-  const { basic, advanced } = ruleTypesFor(activeFocus);
-
-  const update = (nextRules: BlockRule[]) => {
-    onChange({ ...blocks, [activeFocus]: { rules: nextRules.slice(0, MAX_RULES) } });
-  };
-
-  const incomplete = rules.some(
-    (rule) =>
-      (rule.type === "note" || rule.type === "urgent_phrase" || rule.type === "synonym") &&
-      (!rule.phrase?.trim() || (rule.type === "synonym" && !String(rule.value ?? "").trim())),
-  );
 
   return (
     <div className="lunch-rules">
+      <p className="lunch-note">
+        <strong>
+          {FOCUS_LABELS[activeFocus]}：{STATION_DESC[activeFocus]}
+        </strong>
+        <br />
+        把积木块拖到「{START_LABEL[activeFocus]}」下面才会生效；同一站按从上到下的顺序执行。
+      </p>
+
       <div className="lunch-block-tabs" role="group" aria-label="选择要编辑的站">
         {FOCUSES.map((focus) => (
           <button
             aria-pressed={focus === activeFocus}
             className={`lunch-block-tab${focus === activeFocus ? " active" : ""}`}
+            disabled={disabled}
             key={focus}
             onClick={() => setActiveFocus(focus)}
             type="button"
@@ -303,103 +173,16 @@ export function RuleEditor({
           </button>
         ))}
       </div>
-      <p className="lunch-note">
-        <strong>
-          {FOCUS_LABELS[activeFocus]}：{STATION_DESC[activeFocus]}
-        </strong>
-        <br />
-        把语句接到「{START_LABEL[activeFocus]}」下面才会生效；同一站按从上到下的顺序执行。
-      </p>
-
-      <div className="lunch-start">起始语句：{START_LABEL[activeFocus]}</div>
-      {rules.length === 0 ? (
-        <p className="lunch-note">还没有语句接在起始语句下面，现在按原来的方式处理。</p>
-      ) : (
-        <ol className="lunch-rule-list">
-          {rules.map((rule, index) => (
-            <li className="lunch-rule" key={`${rule.type}-${index}`}>
-              <span className="lunch-rule-text">
-                <b>第 {index + 1} 条</b>
-                <RuleParams
-                  disabled={disabled}
-                  onChange={(next) => update(rules.map((item, i) => (i === index ? next : item)))}
-                  rule={rule}
-                />
-              </span>
-              <span className="lunch-rule-actions">
-                <button
-                  aria-label="上移"
-                  disabled={disabled || index === 0}
-                  onClick={() =>
-                    update(
-                      rules.map((item, i) =>
-                        i === index - 1 ? rule : i === index ? rules[index - 1] : item,
-                      ),
-                    )
-                  }
-                  type="button"
-                >
-                  ↑
-                </button>
-                <button
-                  aria-label="下移"
-                  disabled={disabled || index === rules.length - 1}
-                  onClick={() =>
-                    update(
-                      rules.map((item, i) =>
-                        i === index + 1 ? rule : i === index ? rules[index + 1] : item,
-                      ),
-                    )
-                  }
-                  type="button"
-                >
-                  ↓
-                </button>
-                <button
-                  aria-label="删除"
-                  disabled={disabled}
-                  onClick={() => update(rules.filter((_, i) => i !== index))}
-                  type="button"
-                >
-                  <Icon name="x" size={12} />
-                </button>
-              </span>
-            </li>
-          ))}
-        </ol>
-      )}
-
-      {!disabled ? (
-        <label className="lunch-add-rule">
-          添加语句
-          <select
-            className="field-select"
-            disabled={rules.length >= MAX_RULES}
-            onChange={(e) => {
-              if (!e.target.value) return;
-              update([...rules, defaultRule(e.target.value)]);
-              e.target.value = "";
-            }}
-            value=""
-          >
-            <option value="">选择一条语句…</option>
-            {basic.map((type) => (
-              <option key={type} value={type}>
-                {ruleLabel(defaultRule(type))}
-              </option>
-            ))}
-            <option disabled>── 加餐：做完上面再试 ──</option>
-            {advanced.map((type) => (
-              <option key={type} value={type}>
-                {ruleLabel(defaultRule(type))}
-              </option>
-            ))}
-          </select>
-        </label>
-      ) : null}
-      {incomplete ? (
-        <p className="lunch-rule-warning" role="status">
-          有一条规则需要填写关键词，空关键词不会生效。
+      <BlocklyRuleEditor
+        blocks={blocks}
+        disabled={disabled}
+        focus={activeFocus}
+        onChange={onChange}
+        onMessage={setMessage}
+      />
+      {message ? (
+        <p className="lunch-note" role="status">
+          {message}
         </p>
       ) : null}
 

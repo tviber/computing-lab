@@ -50,6 +50,8 @@ export type LunchTestSummary = {
   /** Stage 2: question ids still wrong, and whether the 4-line text passed. */
   missed?: string[];
   explanationOk?: boolean;
+  /** Stage 2: 0-based indexes of the explanation parts still off-topic. */
+  explanationMissed?: number[];
   /** Stages 3 & 4: the simulated round and its explainers. */
   run?: RunSummary;
   baseline?: RunSummary | null;

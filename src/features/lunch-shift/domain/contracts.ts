@@ -42,6 +42,8 @@ export type BlockRule = {
 /** One station's rule list — the only thing the engine reads. */
 export type BlockDraft = {
   rules: BlockRule[];
+  /** Blockly workspace JSON for restoring the editor; rules are the source of truth. */
+  workspace?: string;
 };
 
 export type BlockDrafts = Record<Focus, BlockDraft>;
