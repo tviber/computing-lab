@@ -48,7 +48,26 @@ async function runRequest(pyodide: PyodideInterface, request: RunRequest): Promi
       globals,
     });
     try {
-      return { result: out.toJs() as unknown };
+      const result = out.toJs() as unknown;
+      if (request.kind === "priority" && Array.isArray(result)) {
+        // None → name the exact case instead of a table-index error later;
+        // True/False are perfectly good priorities → 1/0.
+        return {
+          result: result.map((value, index) => {
+            if (typeof value === "boolean") return value ? 1 : 0;
+            if (value === undefined || value === null) {
+              const urgent = index >= 62;
+              const wait = (index % 62) >> 1;
+              const cook = index % 2 === 0 ? 1 : 3;
+              throw new Error(
+                `priority(urgent=${urgent ? "True" : "False"}, wait=${wait}, cook=${cook}) 没有返回数——是不是有的情况忘了写 return？`,
+              );
+            }
+            return value;
+          }),
+        };
+      }
+      return { result };
     } finally {
       out.destroy();
     }

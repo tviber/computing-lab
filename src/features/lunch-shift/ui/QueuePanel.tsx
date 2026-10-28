@@ -4,7 +4,7 @@
  * table and both the local preview and the server simulate by table lookup.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { OrderResult, QueuePick, RunSummary } from "../domain/contracts.ts";
 import { checkPriorityTable } from "../domain/priority.ts";
 import type { LunchTestSummary, QueueDraft } from "../domain/protocol.ts";
@@ -79,8 +79,8 @@ function LateOrders({ run }: { run: RunSummary }) {
         <li key={order.id}>
           <b>{order.id}</b>（{order.expected?.urgent ? "加急" : "普通"}）
           {order.delivered
-            ? `等了 ${order.wait} 拍——上限 ${waitLimit(order)} 拍`
-            : `到第 30 拍还没送出去——上限 ${waitLimit(order)} 拍`}
+            ? `送到时已经等了 ${order.wait} 拍——等满 ${waitLimit(order)} 拍就算超时`
+            : `到第 30 拍还没送出去——等满 ${waitLimit(order)} 拍就算超时`}
         </li>
       ))}
     </ul>
@@ -213,7 +213,6 @@ export function QueuePanel({
   const [running, setRunning] = useState(false);
   const [experiments, setExperiments] = useState<Record<string, RunSummary>>({});
   const [rushRun, setRushRun] = useState<RunSummary | null>(null);
-  const baselineRef = useRef<RunSummary | null>(null);
 
   const source = draft.code.trim() ? draft.code : QUEUE_STARTER;
   const judgedRun = result?.kind === "queue" ? (result.run ?? null) : null;
@@ -245,13 +244,6 @@ export function QueuePanel({
       setRunning(false);
     }
   };
-
-  // One FIFO baseline for the pass-state comparison line.
-  useEffect(() => {
-    if (passed && baselineRef.current === null) {
-      baselineRef.current = simulate(QUEUE_SCENARIO, { priority: null }).result;
-    }
-  }, [passed]);
 
   const extraArea = useMemo(() => {
     if (!passed || priority === null) return null;
@@ -294,8 +286,8 @@ export function QueuePanel({
       <details className="lunch-reference">
         <summary>看这 12 张订单</summary>
         <p className="lunch-note">
-          到达拍：这张单在系统第几拍进来（拍就是第 1 关那种时间步）。准时送达 = 加急单到达后 9
-          拍内、普通单 18 拍内送到。
+          到达拍：这张单在系统第几拍进来（拍就是第 1 关那种时间步）。准时 = 加急单等满 9
+          拍、普通单等满 18 拍之前送到。
         </p>
         <div className="lunch-table-wrap">
           <table className="lunch-orders-table">
@@ -390,12 +382,16 @@ export function QueuePanel({
               晚高峰 20 单
             </button>
           </div>
+          <p className="lunch-note">
+            晚高峰换成 20 单，你的函数还管用吗？试试把 cook 参数用上——做得快的单先做说不定更划算。
+          </p>
           {EXPERIMENTS.map((experiment) => {
             const summary = experiments[experiment.id];
             return summary ? (
               <section className="lunch-experiment-card" key={experiment.id} role="status">
                 <p>
                   <b>{experiment.label}</b>：准时 {summary.onTime} / {summary.orders.length}
+                  {shownRun ? `（本关 ${shownRun.onTime} / ${shownRun.orders.length}）` : ""}
                 </p>
                 <p className="lunch-note">{experiment.note}</p>
               </section>

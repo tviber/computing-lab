@@ -36,6 +36,8 @@ function tableFor(fn: (urgent: boolean, wait: number, cook: number) => number): 
 }
 
 const boost = (t: number) => tableFor((u, w) => (u ? 1 : 0) + (w >= t ? 1 : 0));
+/** Overwrite style — the skeleton's natural fill: urgent→1, then wait≥T→2. */
+const overwrite = (t: number) => tableFor((u, w) => (w >= t ? 2 : u ? 1 : 0));
 
 /** Literal practice fix — exactly the words the missed orders used. */
 const LITERAL_TABLES: IntakeTables = {
@@ -217,10 +219,51 @@ describe("word-table validation", () => {
 });
 
 describe("修接单 order set", () => {
-  it("default word tables miss exactly the five designed orders", () => {
-    const results = evaluateIntake(intakeOrders, defaultIntakeTables());
-    const wrong = results.filter((order) => !order.correct);
-    expect(wrong.map((order) => order.id)).toEqual(["P03", "P04", "P08", "P09", "P11"]);
+  /** The shipped starter: dish table filled, the other three empty. */
+  const STARTER_TABLES: IntakeTables = {
+    dish: defaultIntakeTables().dish,
+    note: [],
+    calm: [],
+    rush: [],
+  };
+
+  it("the starter leaves 11 orders wrong (only the empty-ticket one is right)", () => {
+    const wrong = evaluateIntake(intakeOrders, STARTER_TABLES).filter((o) => !o.correct);
+    expect(wrong.map((o) => o.id)).toEqual([
+      "P01",
+      "P02",
+      "P03",
+      "P04",
+      "P05",
+      "P06",
+      "P07",
+      "P08",
+      "P09",
+      "P11",
+      "P12",
+    ]);
+  });
+
+  it("a single added word fixes its designed orders without breaking others", () => {
+    // 炒饭 covers the dish short-name order; no request reads 炒饭 as a note
+    const withDish = {
+      ...STARTER_TABLES,
+      dish: [...STARTER_TABLES.dish, ["炒饭", "蛋炒饭"] as [string, string]],
+    };
+    const afterDish = evaluateIntake(intakeOrders, withDish);
+    expect(afterDish.find((o) => o.id === "P03")?.produced.item).toBe("蛋炒饭");
+    expect(afterDish.filter((o) => o.correct)).toHaveLength(1);
+
+    // 赶时间 as a rush word fixes urgent orders — but「不用赶时间」误中它，
+    // 这正是 calm 先查的教学点
+    const withRush = { ...STARTER_TABLES, rush: ["赶时间"] };
+    const afterRush = evaluateIntake(intakeOrders, withRush);
+    expect(afterRush.find((o) => o.id === "P01")?.produced.urgent).toBe(true);
+    expect(afterRush.find((o) => o.id === "P09")?.produced.urgent).toBe(true);
+    const withCalm = { ...withRush, calm: ["不用赶"] };
+    expect(
+      evaluateIntake(intakeOrders, withCalm).find((o) => o.id === "P09")?.produced.urgent,
+    ).toBe(false);
   });
 
   it.each([
@@ -259,17 +302,22 @@ describe("修排队 order set", () => {
     expect(simulate(QUEUE_SCENARIO, { priority: null }).result.onTime).toBe(8);
   });
 
-  it("urgent-first delivers 10/12 on time", () => {
+  it("urgent-first delivers 11/12 on time — one normal order starves", () => {
     const run = simulate(QUEUE_SCENARIO, { priority: tableFor((u) => (u ? 1 : 0)) }).result;
-    expect(run.onTime).toBe(10);
-    // the two early normal orders starve — the lesson this stage teaches
+    expect(run.onTime).toBe(11);
     const late = run.orders.filter((order) => !order.onTime).map((order) => order.id);
-    expect(late).toEqual(["Q06", "Q07"]);
+    expect(late).toEqual(["Q07"]);
   });
 
   it("urgent + wait-boost reaches 12/12 for every threshold 8..16", () => {
     for (let t = 8; t <= 16; t++) {
       expect(simulate(QUEUE_SCENARIO, { priority: boost(t) }).result.onTime).toBe(12);
+    }
+  });
+
+  it("the overwrite style (urgent→1, wait≥T→2) also reaches 12/12 for T 8..16", () => {
+    for (let t = 8; t <= 16; t++) {
+      expect(simulate(QUEUE_SCENARIO, { priority: overwrite(t) }).result.onTime).toBe(12);
     }
   });
 

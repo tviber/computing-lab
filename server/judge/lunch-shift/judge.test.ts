@@ -110,7 +110,7 @@ describe("lunch-shift judge", () => {
     expect("error" in urgent).toBe(false);
     if ("error" in urgent) return;
     expect(urgent.passed).toBe(true);
-    expect(urgent.score).toBe(10);
+    expect(urgent.score).toBe(11);
   });
 
   it("stage 4 requires stage 3 passed", () => {

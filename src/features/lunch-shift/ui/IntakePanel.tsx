@@ -12,11 +12,10 @@ import { checkIntakeTables, evaluateIntake } from "../domain/wordTables.ts";
 import { CodeEditor } from "./CodeEditor.tsx";
 import { runIntakeTables } from "./pyodideRunner.ts";
 
-export const INTAKE_STARTER = `# 程序只认下面这些词。查词顺序：先查 calm_words，再查 rush_words
-dish_words = {"鸡腿饭": "鸡腿饭", "蛋炒饭": "蛋炒饭", "牛肉面": "牛肉面"}
-note_words = {"不要香菜": "不要香菜", "少辣": "少辣", "加蛋": "加蛋"}
-calm_words = ["不赶时间", "不急着"]
-rush_words = ["赶时间", "急着", "快一点", "尽快"]
+export const INTAKE_STARTER = `dish_words = {"鸡腿饭": "鸡腿饭", "蛋炒饭": "蛋炒饭", "牛肉面": "牛肉面"}
+note_words = {}
+calm_words = []
+rush_words = []
 `;
 
 function ticketText(ticket: {
@@ -163,20 +162,26 @@ export function IntakePanel({
 
   return (
     <section className="lunch-challenge">
-      <p>12 句顾客原话都由这四张词表决定怎么记成小票。</p>
+      <p>
+        程序读不懂自然语言，只按词表记小票。菜名表已经写好，另外三张是空的——缺哪些词、
+        该往哪张表加，看每次运行后标红的单子。
+      </p>
       <div className="lunch-params">
         <ul>
           <li>
-            <code>dish_words</code>：词 → 菜名。按写的顺序查，原话里第一个出现的词算数。
+            <code>note_words</code>：词 →
+            备注。按写的顺序查，原话里第一个命中的词算数，一个都没中记「无备注」。写法：
+            <code>{'{"放香菜": "不要香菜"}'}</code>
           </li>
           <li>
-            <code>note_words</code>：词 → 备注。同样按顺序查，一个都没中记「无备注」。
+            <code>calm_words</code>：普通信号词，最先查——原话命中它就是普通单。写法：
+            <code>{'["不急着", "不用赶"]'}</code>
           </li>
           <li>
-            <code>calm_words</code>：普通信号词，最先查——原话命中它就是普通单。
+            <code>rush_words</code>：加急信号词，calm 没中才查它——命中就是加急单。写法同上。
           </li>
           <li>
-            <code>rush_words</code>：加急信号词，calm 没中才查它——命中就是加急单。
+            <code>dish_words</code>：词 → 菜名，和 note_words 一样的查法；菜名不全也可以加词。
           </li>
           <li>每张表最多 20 项；一个词去空格后 1～10 个字；菜名和备注的值要在菜单里。</li>
         </ul>

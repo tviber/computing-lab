@@ -65,11 +65,10 @@ export function trainingOrderFor(seed: string): TrainingOrder {
   const h = Math.abs(hash);
   const item = TRAINING_ITEMS[h % TRAINING_ITEMS.length];
   const table = String(((h >> 4) % 8) + 1);
-  const urgent = false;
   const phrase = CALM_PHRASES[(h >> 12) % CALM_PHRASES.length];
   return {
     request: `${h % 2 ? "麻烦送到" : "请送到"} ${table} 号桌，一份${item.item}，${item.note}。${phrase}`,
-    ticket: { item: item.item, note: item.note, table, urgent },
+    ticket: { item: item.item, note: item.note, table, urgent: false },
   };
 }
 
@@ -157,21 +156,22 @@ export const INTAKE_SCENARIO = buildScenario("P", INTAKE_FIXTURES);
 
 /**
  * Stage 3 修排队 — tickets already correct; only queueing is graded.
- * Ladder (engine.test.ts locks this): FIFO 8/12, urgent-first 10/12
- * (Q06/Q07 starve), urgent + wait ≥ T gives 12/12 for every T in 8..16.
+ * Ladder (engine.test.ts locks this): FIFO 8/12, urgent-first 11/12
+ * (Q07 starves), both scoring styles — additive urgent+1 / wait≥T+1 and
+ * overwrite urgent→1 / wait≥T→2 — reach 12/12 for every T in 8..16.
  */
 export const QUEUE_FIXTURES: FixtureOrder[] = [
   {
     request: "6号桌蛋炒饭，不要香菜，不赶时间。",
     expected: { item: "蛋炒饭", note: "不要香菜", table: "6", urgent: false },
-    cookTicks: 1,
+    cookTicks: 3,
     arrivalTick: 2,
   },
   {
     request: "2号桌鸡腿饭，不要香菜，赶时间。",
     expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: true },
     cookTicks: 1,
-    arrivalTick: 3,
+    arrivalTick: 4,
   },
   {
     request: "4号桌牛肉面，少辣，正常做就好。",
@@ -195,7 +195,7 @@ export const QUEUE_FIXTURES: FixtureOrder[] = [
     request: "3号桌鸡腿饭，不要香菜，慢慢来。",
     expected: { item: "鸡腿饭", note: "不要香菜", table: "3", urgent: false },
     cookTicks: 1,
-    arrivalTick: 4,
+    arrivalTick: 1,
   },
   {
     request: "5号桌蛋炒饭，加蛋，平常速度。",
@@ -207,31 +207,31 @@ export const QUEUE_FIXTURES: FixtureOrder[] = [
     request: "6号桌鸡腿饭，加蛋，尽快。",
     expected: { item: "鸡腿饭", note: "加蛋", table: "6", urgent: true },
     cookTicks: 1,
-    arrivalTick: 8,
+    arrivalTick: 5,
   },
   {
     request: "2号桌蛋炒饭，不要香菜，快一点。",
     expected: { item: "蛋炒饭", note: "不要香菜", table: "2", urgent: true },
     cookTicks: 1,
-    arrivalTick: 9,
+    arrivalTick: 7,
   },
   {
     request: "8号桌牛肉面，少辣，赶时间。",
     expected: { item: "牛肉面", note: "少辣", table: "8", urgent: true },
     cookTicks: 3,
-    arrivalTick: 14,
+    arrivalTick: 11,
   },
   {
     request: "1号桌蛋炒饭，无备注，不赶时间。",
     expected: { item: "蛋炒饭", note: "无备注", table: "1", urgent: false },
-    cookTicks: 1,
+    cookTicks: 3,
     arrivalTick: 16,
   },
   {
     request: "4号桌鸡腿饭，不要香菜，急着要。",
     expected: { item: "鸡腿饭", note: "不要香菜", table: "4", urgent: true },
     cookTicks: 1,
-    arrivalTick: 16,
+    arrivalTick: 18,
   },
 ];
 
@@ -396,7 +396,7 @@ export const EXPERIMENTS: Experiment[] = [
   {
     id: "intake2",
     label: "多一名接单员",
-    note: "接单快一倍，但厨房多半还是最挤的。",
+    note: "小票更早进厨房，等位从头就少一拍。",
     stoves: 1,
     intakePerTick: 2,
     deliveryTicks: DELIVERY_TICKS,
