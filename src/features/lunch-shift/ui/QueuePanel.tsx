@@ -20,7 +20,10 @@ export const QUEUE_STARTER = `def priority(urgent, wait, cook):
     # urgent: 加急为 True，普通为 False
     # wait: 这张单已经等了几拍（0～30）
     # cook: 制作要几拍（1 或 3）
-    return 0
+    score = 0
+    if urgent:
+        score = 0      # 加急单给多少分？
+    return score
 `;
 
 const STAGE_LABEL = { kitchen: "厨房", delivery: "出餐" } as const;
@@ -172,7 +175,6 @@ export function QueuePanel({
   const [error, setError] = useState<string | null>(null);
   const [tableErrors, setTableErrors] = useState<string[]>([]);
   const [localRun, setLocalRun] = useState<RunSummary | null>(null);
-  const [ranCode, setRanCode] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [experiments, setExperiments] = useState<Record<string, RunSummary>>({});
   const [rushRun, setRushRun] = useState<RunSummary | null>(null);
@@ -181,8 +183,9 @@ export function QueuePanel({
   const source = draft.code.trim() ? draft.code : QUEUE_STARTER;
   const judgedRun = result?.kind === "queue" ? (result.run ?? null) : null;
   const judgedErrors = result?.kind === "queue" ? (result.errors ?? []) : [];
-  const shownRun = judgedRun ?? localRun;
-  const stale = ranCode !== null && ranCode !== source;
+  // The newest local preview wins; the recorded grade shows only until a
+  // fresh run replaces it.
+  const shownRun = localRun ?? judgedRun;
 
   const priority = draft.priority;
 
@@ -201,7 +204,6 @@ export function QueuePanel({
       }
       onChange({ code: source, priority: table });
       setLocalRun(simulate(QUEUE_SCENARIO, { priority: table }).result);
-      setRanCode(source);
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -272,7 +274,7 @@ export function QueuePanel({
       </details>
       <CodeEditor
         ariaLabel="priority 函数代码"
-        onChange={(code) => onChange({ ...draft, code })}
+        onChange={(code) => onChange({ code, priority: null })}
         value={source}
       />
       <div className="submit-row">
@@ -292,7 +294,9 @@ export function QueuePanel({
         >
           {submitting ? "判定中…" : "交服务器判分"}
         </button>
-        {stale ? <span className="submit-note">代码改过了，重新运行再交。</span> : null}
+        {priority === null ? (
+          <span className="submit-note">先运行一遍，用算出的结果表判分。</span>
+        ) : null}
       </div>
       {error ? (
         <p className="test-error" role="alert">

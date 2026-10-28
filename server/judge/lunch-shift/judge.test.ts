@@ -157,6 +157,33 @@ describe("lunch-shift judge", () => {
     expect(first.passed).toBe(true);
     expect(first.score).toBe(24);
     expect(first.total).toBe(24);
+    // a wrong ticket earns no 记对且准时 point either
+    const literal: IntakeTables = {
+      dish: [...defaultIntakeTables().dish, ["炒饭", "蛋炒饭"]],
+      note: [...defaultIntakeTables().note, ["不放香菜", "不要香菜"], ["别太辣", "少辣"]],
+      calm: [...defaultIntakeTables().calm, "不用赶"],
+      rush: [...defaultIntakeTables().rush, "能快点吗"],
+    };
+    const db2 = openMemoryDb();
+    db2
+      .prepare("INSERT INTO users (id, student_no, name, password_hash) VALUES (?, ?, ?, ?)")
+      .run(newId(), "s2", "学生", "x");
+    const user2 = (db2.prepare("SELECT id FROM users").get() as { id: string }).id;
+    const project2 = getOrCreateProject(db2, user2, "class-1", LAB_ID);
+    db2
+      .prepare("UPDATE student_projects SET passed_stages = ?, current_stage = ? WHERE id = ?")
+      .run(JSON.stringify([1, 2, 3]), 4, project2.id);
+    const literalRun = judgeLunchShiftSubmission(db2, { ...project2, passedStages: [1, 2, 3] }, 4, {
+      intakeCode: "x",
+      tables: literal,
+      queueCode: "y",
+      priority: BOOST10,
+    });
+    expect("error" in literalRun).toBe(false);
+    if (!("error" in literalRun)) {
+      expect(literalRun.score).toBe(18); // 9 correct + 9 记对且准时
+    }
+
     const serialized = JSON.stringify(first.testSummary);
     expect(serialized).not.toContain("别放香菜");
     expect(serialized).not.toContain("麻烦快点");

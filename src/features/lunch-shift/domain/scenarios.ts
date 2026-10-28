@@ -52,22 +52,21 @@ const TRAINING_ITEMS: { item: Ticket["item"]; note: string }[] = [
   { item: "牛肉面", note: "少辣" },
 ];
 
-const URGENT_PHRASES = ["我赶时间，能快一点吗？", "我急着走，麻烦尽快。", "请快一点好吗？"];
 const CALM_PHRASES = ["我不赶时间，正常做就好。", "不急着吃，慢慢来。", "不用急，正常做就行。"];
 
 /** Deterministic per-student training order — the same student always gets
- *  the same sentence, different students get different tables/notes/urgency.
- *  The companion order (2 号桌 · 鸡腿饭 · 加急 · 1 拍) stays fixed. */
+ *  the same sentence, different students get different tables/notes.
+ *  The order is ALWAYS normal: the companion order (2 号桌 · 鸡腿饭 ·
+ *  加急 · 1 拍) stays fixed, and the step-2 copy ("先做加急单少等 3 拍")
+ *  only makes sense with exactly one urgent order on the board. */
 export function trainingOrderFor(seed: string): TrainingOrder {
   let hash = 0;
   for (let i = 0; i < seed.length; i++) hash = (hash * 31 + seed.charCodeAt(i)) | 0;
   const h = Math.abs(hash);
   const item = TRAINING_ITEMS[h % TRAINING_ITEMS.length];
   const table = String(((h >> 4) % 8) + 1);
-  const urgent = ((h >> 8) & 1) === 1;
-  const phrase = urgent
-    ? URGENT_PHRASES[(h >> 12) % URGENT_PHRASES.length]
-    : CALM_PHRASES[(h >> 12) % CALM_PHRASES.length];
+  const urgent = false;
+  const phrase = CALM_PHRASES[(h >> 12) % CALM_PHRASES.length];
   return {
     request: `${h % 2 ? "麻烦送到" : "请送到"} ${table} 号桌，一份${item.item}，${item.note}。${phrase}`,
     ticket: { item: item.item, note: item.note, table, urgent },

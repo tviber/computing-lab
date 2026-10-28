@@ -32,13 +32,11 @@ export function FinalPanel({
 }) {
   const [error, setError] = useState<string | null>(null);
   const [tableErrors, setTableErrors] = useState<string[]>([]);
-  const [ranKey, setRanKey] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
   const intakeSource = draft.intakeCode.trim() ? draft.intakeCode : INTAKE_STARTER;
   const queueSource = draft.queueCode.trim() ? draft.queueCode : QUEUE_STARTER;
   const ready = draft.tables !== null && draft.priority !== null;
-  const stale = ranKey !== null && ranKey !== `${intakeSource}${queueSource}`;
 
   const finalResult = result?.kind === "final" ? result : null;
 
@@ -71,7 +69,6 @@ export function FinalPanel({
         queueCode: queueSource,
         priority: priority.table,
       });
-      setRanKey(`${intakeSource}${queueSource}`);
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -87,14 +84,14 @@ export function FinalPanel({
       <CodeEditor
         ariaLabel="词表代码"
         disabled={submitted}
-        onChange={(intakeCode) => onChange({ ...draft, intakeCode })}
+        onChange={(intakeCode) => onChange({ ...draft, intakeCode, tables: null })}
         value={intakeSource}
       />
       <p className="eyebrow">排队的函数</p>
       <CodeEditor
         ariaLabel="priority 函数代码"
         disabled={submitted}
-        onChange={(queueCode) => onChange({ ...draft, queueCode })}
+        onChange={(queueCode) => onChange({ ...draft, queueCode, priority: null })}
         value={queueSource}
       />
 
@@ -110,14 +107,13 @@ export function FinalPanel({
           </button>
           <button
             className="button button-primary"
-            disabled={submitting || !ready || stale}
+            disabled={submitting || !ready}
             onClick={onSubmit}
             type="button"
           >
             {submitting ? "判定中…" : "提交正式挑战"}
           </button>
           {ready ? null : <span className="submit-note">先运行一遍，算出词表和结果表。</span>}
-          {stale ? <span className="submit-note">代码改过了，重新运行再交。</span> : null}
         </div>
       )}
 
@@ -146,13 +142,13 @@ export function FinalPanel({
             </span>
             <span>
               <b>
-                {finalResult.onTime} / {finalResult.total}
+                {finalResult.served} / {finalResult.total}
               </b>
-              准时送达
+              记对且准时
             </span>
             <span>
               <b>
-                {finalResult.correct + finalResult.onTime} / {finalResult.total * 2}
+                {finalResult.correct + finalResult.served} / {finalResult.total * 2}
               </b>
               合计
             </span>
@@ -173,7 +169,7 @@ export function FinalPanel({
                       <b>{order.id}</b>
                     </td>
                     <td>{order.correct ? "记对了" : "记错了"}</td>
-                    <td>{order.onTime ? "准时" : "超时"}</td>
+                    <td>{order.onTime ? "记对且准时" : "没算分"}</td>
                   </tr>
                 ))}
               </tbody>

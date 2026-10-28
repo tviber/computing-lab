@@ -152,19 +152,22 @@ export function judgeLunchShiftSubmission(
     }
     const scenario: Scenario = FINAL_SCENARIO;
     const run = simulate(scenario, { tables, priority: table }).result;
-    score = run.correct + run.onTime;
+    // Second metric is 记对且准时 — a wrong ticket earns no delivery point:
+    // 数据写错，后面全错， consistent with the stage-1 lesson.
+    const served = run.orders.filter((order) => order.correct === true && order.onTime).length;
+    score = run.correct + served;
     total = scenario.orders.length * 2;
     passed = true;
     // The final's orders stay hidden: ids + outcomes only, no wording.
     testSummary = {
       kind: "final",
       correct: run.correct,
-      onTime: run.onTime,
+      served,
       total: scenario.orders.length,
       orders: run.orders.map((order) => ({
         id: order.id,
         correct: order.correct === true,
-        onTime: order.onTime,
+        onTime: order.correct === true && order.onTime,
       })),
     };
   }
