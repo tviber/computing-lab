@@ -1,3 +1,5 @@
+/* eslint-disable @typescript-eslint/no-explicit-any --
+   the vendored Blockly bundle ships no type declarations. */
 /**
  * Blockly rule editor — port of kitchen's block-editor.js. Rules attach
  * under a fixed root block ("收到顾客订单" / "选择下一张订单") and run
