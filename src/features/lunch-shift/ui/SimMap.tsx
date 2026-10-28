@@ -119,7 +119,7 @@ function chip(
   order: OrderResult,
   x: number,
   y: number,
-  opts: { alpha?: number; held?: boolean } = {},
+  opts: { alpha?: number; flash?: number; held?: boolean } = {},
 ) {
   ctx.save();
   ctx.globalAlpha = opts.alpha ?? 1;
@@ -137,6 +137,12 @@ function chip(
   ctx.fillStyle = MUTED;
   ctx.font = "10px sans-serif";
   ctx.fillText(order.table ? `${order.table}号桌` : "?号桌", x + 34, y + 31);
+  if (opts.flash !== undefined) {
+    rr(ctx, x - 3, y - 3, 80, 46, 10);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = `rgba(203,76,56,${0.45 + 0.45 * Math.abs(Math.sin(opts.flash))})`;
+    ctx.stroke();
+  }
   ctx.restore();
 }
 
@@ -164,10 +170,13 @@ function lanesAt(orders: OrderResult[], timeline: Map<string, OrderTimeline>, ti
 }
 
 export function SimMap({
+  highlightIds,
   run,
   trace,
   tick,
 }: {
+  /** Order ids whose tickets went wrong — pulsing red ring on their chips. */
+  highlightIds?: string[];
   run: RunSummary;
   trace?: RunTrace | null;
   tick: number;
@@ -193,6 +202,7 @@ export function SimMap({
 
     const timeline = buildTimeline(run);
     const queueTrace = trace?.queue ?? [];
+    const highlight = new Set(highlightIds ?? []);
     let raf = 0;
     let alive = true;
 
@@ -225,26 +235,42 @@ export function SimMap({
         drawSprite(ctx, img.customer, Z.queueHead.x - 30, Z.queueHead.y - 60, 84, frame);
       }
       lanes.queue.forEach((order, i) =>
-        chip(ctx, img, order, Z.queueHead.x + 40, Z.queueHead.y - 40 + i * Z.queueSlot),
+        chip(ctx, img, order, Z.queueHead.x + 40, Z.queueHead.y - 40 + i * Z.queueSlot, {
+          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+        }),
       );
       lanes.held.forEach((order, i) =>
-        chip(ctx, img, order, Z.held.x + i * Z.held.dx, Z.held.y, { held: true }),
+        chip(ctx, img, order, Z.held.x + i * Z.held.dx, Z.held.y, {
+          held: true,
+          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+        }),
       );
       if (lanes.held.length) zoneBadge(ctx, "拦下的小票", Z.held.x, Z.held.y - 10);
       lanes.kqueue.forEach((order, i) =>
-        chip(ctx, img, order, Z.kqueue.x, Z.kqueue.y + i * Z.kqueue.dy),
+        chip(ctx, img, order, Z.kqueue.x, Z.kqueue.y + i * Z.kqueue.dy, {
+          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+        }),
       );
       lanes.stoves.forEach((order, i) => {
         const slot = Z.stoves[i % Z.stoves.length];
-        chip(ctx, img, order, slot.x, slot.y);
+        chip(ctx, img, order, slot.x, slot.y, {
+          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+        });
         ctx.fillStyle = YELLOW;
         ctx.beginPath();
         ctx.arc(slot.x + 8, slot.y + 8, 5 + (frame % 2), 0, Math.PI * 2);
         ctx.fill();
       });
-      lanes.pass.forEach((order, i) => chip(ctx, img, order, Z.pass.x + i * Z.pass.dx, Z.pass.y));
+      lanes.pass.forEach((order, i) =>
+        chip(ctx, img, order, Z.pass.x + i * Z.pass.dx, Z.pass.y, {
+          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+        }),
+      );
       lanes.tables.forEach((order, i) =>
-        chip(ctx, img, order, Z.tables.x, Z.tables.y + i * Z.tables.dy, { alpha: 0.85 }),
+        chip(ctx, img, order, Z.tables.x, Z.tables.y + i * Z.tables.dy, {
+          alpha: 0.85,
+          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+        }),
       );
 
       const picks = queueTrace.filter((item) => item.tick === tick).slice(0, 2);
@@ -286,7 +312,7 @@ export function SimMap({
     };
     // Images and timeline rebuild only when the run/trace change; the loop
     // reads the latest tick through tickRef.
-  }, [run, trace]);
+  }, [run, trace, highlightIds]);
 
   return (
     <canvas

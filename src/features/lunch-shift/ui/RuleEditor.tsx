@@ -68,14 +68,17 @@ function LogicExplainer({ focus, rules }: { focus: Focus; rules: BlockRule[] }) 
       "else:                          按标准配方做   # 「无备注」走这里",
     ].join("\n");
     return (
-      <div className="lunch-logic">
-        <p className="logic-subtitle">接单 · 原话变小票：第一步认字段，第二步照字段操作</p>
+      <details className="lunch-logic">
+        <summary>你在搭的规则，计算机实际会怎么执行？（点开看它的程序）</summary>
+        <p className="lunch-note">
+          上面的积木只是写法——系统真正跑的是下面这段逻辑。给学生展示时可以打开。
+        </p>
         <pre className="lunch-pseudocode">{parseCode}</pre>
         <pre className="lunch-pseudocode">{chefCode}</pre>
         <p className="lunch-note">
           系统原本认识「不要香菜、少辣、加蛋」，但不认识「不放香菜」——没加规则时会写成「无备注」，厨师就可能按标准配方放香菜。
         </p>
-      </div>
+      </details>
     );
   }
   const activeRules = rules.filter((rule) => rule.type !== "aged_urgent");
@@ -108,7 +111,7 @@ function LogicExplainer({ focus, rules }: { focus: Focus; rules: BlockRule[] }) 
     "    送餐员待命",
   ].join("\n");
   return (
-    <div className="lunch-logic">
+    <div className="lunch-logic-wrap">
       {agingRules.length > 0 ? (
         <p className="lunch-logic-normalize">
           <b>比较前先更新等待状态：</b>
@@ -116,10 +119,14 @@ function LogicExplainer({ focus, rules }: { focus: Focus; rules: BlockRule[] }) 
           。还需要接入「加急订单优先」，这些订单才会因此排前面。
         </p>
       ) : null}
-      <p className="logic-subtitle">三站每一拍的循环</p>
-      <pre className="lunch-pseudocode">{loopCode}</pre>
-      <p className="logic-subtitle">select：有多张候选单时怎么选</p>
-      <pre className="lunch-pseudocode">{selectCode}</pre>
+      <details className="lunch-logic">
+        <summary>你在搭的规则，计算机实际会怎么执行？（点开看它的程序）</summary>
+        <p className="lunch-note">
+          上面的积木只是写法——系统真正跑的是下面这段逻辑。给学生展示时可以打开。
+        </p>
+        <pre className="lunch-pseudocode">{loopCode}</pre>
+        <pre className="lunch-pseudocode">{selectCode}</pre>
+      </details>
       <p className="lunch-note">
         {activeRules.length
           ? "前一条规则分不出先后，才比较下一条；全部打平时按先到先处理。"

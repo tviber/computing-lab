@@ -163,12 +163,21 @@ export function RunResultView({
 
   const events = run.events ?? [];
   const duration = events.length ? Math.max(...events.map((event) => event.tick)) : 0;
-  const [tick, setTick] = useState(0);
+  const wrongIds = run.orders.filter((order) => order.correct === false).map((order) => order.id);
+  // If a ticket went wrong, the replay opens on the tick where it was
+  // recorded — the student sees where it entered the pipeline.
+  const firstWrong = wrongIds[0];
+  const startTick = firstWrong
+    ? (events.find((event) => event.orderId === firstWrong && event.action === "ticket")?.tick ??
+      events.find((event) => event.orderId === firstWrong)?.tick ??
+      0)
+    : 0;
+  const [tick, setTick] = useState(startTick);
   const [playing, setPlaying] = useState(true);
 
   // Autoplay the replay once per run; the slider pauses it.
   useEffect(() => {
-    setTick(0);
+    setTick(startTick);
     setPlaying(true);
   }, [run]);
   useEffect(() => {
@@ -201,7 +210,7 @@ export function RunResultView({
       </p>
       {duration > 0 ? (
         <div className="lunch-replay">
-          <SimMap run={run} tick={tick} trace={trace} />
+          <SimMap highlightIds={wrongIds} run={run} tick={tick} trace={trace} />
           <div className="lunch-replay-controls">
             <button
               className="button button-secondary"
@@ -240,6 +249,7 @@ export function RunResultView({
           </div>
           <p className="lunch-replay-caption" aria-live="polite">
             {caption}
+            {wrongIds.length ? ` 红框闪动的是录错的小票：${wrongIds.join("、")}。` : ""}
           </p>
         </div>
       ) : null}
