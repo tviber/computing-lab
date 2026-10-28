@@ -66,29 +66,53 @@ function LateOrders({ run }: { run: RunSummary }) {
   );
 }
 
+const ACTION_LABEL: Record<string, string> = {
+  arrive: "到达",
+  ticket: "记下小票",
+  held: "小票被拦下",
+  cook: "上灶制作",
+  ready: "做好，等送出",
+  send: "送到桌",
+};
+
+/** Step-through replay: the simulation is parallel, but the animation
+ *  reveals one event at a time so the eye can follow each thing. The map
+ *  only sees the events revealed so far, so same-tick events appear one
+ *  after another instead of all at once. */
 function Replay({ run }: { run: RunSummary }) {
-  const events = run.events ?? [];
-  const duration = events.length ? Math.max(...events.map((event) => event.tick)) : 0;
-  const [tick, setTick] = useState(0);
+  const events = useMemo(() => run.events ?? [], [run]);
+  const totalSteps = events.length;
+  const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
-    if (!playing || duration === 0) return;
+    if (!playing || totalSteps === 0) return;
     const timer = window.setInterval(
       () =>
-        setTick((current) => {
-          if (current >= duration) {
+        setStep((current) => {
+          if (current >= totalSteps) {
             setPlaying(false);
             return current;
           }
           return current + 1;
         }),
-      480,
+      900,
     );
     return () => window.clearInterval(timer);
-  }, [playing, duration]);
+  }, [playing, totalSteps]);
+
+  const lastEvent = step > 0 ? events[step - 1] : null;
+  const viewRun = useMemo(
+    () => ({
+      ...run,
+      events: events.slice(0, step),
+      picks: (run.picks ?? []).filter((pick) => pick.tick <= (lastEvent?.tick ?? 0)),
+    }),
+    [run, events, step, lastEvent],
+  );
+
   return (
     <div className="lunch-replay">
-      <SimMap run={run} tick={tick} />
+      <SimMap run={viewRun} tick={lastEvent?.tick ?? 0} />
       <div className="lunch-replay-controls">
         <button
           className="button button-secondary"
@@ -98,23 +122,28 @@ function Replay({ run }: { run: RunSummary }) {
           {playing ? "暂停" : "播放"}
         </button>
         <label className="lunch-replay-range">
-          时间轴
+          步骤
           <input
-            aria-label="订单回放时间轴"
-            max={duration}
+            aria-label="订单回放步骤"
+            max={totalSteps}
             min={0}
             onChange={(e) => {
               setPlaying(false);
-              setTick(Number(e.currentTarget.value) || 0);
+              setStep(Number(e.currentTarget.value) || 0);
             }}
             type="range"
-            value={tick}
+            value={step}
           />
         </label>
         <strong aria-live="polite">
-          {tick ? `第 ${tick} 拍 / ${duration} 拍` : `共 ${duration} 拍`}
+          {step ? `第 ${step} / ${totalSteps} 步` : `共 ${totalSteps} 步`}
         </strong>
       </div>
+      <p className="lunch-note" aria-live="polite">
+        {lastEvent
+          ? `第 ${lastEvent.tick} 拍 · ${lastEvent.orderId} ${ACTION_LABEL[lastEvent.action] ?? lastEvent.action}`
+          : "每步只演一件事——播放从头看。"}
+      </p>
     </div>
   );
 }
