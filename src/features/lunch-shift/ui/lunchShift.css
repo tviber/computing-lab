@@ -502,3 +502,14 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
 }
+
+.lunch-order-fixes .lunch-order-fix {
+  margin: var(--space-2) 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--danger);
+  background: var(--subtle);
+  border-radius: var(--radius-control);
+}
+.lunch-order-fixes .lunch-order-fix ul {
+  margin: var(--space-1) 0 0;
+}

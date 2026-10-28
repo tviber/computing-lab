@@ -170,13 +170,10 @@ function lanesAt(orders: OrderResult[], timeline: Map<string, OrderTimeline>, ti
 }
 
 export function SimMap({
-  highlightIds,
   run,
   trace,
   tick,
 }: {
-  /** Order ids whose tickets went wrong — pulsing red ring on their chips. */
-  highlightIds?: string[];
   run: RunSummary;
   trace?: RunTrace | null;
   tick: number;
@@ -202,7 +199,21 @@ export function SimMap({
 
     const timeline = buildTimeline(run);
     const queueTrace = trace?.queue ?? [];
-    const highlight = new Set(highlightIds ?? []);
+    // A wrong ticket only flashes red from the tick where intake recorded
+    // it — before that, the map must not reveal the outcome early.
+    const events = run.events ?? [];
+    const flashFrom = new Map<string, number>();
+    for (const order of run.orders) {
+      if (order.correct !== false) continue;
+      const reveal =
+        events.find(
+          (event) =>
+            event.orderId === order.id && (event.action === "ticket" || event.action === "held"),
+        ) ?? events.find((event) => event.orderId === order.id);
+      flashFrom.set(order.id, reveal?.tick ?? 0);
+    }
+    const flashes = (id: string, tick: number) =>
+      tick >= (flashFrom.get(id) ?? Infinity) ? performance.now() / 300 : undefined;
     let raf = 0;
     let alive = true;
 
@@ -236,25 +247,25 @@ export function SimMap({
       }
       lanes.queue.forEach((order, i) =>
         chip(ctx, img, order, Z.queueHead.x + 40, Z.queueHead.y - 40 + i * Z.queueSlot, {
-          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+          flash: flashes(order.id, tick),
         }),
       );
       lanes.held.forEach((order, i) =>
         chip(ctx, img, order, Z.held.x + i * Z.held.dx, Z.held.y, {
           held: true,
-          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+          flash: flashes(order.id, tick),
         }),
       );
       if (lanes.held.length) zoneBadge(ctx, "拦下的小票", Z.held.x, Z.held.y - 10);
       lanes.kqueue.forEach((order, i) =>
         chip(ctx, img, order, Z.kqueue.x, Z.kqueue.y + i * Z.kqueue.dy, {
-          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+          flash: flashes(order.id, tick),
         }),
       );
       lanes.stoves.forEach((order, i) => {
         const slot = Z.stoves[i % Z.stoves.length];
         chip(ctx, img, order, slot.x, slot.y, {
-          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+          flash: flashes(order.id, tick),
         });
         ctx.fillStyle = YELLOW;
         ctx.beginPath();
@@ -263,13 +274,13 @@ export function SimMap({
       });
       lanes.pass.forEach((order, i) =>
         chip(ctx, img, order, Z.pass.x + i * Z.pass.dx, Z.pass.y, {
-          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+          flash: flashes(order.id, tick),
         }),
       );
       lanes.tables.forEach((order, i) =>
         chip(ctx, img, order, Z.tables.x, Z.tables.y + i * Z.tables.dy, {
           alpha: 0.85,
-          flash: highlight.has(order.id) ? performance.now() / 300 : undefined,
+          flash: flashes(order.id, tick),
         }),
       );
 
@@ -312,7 +323,7 @@ export function SimMap({
     };
     // Images and timeline rebuild only when the run/trace change; the loop
     // reads the latest tick through tickRef.
-  }, [run, trace, highlightIds]);
+  }, [run, trace]);
 
   return (
     <canvas

@@ -312,6 +312,7 @@ export function simulate(
       note: order.ticket?.note ?? "",
       table: order.ticket?.table ?? "",
       urgent: order.ticket?.urgent ?? false,
+      expected: order.source.expected,
     });
     if (delivered) {
       deliveredCount++;

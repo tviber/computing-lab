@@ -4,7 +4,7 @@
  * the queue pick explanations, and a static three-station event feed.
  */
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   FOCUS_LABELS,
   type OrderResult,
@@ -88,6 +88,78 @@ function eventSummary(event: SimulationEvent, order: OrderResult | undefined): s
   return `${order.item || "未认出菜品"} → ${order.table || "未认出桌号"} 号桌`;
 }
 
+function ticketLine(item: string, note: string, table: string, urgent: boolean): string {
+  return `${item || "未识别"} · 备注「${note || "—"}」 · ${table || "未识别"}号桌 · ${urgent ? "加急" : "普通"}`;
+}
+
+/** One concrete fix suggestion, keyed on the first field that went wrong. */
+function fixHint(order: OrderResult): string {
+  const expected = order.expected;
+  if (!order.item || !order.table)
+    return "菜品或桌号没识别出来：检查原话里的说法；认不出的单可以先接入「拦下不完整小票」。";
+  if (!expected) return "对照小票检查接单规则的关键词。";
+  if (order.item !== expected.item)
+    return `菜品认成了「${order.item}」，应该是「${expected.item}」：给原话里的说法加一条同义词规则。`;
+  if (order.table !== expected.table)
+    return `桌号写成 ${order.table}，应为 ${expected.table}：检查原话里的桌号写法，接入「桌 N」识别规则。`;
+  if (order.note !== expected.note)
+    return `备注记成「${order.note || "无备注"}」，应为「${expected.note}」：加一条「原话包含…→ 备注…」规则，或用同义词规则统一说法。`;
+  if (order.urgent !== expected.urgent)
+    return expected.urgent
+      ? "顾客催了单却没标加急：原话里的催单说法需要一条加急识别规则。"
+      : "原话有「不赶时间」却被标成加急：加急识别会先看否定说法，检查规则里有没有把关键词覆盖错。";
+  return "对照小票检查接单规则的关键词。";
+}
+
+function WrongOrderFixes({ run, trace }: { run: RunSummary; trace?: RunTrace | null }) {
+  const wrong = run.orders.filter((order) => order.correct === false);
+  if (!wrong.length) return null;
+  return (
+    <details className="lunch-order-fixes" open>
+      <summary>录错的 {wrong.length} 张小票：哪里错了、怎么改</summary>
+      {wrong.map((order) => {
+        const fieldTrace = trace?.orders[order.id];
+        return (
+          <article className="lunch-order-fix" key={order.id}>
+            <p>
+              <b>{order.id}</b>
+              {order.request ? ` · 顾客说：${order.request}` : ""}
+            </p>
+            <ul>
+              <li>系统识别：{ticketLine(order.item, order.note, order.table, order.urgent)}</li>
+              {order.expected ? (
+                <li>
+                  应为：
+                  {ticketLine(
+                    order.expected.item,
+                    order.expected.note,
+                    order.expected.table,
+                    order.expected.urgent,
+                  )}
+                </li>
+              ) : null}
+              {fieldTrace ? (
+                <li>
+                  为什么出错：
+                  <ul className="lunch-field-trace">
+                    {["item", "table", "note", "urgent"].map((field) => (
+                      <li key={field}>
+                        <b>{FIELD_LABELS[field]}</b>
+                        {fieldTrace[field]}
+                      </li>
+                    ))}
+                  </ul>
+                </li>
+              ) : null}
+              <li>改法：{fixHint(order)}</li>
+            </ul>
+          </article>
+        );
+      })}
+    </details>
+  );
+}
+
 function EventFeed({ result, trace }: { result: RunSummary; trace?: RunTrace | null }) {
   const events = result.events ?? [];
   if (events.length === 0) return null;
@@ -163,15 +235,29 @@ export function RunResultView({
 
   const events = run.events ?? [];
   const duration = events.length ? Math.max(...events.map((event) => event.tick)) : 0;
-  const wrongIds = run.orders.filter((order) => order.correct === false).map((order) => order.id);
-  // If a ticket went wrong, the replay opens on the tick where it was
-  // recorded — the student sees where it entered the pipeline.
-  const firstWrong = wrongIds[0];
-  const startTick = firstWrong
-    ? (events.find((event) => event.orderId === firstWrong && event.action === "ticket")?.tick ??
-      events.find((event) => event.orderId === firstWrong)?.tick ??
-      0)
-    : 0;
+  // Wrong orders ordered by the tick where intake recorded the bad ticket —
+  // event time, not result-array order. Memoized so the map effect below
+  // does not rebuild on every render.
+  const wrongs = useMemo(
+    () =>
+      run.orders
+        .filter((order) => order.correct === false)
+        .map((order) => ({
+          order,
+          reveal:
+            events.find(
+              (event) =>
+                event.orderId === order.id &&
+                (event.action === "ticket" || event.action === "held"),
+            )?.tick ??
+            events.find((event) => event.orderId === order.id)?.tick ??
+            0,
+        }))
+        .sort((a, b) => a.reveal - b.reveal),
+    [run],
+  );
+  const wrongIds = wrongs.map((item) => item.order.id);
+  const startTick = wrongs[0]?.reveal ?? 0;
   const [tick, setTick] = useState(startTick);
   const [playing, setPlaying] = useState(true);
 
@@ -210,7 +296,7 @@ export function RunResultView({
       </p>
       {duration > 0 ? (
         <div className="lunch-replay">
-          <SimMap highlightIds={wrongIds} run={run} tick={tick} trace={trace} />
+          <SimMap run={run} tick={tick} trace={trace} />
           <div className="lunch-replay-controls">
             <button
               className="button button-secondary"
@@ -282,6 +368,7 @@ export function RunResultView({
         </span>
       </div>
       <UsersLine result={run} />
+      <WrongOrderFixes run={run} trace={trace} />
       <details>
         <summary>查看每张订单</summary>
         <div className="lunch-table-wrap">

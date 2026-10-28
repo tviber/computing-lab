@@ -104,6 +104,8 @@ export type OrderResult = {
   note: string;
   table: string;
   urgent: boolean;
+  /** Correct ticket for feedback; practice runs only — stripped for final. */
+  expected?: Ticket;
 };
 
 export type SimulationAction = "arrive" | "held" | "ticket" | "ready" | "cook" | "send";

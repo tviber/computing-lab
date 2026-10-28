@@ -103,14 +103,14 @@ function runChallenge(
 
 /**
  * The final order set is shared by every student — the response (and the
- * stored summary) must not leak it. Strip the request texts and the
- * per-order field traces; aggregate stats, per-order outcomes and the
- * event feed carry no order wording.
+ * stored summary) must not leak it. Strip the request texts, the expected
+ * tickets and the per-order field traces; aggregate stats, per-order
+ * outcomes and the event feed carry no order wording.
  */
 function stripFinalRun(run: RunSummary): RunSummary {
   return {
     ...run,
-    orders: run.orders.map((order) => ({ ...order, request: "" })),
+    orders: run.orders.map((order) => ({ ...order, request: "", expected: undefined })),
   };
 }
 

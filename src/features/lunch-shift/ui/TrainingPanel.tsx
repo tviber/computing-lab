@@ -6,7 +6,6 @@
  */
 
 import { useState, type FormEvent } from "react";
-import { JourneyAnim } from "./JourneyAnim.tsx";
 import { DISHES, NOTES, TABLES } from "../domain/contracts.ts";
 import type { TrainingDraft } from "../domain/protocol.ts";
 import type { TrainingOrder } from "../domain/scenarios.ts";
@@ -82,7 +81,11 @@ export function TrainingPanel({
           <p>
             你现在是前台接单员。厨房不直接听顾客说话，只认你记的小票；菜名或桌号写错一个，餐就可能做错、送错。
           </p>
-          <JourneyAnim alt="前台接单员把小票夹到板上，柜台前顾客在说话" base="journey-ticket" />
+          <img
+            alt="前台接单员把小票夹到板上，柜台前顾客在说话"
+            className="lunch-journey-img"
+            src="/assets/lunch-shift/journey-ticket.webp"
+          />
           <blockquote className="lunch-ticket-quote">“{training.request}”</blockquote>
           {error ? (
             <p className="lunch-feedback mistake" role="alert">
@@ -170,7 +173,11 @@ export function TrainingPanel({
             <strong>✓ 小票交到厨房了</strong>
             <span>{ticketSummary(draft.ticket)}</span>
           </div>
-          <JourneyAnim alt="灶台前悬着两张小票卡，厨师选择先做哪一张" base="journey-cook" />
+          <img
+            alt="灶台前悬着两张小票卡，厨师选择先做哪一张"
+            className="lunch-journey-img"
+            src="/assets/lunch-shift/journey-cook.webp"
+          />
           <h2>两张订单，先做哪一张？</h2>
           <p>
             现在换你掌勺。灶只有一口，一次只能做一份。你刚记的那张单和一张加急单同时在等，先做哪份由你定。（1
@@ -224,7 +231,11 @@ export function TrainingPanel({
                 : "两份餐都能做出来，但加急的顾客等得更久。"}
             </span>
           </div>
-          <JourneyAnim alt="送餐员端着餐盘走向贴有数字5的餐桌" base="journey-deliver" />
+          <img
+            alt="送餐员端着餐盘走向贴有数字5的餐桌"
+            className="lunch-journey-img"
+            src="/assets/lunch-shift/journey-deliver.webp"
+          />
           <h2>这份餐送到哪一桌？</h2>
           <p>
             最后你是送餐员。按小票送餐，送错桌这份餐就白做了。看小票：
