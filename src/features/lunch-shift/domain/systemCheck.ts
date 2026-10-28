@@ -123,12 +123,15 @@ export function missedSystemCheckQuestions(answers: Record<string, string>): str
   ).map((question) => question.id);
 }
 
-/** Four non-empty lines, ≤300 chars total — the 四步说明 contract. */
+/**
+ * Four lines, each a real phrase (≥4 runes), ≤300 chars total — the
+ * 四步说明 contract. A bare "a / b / c / d" does not pass.
+ */
 export function isSystemExplanation(value: unknown): value is string {
   if (typeof value !== "string" || value.length > 300) return false;
   const parts = value.split("\n");
   if (parts.length !== 4) return false;
-  return parts.every((part) => part.trim().length > 0);
+  return parts.every((part) => [...part.trim()].length >= 4);
 }
 
 export function sanitizeSystemCheckAnswers(raw: unknown): Record<string, string> {

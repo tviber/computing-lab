@@ -162,7 +162,34 @@ export function RunResultView({
       <p>
         <b>{comparison}</b> {impact}
       </p>
-      <EventFeed result={run} trace={trace} />
+      <div className="lunch-stat-row" aria-label="本轮关键指标">
+        <span>
+          <b>
+            {run.correct} / {run.orders.length}
+          </b>
+          小票正确
+        </span>
+        <span>
+          <b>
+            {run.onTime} / {run.orders.length}
+          </b>
+          准时送达
+        </span>
+        <span>
+          <b>
+            {run.delivered} / {run.orders.length}
+          </b>
+          实际送达
+        </span>
+        <span>
+          <b>{run.averageWait} 拍</b>
+          平均等待
+        </span>
+        <span>
+          <b>{FOCUS_LABELS[run.bottleneck]}</b>
+          最挤的一站
+        </span>
+      </div>
       <UsersLine result={run} />
       <details>
         <summary>查看每张订单</summary>
@@ -223,6 +250,10 @@ export function RunResultView({
             </tbody>
           </table>
         </div>
+      </details>
+      <details>
+        <summary>展开三站处理回放</summary>
+        <EventFeed result={run} trace={trace} />
         {trace && trace.queue.length > 0 ? (
           <details className="lunch-field-trace">
             <summary>厨房和出餐为什么先做这一张？</summary>

@@ -18,6 +18,7 @@ import { emptyBlockDrafts, isFocus, TABLES, type Focus } from "../domain/contrac
 import { sanitizeSystemCheckAnswers } from "../domain/systemCheck.ts";
 import {
   getLunchStage,
+  LUNCH_STAGES,
   lunchStageUnlocked,
   nextLunchStage,
   type LunchStageDef,
@@ -219,11 +220,14 @@ export function transitionLunchLesson(
         const stageIndex = Number(key);
         drafts[stageIndex] = sanitizeLunchDraft(stageIndex, draft);
       }
-      const stageIndex = lunchStageUnlocked(action.passedStages, action.currentStage)
+      // currentStage can point one past the last stage once every stage
+      // passed — clamp to a real stage so the workspace never goes blank.
+      const candidate = lunchStageUnlocked(action.passedStages, action.currentStage)
         ? action.currentStage
         : lunchStageUnlocked(action.passedStages, state.stageIndex)
           ? state.stageIndex
           : 1;
+      const stageIndex = getLunchStage(candidate) ? candidate : LUNCH_STAGES.length;
       return {
         ...state,
         stageIndex,

@@ -140,9 +140,13 @@ function rulePriority(rule: BlockRule, order: Candidate): number {
   return 0;
 }
 
-/** Orders that waited at least the rule's tick count count as urgent. */
+/**
+ * Orders that waited at least the rule's tick count count as urgent.
+ * Copies each order: the caller's queue must stay un-aged so the trace
+ * can still tell which orders the aging rule promoted.
+ */
 function applyAging(queue: Candidate[], rules: BlockRule[]): Candidate[] {
-  const aged = queue.slice();
+  const aged = queue.map((order) => ({ ...order }));
   for (const rule of rules) {
     if (rule.type !== "aged_urgent" || rule.ticks === undefined) continue;
     for (const order of aged) {
@@ -265,7 +269,6 @@ export function ruleLabel(rule: BlockRule): string {
 
 /** Explains who decided each ticket field for one order. */
 export function traceIntake(request: string, rules: BlockRule[]): Record<string, string> {
-  const base = defaultTicket(request);
   const expanded = expandRequest(request, rules);
   const synonymFired = expanded !== request;
   const ticket = defaultTicket(expanded);
@@ -305,25 +308,28 @@ export function traceIntake(request: string, rules: BlockRule[]): Record<string,
       }
     }
   }
+  // Field attribution reads the FINAL ticket (after synonyms/rules), not
+  // the raw parse — otherwise a synonym that fixed a field would still be
+  // explained as "程序按默认填写".
   const fallback = (field: "note" | "table" | "urgent"): string => {
     if (setBy[field] !== "") return setBy[field];
     if (field === "note") {
-      if (base.note !== "无备注") {
-        return synonymFired && !request.includes(base.note)
+      if (ticket.note !== "无备注") {
+        return synonymFired && !request.includes(ticket.note)
           ? "你的同义词规则帮程序认出的"
           : "程序自己从原话认出的";
       }
       return "没有规则命中，程序按默认写了「无备注」";
     }
     if (field === "table") {
-      if (base.table !== "") {
+      if (ticket.table !== "") {
         return synonymFired && !/([1-8])\s*号桌/.test(request)
           ? "你的同义词规则帮程序认出的"
           : "程序自己从原话认出的";
       }
       return "没有规则命中，程序没认出桌号";
     }
-    if (URGENT_WORDS.test(expanded)) {
+    if (ticket.urgent) {
       return synonymFired && !URGENT_WORDS.test(request)
         ? "你的同义词规则帮程序认出的"
         : "程序自己从原话认出的";

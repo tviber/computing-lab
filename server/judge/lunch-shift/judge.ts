@@ -97,6 +97,19 @@ function runChallenge(
   return { run: result, baseline, trace: buildTrace(captured, draft.blocks) };
 }
 
+/**
+ * The final order set is shared by every student — the response (and the
+ * stored summary) must not leak it. Strip the request texts and the
+ * per-order field traces; aggregate stats, per-order outcomes and the
+ * event feed carry no order wording.
+ */
+function stripFinalRun(run: RunSummary): RunSummary {
+  return {
+    ...run,
+    orders: run.orders.map((order) => ({ ...order, request: "" })),
+  };
+}
+
 export function judgeLunchShiftSubmission(
   db: DatabaseSync,
   project: ProjectRow<unknown>,
@@ -151,22 +164,16 @@ export function judgeLunchShiftSubmission(
   } else {
     const draft = sanitizeChallengeDraft(rawDraft);
     snapshot = draft;
-    if (stageIndex === 4) {
-      // One-shot contract: any earlier stage-4 submission row means the
-      // final was already recorded — refuse before grading again.
-      const existing = db
-        .prepare(
-          "SELECT id FROM submissions WHERE project_id = ? AND lab_id = ? AND stage_index = 4 LIMIT 1",
-        )
-        .get(project.id, project.labId);
-      if (existing) return { error: "final-used", status: 409 };
-    }
     const scenario = stageIndex === 4 ? FINAL_SCENARIO : PRACTICE_SCENARIO;
     const { run, baseline, trace } = runChallenge(draft, scenario, stageIndex === 4);
     score = run.score ?? 0;
     total = 100;
     passed = true;
-    testSummary = { kind: "run", run, baseline, trace };
+    // The final's orders stay hidden: no request text, no field traces.
+    testSummary =
+      stageIndex === 4
+        ? { kind: "run", run: stripFinalRun(run), baseline }
+        : { kind: "run", run, baseline, trace };
   }
 
   const result: LunchJudgeResult = {
@@ -180,8 +187,22 @@ export function judgeLunchShiftSubmission(
     unlockedComponent: null,
   };
 
-  // Submission row + progress update commit together.
+  // Submission row + progress update commit together — and for the final
+  // stage the one-shot check rides the same IMMEDIATE transaction, so a
+  // second concurrent submit can never slip a duplicate row past it.
+  let finalUsed = false;
   withTransaction(db, () => {
+    if (stageIndex === 4) {
+      const existing = db
+        .prepare(
+          "SELECT id FROM submissions WHERE project_id = ? AND lab_id = ? AND stage_index = 4 LIMIT 1",
+        )
+        .get(project.id, project.labId);
+      if (existing) {
+        finalUsed = true;
+        return;
+      }
+    }
     result.submissionId = insertSubmission(db, {
       projectId: project.id,
       userId: project.userId,
@@ -199,6 +220,7 @@ export function judgeLunchShiftSubmission(
       result.currentStage = progress.currentStage;
     }
   });
+  if (finalUsed) return { error: "final-used", status: 409 };
 
   return result;
 }
