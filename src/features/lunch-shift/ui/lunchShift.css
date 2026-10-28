@@ -450,3 +450,34 @@ ul.lunch-order-fix {
   border-radius: 4px;
   padding: 0 4px;
 }
+
+/* 选单 testcase 卡 + 回放字幕 */
+.lunch-pick-card {
+  margin: var(--space-2) 0;
+  font-size: 13px;
+}
+.lunch-pick-head {
+  margin: 0 0 var(--space-1);
+  font-weight: 600;
+}
+.lunch-pick-card table {
+  border-collapse: collapse;
+}
+.lunch-pick-card th,
+.lunch-pick-card td {
+  border: 1px solid var(--border);
+  padding: 2px 8px;
+  text-align: left;
+}
+.lunch-pick-card th {
+  background: var(--subtle);
+  font-weight: 600;
+}
+.lunch-pick-card tr.picked td {
+  background: var(--accent-soft);
+}
+.lunch-replay-caption {
+  margin: var(--space-2) 0 0;
+  font-size: 14px;
+  font-weight: 600;
+}

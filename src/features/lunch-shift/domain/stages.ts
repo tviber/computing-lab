@@ -49,7 +49,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 3,
     id: "fix-queue",
     title: "修排队",
-    task: "这一关小票都录对了。写 priority(urgent, wait, cook)，返回的数越大越先做——让 10 张以上订单准时送达。",
+    task: "这一关小票都录对了。写 priority(urgent, wait, cook)，返回值越大越先做；加急单到达后 9 拍内、普通单 18 拍内送达才算准时，至少 10 张过关。",
     judgeNote: "服务器拿你的结果表重排每一拍的选择：准时 10 张过关，12 张加星。",
     takeaway: "只认加急会饿死普通单——等太久的，也该优先。",
     hints: [
@@ -63,7 +63,8 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     id: "final-run",
     title: "正式挑战",
     task: "词表和函数已经带过来了。换了一批写法不同的订单，只能交一次。",
-    judgeNote: "服务器用同一套判法跑 12 张隐藏订单：成绩 = 小票正确数 + 记对且准时数，满分 24。",
+    judgeNote:
+      "服务器用同一套判法跑 12 张隐藏订单：成绩 = 小票正确数 + 记对且准时数（加急 9 拍内、普通 18 拍内送达），满分 24。",
     takeaway: "选通用词的词表，才扛得住换说法。",
     hints: [
       "练习里照抄原话加的词，正式订单换个说法就可能认不出。",

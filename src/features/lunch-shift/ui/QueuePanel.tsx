@@ -32,18 +32,39 @@ function waitLimit(order: OrderResult): number {
   return order.expected?.urgent ? 9 : 18;
 }
 
-function PickRow({ pick }: { pick: QueuePick }) {
+function PickCard({ pick }: { pick: QueuePick }) {
   return (
-    <li>
-      第 {pick.tick} 拍 · {STAGE_LABEL[pick.stage]}：
-      {pick.candidates
-        .map((c) => {
-          const who = `${c.id}（${c.urgent ? "加急" : "普通"}，等 ${c.waitTicks} 拍）`;
-          return c.value === null ? who : `${who} → 你的函数算出 ${c.value}`;
-        })
-        .join("；")}
-      ；选 <b>{pick.picked}</b>
-    </li>
+    <div className="lunch-pick-card">
+      <p className="lunch-pick-head">
+        第 {pick.tick} 拍 · {STAGE_LABEL[pick.stage]} 选单
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>订单</th>
+            <th>urgent</th>
+            <th>wait</th>
+            <th>cook</th>
+            <th>priority() 输出</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody>
+          {pick.candidates.map((c) => (
+            <tr className={c.id === pick.picked ? "picked" : ""} key={c.id}>
+              <td>
+                <b>{c.id}</b>
+              </td>
+              <td>{c.urgent ? "True" : "False"}</td>
+              <td>{c.waitTicks}</td>
+              <td>{c.cookTicks}</td>
+              <td>{c.value ?? "没用到函数"}</td>
+              <td>{c.id === pick.picked ? "← 先做" : ""}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   );
 }
 
@@ -66,53 +87,45 @@ function LateOrders({ run }: { run: RunSummary }) {
   );
 }
 
-const ACTION_LABEL: Record<string, string> = {
-  arrive: "到达",
-  ticket: "记下小票",
-  held: "小票被拦下",
-  cook: "上灶制作",
-  ready: "做好，等送出",
-  send: "送到桌",
-};
+const EVENT_TEXT = {
+  arrive: "到达，开始等",
+  held: "小票暂缓录入",
+  ticket: "小票记好了",
+  cook: "厨房开始做",
+  ready: "做好了，等送出",
+  send: "送达",
+} as const;
 
-/** Step-through replay: the simulation is parallel, but the animation
- *  reveals one event at a time so the eye can follow each thing. The map
- *  only sees the events revealed so far, so same-tick events appear one
- *  after another instead of all at once. */
 function Replay({ run }: { run: RunSummary }) {
-  const events = useMemo(() => run.events ?? [], [run]);
-  const totalSteps = events.length;
+  // The simulation is parallel, but watching several stations at once is
+  // unreadable — the replay awaits one event per step instead.
+  const events = run.events ?? [];
   const [step, setStep] = useState(0);
   const [playing, setPlaying] = useState(false);
   useEffect(() => {
-    if (!playing || totalSteps === 0) return;
+    if (!playing || events.length === 0) return;
     const timer = window.setInterval(
       () =>
         setStep((current) => {
-          if (current >= totalSteps) {
+          if (current >= events.length - 1) {
             setPlaying(false);
             return current;
           }
           return current + 1;
         }),
-      900,
+      650,
     );
     return () => window.clearInterval(timer);
-  }, [playing, totalSteps]);
-
-  const lastEvent = step > 0 ? events[step - 1] : null;
-  const viewRun = useMemo(
-    () => ({
-      ...run,
-      events: events.slice(0, step),
-      picks: (run.picks ?? []).filter((pick) => pick.tick <= (lastEvent?.tick ?? 0)),
-    }),
-    [run, events, step, lastEvent],
-  );
-
+  }, [playing, events.length]);
+  const current = events[step];
   return (
     <div className="lunch-replay">
-      <SimMap run={viewRun} tick={lastEvent?.tick ?? 0} />
+      <SimMap run={run} tick={current?.tick ?? 0} />
+      <p className="lunch-replay-caption" aria-live="polite">
+        {current
+          ? `第 ${current.tick} 拍 · ${current.orderId} ${EVENT_TEXT[current.action]}`
+          : "——"}
+      </p>
       <div className="lunch-replay-controls">
         <button
           className="button button-secondary"
@@ -122,10 +135,10 @@ function Replay({ run }: { run: RunSummary }) {
           {playing ? "暂停" : "播放"}
         </button>
         <label className="lunch-replay-range">
-          步骤
+          进度
           <input
-            aria-label="订单回放步骤"
-            max={totalSteps}
+            aria-label="订单回放进度"
+            max={Math.max(events.length - 1, 0)}
             min={0}
             onChange={(e) => {
               setPlaying(false);
@@ -135,15 +148,8 @@ function Replay({ run }: { run: RunSummary }) {
             value={step}
           />
         </label>
-        <strong aria-live="polite">
-          {step ? `第 ${step} / ${totalSteps} 步` : `共 ${totalSteps} 步`}
-        </strong>
+        <strong>{events.length ? `第 ${step + 1} / ${events.length} 步` : "没有事件"}</strong>
       </div>
-      <p className="lunch-note" aria-live="polite">
-        {lastEvent
-          ? `第 ${lastEvent.tick} 拍 · ${lastEvent.orderId} ${ACTION_LABEL[lastEvent.action] ?? lastEvent.action}`
-          : "每步只演一件事——播放从头看。"}
-      </p>
     </div>
   );
 }
@@ -171,11 +177,11 @@ export function QueueResultView({ run, title }: { run: RunSummary; title: string
       {picks.length > 0 ? (
         <details className="lunch-pick-table" open={run.onTime < run.orders.length}>
           <summary>每一拍怎么选的</summary>
-          <ul>
+          <div>
             {picks.map((pick, index) => (
-              <PickRow key={`${pick.stage}-${pick.tick}-${index}`} pick={pick} />
+              <PickCard key={`${pick.stage}-${pick.tick}-${index}`} pick={pick} />
             ))}
-          </ul>
+          </div>
         </details>
       ) : null}
       <details>
@@ -287,7 +293,10 @@ export function QueuePanel({
       </div>
       <details className="lunch-reference">
         <summary>看这 12 张订单</summary>
-        <p className="lunch-note">到达拍：这张单在系统第几拍进来（拍就是第 1 关那种时间步）。</p>
+        <p className="lunch-note">
+          到达拍：这张单在系统第几拍进来（拍就是第 1 关那种时间步）。准时送达 = 加急单到达后 9
+          拍内、普通单 18 拍内送到。
+        </p>
         <div className="lunch-table-wrap">
           <table className="lunch-orders-table">
             <thead>
