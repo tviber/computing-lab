@@ -82,7 +82,8 @@ export type LunchTestSummary =
   | {
       kind: "final";
       correct: number;
-      onTime: number;
+      /** Orders that are BOTH correctly recorded and on time. */
+      served: number;
       total: number;
       orders?: FinalOrderResult[];
     };

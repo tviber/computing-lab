@@ -46,6 +46,13 @@ machinery), `ui/` (panels + `pyodide.worker.ts`/`pyodideRunner.ts` built on
   grading so it can't burn the one shot; one-shot re-check rides the same
   IMMEDIATE transaction (`final-used` 409). Stage 4 summary = ids +
   correct/onTime only — no request text (hidden set stays server-side).
+  Stage-4 score = 小票正确数 + 记对且准时数 (a wrong ticket earns no
+  delivery point).
+- Any code edit immediately nulls the derived tables/priority in the
+  draft — submit stays disabled until a fresh run; newest local preview
+  is shown ahead of the last recorded grade.
+- trainingOrderFor always returns a normal order (the companion is the
+  fixed urgent one) — the step-2 copy assumes exactly one urgent order.
 - Draft shapes: IntakeDraft{code,tables}, QueueDraft{code,priority},
   FinalDraft{intakeCode,tables,queueCode,priority} — stage 4 seeds from
   drafts 2+3 in `draftOf`. `runSummaries` extras keyed intake/queue/final.

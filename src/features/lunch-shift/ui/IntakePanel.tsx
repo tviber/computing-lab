@@ -103,14 +103,14 @@ export function IntakePanel({
   const [error, setError] = useState<string | null>(null);
   const [tableErrors, setTableErrors] = useState<string[]>([]);
   const [localResults, setLocalResults] = useState<IntakeOrderResult[] | null>(null);
-  const [ranCode, setRanCode] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
 
   const source = draft.code.trim() ? draft.code : INTAKE_STARTER;
   const judgedOrders = result?.kind === "intake" ? (result.orders ?? null) : null;
   const judgedErrors = result?.kind === "intake" ? (result.errors ?? []) : [];
-  const shownOrders = judgedOrders ?? localResults;
-  const stale = ranCode !== null && ranCode !== source;
+  // The newest local preview wins; the recorded grade shows only until a
+  // fresh run replaces it.
+  const shownOrders = localResults ?? judgedOrders;
 
   const run = async () => {
     setRunning(true);
@@ -142,7 +142,6 @@ export function IntakePanel({
           tables,
         ),
       );
-      setRanCode(source);
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -155,7 +154,12 @@ export function IntakePanel({
       <p>下面 12 句顾客原话都交给程序读。先运行一遍，看哪些小票记错了、哪个词没认出来。</p>
       <CodeEditor
         ariaLabel="词表代码"
-        onChange={(code) => onChange({ ...draft, code })}
+        disabled={running}
+        onChange={(code) => {
+          setLocalResults(null);
+          setTableErrors([]);
+          onChange({ code, tables: null });
+        }}
         value={source}
       />
       <div className="submit-row">
@@ -175,7 +179,9 @@ export function IntakePanel({
         >
           {submitting ? "判定中…" : "交服务器判分"}
         </button>
-        {stale ? <span className="submit-note">代码改过了，重新运行再交。</span> : null}
+        {draft.tables === null ? (
+          <span className="submit-note">先运行一遍，用算出的词表判分。</span>
+        ) : null}
       </div>
       {error ? (
         <p className="test-error" role="alert">
