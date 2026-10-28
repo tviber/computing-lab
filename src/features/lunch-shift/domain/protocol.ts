@@ -5,7 +5,7 @@
  */
 
 import type { LabProjectPayload } from "../../../shared/api/client.ts";
-import type { BlockDrafts, Focus, RunSummary } from "./contracts.ts";
+import type { BlockDrafts, Focus, RunSummary, Ticket } from "./contracts.ts";
 
 /** Stage 1 draft: the guided three-station walkthrough of one order. */
 export type TrainingDraft = {
@@ -69,12 +69,14 @@ export type LunchJudgeResult = {
   unlockedComponent: null;
 };
 
-/** Extra fields merged into GET /project: latest recorded run per stage. */
+/** Extra fields merged into GET /project: latest recorded run per stage,
+ *  plus this student's training order (deterministic from user id). */
 export type LunchProjectExtras = {
   runSummaries: {
     practice: LunchTestSummary | null;
     final: LunchTestSummary | null;
   };
+  training: { request: string; ticket: Ticket };
 };
 
 export type LunchProjectPayload = LabProjectPayload<LunchDraft> & LunchProjectExtras;

@@ -142,7 +142,7 @@ export function isSystemExplanation(value: unknown): value is string {
 const EXPLANATION_KEYWORDS: readonly (readonly string[])[] = [
   ["顾客", "用户", "客人", "人", "点餐", "我们"],
   ["网络", "服务器", "网", "云", "设备", "传输"],
-  ["程序", "软件", "服务器", "系统", "计算机", "电脑", "规则"],
+  ["服务器上的程序"],
   ["顾客", "用户", "页面", "屏幕", "客人", "我", "学生"],
 ];
 

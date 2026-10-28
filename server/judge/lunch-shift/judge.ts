@@ -29,7 +29,7 @@ import type {
 } from "../../../src/features/lunch-shift/domain/protocol.ts";
 import {
   PRACTICE_SCENARIO,
-  TRAINING_TICKET,
+  trainingOrderFor,
 } from "../../../src/features/lunch-shift/domain/scenarios.ts";
 import { baselinePolicy, simulate } from "../../../src/features/lunch-shift/domain/simulator.ts";
 import {
@@ -134,20 +134,21 @@ export function judgeLunchShiftSubmission(
   if (stageIndex === 1) {
     const draft = sanitizeTrainingDraft(rawDraft);
     snapshot = draft;
+    const training = trainingOrderFor(project.userId).ticket;
     const differences: string[] = [];
-    const ticketOk = draft.ticket != null && sameTicket(draft.ticket, TRAINING_TICKET);
+    const ticketOk = draft.ticket != null && sameTicket(draft.ticket, training);
     if (!ticketOk) {
-      if (!draft.ticket || draft.ticket.item !== TRAINING_TICKET.item)
-        differences.push(`菜品应为${TRAINING_TICKET.item}`);
-      if (!draft.ticket || draft.ticket.note !== TRAINING_TICKET.note)
-        differences.push(`备注应为${TRAINING_TICKET.note}`);
-      if (!draft.ticket || draft.ticket.table !== TRAINING_TICKET.table)
-        differences.push(`桌号应为 ${TRAINING_TICKET.table}，写错会送错桌`);
-      if (!draft.ticket || draft.ticket.urgent !== TRAINING_TICKET.urgent)
-        differences.push("顾客说不赶时间，应选普通");
+      if (!draft.ticket || draft.ticket.item !== training.item)
+        differences.push(`菜品应为${training.item}`);
+      if (!draft.ticket || draft.ticket.note !== training.note)
+        differences.push(`备注应为${training.note}`);
+      if (!draft.ticket || draft.ticket.table !== training.table)
+        differences.push(`桌号应为 ${training.table}，写错会送错桌`);
+      if (!draft.ticket || draft.ticket.urgent !== training.urgent)
+        differences.push(training.urgent ? "顾客说了赶时间，应选加急" : "顾客说不赶时间，应选普通");
     }
     if (draft.kitchenChoice === null) differences.push("还没有决定先做哪张订单");
-    const deliveryOk = draft.deliveredTable === TRAINING_TICKET.table;
+    const deliveryOk = draft.deliveredTable === training.table;
     if (!deliveryOk) differences.push("送餐桌号要和小票一致");
     passed = draft.step === "done" && ticketOk && deliveryOk && draft.kitchenChoice !== null;
     score = passed ? 1 : 0;

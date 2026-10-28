@@ -15,6 +15,7 @@ import {
 } from "../../../shared/lab/saveStatus.ts";
 import { sanitizeBlockDrafts } from "../domain/blockStrategy.ts";
 import { emptyBlockDrafts, isFocus, TABLES, type Focus } from "../domain/contracts.ts";
+import { TRAINING_REQUEST, TRAINING_TICKET } from "../domain/scenarios.ts";
 import { sanitizeSystemCheckAnswers } from "../domain/systemCheck.ts";
 import {
   getLunchStage,
@@ -47,6 +48,8 @@ export type LunchLessonState = {
   judgeOutcome: LunchJudgeResult | null;
   /** Latest recorded run per challenge stage, from GET /project extras. */
   runSummaries: LunchProjectExtras["runSummaries"];
+  /** This student's training order, deterministic from their user id. */
+  training: LunchProjectExtras["training"];
   saveStatusByStage: SaveStatusByStage;
   unresolvedSyncConflicts: SyncConflictByStage;
   message: string | null;
@@ -60,6 +63,7 @@ export type LunchLessonAction =
       drafts: Record<number, LunchDraft>;
       draftRevisions?: Record<number, number>;
       runSummaries?: LunchProjectExtras["runSummaries"];
+      training?: LunchProjectExtras["training"];
     }
   | { type: "select-stage"; stageIndex: number }
   | { type: "update-training"; draft: TrainingDraft }
@@ -199,6 +203,7 @@ export function createLunchLessonState(stageIndex = 1): LunchLessonState {
     draftRevisions: {},
     judgeOutcome: null,
     runSummaries: { practice: null, final: null },
+    training: { request: TRAINING_REQUEST, ticket: TRAINING_TICKET },
     saveStatusByStage: {},
     unresolvedSyncConflicts: {},
     message: null,
@@ -240,6 +245,7 @@ export function transitionLunchLesson(
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
         runSummaries: action.runSummaries ?? { practice: null, final: null },
+        training: action.training ?? { request: TRAINING_REQUEST, ticket: TRAINING_TICKET },
       };
     }
 

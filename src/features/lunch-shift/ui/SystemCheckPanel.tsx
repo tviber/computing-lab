@@ -6,6 +6,7 @@
 
 import { useState } from "react";
 import type { LunchJudgeResult, SystemCheckDraft } from "../domain/protocol.ts";
+import { TickNote } from "./TickNote.tsx";
 import {
   isCorrectAnswer,
   SYSTEM_CHECK_EXPLANATIONS,
@@ -207,18 +208,39 @@ export function SystemCheckPanel({
             {SYSTEM_EXPLANATION_PARTS.map((label, partIndex) => (
               <label className="field-select" key={label}>
                 {label}
-                <input
-                  className="text-input"
-                  maxLength={75}
-                  onChange={(e) => {
-                    const parts = [...explanationLines];
-                    while (parts.length < SYSTEM_EXPLANATION_PARTS.length) parts.push("");
-                    parts[partIndex] = e.target.value;
-                    onChange({ ...draft, explanation: parts.join("\n") });
-                  }}
-                  required
-                  value={explanationLines[partIndex] ?? ""}
-                />
+                {partIndex === 2 ? (
+                  <select
+                    onChange={(e) => {
+                      const parts = [...explanationLines];
+                      while (parts.length < SYSTEM_EXPLANATION_PARTS.length) parts.push("");
+                      parts[partIndex] = e.target.value;
+                      onChange({ ...draft, explanation: parts.join("\n") });
+                    }}
+                    required
+                    value={explanationLines[partIndex] ?? ""}
+                  >
+                    <option disabled value="">
+                      请选择
+                    </option>
+                    <option value="服务器上的程序">服务器上的程序</option>
+                    <option value="店里的网络">店里的网络</option>
+                    <option value="厨师">厨师</option>
+                    <option value="送餐员">送餐员</option>
+                  </select>
+                ) : (
+                  <input
+                    className="text-input"
+                    maxLength={75}
+                    onChange={(e) => {
+                      const parts = [...explanationLines];
+                      while (parts.length < SYSTEM_EXPLANATION_PARTS.length) parts.push("");
+                      parts[partIndex] = e.target.value;
+                      onChange({ ...draft, explanation: parts.join("\n") });
+                    }}
+                    required
+                    value={explanationLines[partIndex] ?? ""}
+                  />
+                )}
               </label>
             ))}
             <div className="submit-row">

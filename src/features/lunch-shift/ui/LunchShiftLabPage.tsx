@@ -89,6 +89,7 @@ export function LunchShiftLabPage() {
         Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
       ),
       runSummaries: project.runSummaries,
+      training: project.training,
     }),
     dispatch,
   });
@@ -226,6 +227,7 @@ export function LunchShiftLabPage() {
             {projectLoaded && stage?.index === 1 ? (
               <TrainingPanel
                 draft={draftOf(state, 1) as TrainingDraft}
+                training={state.training}
                 onChange={(draft) => dispatch({ type: "update-training", draft })}
                 onSubmit={() => void submitJudge(1, draftOf(state, 1))}
                 passed={passedStages.includes(1)}

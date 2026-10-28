@@ -6,33 +6,39 @@
  */
 
 import { useState, type FormEvent } from "react";
+import { JourneyAnim } from "./JourneyAnim.tsx";
 import { DISHES, NOTES, TABLES } from "../domain/contracts.ts";
 import type { TrainingDraft } from "../domain/protocol.ts";
-import { TRAINING_REQUEST, TRAINING_TICKET } from "../domain/scenarios.ts";
+import type { TrainingOrder } from "../domain/scenarios.ts";
 
 function ticketSummary(ticket: TrainingDraft["ticket"]): string {
   if (!ticket) return "—";
   return `${ticket.table} 号桌 · ${ticket.item} · 备注「${ticket.note}」 · ${ticket.urgent ? "加急" : "普通"}`;
 }
 
-function ticketDifferences(ticket: NonNullable<TrainingDraft["ticket"]>): string[] {
+function ticketDifferences(
+  ticket: NonNullable<TrainingDraft["ticket"]>,
+  expected: TrainingOrder["ticket"],
+): string[] {
   const differences: string[] = [];
-  if (ticket.item !== TRAINING_TICKET.item) differences.push(`菜品应为${TRAINING_TICKET.item}`);
-  if (ticket.note !== TRAINING_TICKET.note) differences.push(`备注应为${TRAINING_TICKET.note}`);
-  if (ticket.table !== TRAINING_TICKET.table)
-    differences.push(`桌号应为 ${TRAINING_TICKET.table}，写错会送错桌`);
-  if (ticket.urgent !== TRAINING_TICKET.urgent) differences.push("顾客说不赶时间，应选普通");
+  if (ticket.item !== expected.item) differences.push(`菜品应为${expected.item}`);
+  if (ticket.note !== expected.note) differences.push(`备注应为${expected.note}`);
+  if (ticket.table !== expected.table) differences.push(`桌号应为 ${expected.table}，写错会送错桌`);
+  if (ticket.urgent !== expected.urgent)
+    differences.push(expected.urgent ? "顾客说了赶时间，应选加急" : "顾客说不赶时间，应选普通");
   return differences;
 }
 
 export function TrainingPanel({
   draft,
+  training,
   passed,
   submitting,
   onChange,
   onSubmit,
 }: {
   draft: TrainingDraft;
+  training: TrainingOrder;
   passed: boolean;
   submitting: boolean;
   onChange: (draft: TrainingDraft) => void;
@@ -49,7 +55,7 @@ export function TrainingPanel({
       table: form.table,
       urgent: form.urgent === "true",
     };
-    const differences = ticketDifferences(ticket);
+    const differences = ticketDifferences(ticket, training.ticket);
     if (differences.length > 0) {
       setError(differences.join("；") + "。请修改小票。");
       onChange({ ...draft, ticket });
@@ -76,13 +82,8 @@ export function TrainingPanel({
           <p>
             你现在是前台接单员。厨房不直接听顾客说话，只认你记的小票；菜名或桌号写错一个，餐就可能做错、送错。
           </p>
-          <img
-            alt="前台接单员把小票夹到板上，柜台前顾客在说话"
-            className="lunch-journey-img"
-            onError={(e) => e.currentTarget.remove()}
-            src="/assets/lunch-shift/journey-ticket.png"
-          />
-          <blockquote className="lunch-ticket-quote">“{TRAINING_REQUEST}”</blockquote>
+          <JourneyAnim alt="前台接单员把小票夹到板上，柜台前顾客在说话" base="journey-ticket" />
+          <blockquote className="lunch-ticket-quote">“{training.request}”</blockquote>
           {error ? (
             <p className="lunch-feedback mistake" role="alert">
               {error}
@@ -169,12 +170,7 @@ export function TrainingPanel({
             <strong>✓ 小票交到厨房了</strong>
             <span>{ticketSummary(draft.ticket)}</span>
           </div>
-          <img
-            alt="灶台前悬着两张小票卡，厨师选择先做哪一张"
-            className="lunch-journey-img"
-            onError={(e) => e.currentTarget.remove()}
-            src="/assets/lunch-shift/journey-cook.png"
-          />
+          <JourneyAnim alt="灶台前悬着两张小票卡，厨师选择先做哪一张" base="journey-cook" />
           <h2>两张订单，先做哪一张？</h2>
           <p>
             现在换你掌勺。灶只有一口，一次只能做一份。你刚记的那张单和一张加急单同时在等，先做哪份由你定。（1
@@ -205,7 +201,7 @@ export function TrainingPanel({
                     ? `${draft.ticket.table} 号桌 · ${draft.ticket.item}`
                     : "5 号桌 · 牛肉面"}
                 </b>
-                <small>普通 · 制作 3 拍</small>
+                <small>{draft.ticket?.urgent ? "加急" : "普通"} · 制作 3 拍</small>
               </span>
             </label>
             <button className="button button-primary" type="submit">
@@ -228,12 +224,7 @@ export function TrainingPanel({
                 : "两份餐都能做出来，但加急的顾客等得更久。"}
             </span>
           </div>
-          <img
-            alt="送餐员端着餐盘走向贴有数字5的餐桌"
-            className="lunch-journey-img"
-            onError={(e) => e.currentTarget.remove()}
-            src="/assets/lunch-shift/journey-deliver.png"
-          />
+          <JourneyAnim alt="送餐员端着餐盘走向贴有数字5的餐桌" base="journey-deliver" />
           <h2>这份餐送到哪一桌？</h2>
           <p>
             最后你是送餐员。按小票送餐，送错桌这份餐就白做了。看小票：

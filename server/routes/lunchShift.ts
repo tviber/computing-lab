@@ -5,6 +5,7 @@ import type {
 } from "../../src/features/lunch-shift/domain/protocol.ts";
 import { LUNCH_STAGES } from "../../src/features/lunch-shift/domain/stages.ts";
 import { sanitizeLunchDraft } from "../../src/features/lunch-shift/lesson/state.ts";
+import { trainingOrderFor } from "../../src/features/lunch-shift/domain/scenarios.ts";
 import { SlidingWindowLimiter } from "../auth/rateLimit.ts";
 import { parseJsonColumn } from "../db/client.ts";
 import { judgeLunchShiftSubmission } from "../judge/lunch-shift/judge.ts";
@@ -43,7 +44,10 @@ export function lunchShiftRoutes() {
   return labRoutes<LunchDraft, LunchJudgeResult>({
     labId: "lunch-shift",
     stageCount: LUNCH_STAGES.length,
-    projectExtras: (db, project) => ({ runSummaries: latestRunSummaries(db, project.id) }),
+    projectExtras: (db, project) => ({
+      runSummaries: latestRunSummaries(db, project.id),
+      training: trainingOrderFor(project.userId),
+    }),
     saveDraft: (db, project, stageIndex, body, expectedRevision) =>
       saveStageDraft(db, project, stageIndex, sanitizeLunchDraft(stageIndex, body.draft ?? {}), {
         expectedRevision,
