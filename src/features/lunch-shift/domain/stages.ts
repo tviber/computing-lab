@@ -15,7 +15,8 @@ export type LunchStageDef = {
   task: string;
   judgeNote: string;
   takeaway: string;
-  hints: [string, string, string];
+  /** Self-opened hint levels — omitted where the task needs none. */
+  hints?: [string, string, string];
 };
 
 export const LUNCH_STAGES: LunchStageDef[] = [
@@ -26,11 +27,6 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     task: "把顾客的话记成小票，选好先做哪张，再把餐送到正确的桌。",
     judgeNote: "服务器核对小票四个字段、先做哪张和送到的桌号，全对才算过。",
     takeaway: "小票是数据：一个字段错，后面全跟着错。",
-    hints: [
-      "顾客说「不赶时间」就是普通单；说赶时间才是加急。",
-      "送餐那一步不用多想：小票上写几号桌，就送几号桌。",
-      "哪一步卡住了？是小票写错了，还是桌号选错了？",
-    ],
   },
   {
     index: 2,
@@ -39,11 +35,6 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     task: "程序只认词表里的词。改词表，让 12 张订单的小票全部记对。",
     judgeNote: "服务器拿你算出的四张词表重新读这 12 张原话，小票全对才过关。",
     takeaway: "认得全比背得多重要——通用词才盖得住没见过的说法。",
-    hints: [
-      "只看错的那几单：每单错的那个字段，在原话里换了什么说法？",
-      "往对应的表里加一个词就行，比如 note_words 里加一行「不放香菜: 不要香菜」。也可以选更短的通用词，一次盖住几种写法。",
-      "「不用赶时间」被当成加急了——它命中了 rush_words 里的哪个词？该往哪张表加词，才能让 calm_words 先把它拦下来？",
-    ],
   },
   {
     index: 3,

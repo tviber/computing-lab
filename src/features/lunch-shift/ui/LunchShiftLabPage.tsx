@@ -60,7 +60,7 @@ function StageBrief({ stage, passed }: { stage: LunchStageDef; passed: boolean }
       ) : null}
       {passed
         ? null
-        : stage.hints.map((hint, index) => <HintDisclosure key={index}>{hint}</HintDisclosure>)}
+        : stage.hints?.map((hint, index) => <HintDisclosure key={index}>{hint}</HintDisclosure>)}
     </section>
   );
 }
