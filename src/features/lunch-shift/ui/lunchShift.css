@@ -1,0 +1,372 @@
+/* Lunch-shift lab styles — all feature classes carry the lunch- prefix. */
+
+.lunch-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.lunch-task strong {
+  font-weight: 650;
+}
+
+.lunch-note {
+  color: var(--secondary);
+  font-size: 13px;
+}
+
+.lunch-ticket-quote {
+  margin: var(--space-2) 0;
+  padding: var(--space-3) var(--space-4);
+  border-left: 3px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-control);
+  font-size: 15px;
+}
+
+.lunch-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+
+.lunch-feedback {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: var(--space-2) 0;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-panel);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+}
+.lunch-feedback.success {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+}
+.lunch-feedback.mistake {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+.lunch-feedback.neutral {
+  background: var(--subtle);
+}
+.lunch-feedback strong {
+  font-weight: 650;
+}
+
+.lunch-choice-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+.lunch-choice-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  cursor: pointer;
+}
+.lunch-choice-card:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.lunch-choice-card small {
+  display: block;
+  color: var(--secondary);
+}
+
+.lunch-system-chain {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+  font-size: 13px;
+}
+.lunch-system-chain span {
+  padding: var(--space-1) var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+}
+.lunch-system-chain i {
+  color: var(--muted);
+  font-style: normal;
+}
+
+.lunch-reference {
+  margin: var(--space-2) 0;
+  font-size: 13px;
+  color: var(--secondary);
+}
+.lunch-reference summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.lunch-explanation {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.text-input {
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font: inherit;
+}
+.text-input:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.lunch-rules {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  padding: var(--space-4);
+}
+
+.lunch-block-tabs {
+  display: flex;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.lunch-block-tab {
+  padding: 6px 14px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font: inherit;
+  cursor: pointer;
+}
+.lunch-block-tab.active {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  font-weight: 650;
+}
+
+.lunch-start {
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  font-weight: 650;
+  font-size: 13px;
+}
+
+.lunch-rule-list {
+  list-style: none;
+  margin: var(--space-2) 0;
+  padding: 0 0 0 var(--space-4);
+  border-left: 2px solid var(--accent);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+.lunch-rule {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 13px;
+}
+.lunch-rule-text b {
+  margin-right: var(--space-2);
+  color: var(--secondary);
+  font-weight: 500;
+}
+.lunch-rule-input,
+.lunch-rule-ticks,
+.field-select-inline {
+  margin: 0 var(--space-1);
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  font: inherit;
+}
+.lunch-rule-input {
+  width: 10em;
+}
+.lunch-rule-ticks {
+  width: 4em;
+}
+.lunch-rule-actions {
+  display: flex;
+  gap: var(--space-1);
+}
+.lunch-rule-actions button {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  padding: 2px 8px;
+  cursor: pointer;
+}
+.lunch-rule-actions button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.lunch-add-rule {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  color: var(--secondary);
+}
+.lunch-add-rule select {
+  max-width: 320px;
+}
+.lunch-rule-warning {
+  color: var(--warning);
+  font-size: 13px;
+}
+
+.lunch-logic {
+  margin-top: var(--space-4);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+  font-size: 13px;
+}
+.lunch-logic-normalize {
+  color: var(--secondary);
+}
+.lunch-logic-branches {
+  margin: var(--space-2) 0;
+  padding-left: var(--space-6);
+}
+.lunch-logic-branches li {
+  margin: 2px 0;
+}
+.lunch-logic-branches b {
+  display: inline-block;
+  min-width: 4.5em;
+  color: var(--secondary);
+  font-weight: 500;
+}
+.lunch-logic-fallback span {
+  color: var(--muted);
+}
+
+.lunch-result {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  padding: var(--space-4);
+}
+.lunch-result h3 {
+  margin: var(--space-1) 0 var(--space-2);
+}
+.lunch-users-line {
+  margin: var(--space-3) 0;
+  font-size: 13px;
+}
+
+.lunch-simulation {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.lunch-station {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding: var(--space-2);
+  background: var(--subtle);
+}
+.lunch-station > b {
+  display: block;
+  font-size: 12px;
+  margin-bottom: var(--space-1);
+}
+.lunch-station-feed {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  max-height: 320px;
+  overflow-y: auto;
+}
+.lunch-event {
+  display: flex;
+  flex-direction: column;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 12px;
+}
+.lunch-event b {
+  font-weight: 650;
+}
+.lunch-event small {
+  color: var(--accent);
+}
+
+.lunch-table-wrap {
+  overflow-x: auto;
+  margin-top: var(--space-2);
+}
+.lunch-orders-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+}
+.lunch-orders-table th,
+.lunch-orders-table td {
+  text-align: left;
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+}
+.lunch-orders-table small {
+  display: block;
+  color: var(--secondary);
+}
+.lunch-field-trace {
+  font-size: 12px;
+  color: var(--secondary);
+}
+.lunch-field-trace summary {
+  cursor: pointer;
+  color: var(--accent);
+}
+
+.lunch-experiment-box {
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-4);
+}
+.lunch-experiment-card {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  font-size: 13px;
+}
+
+.submit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.submit-note {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.lunch-journey h2,
+.lunch-check h2,
+.lunch-challenge h2 {
+  margin: var(--space-1) 0 var(--space-2);
+}

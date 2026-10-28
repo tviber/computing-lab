@@ -11,6 +11,7 @@ import { CPU_STAGES } from "../src/features/cpu/domain/stages.ts";
 import { DECODING_STAGES } from "../src/features/decoding/domain/stages.ts";
 import { IMAGE_SAMPLING_STAGES } from "../src/features/image-sampling/domain/stages.ts";
 import { IS_SIM_STAGES } from "../src/features/is-sim/domain/stages.ts";
+import { LUNCH_STAGES } from "../src/features/lunch-shift/domain/stages.ts";
 import type { SessionUser } from "./auth/session.ts";
 import { parseJsonColumn } from "./db/client.ts";
 
@@ -38,6 +39,7 @@ export const LAB_REGISTRY: LabInfo[] = [
   { id: "cpu", stageCount: CPU_STAGES.length },
   { id: "decoding", stageCount: DECODING_STAGES.length },
   { id: "is-sim", stageCount: IS_SIM_STAGES.length },
+  { id: "lunch-shift", stageCount: LUNCH_STAGES.length },
   { id: "audio-encoding", stageCount: 0, defaultHidden: true },
 ];
 

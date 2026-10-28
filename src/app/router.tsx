@@ -19,6 +19,7 @@ import { ColorQuantizationRedirectPage } from "./pages/ColorQuantizationRedirect
 import { CpuRedirectPage } from "./pages/CpuRedirectPage";
 import { DecodingRedirectPage } from "./pages/DecodingRedirectPage";
 import { IsSimRedirectPage } from "./pages/IsSimRedirectPage";
+import { LunchShiftRedirectPage } from "./pages/LunchShiftRedirectPage";
 import { TeacherDashboardPage } from "./pages/TeacherDashboardPage";
 import { ClassMembersPage } from "./pages/ClassMembersPage";
 import { StudentLabPreviewPage } from "./pages/StudentLabPreviewPage";
@@ -187,6 +188,21 @@ const isSimLabRoute = createRoute({
   errorComponent: LabErrorPage,
 });
 
+const lunchShiftEntryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/labs/lunch-shift",
+  component: LunchShiftRedirectPage,
+  errorComponent: LabErrorPage,
+});
+
+const lunchShiftLabRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/classes/$classId/labs/lunch-shift",
+  validateSearch: passThroughSearch,
+  component: lazyRouteComponent(() => import("../features/lunch-shift"), "LunchShiftLabPage"),
+  errorComponent: LabErrorPage,
+});
+
 /** Audio-encoding demo page — a tool, not a judged lab: no stages,
  * no submissions, everything runs locally in the browser. */
 const audioEncodingRoute = createRoute({
@@ -293,6 +309,8 @@ const routeTree = rootRoute.addChildren([
   decodingLabRoute,
   isSimEntryRoute,
   isSimLabRoute,
+  lunchShiftEntryRoute,
+  lunchShiftLabRoute,
   audioEncodingRoute,
   dashboardRoute,
   classMembersRoute,
