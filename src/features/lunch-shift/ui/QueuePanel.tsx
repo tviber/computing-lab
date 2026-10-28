@@ -274,7 +274,12 @@ export function QueuePanel({
       </details>
       <CodeEditor
         ariaLabel="priority 函数代码"
-        onChange={(code) => onChange({ code, priority: null })}
+        disabled={running}
+        onChange={(code) => {
+          setLocalRun(null);
+          setTableErrors([]);
+          onChange({ code, priority: null });
+        }}
         value={source}
       />
       <div className="submit-row">

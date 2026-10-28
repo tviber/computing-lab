@@ -83,14 +83,14 @@ export function FinalPanel({
       <p className="eyebrow">接单的词表</p>
       <CodeEditor
         ariaLabel="词表代码"
-        disabled={submitted}
+        disabled={submitted || running}
         onChange={(intakeCode) => onChange({ ...draft, intakeCode, tables: null })}
         value={intakeSource}
       />
       <p className="eyebrow">排队的函数</p>
       <CodeEditor
         ariaLabel="priority 函数代码"
-        disabled={submitted}
+        disabled={submitted || running}
         onChange={(queueCode) => onChange({ ...draft, queueCode, priority: null })}
         value={queueSource}
       />

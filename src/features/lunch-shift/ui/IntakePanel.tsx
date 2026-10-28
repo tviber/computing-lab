@@ -154,7 +154,12 @@ export function IntakePanel({
       <p>下面 12 句顾客原话都交给程序读。先运行一遍，看哪些小票记错了、哪个词没认出来。</p>
       <CodeEditor
         ariaLabel="词表代码"
-        onChange={(code) => onChange({ code, tables: null })}
+        disabled={running}
+        onChange={(code) => {
+          setLocalResults(null);
+          setTableErrors([]);
+          onChange({ code, tables: null });
+        }}
         value={source}
       />
       <div className="submit-row">
