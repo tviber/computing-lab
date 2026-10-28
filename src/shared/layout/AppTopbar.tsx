@@ -29,7 +29,7 @@ export function AppTopbar({
       <div className="app-topbar-left">
         {leading}
         <Link aria-label="计算实验室首页" className="app-brand-mark" to="/">
-          <span aria-hidden="true">⌁</span>
+          <img alt="" src="/assets/brand-logo.png" />
         </Link>
         <div className="app-topbar-heading">
           {title ? <h1>{title}</h1> : <span className="app-brand-name">计算实验室</span>}
