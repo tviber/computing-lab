@@ -76,7 +76,9 @@ export function SystemCheckPanel({
 
       {index < SYSTEM_CHECK_QUESTIONS.length && question ? (
         <>
-          <p className="eyebrow">认识信息系统 · {index + 1} / {SYSTEM_CHECK_QUESTIONS.length}</p>
+          <p className="eyebrow">
+            认识信息系统 · {index + 1} / {SYSTEM_CHECK_QUESTIONS.length}
+          </p>
           <h2>{question.prompt}</h2>
           <form
             className="lunch-choice-list"

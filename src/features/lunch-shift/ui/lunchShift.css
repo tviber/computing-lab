@@ -431,7 +431,10 @@
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
   background: var(--subtle);
-  font: 12.5px/1.7 "SF Mono", Menlo, monospace;
+  font:
+    12.5px/1.7 "SF Mono",
+    Menlo,
+    monospace;
   white-space: pre;
   overflow-x: auto;
 }

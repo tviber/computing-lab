@@ -4,7 +4,10 @@
  * resulting RunSummary.
  */
 
-import { buildScenario, type FixtureOrder } from "../../../src/features/lunch-shift/domain/scenarios.ts";
+import {
+  buildScenario,
+  type FixtureOrder,
+} from "../../../src/features/lunch-shift/domain/scenarios.ts";
 
 export const FINAL_FIXTURES: FixtureOrder[] = [
   {

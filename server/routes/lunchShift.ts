@@ -30,7 +30,8 @@ function latestRunSummaries(
   };
   for (const row of rows) {
     const key = row.stageIndex === 3 ? "practice" : "final";
-    if (found[key] === null) found[key] = parseJsonColumn<LunchTestSummary | null>(row.testSummary, null);
+    if (found[key] === null)
+      found[key] = parseJsonColumn<LunchTestSummary | null>(row.testSummary, null);
   }
   return found;
 }

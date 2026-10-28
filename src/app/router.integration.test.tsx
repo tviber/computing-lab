@@ -58,7 +58,7 @@ describe("application router integration", () => {
     await renderAppAt("/", { auth: teacherAuthState });
 
     const cards = screen.getAllByRole("article");
-    expect(cards).toHaveLength(7);
+    expect(cards).toHaveLength(8);
     for (const card of cards) {
       expect(within(card).getByRole("link", { name: "开始实验" })).toBeInTheDocument();
     }

@@ -59,7 +59,10 @@ import {
 import { FINAL_SCENARIO } from "./hiddenSet.ts";
 
 /** "谁定的 / 为什么选它" explainers, replayed over the captured decisions. */
-function buildTrace(captured: CapturedDecision[], blocks: ReturnType<typeof sanitizeChallengeDraft>["blocks"]) {
+function buildTrace(
+  captured: CapturedDecision[],
+  blocks: ReturnType<typeof sanitizeChallengeDraft>["blocks"],
+) {
   const orders: Record<string, Record<string, string>> = {};
   const queue: QueueTraceRow[] = [];
   for (const item of captured) {

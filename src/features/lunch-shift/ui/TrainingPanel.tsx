@@ -73,7 +73,9 @@ export function TrainingPanel({
         <>
           <p className="eyebrow">订单旅程 · 1 / 3</p>
           <h2>把顾客的话记成小票</h2>
-          <p>你现在是前台接单员。厨房不直接听顾客说话，只认你记的小票；菜名或桌号写错一个，餐就可能做错、送错。</p>
+          <p>
+            你现在是前台接单员。厨房不直接听顾客说话，只认你记的小票；菜名或桌号写错一个，餐就可能做错、送错。
+          </p>
           <blockquote className="lunch-ticket-quote">“{TRAINING_REQUEST}”</blockquote>
           {error ? (
             <p className="lunch-feedback mistake" role="alert">
@@ -162,7 +164,10 @@ export function TrainingPanel({
             <span>{ticketSummary(draft.ticket)}</span>
           </div>
           <h2>两张订单，先做哪一张？</h2>
-          <p>现在换你掌勺。灶只有一口，一次只能做一份。你刚记的那张单和一张加急单同时在等，先做哪份由你定。（1 拍是系统里的一个时间步）</p>
+          <p>
+            现在换你掌勺。灶只有一口，一次只能做一份。你刚记的那张单和一张加急单同时在等，先做哪份由你定。（1
+            拍是系统里的一个时间步）
+          </p>
           <form
             className="lunch-choice-list"
             onSubmit={(event) => {
@@ -184,7 +189,9 @@ export function TrainingPanel({
               <input name="choice" required type="radio" value="normal" />
               <span>
                 <b>
-                  {draft.ticket ? `${draft.ticket.table} 号桌 · ${draft.ticket.item}` : "5 号桌 · 牛肉面"}
+                  {draft.ticket
+                    ? `${draft.ticket.table} 号桌 · ${draft.ticket.item}`
+                    : "5 号桌 · 牛肉面"}
                 </b>
                 <small>普通 · 制作 3 拍</small>
               </span>
@@ -199,15 +206,14 @@ export function TrainingPanel({
       {draft.step === "deliver" ? (
         <>
           <p className="eyebrow">订单旅程 · 3 / 3</p>
-          <div
-            className={`lunch-feedback ${completedWell ? "success" : "neutral"}`}
-            role="status"
-          >
+          <div className={`lunch-feedback ${completedWell ? "success" : "neutral"}`} role="status">
             <strong>
               {completedWell ? "✓ 先做加急单，少等 3 拍" : "先做了普通单，加急顾客多等 3 拍"}
             </strong>
             <span>
-              {completedWell ? "加急单第 1 拍完成，普通单第 4 拍完成。" : "两份餐都能做出来，但加急的顾客等得更久。"}
+              {completedWell
+                ? "加急单第 1 拍完成，普通单第 4 拍完成。"
+                : "两份餐都能做出来，但加急的顾客等得更久。"}
             </span>
           </div>
           <h2>这份餐送到哪一桌？</h2>
@@ -259,7 +265,10 @@ export function TrainingPanel({
 
       {draft.step === "done" ? (
         <>
-          <div className={`lunch-feedback ${completedWell ? "success victory" : "neutral"}`} role="status">
+          <div
+            className={`lunch-feedback ${completedWell ? "success victory" : "neutral"}`}
+            role="status"
+          >
             <strong>{completedWell ? "✓ 订单送对了！" : "流程完成，但加急单等得更久"}</strong>
             <span>{ticketSummary(draft.ticket)}</span>
           </div>

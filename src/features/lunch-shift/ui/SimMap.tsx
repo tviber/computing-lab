@@ -102,7 +102,13 @@ function drawSprite(
   ctx.drawImage(img, sx, sy, cell, cell, x, y, w, w);
 }
 
-function drawWhole(ctx: CanvasRenderingContext2D, img: HTMLImageElement, x: number, y: number, w: number) {
+function drawWhole(
+  ctx: CanvasRenderingContext2D,
+  img: HTMLImageElement,
+  x: number,
+  y: number,
+  w: number,
+) {
   if (!img.complete || !img.naturalWidth) return;
   ctx.drawImage(img, x, y, w, (w * img.naturalHeight) / img.naturalWidth);
 }
@@ -157,7 +163,15 @@ function lanesAt(orders: OrderResult[], timeline: Map<string, OrderTimeline>, ti
   return lanes;
 }
 
-export function SimMap({ run, trace, tick }: { run: RunSummary; trace?: RunTrace | null; tick: number }) {
+export function SimMap({
+  run,
+  trace,
+  tick,
+}: {
+  run: RunSummary;
+  trace?: RunTrace | null;
+  tick: number;
+}) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tickRef = useRef(tick);
   tickRef.current = tick;
@@ -211,12 +225,15 @@ export function SimMap({ run, trace, tick }: { run: RunSummary; trace?: RunTrace
         drawSprite(ctx, img.customer, Z.queueHead.x - 30, Z.queueHead.y - 60, 84, frame);
       }
       lanes.queue.forEach((order, i) =>
-        chip(ctx, img, order, Z.queueHead.x + 40, Z.queueHead.y - 40 + i * Z.queueSlot));
+        chip(ctx, img, order, Z.queueHead.x + 40, Z.queueHead.y - 40 + i * Z.queueSlot),
+      );
       lanes.held.forEach((order, i) =>
-        chip(ctx, img, order, Z.held.x + i * Z.held.dx, Z.held.y, { held: true }));
+        chip(ctx, img, order, Z.held.x + i * Z.held.dx, Z.held.y, { held: true }),
+      );
       if (lanes.held.length) zoneBadge(ctx, "拦下的小票", Z.held.x, Z.held.y - 10);
       lanes.kqueue.forEach((order, i) =>
-        chip(ctx, img, order, Z.kqueue.x, Z.kqueue.y + i * Z.kqueue.dy));
+        chip(ctx, img, order, Z.kqueue.x, Z.kqueue.y + i * Z.kqueue.dy),
+      );
       lanes.stoves.forEach((order, i) => {
         const slot = Z.stoves[i % Z.stoves.length];
         chip(ctx, img, order, slot.x, slot.y);
@@ -225,10 +242,10 @@ export function SimMap({ run, trace, tick }: { run: RunSummary; trace?: RunTrace
         ctx.arc(slot.x + 8, slot.y + 8, 5 + (frame % 2), 0, Math.PI * 2);
         ctx.fill();
       });
-      lanes.pass.forEach((order, i) =>
-        chip(ctx, img, order, Z.pass.x + i * Z.pass.dx, Z.pass.y));
+      lanes.pass.forEach((order, i) => chip(ctx, img, order, Z.pass.x + i * Z.pass.dx, Z.pass.y));
       lanes.tables.forEach((order, i) =>
-        chip(ctx, img, order, Z.tables.x, Z.tables.y + i * Z.tables.dy, { alpha: 0.85 }));
+        chip(ctx, img, order, Z.tables.x, Z.tables.y + i * Z.tables.dy, { alpha: 0.85 }),
+      );
 
       const picks = queueTrace.filter((item) => item.tick === tick).slice(0, 2);
       for (const pick of picks) {

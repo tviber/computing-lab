@@ -59,7 +59,9 @@ export function validRule(rule: BlockRule, focus: Focus): boolean {
   }
   if (rule.type === "priority_table") return focus === "delivery";
   if (rule.type === "aged_urgent") {
-    return Number.isInteger(rule.ticks) && (rule.ticks as number) >= 1 && (rule.ticks as number) <= 30;
+    return (
+      Number.isInteger(rule.ticks) && (rule.ticks as number) >= 1 && (rule.ticks as number) <= 30
+    );
   }
   return (
     rule.type === "priority_wait" &&
@@ -109,7 +111,9 @@ export function isBlockDrafts(raw: unknown): boolean {
   return FOCUSES.every((focus) => {
     const entry = record[focus];
     return (
-      entry != null && typeof entry === "object" && Array.isArray((entry as BlockDrafts[Focus]).rules)
+      entry != null &&
+      typeof entry === "object" &&
+      Array.isArray((entry as BlockDrafts[Focus]).rules)
     );
   });
 }
@@ -358,7 +362,12 @@ export function traceIntake(request: string, rules: BlockRule[]): Record<string,
       }
     }
   }
-  return { item: itemSource, note: fallback("note"), table: fallback("table"), urgent: fallback("urgent") };
+  return {
+    item: itemSource,
+    note: fallback("note"),
+    table: fallback("table"),
+    urgent: fallback("urgent"),
+  };
 }
 
 /** Explains why one order was picked from the queue. */
@@ -422,7 +431,10 @@ export const DELIVERY_RULE_TYPES = [
 ] as const;
 export const QUEUE_ADVANCED_RULE_TYPES = ["aged_urgent"] as const;
 
-export function ruleTypesFor(focus: Focus): { basic: readonly string[]; advanced: readonly string[] } {
+export function ruleTypesFor(focus: Focus): {
+  basic: readonly string[];
+  advanced: readonly string[];
+} {
   if (focus === "intake") {
     return { basic: INTAKE_RULE_TYPES, advanced: INTAKE_ADVANCED_RULE_TYPES };
   }

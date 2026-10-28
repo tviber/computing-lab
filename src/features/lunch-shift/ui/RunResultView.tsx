@@ -45,14 +45,19 @@ function UsersLine({ result }: { result: RunSummary }) {
   const undelivered = result.orders.filter((order) => !order.delivered);
   const longest = result.orders
     .filter((order) => order.delivered)
-    .reduce<OrderResult | null>((top, order) => (top && top.wait >= order.wait ? top : order), null);
+    .reduce<OrderResult | null>(
+      (top, order) => (top && top.wait >= order.wait ? top : order),
+      null,
+    );
   const wrongOrders = result.orders.filter((order) => order.correct === false);
   const unrecognized = wrongOrders.filter((order) => order.item === "" || order.table === "");
   return (
     <div className="lunch-users-line">
       <p>
         这一轮有 {late.length} 位顾客等超了目标
-        {late.length ? `，其中 ${late.filter((order) => isUrgentRequest(order.request)).length} 位在原话里催过` : ""}
+        {late.length
+          ? `，其中 ${late.filter((order) => isUrgentRequest(order.request)).length} 位在原话里催过`
+          : ""}
         {undelivered.length ? `；还有 ${undelivered.length} 单没送出去` : ""}。
         {longest ? `等得最久的是 ${longest.id}（${longest.wait} 拍）。` : ""}
       </p>
@@ -133,8 +138,7 @@ export function RunResultView({
   baseline?: RunSummary | null;
   trace?: RunTrace | null;
 }) {
-  const delta =
-    run.score !== null && baseline?.score != null ? run.score - baseline.score : null;
+  const delta = run.score !== null && baseline?.score != null ? run.score - baseline.score : null;
   const comparison =
     delta === null
       ? "规则已运行。"

@@ -6,11 +6,7 @@
  */
 
 import { describe, expect, it } from "vitest";
-import {
-  applyBlockStrategy,
-  traceIntake,
-  traceQueueChoice,
-} from "./blockStrategy.ts";
+import { applyBlockStrategy, traceIntake, traceQueueChoice } from "./blockStrategy.ts";
 import type { BlockDrafts, BlockRule, Candidate } from "./contracts.ts";
 import { buildScenario, PRACTICE_FIXTURES } from "./scenarios.ts";
 import { simulate } from "./simulator.ts";
@@ -18,18 +14,66 @@ import { isSystemExplanation } from "./systemCheck.ts";
 
 // Mirrors the hidden final set in server/judge/lunch-shift/hiddenSet.ts.
 const FINAL_FIXTURES = [
-  { request: "能送到 2 号桌吗？鸡腿饭，不要香菜，我赶时间。", expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: true }, cookTicks: 1 },
-  { request: "请给 4 号桌来一碗牛肉面，少辣，正常就好。", expected: { item: "牛肉面", note: "少辣", table: "4", urgent: false }, cookTicks: 3 },
-  { request: "蛋炒饭加蛋，送到桌 7，麻烦尽快。", expected: { item: "蛋炒饭", note: "加蛋", table: "7", urgent: true }, cookTicks: 1 },
-  { request: "3号桌鸡腿饭，不用加配料，我不赶时间。", expected: { item: "鸡腿饭", note: "无备注", table: "3", urgent: false }, cookTicks: 1 },
-  { request: "6号桌牛肉面，少辣，急着走，尽快。", expected: { item: "牛肉面", note: "少辣", table: "6", urgent: true }, cookTicks: 3 },
-  { request: "送到 8 号桌，一份鸡腿饭加蛋，赶时间。", expected: { item: "鸡腿饭", note: "加蛋", table: "8", urgent: true }, cookTicks: 1 },
-  { request: "1号桌蛋炒饭，无备注，别着急做。", expected: { item: "蛋炒饭", note: "无备注", table: "1", urgent: false }, cookTicks: 1 },
-  { request: "牛肉面少辣，给5号桌，我正常等。", expected: { item: "牛肉面", note: "少辣", table: "5", urgent: false }, cookTicks: 3 },
-  { request: "3号桌要蛋炒饭，不放香菜，快一点可以吗？", expected: { item: "蛋炒饭", note: "不要香菜", table: "3", urgent: true }, cookTicks: 1 },
-  { request: "鸡腿饭不要香菜，送给2号桌；不赶时间。", expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: false }, cookTicks: 1 },
-  { request: "给8号桌做牛肉面加蛋，尽快，我赶时间。", expected: { item: "牛肉面", note: "加蛋", table: "8", urgent: true }, cookTicks: 3 },
-  { request: "4号桌蛋炒饭，平常速度，不要催。", expected: { item: "蛋炒饭", note: "无备注", table: "4", urgent: false }, cookTicks: 1 },
+  {
+    request: "能送到 2 号桌吗？鸡腿饭，不要香菜，我赶时间。",
+    expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: true },
+    cookTicks: 1,
+  },
+  {
+    request: "请给 4 号桌来一碗牛肉面，少辣，正常就好。",
+    expected: { item: "牛肉面", note: "少辣", table: "4", urgent: false },
+    cookTicks: 3,
+  },
+  {
+    request: "蛋炒饭加蛋，送到桌 7，麻烦尽快。",
+    expected: { item: "蛋炒饭", note: "加蛋", table: "7", urgent: true },
+    cookTicks: 1,
+  },
+  {
+    request: "3号桌鸡腿饭，不用加配料，我不赶时间。",
+    expected: { item: "鸡腿饭", note: "无备注", table: "3", urgent: false },
+    cookTicks: 1,
+  },
+  {
+    request: "6号桌牛肉面，少辣，急着走，尽快。",
+    expected: { item: "牛肉面", note: "少辣", table: "6", urgent: true },
+    cookTicks: 3,
+  },
+  {
+    request: "送到 8 号桌，一份鸡腿饭加蛋，赶时间。",
+    expected: { item: "鸡腿饭", note: "加蛋", table: "8", urgent: true },
+    cookTicks: 1,
+  },
+  {
+    request: "1号桌蛋炒饭，无备注，别着急做。",
+    expected: { item: "蛋炒饭", note: "无备注", table: "1", urgent: false },
+    cookTicks: 1,
+  },
+  {
+    request: "牛肉面少辣，给5号桌，我正常等。",
+    expected: { item: "牛肉面", note: "少辣", table: "5", urgent: false },
+    cookTicks: 3,
+  },
+  {
+    request: "3号桌要蛋炒饭，不放香菜，快一点可以吗？",
+    expected: { item: "蛋炒饭", note: "不要香菜", table: "3", urgent: true },
+    cookTicks: 1,
+  },
+  {
+    request: "鸡腿饭不要香菜，送给2号桌；不赶时间。",
+    expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: false },
+    cookTicks: 1,
+  },
+  {
+    request: "给8号桌做牛肉面加蛋，尽快，我赶时间。",
+    expected: { item: "牛肉面", note: "加蛋", table: "8", urgent: true },
+    cookTicks: 3,
+  },
+  {
+    request: "4号桌蛋炒饭，平常速度，不要催。",
+    expected: { item: "蛋炒饭", note: "无备注", table: "4", urgent: false },
+    cookTicks: 1,
+  },
 ];
 
 const PRACTICE = buildScenario("P", PRACTICE_FIXTURES);
@@ -110,13 +154,34 @@ describe("trace explainers", () => {
 
   it("explains an aging-promoted pick without mutating the queue", () => {
     const queue: Candidate[] = [
-      { id: "P01", item: "鸡腿饭", note: "不要香菜", table: "3", urgent: false, request: "", arrivalTick: 1, readyTick: null, waitTicks: 8, cookTicks: 1, deadline: 18 },
-      { id: "P02", item: "牛肉面", note: "少辣", table: "5", urgent: true, request: "", arrivalTick: 5, readyTick: null, waitTicks: 4, cookTicks: 3, deadline: 9 },
+      {
+        id: "P01",
+        item: "鸡腿饭",
+        note: "不要香菜",
+        table: "3",
+        urgent: false,
+        request: "",
+        arrivalTick: 1,
+        readyTick: null,
+        waitTicks: 8,
+        cookTicks: 1,
+        deadline: 18,
+      },
+      {
+        id: "P02",
+        item: "牛肉面",
+        note: "少辣",
+        table: "5",
+        urgent: true,
+        request: "",
+        arrivalTick: 5,
+        readyTick: null,
+        waitTicks: 4,
+        cookTicks: 3,
+        deadline: 9,
+      },
     ];
-    const rules: BlockRule[] = [
-      { type: "aged_urgent", ticks: 5 },
-      { type: "priority_urgent" },
-    ];
+    const rules: BlockRule[] = [{ type: "aged_urgent", ticks: 5 }, { type: "priority_urgent" }];
     // P02 (already urgent) still wins over the aged P01; the aging note is
     // what the explainer should surface only when it decided the pick.
     const why = traceQueueChoice(rules, queue);
@@ -131,6 +196,8 @@ describe("system explanation contract", () => {
     expect(isSystemExplanation("a\nb\nc\nd")).toBe(false);
   });
   it("accepts four real phrases", () => {
-    expect(isSystemExplanation("顾客提出需求\n经网络送到服务器\n程序运行规则\n页面显示结果")).toBe(true);
+    expect(isSystemExplanation("顾客提出需求\n经网络送到服务器\n程序运行规则\n页面显示结果")).toBe(
+      true,
+    );
   });
 });

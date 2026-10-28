@@ -77,7 +77,8 @@ function fifoQueue(queue: RuntimeOrder[]): RuntimeOrder[] {
   return queue
     .slice()
     .sort(
-      (a, b) => a.source.arrivalTick - b.source.arrivalTick || a.source.id.localeCompare(b.source.id),
+      (a, b) =>
+        a.source.arrivalTick - b.source.arrivalTick || a.source.id.localeCompare(b.source.id),
     );
 }
 
@@ -320,14 +321,12 @@ export function simulate(
     if (correct === true) correctCount++;
     scoreSum += rounded;
   }
-  const averageWait =
-    deliveredCount > 0 ? Math.round((waitSum / deliveredCount) * 10) / 10 : 0;
+  const averageWait = deliveredCount > 0 ? Math.round((waitSum / deliveredCount) * 10) / 10 : 0;
   let bottleneck = "intake";
   for (const focus of ["kitchen", "delivery"]) {
     if (stageWait[focus] > stageWait[bottleneck]) bottleneck = focus;
   }
-  const score =
-    hasExpected && orders.length > 0 ? Math.round(scoreSum / orders.length) : null;
+  const score = hasExpected && orders.length > 0 ? Math.round(scoreSum / orders.length) : null;
   return {
     result: {
       score,

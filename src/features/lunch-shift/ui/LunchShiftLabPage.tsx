@@ -143,8 +143,7 @@ export function LunchShiftLabPage() {
   );
 
   const passedStages = state.passedStages;
-  const outcomeForStage = (index: number) =>
-    judgedStage === index ? state.judgeOutcome : null;
+  const outcomeForStage = (index: number) => (judgedStage === index ? state.judgeOutcome : null);
   const practiceResult =
     outcomeForStage(3)?.testSummary ??
     (state.runSummaries.practice?.kind === "run" ? state.runSummaries.practice : null);
@@ -173,14 +172,12 @@ export function LunchShiftLabPage() {
             onRetrySync={() => reconcileConflict(state.stageIndex)}
             onRestoreLocal={
               state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () =>
-                    dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
+                ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
                 : undefined
             }
             onDiscardLocal={
               state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () =>
-                    dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
+                ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
                 : undefined
             }
           />

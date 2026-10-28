@@ -59,8 +59,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     id: "final-run",
     title: "正式挑战",
     englishTitle: "Final Run",
-    description:
-      "换了一批 12 张订单。你可以最后再调整三站规则，但正式成绩只提交一次——看清楚再按。",
+    description: "换了一批 12 张订单。你可以最后再调整三站规则，但正式成绩只提交一次——看清楚再按。",
     task: "确认规则和优化焦点，提交唯一的正式成绩。",
     hint: "正式订单的写法可能和练习不一样：认得全比跑得快更值钱（小票全对 50 分）。",
     judgeNote: "服务器用另一套隐藏订单判定；提交后不能再改。",

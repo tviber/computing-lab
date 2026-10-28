@@ -7,11 +7,7 @@
 
 import { useState } from "react";
 import { Icon } from "../../../shared/ui/Icon";
-import {
-  defaultRule,
-  ruleLabel,
-  ruleTypesFor,
-} from "../domain/blockStrategy.ts";
+import { defaultRule, ruleLabel, ruleTypesFor } from "../domain/blockStrategy.ts";
 import {
   DISHES,
   FOCUSES,
@@ -223,8 +219,7 @@ function LogicExplainer({ focus, rules }: { focus: Focus; rules: BlockRule[] }) 
     "def select(候选队列):        # 你的规则在这里生效，从上往下试",
     "    if 候选只有一张:           → 就是它",
     ...activeRules.map(
-      (rule, index) =>
-        `    if 第${index + 1}条规则能分出先后: → 取它选中的   # ${ruleLabel(rule)}`,
+      (rule, index) => `    if 第${index + 1}条规则能分出先后: → 取它选中的   # ${ruleLabel(rule)}`,
     ),
     "    else:                     → 最早到的先取（FIFO）",
   ].join("\n");
@@ -252,7 +247,8 @@ function LogicExplainer({ focus, rules }: { focus: Focus; rules: BlockRule[] }) 
       {agingRules.length > 0 ? (
         <p className="lunch-logic-normalize">
           <b>比较前先更新等待状态：</b>
-          {agingRules.map((rule) => ruleLabel(rule)).join("；")}。还需要接入「加急订单优先」，这些订单才会因此排前面。
+          {agingRules.map((rule) => ruleLabel(rule)).join("；")}
+          。还需要接入「加急订单优先」，这些订单才会因此排前面。
         </p>
       ) : null}
       <p className="logic-subtitle">三站每一拍的循环</p>
@@ -326,9 +322,7 @@ export function RuleEditor({
                 <b>第 {index + 1} 条</b>
                 <RuleParams
                   disabled={disabled}
-                  onChange={(next) =>
-                    update(rules.map((item, i) => (i === index ? next : item)))
-                  }
+                  onChange={(next) => update(rules.map((item, i) => (i === index ? next : item)))}
                   rule={rule}
                 />
               </span>
@@ -337,7 +331,11 @@ export function RuleEditor({
                   aria-label="上移"
                   disabled={disabled || index === 0}
                   onClick={() =>
-                    update(rules.map((item, i) => (i === index - 1 ? rule : i === index ? rules[index - 1] : item)))
+                    update(
+                      rules.map((item, i) =>
+                        i === index - 1 ? rule : i === index ? rules[index - 1] : item,
+                      ),
+                    )
                   }
                   type="button"
                 >
@@ -347,7 +345,11 @@ export function RuleEditor({
                   aria-label="下移"
                   disabled={disabled || index === rules.length - 1}
                   onClick={() =>
-                    update(rules.map((item, i) => (i === index + 1 ? rule : i === index ? rules[index + 1] : item)))
+                    update(
+                      rules.map((item, i) =>
+                        i === index + 1 ? rule : i === index ? rules[index + 1] : item,
+                      ),
+                    )
                   }
                   type="button"
                 >
