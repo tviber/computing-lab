@@ -65,7 +65,19 @@ export function IntakeResultList({ orders }: { orders: IntakeOrderResult[] }) {
         小票正确 {orders.length - wrong.length} / {orders.length}
       </p>
       {wrong.length === 0 ? (
-        <p className="lunch-feedback success">12 张原话全部记对了。</p>
+        <>
+          <p className="lunch-feedback success">12 张原话全部记对了。</p>
+          {orders.map((order) => (
+            <details className="lunch-order-item" key={order.id}>
+              <summary>
+                <b>{order.id}</b> · {order.request}
+              </summary>
+              <ul>
+                <li>小票：{ticketText(order.produced)}</li>
+              </ul>
+            </details>
+          ))}
+        </>
       ) : (
         wrong.map((order) => (
           <article className="lunch-order-fix" key={order.id}>
@@ -151,7 +163,24 @@ export function IntakePanel({
 
   return (
     <section className="lunch-challenge">
-      <p>下面 12 句顾客原话都交给程序读。先运行一遍，看哪些小票记错了、哪个词没认出来。</p>
+      <p>12 句顾客原话都由这四张词表决定怎么记成小票。</p>
+      <div className="lunch-params">
+        <ul>
+          <li>
+            <code>dish_words</code>：词 → 菜名。按写的顺序查，原话里第一个出现的词算数。
+          </li>
+          <li>
+            <code>note_words</code>：词 → 备注。同样按顺序查，一个都没中记「无备注」。
+          </li>
+          <li>
+            <code>calm_words</code>：普通信号词，最先查——原话命中它就是普通单。
+          </li>
+          <li>
+            <code>rush_words</code>：加急信号词，calm 没中才查它——命中就是加急单。
+          </li>
+          <li>每张表最多 20 项；一个词去空格后 1～10 个字；菜名和备注的值要在菜单里。</li>
+        </ul>
+      </div>
       <CodeEditor
         ariaLabel="词表代码"
         disabled={running}
@@ -179,9 +208,7 @@ export function IntakePanel({
         >
           {submitting ? "判定中…" : "交服务器判分"}
         </button>
-        {draft.tables === null ? (
-          <span className="submit-note">先运行一遍，用算出的词表判分。</span>
-        ) : null}
+        {draft.tables === null ? <span className="submit-note">还没有算出的词表。</span> : null}
       </div>
       {error ? (
         <p className="test-error" role="alert">

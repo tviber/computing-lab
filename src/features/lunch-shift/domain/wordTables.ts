@@ -199,7 +199,7 @@ export function checkIntakeTables(raw: unknown): { tables: IntakeTables; errors:
   const errors: string[] = [];
   const empty: IntakeTables = { dish: [], note: [], calm: [], rush: [] };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    errors.push("还没有可用的词表——先运行代码，让程序读出四张词表。");
+    errors.push("还没有可用的词表——运行代码后才算得出。");
     return { tables: empty, errors };
   }
   const record = raw as Record<string, unknown>;

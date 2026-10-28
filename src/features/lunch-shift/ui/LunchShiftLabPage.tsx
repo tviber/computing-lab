@@ -58,9 +58,9 @@ function StageBrief({ stage, passed }: { stage: LunchStageDef; passed: boolean }
           <p className="stage-takeaway">本关收获：{stage.takeaway}</p>
         </>
       ) : null}
-      {stage.hints.map((hint, index) => (
-        <HintDisclosure key={index}>{hint}</HintDisclosure>
-      ))}
+      {passed
+        ? null
+        : stage.hints.map((hint, index) => <HintDisclosure key={index}>{hint}</HintDisclosure>)}
     </section>
   );
 }

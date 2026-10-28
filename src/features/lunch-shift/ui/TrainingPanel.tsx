@@ -9,6 +9,7 @@ import { useState, type FormEvent } from "react";
 import { DISHES, NOTES, TABLES } from "../domain/contracts.ts";
 import type { TrainingDraft } from "../domain/protocol.ts";
 import type { TrainingOrder } from "../domain/scenarios.ts";
+import { TickExplainer } from "./TickExplainer.tsx";
 
 const STEP_ORDER = ["record", "cook", "deliver", "done"] as const;
 
@@ -207,9 +208,9 @@ export function TrainingPanel({
           />
           <h2>两张订单，先做哪一张？</h2>
           <p>
-            现在换你掌勺。灶只有一口，一次只能做一份。你刚记的那张单和一张加急单同时在等，先做哪份由你定。（1
-            拍是系统里的一个时间步）
+            现在换你掌勺。灶只有一口，一次只能做一份。你刚记的那张单和一张加急单同时在等，先做哪份由你定。
           </p>
+          <TickExplainer />
           {cookDone ? (
             <>
               <div className="lunch-choice-list" aria-label="你的选择">

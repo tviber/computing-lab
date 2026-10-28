@@ -239,11 +239,26 @@ export function QueuePanel({
   return (
     <section className="lunch-challenge">
       <p>
-        这一关 12 张小票全部录对了，要管的只有顺序。每拍系统都问
-        <code>priority(urgent, wait, cook)</code> 该先做哪张——返回值最大的先处理。
+        厨房和出餐两站每拍都调用同一个 <code>priority(urgent, wait, cook)</code>
+        ——哪张单的返回值最大，就先做哪张。
       </p>
+      <div className="lunch-params">
+        <ul>
+          <li>
+            <code>urgent</code>：小票上是不是加急单（True 或 False）。
+          </li>
+          <li>
+            <code>wait</code>：这张单已经等了几拍，0～30 的整数。
+          </li>
+          <li>
+            <code>cook</code>：做这张单要几拍，只会是 1 或 3。
+          </li>
+          <li>返回一个数，越大越先做；一样大就先来先做。</li>
+        </ul>
+      </div>
       <details className="lunch-reference">
         <summary>看这 12 张订单</summary>
+        <p className="lunch-note">到达拍：这张单在系统第几拍进来（拍就是第 1 关那种时间步）。</p>
         <div className="lunch-table-wrap">
           <table className="lunch-orders-table">
             <thead>
@@ -299,9 +314,7 @@ export function QueuePanel({
         >
           {submitting ? "判定中…" : "交服务器判分"}
         </button>
-        {priority === null ? (
-          <span className="submit-note">先运行一遍，用算出的结果表判分。</span>
-        ) : null}
+        {priority === null ? <span className="submit-note">还没有算出的结果表。</span> : null}
       </div>
       {error ? (
         <p className="test-error" role="alert">

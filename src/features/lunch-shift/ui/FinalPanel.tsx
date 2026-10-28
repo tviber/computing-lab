@@ -78,9 +78,10 @@ export function FinalPanel({
 
   return (
     <section className="lunch-challenge">
-      <p>词表和函数是你前两关的成果。可以最后再改，改完先运行一遍再交——只能交一次。</p>
+      <p>正式订单的说法和练习不同。词表和函数沿用前两关，提交前可以再改——只能交一次。</p>
 
       <p className="eyebrow">接单的词表</p>
+      <p className="lunch-note">规则同第二关：按顺序查，calm 先 rush 后；每张表最多 20 项。</p>
       <CodeEditor
         ariaLabel="词表代码"
         disabled={submitted || running}
@@ -88,6 +89,9 @@ export function FinalPanel({
         value={intakeSource}
       />
       <p className="eyebrow">排队的函数</p>
+      <p className="lunch-note">
+        priority 的参数同第三关：urgent 是否加急、wait 已等 0～30 拍、cook 制作 1 或 3 拍。
+      </p>
       <CodeEditor
         ariaLabel="priority 函数代码"
         disabled={submitted || running}
@@ -113,7 +117,7 @@ export function FinalPanel({
           >
             {submitting ? "判定中…" : "提交正式挑战"}
           </button>
-          {ready ? null : <span className="submit-note">先运行一遍，算出词表和结果表。</span>}
+          {ready ? null : <span className="submit-note">还没有算出的词表和结果表。</span>}
         </div>
       )}
 

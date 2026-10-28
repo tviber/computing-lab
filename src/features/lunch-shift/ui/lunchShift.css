@@ -344,3 +344,109 @@ ul.lunch-order-fix {
   padding-left: var(--space-5);
   line-height: 1.7;
 }
+
+/* Collapsed review rows for the all-correct order list */
+.lunch-order-item {
+  margin: var(--space-1) 0;
+  padding: var(--space-1) var(--space-3);
+  border-left: 3px solid var(--border);
+  background: var(--subtle);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+}
+.lunch-order-item summary {
+  cursor: pointer;
+}
+.lunch-order-item ul {
+  margin: var(--space-1) 0 0;
+}
+
+/* 拍（tick）解释图 */
+.lunch-tick-explainer {
+  margin: var(--space-2) 0 var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--subtle);
+}
+.lunch-tick-explainer svg {
+  display: block;
+  width: 100%;
+  max-width: 640px;
+  height: auto;
+}
+.lunch-tick-explainer figcaption {
+  margin-top: var(--space-2);
+  font-size: 13px;
+  color: var(--secondary);
+  line-height: 1.6;
+}
+.tick-axis {
+  stroke: var(--secondary);
+  stroke-width: 1.5;
+  fill: var(--secondary);
+}
+.tick-mark {
+  stroke: var(--secondary);
+  stroke-width: 1.5;
+}
+.tick-num {
+  font-size: 11px;
+  fill: var(--text);
+}
+.tick-row-label {
+  font-size: 11px;
+  fill: var(--secondary);
+}
+.tick-cell {
+  fill: var(--surface);
+  stroke: var(--border);
+}
+.tick-cell.done {
+  fill: var(--accent-soft);
+  stroke: var(--accent);
+}
+.tick-card {
+  fill: var(--surface);
+  stroke: var(--border);
+}
+.tick-card-text {
+  font-size: 11px;
+  fill: var(--text);
+}
+.tick-dish-dot {
+  fill: var(--accent);
+}
+.tick-dish-text {
+  font-size: 9px;
+  fill: var(--surface);
+}
+.tick-hint {
+  font-size: 11px;
+  fill: var(--secondary);
+}
+.tick-hint.arrived {
+  fill: var(--success, var(--accent));
+  font-weight: 600;
+}
+
+/* 参数说明（代码块外） */
+.lunch-params {
+  margin: var(--space-2) 0 var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--accent);
+  background: var(--subtle);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  line-height: 1.7;
+}
+.lunch-params ul {
+  margin: var(--space-1) 0 0;
+  padding-left: var(--space-5);
+}
+.lunch-params code {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0 4px;
+}
