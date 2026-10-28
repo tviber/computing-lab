@@ -33,7 +33,7 @@ export function LunchShiftRedirectPage() {
         <main className="not-found" role="status">
           <p className="eyebrow">实验 / 暂未开放</p>
           <h1>这个实验暂未开放</h1>
-          <p>「午市救援」暂未对你所在的班级开放，开放后再来。</p>
+          <p>「设计餐馆系统」暂未对你所在的班级开放，开放后再来。</p>
         </main>
       </AppPageLayout>
     );

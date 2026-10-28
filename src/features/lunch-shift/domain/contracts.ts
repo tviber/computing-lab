@@ -1,9 +1,9 @@
 /**
  * Lunch-shift lab contracts — the shared vocabulary between the student
- * page, the draft store and the server judge. Ported from the Go
- * lunchshift engine (kitchen/main.go + engine.go); scores are locked by
- * golden values (practice baseline 71, final baseline 74, standard set 88),
- * so semantics here must stay identical to the Go original.
+ * page, the draft store and the server judge. The lab was rebuilt around
+ * student-supplied data (intake word tables) and a student-supplied
+ * priority function: the old Go-engine score locks (71/74/88) and the
+ * block-rule vocabulary no longer apply.
  */
 
 export const FOCUSES = ["intake", "kitchen", "delivery"] as const;
@@ -27,31 +27,6 @@ export type Ticket = {
   urgent: boolean;
 };
 
-/**
- * One rule statement the student attached under a station's start
- * statement. `phrase`/`value`/`ticks` presence depends on `type`; the
- * validator in blockStrategy.ts owns the exact per-type contract.
- */
-export type BlockRule = {
-  type: string;
-  phrase?: string;
-  value?: unknown;
-  ticks?: number;
-};
-
-/** One station's rule list — the only thing the engine reads. */
-export type BlockDraft = {
-  rules: BlockRule[];
-  /** Blockly workspace JSON for restoring the editor; rules are the source of truth. */
-  workspace?: string;
-};
-
-export type BlockDrafts = Record<Focus, BlockDraft>;
-
-export function emptyBlockDrafts(): BlockDrafts {
-  return { intake: { rules: [] }, kitchen: { rules: [] }, delivery: { rules: [] } };
-}
-
 /** One order as the queue rules see it at decision time. */
 export type Candidate = {
   id: string;
@@ -65,15 +40,6 @@ export type Candidate = {
   waitTicks: number;
   cookTicks: number;
   deadline: number;
-};
-
-/** What the policy is asked: parse one request (intake) or pick an order. */
-export type DecisionContext = {
-  stage: Focus;
-  tick: number;
-  orderId?: string;
-  request?: string;
-  queue: Candidate[];
 };
 
 export type ScenarioOrder = {
@@ -99,7 +65,6 @@ export type OrderResult = {
   delivered: boolean;
   onTime: boolean;
   wait: number;
-  points: number;
   item: string;
   note: string;
   table: string;
@@ -117,44 +82,33 @@ export type SimulationEvent = {
   action: SimulationAction;
 };
 
+/** One queue decision among ≥2 candidates, with each candidate's inputs
+ *  and the value the priority table gave it (null when no table ran). */
+export type QueuePick = {
+  tick: number;
+  stage: "kitchen" | "delivery";
+  picked: string;
+  candidates: {
+    id: string;
+    urgent: boolean;
+    waitTicks: number;
+    cookTicks: number;
+    value: number | null;
+  }[];
+};
+
 export type RunSummary = {
-  score: number | null;
   correct: number;
   delivered: number;
   onTime: number;
-  averageWait: number;
   orders: OrderResult[];
-  invalidDecisions: number;
-  bottleneck: Focus;
   events?: SimulationEvent[];
+  picks?: QueuePick[];
 };
-
-/** Every policy call recorded during a run — feeds the trace explainers. */
-export type CapturedDecision = {
-  stage: Focus;
-  tick: number;
-  orderId?: string;
-  request?: string;
-  queue?: Candidate[];
-  output: unknown;
-};
-
-export type Policy = (ctx: DecisionContext) => unknown;
 
 export type SimulationRun = {
   result: RunSummary;
-  captured: CapturedDecision[];
 };
-
-/** Request-text patterns shared by the default parser and the rule engine. */
-export const TABLE_DEFAULT_PATTERN = /([1-8])\s*号桌/;
-export const TABLE_PREFIX_PATTERN = /(?:桌号|桌)\s*([1-8])/;
-export const URGENT_WORDS = /赶时间|急着|快一点|尽快/;
-export const NOT_URGENT_WORDS = /不赶时间|不急着|不用急/;
-
-export function isFocus(value: unknown): value is Focus {
-  return typeof value === "string" && (FOCUSES as readonly string[]).includes(value);
-}
 
 export function sameTicket(left: Ticket | null | undefined, right: Ticket): boolean {
   return (

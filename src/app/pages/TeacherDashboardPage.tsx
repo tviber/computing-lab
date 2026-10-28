@@ -23,7 +23,7 @@ type DashKind = "lab" | "task";
 type LabOption = {
   id: string;
   title: string;
-  stages: { index: number; englishTitle: string; title: string }[];
+  stages: { index: number; englishTitle?: string; title: string }[];
 };
 
 const LAB_OPTIONS: LabOption[] = [
@@ -413,7 +413,7 @@ export function TeacherDashboardPage() {
                   <th scope="col">姓名</th>
                   {lab.stages.map((stage) => (
                     <th key={stage.index} scope="col" title={stage.title}>
-                      {stage.englishTitle}
+                      {stage.englishTitle ?? stage.title}
                     </th>
                   ))}
                   <th scope="col">最后活动</th>

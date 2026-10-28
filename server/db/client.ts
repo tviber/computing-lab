@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
 /** Current schema version; bump alongside every migration step below. */
-export const SCHEMA_VERSION = 11;
+export const SCHEMA_VERSION = 12;
 
 export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
 
@@ -239,6 +239,16 @@ export function migrate(db: DatabaseSync): void {
           "ALTER TABLE student_projects ADD COLUMN draft_revisions TEXT NOT NULL DEFAULT '{}'",
         );
       }
+    }
+    // v11 -> v12: the lunch-shift lab was rebuilt around word tables and a
+    // priority function (four new stage indices) — old progress, drafts and
+    // submissions map to nothing meaningful, so they reset like cpu did.
+    if (version < 12) {
+      db.exec(
+        "UPDATE student_projects SET passed_stages='[]', current_stage=1, " +
+          "draft_graph='{}', draft_revisions='{}' WHERE lab_id='lunch-shift'",
+      );
+      db.exec("DELETE FROM submissions WHERE lab_id='lunch-shift'");
     }
     if (version < SCHEMA_VERSION) db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });

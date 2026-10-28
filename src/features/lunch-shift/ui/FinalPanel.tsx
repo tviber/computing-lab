@@ -1,14 +1,19 @@
 /**
- * Stage 4 · 正式挑战: last tuning of the same rule set, then a one-shot
- * graded run against the hidden order set. Once submitted the editor
- * locks and only the recorded result remains.
+ * Stage 4 · 正式挑战: the student's word tables and priority table carry
+ * over from stages 2/3. One last edit + rerun is allowed, then a one-shot
+ * submission — the server replays everything on the hidden order set and
+ * returns only counts.
  */
 
-import { FOCUSES, FOCUS_LABELS } from "../domain/contracts.ts";
-import type { ChallengeDraft, LunchTestSummary } from "../domain/protocol.ts";
-import { RuleEditor } from "./RuleEditor.tsx";
-import { RunResultView } from "./RunResultView.tsx";
-import { TickNote } from "./TickNote.tsx";
+import { useState } from "react";
+import { checkPriorityTable } from "../domain/priority.ts";
+import type { FinalDraft, FinalOrderResult, LunchTestSummary } from "../domain/protocol.ts";
+import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErrors.ts";
+import { checkIntakeTables } from "../domain/wordTables.ts";
+import { CodeEditor } from "./CodeEditor.tsx";
+import { INTAKE_STARTER } from "./IntakePanel.tsx";
+import { runIntakeTables, runPriorityTable } from "./pyodideRunner.ts";
+import { QUEUE_STARTER } from "./QueuePanel.tsx";
 
 export function FinalPanel({
   draft,
@@ -18,80 +23,163 @@ export function FinalPanel({
   onChange,
   onSubmit,
 }: {
-  draft: ChallengeDraft;
+  draft: FinalDraft;
   submitting: boolean;
-  /** Recorded final test summary — from the judge or project extras. */
   result: LunchTestSummary | null;
   submitted: boolean;
-  onChange: (draft: ChallengeDraft) => void;
+  onChange: (draft: FinalDraft) => void;
   onSubmit: () => void;
 }) {
-  const run = result?.kind === "run" ? result.run : undefined;
+  const [error, setError] = useState<string | null>(null);
+  const [tableErrors, setTableErrors] = useState<string[]>([]);
+  const [ranKey, setRanKey] = useState<string | null>(null);
+  const [running, setRunning] = useState(false);
+
+  const intakeSource = draft.intakeCode.trim() ? draft.intakeCode : INTAKE_STARTER;
+  const queueSource = draft.queueCode.trim() ? draft.queueCode : QUEUE_STARTER;
+  const ready = draft.tables !== null && draft.priority !== null;
+  const stale = ranKey !== null && ranKey !== `${intakeSource}${queueSource}`;
+
+  const finalResult = result?.kind === "final" ? result : null;
+
+  const run = async () => {
+    setRunning(true);
+    setError(null);
+    setTableErrors([]);
+    try {
+      const punct =
+        describeFullWidthPunctuation(intakeSource) ?? describeFullWidthPunctuation(queueSource);
+      if (punct) throw new Error(punct);
+      const rawTables = await runIntakeTables(intakeSource);
+      const parts = Array.isArray(rawTables) ? rawTables : [];
+      const tables = checkIntakeTables({
+        dish: parts[0],
+        note: parts[1],
+        calm: parts[2],
+        rush: parts[3],
+      });
+      const rawPriority = await runPriorityTable(queueSource);
+      const priority = checkPriorityTable(rawPriority);
+      const errors = [...tables.errors, ...priority.errors];
+      if (errors.length > 0 || priority.table === null) {
+        setTableErrors(errors);
+        return;
+      }
+      onChange({
+        intakeCode: intakeSource,
+        tables: tables.tables,
+        queueCode: queueSource,
+        priority: priority.table,
+      });
+      setRanKey(`${intakeSource}${queueSource}`);
+    } catch (err) {
+      setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
+    } finally {
+      setRunning(false);
+    }
+  };
+
   return (
     <section className="lunch-challenge">
-      <div>
-        <p className="eyebrow">正式挑战 · 只提交一次</p>
-        <h2>换了一批订单</h2>
-        <TickNote />
-        <p>
-          正式挑战的 12
-          张订单和练习不同，写法也可能更刁钻。可以最后再调整三站规则——按提交之前的规则判分，提交后不能改。
-        </p>
-      </div>
+      <p>词表和函数是你前两关的成果。可以最后再改，改完先运行一遍再交——只能交一次。</p>
 
-      <details className="lunch-reference" open={!submitted && !draft.focus}>
-        <summary>登记我的重点站（可选）</summary>
-        <label className="field-select">
-          你想重点优化哪一站？
-          <select
-            disabled={submitted}
-            onChange={(e) =>
-              onChange({
-                ...draft,
-                focus: e.target.value === "" ? null : (e.target.value as ChallengeDraft["focus"]),
-              })
-            }
-            value={draft.focus ?? ""}
-          >
-            <option value="">不登记</option>
-            {FOCUSES.map((focus) => (
-              <option key={focus} value={focus}>
-                {FOCUS_LABELS[focus]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </details>
-
-      <RuleEditor
-        blocks={draft.blocks}
+      <p className="eyebrow">接单的词表</p>
+      <CodeEditor
+        ariaLabel="词表代码"
         disabled={submitted}
-        onChange={(blocks) => onChange({ ...draft, blocks })}
+        onChange={(intakeCode) => onChange({ ...draft, intakeCode })}
+        value={intakeSource}
+      />
+      <p className="eyebrow">排队的函数</p>
+      <CodeEditor
+        ariaLabel="priority 函数代码"
+        disabled={submitted}
+        onChange={(queueCode) => onChange({ ...draft, queueCode })}
+        value={queueSource}
       />
 
       {submitted ? null : (
         <div className="submit-row">
           <button
+            className="button button-secondary"
+            disabled={running}
+            onClick={() => void run()}
+            type="button"
+          >
+            {running ? "运行中…" : "运行，更新词表和结果表"}
+          </button>
+          <button
             className="button button-primary"
-            disabled={submitting}
+            disabled={submitting || !ready || stale}
             onClick={onSubmit}
             type="button"
           >
-            {submitting ? "正在判定…" : "提交正式挑战"}
+            {submitting ? "判定中…" : "提交正式挑战"}
           </button>
-          <span className="submit-note">服务器用另一套隐藏订单判定；这是唯一的正式成绩。</span>
+          {ready ? null : <span className="submit-note">先运行一遍，算出词表和结果表。</span>}
+          {stale ? <span className="submit-note">代码改过了，重新运行再交。</span> : null}
         </div>
       )}
 
-      {run ? (
-        <RunResultView
-          baseline={result?.baseline}
-          run={run}
-          title="正式成绩"
-          trace={result?.trace}
-        />
-      ) : submitted ? (
-        <p className="lunch-note">正式挑战已提交，成绩载入中或可在教师看板查看。</p>
+      {error ? (
+        <p className="test-error" role="alert">
+          {error}
+        </p>
+      ) : null}
+      {tableErrors.length > 0 ? (
+        <ul className="lunch-order-fix" role="alert">
+          {tableErrors.map((text) => (
+            <li key={text}>{text}</li>
+          ))}
+        </ul>
+      ) : null}
+
+      {finalResult ? (
+        <section className="lunch-result" role="status">
+          <p className="eyebrow">正式成绩</p>
+          <div className="lunch-stat-row">
+            <span>
+              <b>
+                {finalResult.correct} / {finalResult.total}
+              </b>
+              小票正确
+            </span>
+            <span>
+              <b>
+                {finalResult.onTime} / {finalResult.total}
+              </b>
+              准时送达
+            </span>
+            <span>
+              <b>
+                {finalResult.correct + finalResult.onTime} / {finalResult.total * 2}
+              </b>
+              合计
+            </span>
+          </div>
+          <div className="lunch-table-wrap">
+            <table className="lunch-orders-table">
+              <thead>
+                <tr>
+                  <th>订单</th>
+                  <th>小票</th>
+                  <th>送达</th>
+                </tr>
+              </thead>
+              <tbody>
+                {(finalResult.orders ?? []).map((order: FinalOrderResult) => (
+                  <tr key={order.id}>
+                    <td>
+                      <b>{order.id}</b>
+                    </td>
+                    <td>{order.correct ? "记对了" : "记错了"}</td>
+                    <td>{order.onTime ? "准时" : "超时"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </section>
       ) : null}
     </section>
   );

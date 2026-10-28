@@ -10,7 +10,8 @@ export type StageRailItem = {
   index: number;
   id: string;
   title: string;
-  englishTitle: string;
+  /** Optional second line — omitted entirely when absent. */
+  englishTitle?: string;
 };
 
 /** One stage row: titles on the left, pass/unlock mark on the right. */

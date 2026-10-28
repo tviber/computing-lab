@@ -36,9 +36,9 @@ export const labMetadata = {
     category: "information-systems",
   },
   "lunch-shift": {
-    title: "午市救援",
+    title: "设计餐馆系统",
     description:
-      "先亲手送对一张订单，再给餐馆定下接单、厨房、出餐的处理规则——看系统按规则处理 12 张订单能拿多少分。",
+      "送对一张订单，再改词表教程序听懂顾客的各种说法、写函数排出先做哪张——12 张订单全对全准时才算真本事。",
     entryPath: "/labs/lunch-shift",
     category: "information-systems",
   },

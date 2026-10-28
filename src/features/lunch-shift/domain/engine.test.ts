@@ -1,203 +1,331 @@
 /**
- * Golden-value parity with the Go engine (kitchen/engine_test.go):
- * baselines must stay 71 (practice) / 74 (final) and the standard rule
- * set reaches 88. These scores are locked — any change to the engine or
- * fixtures must update them deliberately, never silently.
+ * Order-set and parser properties for the rebuilt lunch-shift lab.
+ * These numbers are the lesson's difficulty curve — change them
+ * deliberately, never silently.
+ *
+ *  - 修接单 set: default word tables miss 5/12 (dish short name, two
+ *    reworded notes, reworded rush phrase, negated rush phrase); every
+ *    miss is fixable by adding a word and no fix breaks another order.
+ *  - 修排队 set: FIFO 8/12, urgent-first 10/12, urgent + wait-boost
+ *    reaches 12/12 for every threshold in 8..16 (not one magic number).
+ *  - 正式集 (mirrored below): a tables set copied from the practice
+ *    misses loses exactly 3 orders; generic words score 24/24.
  */
 
 import { describe, expect, it } from "vitest";
-import { applyBlockStrategy, traceIntake, traceQueueChoice } from "./blockStrategy.ts";
-import type { BlockDrafts, BlockRule, Candidate } from "./contracts.ts";
-import { buildScenario, PRACTICE_FIXTURES } from "./scenarios.ts";
+import { sameTicket } from "./contracts.ts";
+import { priorityIndex, PRIORITY_TABLE_SIZE, checkPriorityTable } from "./priority.ts";
+import { findFullWidthPunctuation } from "./runErrors.ts";
+import { buildScenario, INTAKE_FIXTURES, QUEUE_SCENARIO } from "./scenarios.ts";
 import { simulate } from "./simulator.ts";
-import { isSystemExplanation } from "./systemCheck.ts";
+import {
+  checkIntakeTables,
+  defaultIntakeTables,
+  evaluateIntake,
+  parseTicket,
+  readTable,
+  type IntakeTables,
+} from "./wordTables.ts";
+
+function tableFor(fn: (urgent: boolean, wait: number, cook: number) => number): number[] {
+  const table = new Array(PRIORITY_TABLE_SIZE);
+  for (const urgent of [false, true])
+    for (let wait = 0; wait <= 30; wait++)
+      for (const cook of [1, 3]) table[priorityIndex(urgent, wait, cook)] = fn(urgent, wait, cook);
+  return table;
+}
+
+const boost = (t: number) => tableFor((u, w) => (u ? 1 : 0) + (w >= t ? 1 : 0));
+
+/** Literal practice fix — exactly the words the missed orders used. */
+const LITERAL_TABLES: IntakeTables = {
+  dish: [...defaultIntakeTables().dish, ["炒饭", "蛋炒饭"]],
+  note: [...defaultIntakeTables().note, ["不放香菜", "不要香菜"], ["别太辣", "少辣"]],
+  calm: [...defaultIntakeTables().calm, "不用赶"],
+  rush: [...defaultIntakeTables().rush, "能快点吗"],
+};
+
+/** Generic practice fix — shorter words that cover unseen phrasings. */
+const GENERIC_TABLES: IntakeTables = {
+  dish: [...defaultIntakeTables().dish, ["炒饭", "蛋炒饭"]],
+  note: [...defaultIntakeTables().note, ["放香菜", "不要香菜"], ["辣", "少辣"]],
+  calm: [...defaultIntakeTables().calm, "不用赶", "不急"],
+  rush: [...defaultIntakeTables().rush, "快点", "等不及"],
+};
 
 // Mirrors the hidden final set in server/judge/lunch-shift/hiddenSet.ts.
 const FINAL_FIXTURES = [
   {
-    request: "能送到 2 号桌吗？鸡腿饭，不要香菜，我赶时间。",
+    request: "送到 6 号桌一份蛋炒饭，不要香菜，我不赶时间。",
+    expected: { item: "蛋炒饭", note: "不要香菜", table: "6", urgent: false },
+    cookTicks: 1,
+    arrivalTick: 2,
+  },
+  {
+    request: "2号桌鸡腿饭，别放香菜，我赶时间。",
     expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: true },
     cookTicks: 1,
+    arrivalTick: 3,
   },
   {
-    request: "请给 4 号桌来一碗牛肉面，少辣，正常就好。",
+    request: "请给 4 号桌做牛肉面，少辣，正常就好。",
     expected: { item: "牛肉面", note: "少辣", table: "4", urgent: false },
     cookTicks: 3,
+    arrivalTick: 4,
   },
   {
-    request: "蛋炒饭加蛋，送到桌 7，麻烦尽快。",
-    expected: { item: "蛋炒饭", note: "加蛋", table: "7", urgent: true },
+    request: "3号桌蛋炒饭，加蛋，麻烦快点，我等不及了。",
+    expected: { item: "蛋炒饭", note: "加蛋", table: "3", urgent: true },
+    cookTicks: 3,
+    arrivalTick: 4,
+  },
+  {
+    request: "1号桌鸡腿饭，不要香菜，不赶时间，慢慢做。",
+    expected: { item: "鸡腿饭", note: "不要香菜", table: "1", urgent: false },
+    cookTicks: 3,
+    arrivalTick: 4,
+  },
+  {
+    request: "8号桌来一份炒饭，无备注，正常做。",
+    expected: { item: "蛋炒饭", note: "无备注", table: "8", urgent: false },
     cookTicks: 1,
+    arrivalTick: 4,
   },
   {
-    request: "3号桌鸡腿饭，不用加配料，我不赶时间。",
-    expected: { item: "鸡腿饭", note: "无备注", table: "3", urgent: false },
+    request: "7号桌牛肉面，少放点辣，不用赶时间。",
+    expected: { item: "牛肉面", note: "少辣", table: "7", urgent: false },
     cookTicks: 1,
+    arrivalTick: 5,
   },
   {
-    request: "6号桌牛肉面，少辣，急着走，尽快。",
+    request: "5号桌鸡腿饭，加蛋，急着要。",
+    expected: { item: "鸡腿饭", note: "加蛋", table: "5", urgent: true },
+    cookTicks: 1,
+    arrivalTick: 8,
+  },
+  {
+    request: "6号桌牛肉面，少辣，尽快送来，我赶时间。",
     expected: { item: "牛肉面", note: "少辣", table: "6", urgent: true },
+    cookTicks: 1,
+    arrivalTick: 9,
+  },
+  {
+    request: "给2号桌做牛肉面加蛋，尽快，我赶时间。",
+    expected: { item: "牛肉面", note: "加蛋", table: "2", urgent: true },
     cookTicks: 3,
-  },
-  {
-    request: "送到 8 号桌，一份鸡腿饭加蛋，赶时间。",
-    expected: { item: "鸡腿饭", note: "加蛋", table: "8", urgent: true },
-    cookTicks: 1,
-  },
-  {
-    request: "1号桌蛋炒饭，无备注，别着急做。",
-    expected: { item: "蛋炒饭", note: "无备注", table: "1", urgent: false },
-    cookTicks: 1,
-  },
-  {
-    request: "牛肉面少辣，给5号桌，我正常等。",
-    expected: { item: "牛肉面", note: "少辣", table: "5", urgent: false },
-    cookTicks: 3,
-  },
-  {
-    request: "3号桌要蛋炒饭，不放香菜，快一点可以吗？",
-    expected: { item: "蛋炒饭", note: "不要香菜", table: "3", urgent: true },
-    cookTicks: 1,
-  },
-  {
-    request: "鸡腿饭不要香菜，送给2号桌；不赶时间。",
-    expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: false },
-    cookTicks: 1,
-  },
-  {
-    request: "给8号桌做牛肉面加蛋，尽快，我赶时间。",
-    expected: { item: "牛肉面", note: "加蛋", table: "8", urgent: true },
-    cookTicks: 3,
+    arrivalTick: 14,
   },
   {
     request: "4号桌蛋炒饭，平常速度，不要催。",
     expected: { item: "蛋炒饭", note: "无备注", table: "4", urgent: false },
     cookTicks: 1,
+    arrivalTick: 16,
+  },
+  {
+    request: "8号桌鸡腿饭，不要香菜，赶时间。",
+    expected: { item: "鸡腿饭", note: "不要香菜", table: "8", urgent: true },
+    cookTicks: 1,
+    arrivalTick: 16,
   },
 ];
 
-const PRACTICE = buildScenario("P", PRACTICE_FIXTURES);
 const FINAL = buildScenario("F", FINAL_FIXTURES);
 
-const mk = (intake: BlockRule[], kitchen: BlockRule[], delivery: BlockRule[]): BlockDrafts => ({
-  intake: { rules: intake },
-  kitchen: { rules: kitchen },
-  delivery: { rules: delivery },
-});
+const intakeOrders = INTAKE_FIXTURES.map((order, index) => ({
+  id: `P${String(index + 1).padStart(2, "0")}`,
+  request: order.request,
+  expected: order.expected,
+}));
 
-const note: BlockRule[] = [{ type: "note", phrase: "不放香菜", value: "不要香菜" }];
-const table: BlockRule[] = [{ type: "table_prefix" }];
-const pu: BlockRule[] = [{ type: "priority_urgent" }];
-const wait3: BlockRule[] = [{ type: "priority_wait", ticks: 3 }];
-const shortest: BlockRule[] = [{ type: "priority_shortest" }];
-const both = [...note, ...table];
+describe("word-table parser", () => {
+  const tables = defaultIntakeTables();
 
-const CASES: Record<string, BlockDrafts> = {
-  baseline: mk([], [], []),
-  note: mk(note, [], []),
-  table: mk(table, [], []),
-  "queue-urgent": mk([], pu, pu),
-  "note+table": mk(both, [], []),
-  "all-standard": mk(both, pu, pu),
-  "wait-kitchen": mk(both, wait3, pu),
-  "short-kitchen": mk(both, shortest, pu),
-};
-
-const WANT: Record<string, [number, number, number]> = {
-  "practice/baseline": [71, 10, 9],
-  "practice/note": [75, 11, 9],
-  "practice/table": [75, 11, 9],
-  "practice/queue-urgent": [77, 10, 11],
-  "practice/note+table": [80, 12, 9],
-  "practice/all-standard": [88, 12, 12],
-  "practice/wait-kitchen": [87, 12, 12],
-  "practice/short-kitchen": [85, 12, 11],
-  "final/baseline": [74, 10, 10],
-  "final/note": [78, 11, 10],
-  "final/table": [78, 11, 10],
-  "final/queue-urgent": [77, 10, 11],
-  "final/note+table": [83, 12, 10],
-  "final/all-standard": [88, 12, 12],
-  "final/wait-kitchen": [87, 12, 12],
-  "final/short-kitchen": [88, 12, 12],
-};
-
-describe("scoring parity with the Go engine", () => {
-  for (const [mode, scenario] of [
-    ["practice", PRACTICE],
-    ["final", FINAL],
-  ] as const) {
-    for (const [name, drafts] of Object.entries(CASES)) {
-      it(`${mode}/${name}`, () => {
-        const { result } = simulate(scenario, (ctx) => applyBlockStrategy(ctx, drafts), 1, 1);
-        const [score, correct, onTime] = WANT[`${mode}/${name}`];
-        expect(result.score).toBe(score);
-        expect(result.correct).toBe(correct);
-        expect(result.onTime).toBe(onTime);
-      });
-    }
-  }
-});
-
-describe("trace explainers", () => {
-  it("credits a synonym rule for a note the raw text never contained", () => {
-    const trace = traceIntake("4号桌，鸡腿饭，不放香菜。麻烦快一点。", [
-      { type: "synonym", phrase: "不放香菜", value: "不要香菜" },
-    ]);
-    expect(trace.note).toBe("你的同义词规则帮程序认出的");
+  it("reads dish/note/urgent from the default tables", () => {
+    expect(parseTicket("3号桌鸡腿饭，少辣，赶时间。", tables)).toEqual({
+      item: "鸡腿饭",
+      note: "少辣",
+      table: "3",
+      urgent: true,
+    });
   });
 
-  it("attributes a default note to the program, not the student", () => {
-    const trace = traceIntake("5号桌要牛肉面，少辣；我不赶时间。", []);
-    expect(trace.note).toBe("程序自己从原话认出的");
+  it("checks calm words before rush words", () => {
+    const parsed = parseTicket("1号桌蛋炒饭，不急着吃。", tables);
+    expect(parsed.urgent).toBe(false);
   });
 
-  it("explains an aging-promoted pick without mutating the queue", () => {
-    const queue: Candidate[] = [
-      {
-        id: "P01",
-        item: "鸡腿饭",
-        note: "不要香菜",
-        table: "3",
-        urgent: false,
-        request: "",
-        arrivalTick: 1,
-        readyTick: null,
-        waitTicks: 8,
-        cookTicks: 1,
-        deadline: 18,
-      },
-      {
-        id: "P02",
-        item: "牛肉面",
-        note: "少辣",
-        table: "5",
-        urgent: true,
-        request: "",
-        arrivalTick: 5,
-        readyTick: null,
-        waitTicks: 4,
-        cookTicks: 3,
-        deadline: 9,
-      },
+  it("first key in insertion order wins", () => {
+    const parsed = parseTicket("炒饭送到5号桌", {
+      ...tables,
+      dish: [
+        ["炒饭", "蛋炒饭"],
+        ["炒", "鸡腿饭"],
+      ],
+    });
+    expect(parsed.item).toBe("蛋炒饭");
+  });
+
+  it("reads every table-number spelling", () => {
+    expect(readTable("送到5号桌")).toBe("5");
+    expect(readTable("送到 5 号桌")).toBe("5");
+    expect(readTable("桌 5")).toBe("5");
+    expect(readTable("桌号 5")).toBe("5");
+    expect(readTable("桌5")).toBe("5");
+  });
+});
+
+describe("word-table validation", () => {
+  it("accepts the starter tables", () => {
+    expect(checkIntakeTables(defaultIntakeTables()).errors).toEqual([]);
+  });
+
+  it("rejects over-long keys and off-menu values with Chinese messages", () => {
+    const { errors } = checkIntakeTables({
+      dish: [
+        ["这是一个特别特别特别长的词", "鸡腿饭"],
+        ["炒饭", "炒米饭"],
+      ],
+      note: [],
+      calm: [],
+      rush: [],
+    });
+    expect(errors.length).toBe(2);
+    expect(errors[0]).toContain("dish_words");
+    expect(errors[1]).toContain("不在菜单上");
+  });
+
+  it("rejects wrong shapes and caps at 20 entries", () => {
+    expect(checkIntakeTables({ dish: "x", note: [], calm: [], rush: [] }).errors.length).toBe(1);
+    const big = { dish: [], note: [], calm: Array(21).fill("不急"), rush: [] };
+    expect(checkIntakeTables(big).errors.some((e) => e.includes("最多 20"))).toBe(true);
+  });
+
+  it("keeps the usable entries when some are invalid", () => {
+    const { tables, errors } = checkIntakeTables({
+      dish: [
+        ["炒饭", "蛋炒饭"],
+        ["", "牛肉面"],
+      ],
+      note: [],
+      calm: ["不急"],
+      rush: [],
+    });
+    expect(errors.length).toBe(1);
+    expect(tables.dish).toEqual([["炒饭", "蛋炒饭"]]);
+    expect(tables.calm).toEqual(["不急"]);
+  });
+});
+
+describe("修接单 order set", () => {
+  it("default word tables miss exactly the five designed orders", () => {
+    const results = evaluateIntake(intakeOrders, defaultIntakeTables());
+    const wrong = results.filter((order) => !order.correct);
+    expect(wrong.map((order) => order.id)).toEqual(["P03", "P04", "P08", "P09", "P11"]);
+  });
+
+  it.each([
+    ["literal", LITERAL_TABLES],
+    ["generic", GENERIC_TABLES],
+  ])("%s word tables fix all 12", (_name, tables) => {
+    const results = evaluateIntake(intakeOrders, tables);
+    expect(results.every((order) => order.correct)).toBe(true);
+  });
+
+  it("every missed order is fixable by one added word without breaking others", () => {
+    const fixes: { id: string; patch: (t: IntakeTables) => IntakeTables }[] = [
+      { id: "P03", patch: (t) => ({ ...t, dish: [...t.dish, ["炒饭", "蛋炒饭"]] }) },
+      { id: "P04", patch: (t) => ({ ...t, note: [...t.note, ["不放香菜", "不要香菜"]] }) },
+      { id: "P08", patch: (t) => ({ ...t, note: [...t.note, ["太辣", "少辣"]] }) },
+      { id: "P09", patch: (t) => ({ ...t, calm: [...t.calm, "不用赶"] }) },
+      { id: "P11", patch: (t) => ({ ...t, rush: [...t.rush, "快点"] }) },
     ];
-    const rules: BlockRule[] = [{ type: "aged_urgent", ticks: 5 }, { type: "priority_urgent" }];
-    // P02 (already urgent) still wins over the aged P01; the aging note is
-    // what the explainer should surface only when it decided the pick.
-    const why = traceQueueChoice(rules, queue);
-    expect(why).toContain("加急");
-    // The caller's queue objects must not be mutated by the aging pass.
-    expect(queue[0].urgent).toBe(false);
+    for (const { id, patch } of fixes) {
+      const tables = patch(defaultIntakeTables());
+      const results = evaluateIntake(intakeOrders, tables);
+      const target = results.find((order) => order.id === id)!;
+      expect(target.correct).toBe(true);
+      // no new wrong orders introduced vs the default misses
+      const wrongIds = results.filter((order) => !order.correct).map((order) => order.id);
+      expect(wrongIds).not.toContain(id);
+      for (const other of ["P03", "P04", "P08", "P09", "P11"].filter((x) => x !== id)) {
+        expect(wrongIds).toContain(other);
+      }
+    }
   });
 });
 
-describe("system explanation contract", () => {
-  it("rejects placeholder one-letter lines", () => {
-    expect(isSystemExplanation("a\nb\nc\nd")).toBe(false);
+describe("修排队 order set", () => {
+  it("FIFO delivers 8/12 on time", () => {
+    expect(simulate(QUEUE_SCENARIO, { priority: null }).result.onTime).toBe(8);
   });
-  it("accepts four real phrases", () => {
-    expect(isSystemExplanation("顾客提出需求\n经网络送到服务器\n程序运行规则\n页面显示结果")).toBe(
-      true,
+
+  it("urgent-first delivers 10/12 on time", () => {
+    const run = simulate(QUEUE_SCENARIO, { priority: tableFor((u) => (u ? 1 : 0)) }).result;
+    expect(run.onTime).toBe(10);
+    // the two early normal orders starve — the lesson this stage teaches
+    const late = run.orders.filter((order) => !order.onTime).map((order) => order.id);
+    expect(late).toEqual(["Q06", "Q07"]);
+  });
+
+  it("urgent + wait-boost reaches 12/12 for every threshold 8..16", () => {
+    for (let t = 8; t <= 16; t++) {
+      expect(simulate(QUEUE_SCENARIO, { priority: boost(t) }).result.onTime).toBe(12);
+    }
+  });
+
+  it("boost outside the sweet range is not full marks (the curve is real)", () => {
+    expect(simulate(QUEUE_SCENARIO, { priority: boost(4) }).result.onTime).toBeLessThan(12);
+    expect(simulate(QUEUE_SCENARIO, { priority: boost(18) }).result.onTime).toBeLessThan(12);
+  });
+});
+
+describe("正式集 (mirrored hidden set)", () => {
+  it("literal practice words lose exactly the three reworded orders", () => {
+    const wrong = FINAL.orders.filter(
+      (order) => !sameTicket(parseTicket(order.request, LITERAL_TABLES), order.expected!),
     );
+    expect(wrong.map((order) => order.id)).toEqual(["F02", "F04", "F07"]);
+  });
+
+  it("generic words get every ticket right and 12/12 on time (24/24)", () => {
+    const run = simulate(FINAL, { tables: GENERIC_TABLES, priority: boost(10) }).result;
+    expect(run.correct).toBe(12);
+    expect(run.onTime).toBe(12);
+  });
+
+  it("the full-marks queue formula stays full marks on the final set", () => {
+    for (const t of [8, 10, 12]) {
+      const run = simulate(FINAL, { tables: GENERIC_TABLES, priority: boost(t) }).result;
+      expect(run.onTime).toBe(12);
+    }
+  });
+});
+
+describe("priority table validation", () => {
+  it("accepts exactly 124 finite numbers", () => {
+    expect(checkPriorityTable(new Array(124).fill(0)).table).not.toBeNull();
+  });
+
+  it("rejects wrong length and non-finite values", () => {
+    expect(checkPriorityTable(new Array(5).fill(0)).table).toBeNull();
+    const bad = new Array(124).fill(0);
+    bad[7] = Number.NaN;
+    const { errors } = checkPriorityTable(bad);
+    expect(errors[0]).toContain("第 8 个值");
+    expect(checkPriorityTable([...new Array(123).fill(0), Infinity]).table).toBeNull();
+    expect(checkPriorityTable([...new Array(123).fill(0), "1"]).table).toBeNull();
+  });
+});
+
+describe("full-width punctuation scan", () => {
+  it("flags punctuation in code but skips strings and comments", () => {
+    const code = 'x = {"别急": "别急"}  # 注释里：中文标点没事\ny：= 1';
+    const hits = findFullWidthPunctuation(code);
+    expect(hits).toEqual([{ line: 2, ch: "：" }]);
+  });
+
+  it("accepts the starter code with Chinese words inside strings", () => {
+    const code = `dish_words = {"鸡腿饭": "鸡腿饭", "蛋炒饭": "蛋炒饭"}\ncalm_words = ["不赶时间", "不急着"]`;
+    expect(findFullWidthPunctuation(code)).toEqual([]);
   });
 });

@@ -1,51 +1,38 @@
 /**
- * The deterministic tick simulation — ported from kitchen/engine.go's
- * `Simulate`. Synchronous: the policy is pure data in, data out. The Go
- * original is authoritative; scores must stay 71/74/88.
+ * The deterministic tick simulation. One synchronous pass over the round:
+ * orders arrive, intake writes tickets, the stove cooks one at a time, the
+ * runner delivers. Two student inputs plug in:
+ *
+ *   - intake word tables: parse each request into a ticket (stage 2 work).
+ *     When absent the order's expected ticket is recorded as-is — the
+ *     修排队 stage starts from 小票已录对.
+ *   - priority table: at every ≥2-candidate queue decision, pick the
+ *     candidate with the largest table value; equal values keep the
+ *     first-come-first-served order. When absent, plain FIFO.
  */
 
 import {
   DISHES,
   NOTES,
-  NOT_URGENT_WORDS,
   TABLES,
-  TABLE_DEFAULT_PATTERN,
-  URGENT_WORDS,
   type Candidate,
-  type CapturedDecision,
-  type DecisionContext,
   type OrderResult,
-  type Policy,
-  type RunSummary,
+  type QueuePick,
   type Scenario,
   type ScenarioOrder,
   type SimulationEvent,
   type SimulationRun,
   type Ticket,
 } from "./contracts.ts";
+import { priorityValue } from "./priority.ts";
+import { parseTicket, type IntakeTables } from "./wordTables.ts";
 
-export function defaultTicket(request: string): Ticket {
-  const ticket: Ticket = { item: "", note: "无备注", table: "", urgent: false };
-  for (const dish of DISHES) {
-    if (request.includes(dish)) {
-      ticket.item = dish;
-      break;
-    }
-  }
-  if (request.includes("不要香菜")) ticket.note = "不要香菜";
-  else if (request.includes("少辣")) ticket.note = "少辣";
-  else if (request.includes("加蛋")) ticket.note = "加蛋";
-  const match = TABLE_DEFAULT_PATTERN.exec(request);
-  if (match) ticket.table = match[1];
-  ticket.urgent = URGENT_WORDS.test(request) && !NOT_URGENT_WORDS.test(request);
-  return ticket;
-}
-
-/** The original no-rules behavior: default parse + first-come-first-served. */
-export function baselinePolicy(ctx: DecisionContext): unknown {
-  if (ctx.stage === "intake") return defaultTicket(ctx.request ?? "");
-  return ctx.queue.length > 0 ? ctx.queue[0].id : null;
-}
+export type SimConfig = {
+  /** Student intake word tables; null/absent = 小票已录对 (expected used). */
+  tables?: IntakeTables | null;
+  /** 124-cell priority table; null/absent = first-come-first-served. */
+  priority?: readonly number[] | null;
+};
 
 /** Drops the hidden expected tickets before a scenario leaves the server. */
 export function publicScenario(scenario: Scenario): Scenario {
@@ -127,13 +114,14 @@ function removeOrder(queue: RuntimeOrder[], target: RuntimeOrder): RuntimeOrder[
   return index < 0 ? queue : [...queue.slice(0, index), ...queue.slice(index + 1)];
 }
 
-/** Replays one round; the policy decides intake parsing and queue picks. */
+/** Replays one round; the config supplies intake tables and queue picks. */
 export function simulate(
   scenario: Scenario,
-  policy: Policy,
+  config: SimConfig = {},
   stoves = 1,
   intakePerTick = 1,
 ): SimulationRun {
+  const priority = config.priority ?? null;
   const runtime = scenario.orders
     .slice()
     .sort((a, b) => a.arrivalTick - b.arrivalTick || a.id.localeCompare(b.id))
@@ -149,47 +137,43 @@ export function simulate(
   let kitchen: RuntimeOrder[] = [];
   let ready: RuntimeOrder[] = [];
   let cooking: CookingSlot[] = [];
-  const captured: CapturedDecision[] = [];
   const events: SimulationEvent[] = [];
-  const stageWait: Record<string, number> = { intake: 0, kitchen: 0, delivery: 0 };
+  const picks: QueuePick[] = [];
   let nextArrival = 0;
   let runnerAvailableTick = 0;
-  let invalidDecisions = 0;
-
-  const ask = (ctx: DecisionContext): unknown => {
-    const output = policy(ctx);
-    captured.push({
-      stage: ctx.stage,
-      tick: ctx.tick,
-      orderId: ctx.orderId,
-      request: ctx.request,
-      queue: ctx.queue,
-      output,
-    });
-    return output;
-  };
 
   const choose = (queue: RuntimeOrder[], stage: "kitchen" | "delivery", tick: number) => {
     const ordered = fifoQueue(queue);
-    if (ordered.length < 2) {
-      if (ordered.length === 1) {
-        captured.push({
-          stage,
-          tick,
-          queue: [candidateFor(ordered[0], tick, scenario)],
-          output: ordered[0].source.id,
-        });
-      }
-      return ordered[0];
-    }
+    if (ordered.length < 2) return ordered[0];
     const candidates = ordered.map((order) => candidateFor(order, tick, scenario));
-    const selected = ask({ stage, tick, queue: candidates });
-    if (typeof selected === "string") {
-      const match = ordered.find((order) => order.source.id === selected);
-      if (match) return match;
+    const withValues = candidates.map((candidate) => ({
+      candidate,
+      value:
+        priority === null
+          ? null
+          : priorityValue(priority, candidate.urgent, candidate.waitTicks, candidate.cookTicks),
+    }));
+    let best = withValues[0];
+    if (priority !== null) {
+      for (const entry of withValues) {
+        // Strictly greater wins; ties keep the earlier (FIFO) candidate.
+        if ((entry.value ?? 0) > (best.value ?? 0)) best = entry;
+      }
     }
-    invalidDecisions++;
-    return ordered[0];
+    picks.push({
+      tick,
+      stage,
+      picked: best.candidate.id,
+      candidates: withValues.map((entry) => ({
+        id: entry.candidate.id,
+        urgent: entry.candidate.urgent,
+        waitTicks: entry.candidate.waitTicks,
+        cookTicks: entry.candidate.cookTicks,
+        value: entry.value,
+      })),
+    });
+    const match = ordered.find((order) => order.source.id === best.candidate.id);
+    return match ?? ordered[0];
   };
 
   for (let tick = 1; tick <= scenario.totalTicks; tick++) {
@@ -215,28 +199,14 @@ export function simulate(
     for (let processed = 0; inbox.length > 0 && processed < intakePerTick; processed++) {
       const order = fifoQueue(inbox)[0];
       inbox = removeOrder(inbox, order);
-      const output = ask({
-        stage: "intake",
-        tick,
-        orderId: order.source.id,
-        request: order.source.request,
-        queue: [],
-      });
-      if (output === "hold") {
-        // 学生用拦截规则把这单拦下了：不进厨房，也永远不会送达。
-        order.receivedTick = tick;
-        events.push({ tick, stage: "intake", orderId: order.source.id, action: "held" });
-        continue;
-      }
-      // A ticket with any unrecognized field (e.g. empty table) is invalid
-      // and the order keeps a null ticket, like the Go engine.
-      if (isRecordableTicket(output)) {
-        order.ticket = output;
-      } else {
-        invalidDecisions++;
-      }
+      // With word tables the student's parse decides; a ticket missing its
+      // dish or table is invalid and the order keeps a null ticket. Without
+      // tables the stage runs 小票已录对 — the expected ticket is recorded.
+      const output = config.tables
+        ? parseTicket(order.source.request, config.tables)
+        : (order.source.expected ?? null);
+      if (isRecordableTicket(output)) order.ticket = output;
       order.receivedTick = tick;
-      stageWait.intake += maxInt(0, tick - order.source.arrivalTick);
       kitchen.push(order);
       events.push({ tick, stage: "intake", orderId: order.source.id, action: "ticket" });
     }
@@ -245,7 +215,6 @@ export function simulate(
       const order = choose(kitchen, "kitchen", tick);
       kitchen = removeOrder(kitchen, order);
       order.cookStartTick = tick;
-      stageWait.kitchen += maxInt(0, tick - order.receivedTick);
       cooking.push({ order, doneTick: tick + maxInt(1, order.source.cookTicks) });
       events.push({ tick, stage: "kitchen", orderId: order.source.id, action: "cook" });
     }
@@ -254,31 +223,16 @@ export function simulate(
       const order = choose(ready, "delivery", tick);
       ready = removeOrder(ready, order);
       order.deliveredTick = tick;
-      stageWait.delivery += maxInt(0, tick - order.readyTick);
       runnerAvailableTick = tick + maxInt(1, scenario.deliveryTicks);
       events.push({ tick, stage: "delivery", orderId: order.source.id, action: "send" });
     }
   }
 
-  for (const order of runtime) {
-    if (order.receivedTick === 0) {
-      stageWait.intake += maxInt(0, scenario.totalTicks - order.source.arrivalTick + 1);
-    } else if (order.cookStartTick === 0) {
-      stageWait.kitchen += maxInt(0, scenario.totalTicks - order.receivedTick + 1);
-    } else if (order.readyTick === 0) {
-      stageWait.kitchen += maxInt(0, scenario.totalTicks - order.cookStartTick + 1);
-    } else if (order.deliveredTick === 0) {
-      stageWait.delivery += maxInt(0, scenario.totalTicks - order.readyTick + 1);
-    }
-  }
-
   const hasExpected = runtime.every((order) => order.source.expected != null);
   const orders: OrderResult[] = [];
-  let scoreSum = 0;
   let deliveredCount = 0;
   let onTimeCount = 0;
   let correctCount = 0;
-  let waitSum = 0;
   for (const order of runtime) {
     const delivered = order.deliveredTick !== 0;
     const wait = delivered
@@ -295,11 +249,6 @@ export function simulate(
     const urgent = order.source.expected?.urgent ?? false;
     const waitTarget = Math.max(1, scenario.totalTicks * (urgent ? 0.3 : 0.6));
     const onTime = delivered && wait < waitTarget;
-    const waitPoints = delivered ? 25 * Math.max(0, 1 - wait / waitTarget) : 0;
-    let points = waitPoints;
-    if (correct === true) points += 50;
-    if (onTime) points += 25;
-    const rounded = Math.round(points * 100) / 100;
     orders.push({
       id: order.source.id,
       request: order.source.request,
@@ -307,39 +256,24 @@ export function simulate(
       delivered,
       onTime,
       wait,
-      points: rounded,
       item: order.ticket?.item ?? "",
       note: order.ticket?.note ?? "",
       table: order.ticket?.table ?? "",
       urgent: order.ticket?.urgent ?? false,
       expected: order.source.expected,
     });
-    if (delivered) {
-      deliveredCount++;
-      waitSum += wait;
-    }
+    if (delivered) deliveredCount++;
     if (onTime) onTimeCount++;
     if (correct === true) correctCount++;
-    scoreSum += rounded;
   }
-  const averageWait = deliveredCount > 0 ? Math.round((waitSum / deliveredCount) * 10) / 10 : 0;
-  let bottleneck = "intake";
-  for (const focus of ["kitchen", "delivery"]) {
-    if (stageWait[focus] > stageWait[bottleneck]) bottleneck = focus;
-  }
-  const score = hasExpected && orders.length > 0 ? Math.round(scoreSum / orders.length) : null;
   return {
     result: {
-      score,
-      correct: correctCount,
+      correct: hasExpected ? correctCount : 0,
       delivered: deliveredCount,
       onTime: onTimeCount,
-      averageWait,
       orders,
-      invalidDecisions,
-      bottleneck: bottleneck as RunSummary["bottleneck"],
       events,
+      picks,
     },
-    captured,
   };
 }

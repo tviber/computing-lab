@@ -2,10 +2,16 @@
  * Wire protocol between the lunch-shift UI and the server judge — shared
  * by `server/judge/lunch-shift/judge.ts` (producer) and the lab page
  * (consumer) so the payload shapes live exactly once.
+ *
+ * Drafts carry code + derived data, never functions: the browser's Pyodide
+ * worker turns student code into JSON word tables / a 124-cell priority
+ * table, and the server judges those. Code snapshots stay for teacher
+ * review only.
  */
 
 import type { LabProjectPayload } from "../../../shared/api/client.ts";
-import type { BlockDrafts, Focus, RunSummary, Ticket } from "./contracts.ts";
+import type { RunSummary, Ticket } from "./contracts.ts";
+import type { IntakeTables } from "./wordTables.ts";
 
 /** Stage 1 draft: the guided three-station walkthrough of one order. */
 export type TrainingDraft = {
@@ -15,48 +21,71 @@ export type TrainingDraft = {
   deliveredTable: string | null;
 };
 
-/** Stage 2 draft: check answers + the four-line system explanation. */
-export type SystemCheckDraft = {
-  answers: Record<string, string>;
-  explanation: string;
-  attempts: number;
+/** Stage 2 draft: word-table code plus the tables it produced. */
+export type IntakeDraft = {
+  code: string;
+  tables: IntakeTables | null;
 };
 
-/** Stages 3 & 4 share one shape: the student's rules and declared focus. */
-export type ChallengeDraft = {
-  focus: Focus | null;
-  blocks: BlockDrafts;
+/** Stage 3 draft: priority code plus its 124-cell result table. */
+export type QueueDraft = {
+  code: string;
+  priority: number[] | null;
 };
 
-export type LunchDraft = TrainingDraft | SystemCheckDraft | ChallengeDraft;
-
-export type QueueTraceRow = {
-  stage: Focus;
-  tick: number;
-  picked: string;
-  why: string;
+/** Stage 4 draft: both artefacts carried over from stages 2 and 3. */
+export type FinalDraft = {
+  intakeCode: string;
+  tables: IntakeTables | null;
+  queueCode: string;
+  priority: number[] | null;
 };
 
-/** "谁定的" per order field + "为什么选它" per queue pick. */
-export type RunTrace = {
-  orders: Record<string, Record<string, string>>;
-  queue: QueueTraceRow[];
+export type LunchDraft = TrainingDraft | IntakeDraft | QueueDraft | FinalDraft;
+
+/** Stage 2 feedback: which word decided each ticket field. */
+export type IntakeOrderResult = {
+  id: string;
+  request: string;
+  correct: boolean;
+  produced: Ticket;
+  expected: Ticket;
+  itemKey: string | null;
+  noteKey: string | null;
+  urgentVia: "calm" | "rush" | "none";
+  urgentKey: string | null;
 };
 
-export type LunchTestSummary = {
-  kind: "training" | "system-check" | "run";
-  /** Stage 1: which ticket/delivery fields were wrong. */
-  differences?: string[];
-  /** Stage 2: question ids still wrong, and whether the 4-line text passed. */
-  missed?: string[];
-  explanationOk?: boolean;
-  /** Stage 2: 0-based indexes of the explanation parts still off-topic. */
-  explanationMissed?: number[];
-  /** Stages 3 & 4: the simulated round and its explainers. */
-  run?: RunSummary;
-  baseline?: RunSummary | null;
-  trace?: RunTrace;
+/** Stage 4 feedback — counts only, no order wording. */
+export type FinalOrderResult = {
+  id: string;
+  correct: boolean;
+  onTime: boolean;
 };
+
+export type LunchTestSummary =
+  | { kind: "training"; differences?: string[] }
+  | {
+      kind: "intake";
+      correct: number;
+      total: number;
+      errors?: string[];
+      orders?: IntakeOrderResult[];
+    }
+  | {
+      kind: "queue";
+      onTime: number;
+      total: number;
+      errors?: string[];
+      run?: RunSummary;
+    }
+  | {
+      kind: "final";
+      correct: number;
+      onTime: number;
+      total: number;
+      orders?: FinalOrderResult[];
+    };
 
 export type LunchJudgeResult = {
   score: number;
@@ -69,11 +98,12 @@ export type LunchJudgeResult = {
   unlockedComponent: null;
 };
 
-/** Extra fields merged into GET /project: latest recorded run per stage,
- *  plus this student's training order (deterministic from user id). */
+/** Extra fields merged into GET /project: latest recorded summary per
+ *  graded stage, plus this student's training order (deterministic). */
 export type LunchProjectExtras = {
   runSummaries: {
-    practice: LunchTestSummary | null;
+    intake: LunchTestSummary | null;
+    queue: LunchTestSummary | null;
     final: LunchTestSummary | null;
   };
   training: { request: string; ticket: Ticket };

@@ -2,53 +2,50 @@
  * Lunch-shift judge. Stages grade differently by design:
  *
  *  - 订单旅程: validates the walkthrough record (ticket + delivery).
- *  - 认识系统: 6/6 answers plus a valid four-line explanation.
- *  - 规则练习: records one practice-scenario run — always passes; the
- *    score is the teaching signal, not a gate.
- *  - 正式挑战: one-shot — a second submission is refused before grading.
+ *  - 修接单: replays the submitted word tables over the 12 practice
+ *    requests — pass requires every ticket right. Malformed tables record
+ *    a failed submission with the concrete errors (the student can retry).
+ *  - 修排队: replays the submitted 124-cell priority table — pass at
+ *    ≥10/12 on-time, star at 12.
+ *  - 正式挑战: one-shot on the hidden set — a second submission is refused
+ *    before grading; missing/invalid artefacts are refused outright so a
+ *    malformed request can't burn the single attempt. Score = correct
+ *    tickets + on-time deliveries, total 24.
  *
- * The scenario runs are pure functions of the submitted rules; the final
- * order set never leaves this directory.
+ * Student code never runs here: the browser's Pyodide worker already
+ * turned it into JSON tables; this file only re-checks their shape and
+ * replays the fixed parser/simulator. The final order set never leaves
+ * this directory.
  */
 
 import type { DatabaseSync } from "node:sqlite";
+import { sameTicket, type Scenario } from "../../../src/features/lunch-shift/domain/contracts.ts";
 import {
-  applyBlockStrategy,
-  traceIntake,
-  traceQueueChoice,
-} from "../../../src/features/lunch-shift/domain/blockStrategy.ts";
-import type {
-  CapturedDecision,
-  RunSummary,
-  Scenario,
-} from "../../../src/features/lunch-shift/domain/contracts.ts";
-import type {
-  LunchJudgeResult,
-  LunchTestSummary,
-  QueueTraceRow,
-} from "../../../src/features/lunch-shift/domain/protocol.ts";
-import {
-  PRACTICE_SCENARIO,
+  INTAKE_SCENARIO,
+  QUEUE_SCENARIO,
   trainingOrderFor,
 } from "../../../src/features/lunch-shift/domain/scenarios.ts";
-import { baselinePolicy, simulate } from "../../../src/features/lunch-shift/domain/simulator.ts";
+import { simulate } from "../../../src/features/lunch-shift/domain/simulator.ts";
 import {
   getLunchStage,
   lunchStageUnlocked,
   nextLunchStage,
 } from "../../../src/features/lunch-shift/domain/stages.ts";
+import type {
+  LunchJudgeResult,
+  LunchTestSummary,
+} from "../../../src/features/lunch-shift/domain/protocol.ts";
+import { checkPriorityTable } from "../../../src/features/lunch-shift/domain/priority.ts";
 import {
-  gradeExplanation,
-  gradeSystemCheck,
-  isSystemExplanation,
-  missedSystemCheckQuestions,
-} from "../../../src/features/lunch-shift/domain/systemCheck.ts";
+  checkIntakeTables,
+  evaluateIntake,
+} from "../../../src/features/lunch-shift/domain/wordTables.ts";
 import {
-  sanitizeChallengeDraft,
-  sanitizeCheckDraft,
+  sanitizeFinalDraft,
+  sanitizeIntakeDraft,
+  sanitizeQueueDraft,
   sanitizeTrainingDraft,
 } from "../../../src/features/lunch-shift/lesson/state.ts";
-import { sameTicket } from "../../../src/features/lunch-shift/domain/contracts.ts";
 import { withTransaction } from "../../db/client.ts";
 import {
   advanceStage,
@@ -58,61 +55,6 @@ import {
   type ProjectRow,
 } from "../pipeline.ts";
 import { FINAL_SCENARIO } from "./hiddenSet.ts";
-
-/** "谁定的 / 为什么选它" explainers, replayed over the captured decisions. */
-function buildTrace(
-  captured: CapturedDecision[],
-  blocks: ReturnType<typeof sanitizeChallengeDraft>["blocks"],
-) {
-  const orders: Record<string, Record<string, string>> = {};
-  const queue: QueueTraceRow[] = [];
-  for (const item of captured) {
-    if (item.stage === "intake" && item.orderId && item.request) {
-      orders[item.orderId] = traceIntake(item.request, blocks.intake.rules);
-    } else if (
-      (item.stage === "kitchen" || item.stage === "delivery") &&
-      item.queue &&
-      typeof item.output === "string"
-    ) {
-      queue.push({
-        stage: item.stage,
-        tick: item.tick,
-        picked: item.output,
-        why: traceQueueChoice(blocks[item.stage].rules, item.queue),
-      });
-    }
-  }
-  return { orders, queue };
-}
-
-function runChallenge(
-  draft: ReturnType<typeof sanitizeChallengeDraft>,
-  scenario: Scenario,
-  stripBaselineOrders: boolean,
-): { run: RunSummary; baseline: RunSummary; trace: ReturnType<typeof buildTrace> } {
-  const { result, captured } = simulate(
-    scenario,
-    (ctx) => applyBlockStrategy(ctx, draft.blocks),
-    1,
-    1,
-  );
-  const baseline = simulate(scenario, baselinePolicy, 1, 1).result;
-  if (stripBaselineOrders) baseline.orders = [];
-  return { run: result, baseline, trace: buildTrace(captured, draft.blocks) };
-}
-
-/**
- * The final order set is shared by every student — the response (and the
- * stored summary) must not leak it. Strip the request texts, the expected
- * tickets and the per-order field traces; aggregate stats, per-order
- * outcomes and the event feed carry no order wording.
- */
-function stripFinalRun(run: RunSummary): RunSummary {
-  return {
-    ...run,
-    orders: run.orders.map((order) => ({ ...order, request: "", expected: undefined })),
-  };
-}
 
 export function judgeLunchShiftSubmission(
   db: DatabaseSync,
@@ -155,32 +97,76 @@ export function judgeLunchShiftSubmission(
     total = 1;
     testSummary = { kind: "training", differences };
   } else if (stageIndex === 2) {
-    const draft = sanitizeCheckDraft(rawDraft);
+    const draft = sanitizeIntakeDraft(rawDraft);
     snapshot = draft;
-    score = gradeSystemCheck(draft.answers);
-    total = 6;
-    const explanationMissed = gradeExplanation(draft.explanation);
-    const explanationOk = isSystemExplanation(draft.explanation) && explanationMissed.length === 0;
-    passed = score === total && explanationOk;
-    testSummary = {
-      kind: "system-check",
-      missed: missedSystemCheckQuestions(draft.answers),
-      explanationOk,
-      explanationMissed,
-    };
+    // Grade the raw submission, not the sanitized draft — dropped entries
+    // are exactly the malformed ones the student needs named.
+    const { tables, errors } = checkIntakeTables((rawDraft as { tables?: unknown } | null)?.tables);
+    if (errors.length > 0) {
+      score = 0;
+      total = INTAKE_SCENARIO.orders.length;
+      passed = false;
+      testSummary = { kind: "intake", correct: 0, total, errors };
+    } else {
+      const orders = evaluateIntake(
+        INTAKE_SCENARIO.orders.map((order) => ({
+          id: order.id,
+          request: order.request,
+          expected: order.expected!,
+        })),
+        tables,
+      );
+      const correct = orders.filter((order) => order.correct).length;
+      score = correct;
+      total = orders.length;
+      passed = correct === orders.length;
+      testSummary = { kind: "intake", correct, total, orders };
+    }
+  } else if (stageIndex === 3) {
+    const draft = sanitizeQueueDraft(rawDraft);
+    snapshot = draft;
+    const { table, errors } = checkPriorityTable(
+      (rawDraft as { priority?: unknown } | null)?.priority,
+    );
+    if (errors.length > 0 || table === null) {
+      score = 0;
+      total = QUEUE_SCENARIO.orders.length;
+      passed = false;
+      testSummary = { kind: "queue", onTime: 0, total, errors };
+    } else {
+      const run = simulate(QUEUE_SCENARIO, { priority: table }).result;
+      score = run.onTime;
+      total = QUEUE_SCENARIO.orders.length;
+      passed = run.onTime >= 10;
+      testSummary = { kind: "queue", onTime: run.onTime, total, run };
+    }
   } else {
-    const draft = sanitizeChallengeDraft(rawDraft);
+    const draft = sanitizeFinalDraft(rawDraft);
     snapshot = draft;
-    const scenario = stageIndex === 4 ? FINAL_SCENARIO : PRACTICE_SCENARIO;
-    const { run, baseline, trace } = runChallenge(draft, scenario, stageIndex === 4);
-    score = run.score ?? 0;
-    total = 100;
+    const raw = rawDraft as { tables?: unknown; priority?: unknown } | null;
+    const { tables, errors: tableErrors } = checkIntakeTables(raw?.tables);
+    const { table, errors: priorityErrors } = checkPriorityTable(raw?.priority);
+    // Refuse before grading — a malformed request must not burn the one shot.
+    if (tableErrors.length > 0 || priorityErrors.length > 0 || table === null) {
+      return { error: "missing-run", status: 400 };
+    }
+    const scenario: Scenario = FINAL_SCENARIO;
+    const run = simulate(scenario, { tables, priority: table }).result;
+    score = run.correct + run.onTime;
+    total = scenario.orders.length * 2;
     passed = true;
-    // The final's orders stay hidden: no request text, no field traces.
-    testSummary =
-      stageIndex === 4
-        ? { kind: "run", run: stripFinalRun(run), baseline }
-        : { kind: "run", run, baseline, trace };
+    // The final's orders stay hidden: ids + outcomes only, no wording.
+    testSummary = {
+      kind: "final",
+      correct: run.correct,
+      onTime: run.onTime,
+      total: scenario.orders.length,
+      orders: run.orders.map((order) => ({
+        id: order.id,
+        correct: order.correct === true,
+        onTime: order.onTime,
+      })),
+    };
   }
 
   const result: LunchJudgeResult = {

@@ -12,27 +12,39 @@ import { judgeLunchShiftSubmission } from "../judge/lunch-shift/judge.ts";
 import { saveStageDraft } from "../judge/pipeline.ts";
 import { labRoutes } from "./labRoutes.ts";
 
-/** Latest recorded run per challenge stage, for the result views on reload. */
+const SUMMARY_STAGES: Record<number, "intake" | "queue" | "final"> = {
+  2: "intake",
+  3: "queue",
+  4: "final",
+};
+
+/** Latest recorded summary per graded stage, for the result views on reload. */
 function latestRunSummaries(
   db: import("node:sqlite").DatabaseSync,
   projectId: string,
-): { practice: LunchTestSummary | null; final: LunchTestSummary | null } {
+): {
+  intake: LunchTestSummary | null;
+  queue: LunchTestSummary | null;
+  final: LunchTestSummary | null;
+} {
   const rows = db
     .prepare(
       `SELECT stage_index AS stageIndex, test_summary AS testSummary
        FROM submissions
-       WHERE project_id = ? AND lab_id = 'lunch-shift' AND stage_index IN (3, 4)
+       WHERE project_id = ? AND lab_id = 'lunch-shift' AND stage_index IN (2, 3, 4)
        ORDER BY submitted_at DESC`,
     )
     .all(projectId) as { stageIndex: number; testSummary: string }[];
-  const found: { practice: LunchTestSummary | null; final: LunchTestSummary | null } = {
-    practice: null,
-    final: null,
-  };
+  const found: {
+    intake: LunchTestSummary | null;
+    queue: LunchTestSummary | null;
+    final: LunchTestSummary | null;
+  } = { intake: null, queue: null, final: null };
   for (const row of rows) {
-    const key = row.stageIndex === 3 ? "practice" : "final";
-    if (found[key] === null)
+    const key = SUMMARY_STAGES[row.stageIndex];
+    if (key && found[key] === null) {
       found[key] = parseJsonColumn<LunchTestSummary | null>(row.testSummary, null);
+    }
   }
   return found;
 }

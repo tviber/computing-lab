@@ -7,7 +7,6 @@
 
 import { useEffect, useRef } from "react";
 import type { OrderResult, RunSummary } from "../domain/contracts.ts";
-import type { RunTrace } from "../domain/protocol.ts";
 
 const BASE = "/assets/lunch-shift";
 const W = 960;
@@ -169,15 +168,7 @@ function lanesAt(orders: OrderResult[], timeline: Map<string, OrderTimeline>, ti
   return lanes;
 }
 
-export function SimMap({
-  run,
-  trace,
-  tick,
-}: {
-  run: RunSummary;
-  trace?: RunTrace | null;
-  tick: number;
-}) {
+export function SimMap({ run, tick }: { run: RunSummary; tick: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tickRef = useRef(tick);
   tickRef.current = tick;
@@ -198,7 +189,7 @@ export function SimMap({
     }
 
     const timeline = buildTimeline(run);
-    const queueTrace = trace?.queue ?? [];
+    const queuePicks = run.picks ?? [];
     // A wrong ticket only flashes red from the tick where intake recorded
     // it — before that, the map must not reveal the outcome early.
     const events = run.events ?? [];
@@ -284,10 +275,14 @@ export function SimMap({
         }),
       );
 
-      const picks = queueTrace.filter((item) => item.tick === tick).slice(0, 2);
+      const picks = queuePicks.filter((item) => item.tick === tick).slice(0, 2);
       for (const pick of picks) {
         const anchor = pick.stage === "kitchen" ? Z.stoves[0] : Z.pass;
-        const text = `选 ${pick.picked}：${pick.why}`;
+        const pickedValue = pick.candidates.find((c) => c.id === pick.picked)?.value;
+        const text =
+          pickedValue === null || pickedValue === undefined
+            ? `选 ${pick.picked}：先来先做`
+            : `选 ${pick.picked}：值 ${pickedValue} 最大`;
         ctx.font = "11px sans-serif";
         const wText = Math.min(ctx.measureText(text).width + 20, 300);
         rr(ctx, anchor.x - 10, anchor.y - 46, wText, 26, 8);
@@ -321,9 +316,9 @@ export function SimMap({
       alive = false;
       cancelAnimationFrame(raf);
     };
-    // Images and timeline rebuild only when the run/trace change; the loop
+    // Images and timeline rebuild only when the run changes; the loop
     // reads the latest tick through tickRef.
-  }, [run, trace]);
+  }, [run]);
 
   return (
     <canvas

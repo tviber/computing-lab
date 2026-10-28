@@ -13,10 +13,18 @@ import {
   type SaveStatusByStage,
   type SyncConflictByStage,
 } from "../../../shared/lab/saveStatus.ts";
-import { sanitizeBlockDrafts } from "../domain/blockStrategy.ts";
-import { emptyBlockDrafts, isFocus, TABLES, type Focus } from "../domain/contracts.ts";
+import { TABLES } from "../domain/contracts.ts";
+import { MAX_CODE_CHARS } from "../domain/priority.ts";
+import type {
+  FinalDraft,
+  IntakeDraft,
+  LunchDraft,
+  LunchJudgeResult,
+  LunchProjectExtras,
+  QueueDraft,
+  TrainingDraft,
+} from "../domain/protocol.ts";
 import { TRAINING_REQUEST, TRAINING_TICKET } from "../domain/scenarios.ts";
-import { sanitizeSystemCheckAnswers } from "../domain/systemCheck.ts";
 import {
   getLunchStage,
   LUNCH_STAGES,
@@ -24,14 +32,8 @@ import {
   nextLunchStage,
   type LunchStageDef,
 } from "../domain/stages.ts";
-import type {
-  ChallengeDraft,
-  LunchDraft,
-  LunchJudgeResult,
-  LunchProjectExtras,
-  SystemCheckDraft,
-  TrainingDraft,
-} from "../domain/protocol.ts";
+import { sanitizeIntakeTables } from "../domain/wordTables.ts";
+import { sanitizePriorityTable } from "../domain/priority.ts";
 
 export type { SaveStatus };
 
@@ -46,7 +48,7 @@ export type LunchLessonState = {
   conflictedLocalDrafts: Record<number, LunchDraft>;
   draftRevisions: Record<number, number>;
   judgeOutcome: LunchJudgeResult | null;
-  /** Latest recorded run per challenge stage, from GET /project extras. */
+  /** Latest recorded summary per graded stage, from GET /project extras. */
   runSummaries: LunchProjectExtras["runSummaries"];
   /** This student's training order, deterministic from their user id. */
   training: LunchProjectExtras["training"];
@@ -67,8 +69,9 @@ export type LunchLessonAction =
     }
   | { type: "select-stage"; stageIndex: number }
   | { type: "update-training"; draft: TrainingDraft }
-  | { type: "update-check"; draft: SystemCheckDraft }
-  | { type: "update-challenge"; draft: ChallengeDraft }
+  | { type: "update-intake"; draft: IntakeDraft }
+  | { type: "update-queue"; draft: QueueDraft }
+  | { type: "update-final"; draft: FinalDraft }
   | { type: "judge-result"; outcome: LunchJudgeResult }
   | { type: "mark-saving"; stageIndex: number }
   | { type: "mark-saved"; stageIndex: number; revision?: number }
@@ -92,27 +95,37 @@ export function emptyTrainingDraft(): TrainingDraft {
   return { step: "record", ticket: null, kitchenChoice: null, deliveredTable: null };
 }
 
-export function emptyCheckDraft(): SystemCheckDraft {
-  return { answers: {}, explanation: "", attempts: 0 };
+export function emptyIntakeDraft(): IntakeDraft {
+  return { code: "", tables: null };
 }
 
-export function emptyChallengeDraft(): ChallengeDraft {
-  return { focus: null, blocks: emptyBlockDrafts() };
+export function emptyQueueDraft(): QueueDraft {
+  return { code: "", priority: null };
+}
+
+function codeOf(raw: unknown): string {
+  return typeof raw === "string" ? raw.slice(0, MAX_CODE_CHARS) : "";
 }
 
 /**
  * The draft for a stage: the stored copy, or a fresh default. The final
- * stage seeds its rules from the practice draft so tuning carries over.
+ * stage seeds its artefacts from the stage-2 and stage-3 drafts so the
+ * student's work carries over.
  */
 export function draftOf(state: LunchLessonState, stageIndex = state.stageIndex): LunchDraft {
   const stored = state.drafts[stageIndex];
   if (stored !== undefined) return stored;
   if (stageIndex === 1) return emptyTrainingDraft();
-  if (stageIndex === 2) return emptyCheckDraft();
-  if (stageIndex === 4 && state.drafts[3] !== undefined) {
-    return sanitizeChallengeDraft(state.drafts[3]);
-  }
-  return emptyChallengeDraft();
+  if (stageIndex === 2) return emptyIntakeDraft();
+  if (stageIndex === 3) return emptyQueueDraft();
+  const intake = sanitizeLunchDraft(2, state.drafts[2] ?? {}) as IntakeDraft;
+  const queue = sanitizeLunchDraft(3, state.drafts[3] ?? {}) as QueueDraft;
+  return {
+    intakeCode: intake.code,
+    tables: intake.tables,
+    queueCode: queue.code,
+    priority: queue.priority,
+  } satisfies FinalDraft;
 }
 
 function isTicketShape(value: unknown): value is TrainingDraft["ticket"] {
@@ -151,34 +164,41 @@ export function sanitizeTrainingDraft(raw: unknown): TrainingDraft {
   return draft;
 }
 
-export function sanitizeCheckDraft(raw: unknown): SystemCheckDraft {
-  const draft = emptyCheckDraft();
+export function sanitizeIntakeDraft(raw: unknown): IntakeDraft {
+  const draft = emptyIntakeDraft();
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
   const record = raw as Record<string, unknown>;
-  draft.answers = sanitizeSystemCheckAnswers(record.answers);
-  if (typeof record.explanation === "string") {
-    draft.explanation = record.explanation.slice(0, 300);
-  }
-  if (Number.isInteger(record.attempts) && (record.attempts as number) > 0) {
-    draft.attempts = record.attempts as number;
-  }
+  draft.code = codeOf(record.code);
+  draft.tables = sanitizeIntakeTables(record.tables);
   return draft;
 }
 
-export function sanitizeChallengeDraft(raw: unknown): ChallengeDraft {
-  const draft = emptyChallengeDraft();
+export function sanitizeQueueDraft(raw: unknown): QueueDraft {
+  const draft = emptyQueueDraft();
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
   const record = raw as Record<string, unknown>;
-  if (isFocus(record.focus)) draft.focus = record.focus as Focus;
-  draft.blocks = sanitizeBlockDrafts(record.blocks);
+  draft.code = codeOf(record.code);
+  draft.priority = sanitizePriorityTable(record.priority);
+  return draft;
+}
+
+export function sanitizeFinalDraft(raw: unknown): FinalDraft {
+  const draft: FinalDraft = { intakeCode: "", tables: null, queueCode: "", priority: null };
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
+  const record = raw as Record<string, unknown>;
+  draft.intakeCode = codeOf(record.intakeCode);
+  draft.tables = sanitizeIntakeTables(record.tables);
+  draft.queueCode = codeOf(record.queueCode);
+  draft.priority = sanitizePriorityTable(record.priority);
   return draft;
 }
 
 /** Bound a restored draft at the domain edge, dispatched by stage. */
 export function sanitizeLunchDraft(stageIndex: number, raw: unknown): LunchDraft {
   if (stageIndex === 1) return sanitizeTrainingDraft(raw);
-  if (stageIndex === 2) return sanitizeCheckDraft(raw);
-  return sanitizeChallengeDraft(raw);
+  if (stageIndex === 2) return sanitizeIntakeDraft(raw);
+  if (stageIndex === 3) return sanitizeQueueDraft(raw);
+  return sanitizeFinalDraft(raw);
 }
 
 function withDraft(state: LunchLessonState, draft: LunchDraft): LunchLessonState {
@@ -202,7 +222,7 @@ export function createLunchLessonState(stageIndex = 1): LunchLessonState {
     conflictedLocalDrafts: {},
     draftRevisions: {},
     judgeOutcome: null,
-    runSummaries: { practice: null, final: null },
+    runSummaries: { intake: null, queue: null, final: null },
     training: { request: TRAINING_REQUEST, ticket: TRAINING_TICKET },
     saveStatusByStage: {},
     unresolvedSyncConflicts: {},
@@ -244,7 +264,7 @@ export function transitionLunchLesson(
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
-        runSummaries: action.runSummaries ?? { practice: null, final: null },
+        runSummaries: action.runSummaries ?? { intake: null, queue: null, final: null },
         training: action.training ?? { request: TRAINING_REQUEST, ticket: TRAINING_TICKET },
       };
     }
@@ -256,10 +276,12 @@ export function transitionLunchLesson(
 
     case "update-training":
       return state.stageIndex === 1 ? withDraft(state, action.draft) : state;
-    case "update-check":
+    case "update-intake":
       return state.stageIndex === 2 ? withDraft(state, action.draft) : state;
-    case "update-challenge":
-      return state.stageIndex >= 3 ? withDraft(state, action.draft) : state;
+    case "update-queue":
+      return state.stageIndex === 3 ? withDraft(state, action.draft) : state;
+    case "update-final":
+      return state.stageIndex === 4 ? withDraft(state, action.draft) : state;
 
     case "judge-result":
       return {

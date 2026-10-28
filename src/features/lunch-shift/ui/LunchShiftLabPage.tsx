@@ -1,11 +1,12 @@
 /**
  * Lunch-shift lab page: stage rail plus four stage panels — 订单旅程,
- * 认识系统, 规则练习, 正式挑战. Same wiring as the other labs: project
- * load → autosaved drafts → server judge.
+ * 修接单, 修排队, 正式挑战. Same wiring as the other labs: project load →
+ * autosaved drafts → server judge. The Pyodide worker is warmed as soon as
+ * the project loads so the stage-2 run doesn't wait on the download.
  */
 
 import { useParams } from "@tanstack/react-router";
-import { useCallback, useReducer, useState } from "react";
+import { useCallback, useEffect, useReducer, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
 import { useAuth } from "../../../shared/auth";
 import { LabAccessGate, SaveIndicator } from "../../../shared/lab/LabGate";
@@ -20,12 +21,13 @@ import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import type {
-  ChallengeDraft,
+  FinalDraft,
+  IntakeDraft,
   LunchDraft,
   LunchJudgeResult,
   LunchProjectExtras,
   LunchProjectPayload,
-  SystemCheckDraft,
+  QueueDraft,
   TrainingDraft,
 } from "../domain/protocol.ts";
 import { LUNCH_STAGES, lunchStageUnlocked, type LunchStageDef } from "../domain/stages.ts";
@@ -36,23 +38,29 @@ import {
   transitionLunchLesson,
   type LunchLessonAction,
 } from "../lesson/state.ts";
-import { ChallengePanel } from "./ChallengePanel.tsx";
 import { FinalPanel } from "./FinalPanel.tsx";
-import { SystemCheckPanel } from "./SystemCheckPanel.tsx";
+import { IntakePanel } from "./IntakePanel.tsx";
+import { QueuePanel } from "./QueuePanel.tsx";
 import { TrainingPanel } from "./TrainingPanel.tsx";
+import { warmPyodide } from "./pyodideRunner.ts";
 import "./lunchShift.css";
 
 function StageBrief({ stage, passed }: { stage: LunchStageDef; passed: boolean }) {
   return (
     <section className="stage-brief">
-      <p>{stage.description}</p>
       <p className="lunch-task">
         <strong>任务：</strong>
         {stage.task}
       </p>
-      <p className="submit-note">判题方式：{stage.judgeNote}</p>
-      {passed ? <p className="stage-takeaway">本关收获:{stage.takeaway}</p> : null}
-      <HintDisclosure>{stage.hint}</HintDisclosure>
+      {passed ? (
+        <>
+          <p className="submit-note">判题方式：{stage.judgeNote}</p>
+          <p className="stage-takeaway">本关收获：{stage.takeaway}</p>
+        </>
+      ) : null}
+      {stage.hints.map((hint, index) => (
+        <HintDisclosure key={index}>{hint}</HintDisclosure>
+      ))}
     </section>
   );
 }
@@ -93,6 +101,11 @@ export function LunchShiftLabPage() {
     }),
     dispatch,
   });
+
+  // Warm the Python worker while the student is still on 订单旅程.
+  useEffect(() => {
+    if (projectLoaded) warmPyodide();
+  }, [projectLoaded]);
 
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
@@ -145,12 +158,12 @@ export function LunchShiftLabPage() {
 
   const passedStages = state.passedStages;
   const outcomeForStage = (index: number) => (judgedStage === index ? state.judgeOutcome : null);
-  const practiceResult =
-    outcomeForStage(3)?.testSummary ??
-    (state.runSummaries.practice?.kind === "run" ? state.runSummaries.practice : null);
-  const finalResult =
-    outcomeForStage(4)?.testSummary ??
-    (state.runSummaries.final?.kind === "run" ? state.runSummaries.final : null);
+  const summaryFor = (index: number, key: "intake" | "queue" | "final") => {
+    const outcome = outcomeForStage(index);
+    if (outcome) return outcome.testSummary;
+    return state.runSummaries[key];
+  };
+  const finalResult = summaryFor(4, "final");
   const finalSubmitted = passedStages.includes(4) || finalResult !== null;
 
   return (
@@ -184,7 +197,6 @@ export function LunchShiftLabPage() {
           />
         }
         topbarProps={{
-          subtitle: stage?.englishTitle,
           title: stage?.title ?? labMetadata["lunch-shift"].title,
         }}
       >
@@ -202,7 +214,7 @@ export function LunchShiftLabPage() {
             />
           }
         >
-          <main aria-label="午市救援实验区" className="lunch-workspace">
+          <main aria-label="设计餐馆系统实验区" className="lunch-workspace">
             {stage ? (
               <StageBrief stage={stage} passed={passedStages.includes(stage.index)} />
             ) : null}
@@ -236,30 +248,30 @@ export function LunchShiftLabPage() {
             ) : null}
 
             {projectLoaded && stage?.index === 2 ? (
-              <SystemCheckPanel
-                draft={draftOf(state, 2) as SystemCheckDraft}
-                onChange={(draft) => dispatch({ type: "update-check", draft })}
-                onSubmit={(draft) => void submitJudge(2, draft)}
-                outcome={outcomeForStage(2)}
-                passed={passedStages.includes(2)}
+              <IntakePanel
+                draft={draftOf(state, 2) as IntakeDraft}
+                onChange={(draft) => dispatch({ type: "update-intake", draft })}
+                onSubmit={() => void submitJudge(2, draftOf(state, 2))}
+                result={summaryFor(2, "intake")}
                 submitting={submitting}
               />
             ) : null}
 
             {projectLoaded && stage?.index === 3 ? (
-              <ChallengePanel
-                draft={draftOf(state, 3) as ChallengeDraft}
-                onChange={(draft) => dispatch({ type: "update-challenge", draft })}
+              <QueuePanel
+                draft={draftOf(state, 3) as QueueDraft}
+                onChange={(draft) => dispatch({ type: "update-queue", draft })}
                 onSubmit={() => void submitJudge(3, draftOf(state, 3))}
-                result={practiceResult}
+                result={summaryFor(3, "queue")}
+                passed={passedStages.includes(3)}
                 submitting={submitting}
               />
             ) : null}
 
             {projectLoaded && stage?.index === 4 ? (
               <FinalPanel
-                draft={draftOf(state, 4) as ChallengeDraft}
-                onChange={(draft) => dispatch({ type: "update-challenge", draft })}
+                draft={draftOf(state, 4) as FinalDraft}
+                onChange={(draft) => dispatch({ type: "update-final", draft })}
                 onSubmit={() => void submitJudge(4, draftOf(state, 4))}
                 result={finalResult}
                 submitted={finalSubmitted}
