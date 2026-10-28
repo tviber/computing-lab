@@ -391,3 +391,53 @@
 .lunch-challenge h2 {
   margin: var(--space-1) 0 var(--space-2);
 }
+
+/* 2.5D canvas replay + readable logic pseudocode (ported from kitchen). */
+.lunch-map-2d {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: #e8ddc7;
+}
+.lunch-replay {
+  margin: var(--space-3) 0;
+}
+.lunch-replay-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-2) 0;
+}
+.lunch-replay-range {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 12px;
+  color: var(--secondary);
+}
+.lunch-replay-range input {
+  width: 160px;
+}
+.lunch-replay-caption {
+  font-size: 12px;
+  color: var(--secondary);
+}
+.lunch-pseudocode {
+  margin: var(--space-2) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  font: 12.5px/1.7 "SF Mono", Menlo, monospace;
+  white-space: pre;
+  overflow-x: auto;
+}
+.logic-subtitle {
+  margin: var(--space-3) 0 4px;
+  font-size: 12px;
+  font-weight: 650;
+  color: var(--secondary);
+}

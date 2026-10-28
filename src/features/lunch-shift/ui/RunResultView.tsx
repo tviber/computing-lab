@@ -4,6 +4,7 @@
  * the queue pick explanations, and a static three-station event feed.
  */
 
+import { useEffect, useState } from "react";
 import {
   FOCUS_LABELS,
   type OrderResult,
@@ -11,6 +12,7 @@ import {
   type SimulationEvent,
 } from "../domain/contracts.ts";
 import type { RunTrace } from "../domain/protocol.ts";
+import { SimMap } from "./SimMap.tsx";
 
 const ACTION_LABELS: Record<SimulationEvent["action"], string> = {
   arrive: "新单到达",
@@ -155,6 +157,37 @@ export function RunResultView({
       ? `${faster.id} 比原来提前 ${(baselineOrders.get(faster.id)?.wait ?? 0) - faster.wait} 拍送达。`
       : `正确小票 ${run.correct} / ${run.orders.length} · 准时送达 ${run.onTime} / ${run.orders.length}。`;
 
+  const events = run.events ?? [];
+  const duration = events.length ? Math.max(...events.map((event) => event.tick)) : 0;
+  const [tick, setTick] = useState(0);
+  const [playing, setPlaying] = useState(true);
+
+  // Autoplay the replay once per run; the slider pauses it.
+  useEffect(() => {
+    setTick(0);
+    setPlaying(true);
+  }, [run]);
+  useEffect(() => {
+    if (!playing || duration === 0) return;
+    const timer = window.setInterval(() => {
+      setTick((current) => {
+        if (current >= duration) {
+          setPlaying(false);
+          return current;
+        }
+        return current + 1;
+      });
+    }, 480);
+    return () => window.clearInterval(timer);
+  }, [playing, duration, run]);
+
+  const tickEvents = events.filter((event) => event.tick === tick);
+  const caption = tickEvents.length
+    ? `第 ${tick} 拍：${tickEvents.map((event) => `${event.orderId} ${ACTION_LABELS[event.action]}`).join("；")}`
+    : tick
+      ? `第 ${tick} 拍：各站等待队列或岗位空闲。`
+      : "正在准备回放。";
+
   return (
     <section className="lunch-result" role="status">
       <p className="eyebrow">{title}</p>
@@ -162,6 +195,50 @@ export function RunResultView({
       <p>
         <b>{comparison}</b> {impact}
       </p>
+      {duration > 0 ? (
+        <div className="lunch-replay">
+          <SimMap run={run} tick={tick} trace={trace} />
+          <div className="lunch-replay-controls">
+            <button
+              className="button button-secondary"
+              onClick={() => setPlaying((value) => !value)}
+              type="button"
+            >
+              {playing ? "暂停" : "播放"}
+            </button>
+            <button
+              className="button button-secondary"
+              onClick={() => {
+                setTick(0);
+                setPlaying(true);
+              }}
+              type="button"
+            >
+              从头播放
+            </button>
+            <label className="lunch-replay-range">
+              时间轴
+              <input
+                aria-label="订单回放时间轴"
+                max={duration}
+                min={0}
+                onChange={(e) => {
+                  setPlaying(false);
+                  setTick(Number(e.currentTarget.value) || 0);
+                }}
+                type="range"
+                value={tick}
+              />
+            </label>
+            <strong aria-live="polite">
+              {tick ? `第 ${tick} 拍 / ${duration} 拍` : `准备开始 · 共 ${duration} 拍`}
+            </strong>
+          </div>
+          <p className="lunch-replay-caption" aria-live="polite">
+            {caption}
+          </p>
+        </div>
+      ) : null}
       <div className="lunch-stat-row" aria-label="本轮关键指标">
         <span>
           <b>
