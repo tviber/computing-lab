@@ -73,9 +73,9 @@ export function TrainingPanel({
   const completedWell = draft.kitchenChoice === "urgent";
   const cookingResult =
     draft.kitchenChoice === "urgent"
-      ? "你先做加急单：它第 1 拍做好，比排在后面少等 3 拍；普通单第 4 拍做好。"
+      ? "你先做加急单：它在第 1 拍就做好了，比排在后面少等 3 拍；普通单第 4 拍才做好。"
       : draft.kitchenChoice === "normal"
-        ? "你先做普通单：它第 3 拍做好，加急单第 4 拍做好，比先做它多等 3 拍。"
+        ? "你先做普通单：它在第 3 拍做好，加急单到第 4 拍才做好，比先做它多等 3 拍。"
         : "两份餐已做好。厨房里的先后顺序会影响等待时间。";
 
   return (
@@ -208,7 +208,10 @@ export function TrainingPanel({
           />
           <h2>两张订单，先做哪一张？</h2>
           <p>你是厨师，一次只能做一份，要决定先做哪一单。</p>
-          <TickExplainer />
+          <details className="lunch-reference">
+            <summary>「拍」是什么</summary>
+            <TickExplainer />
+          </details>
           {cookDone ? (
             <>
               <div className="lunch-choice-list" aria-label="你的选择">
@@ -221,7 +224,7 @@ export function TrainingPanel({
                   />
                   <span>
                     <b>2 号桌 · 鸡腿饭</b>
-                    <small>加急 · 制作 1 拍</small>
+                    <small>加急 · 制作需要 1 拍</small>
                   </span>
                 </label>
                 <label className="lunch-choice-card">
@@ -237,7 +240,7 @@ export function TrainingPanel({
                         ? `${draft.ticket.table} 号桌 · ${draft.ticket.item}`
                         : "5 号桌 · 牛肉面"}
                     </b>
-                    <small>{draft.ticket?.urgent ? "加急" : "普通"} · 制作 3 拍</small>
+                    <small>{draft.ticket?.urgent ? "加急" : "普通"} · 制作需要 3 拍</small>
                   </span>
                 </label>
               </div>
@@ -250,7 +253,7 @@ export function TrainingPanel({
                 </strong>
                 <span>
                   {completedWell
-                    ? "加急单第 1 拍完成，普通单第 4 拍完成。"
+                    ? "加急单在第 1 拍完成，普通单在第 4 拍完成。"
                     : "两份餐都能做出来，但加急的顾客等得更久。"}
                 </span>
               </div>
@@ -270,7 +273,7 @@ export function TrainingPanel({
                 <input name="choice" required type="radio" value="urgent" />
                 <span>
                   <b>2 号桌 · 鸡腿饭</b>
-                  <small>加急 · 制作 1 拍</small>
+                  <small>加急 · 制作需要 1 拍</small>
                 </span>
               </label>
               <label className="lunch-choice-card">
@@ -281,7 +284,7 @@ export function TrainingPanel({
                       ? `${draft.ticket.table} 号桌 · ${draft.ticket.item}`
                       : "5 号桌 · 牛肉面"}
                   </b>
-                  <small>{draft.ticket?.urgent ? "加急" : "普通"} · 制作 3 拍</small>
+                  <small>{draft.ticket?.urgent ? "加急" : "普通"} · 制作需要 3 拍</small>
                 </span>
               </label>
               <button className="button button-primary" type="submit">

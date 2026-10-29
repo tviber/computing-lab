@@ -292,7 +292,7 @@ export function QueuePanel({
             <code>wait</code>：这张单已经等了几拍，0～30 的整数。
           </li>
           <li>
-            <code>cook</code>：做这张单要几拍，只会是 1 或 3。
+            <code>cook</code>：做完这张单要几拍，只会是 1 或 3。
           </li>
           <li>返回一个数，越大越先做；一样大就先来先做。</li>
         </ul>
@@ -324,7 +324,7 @@ export function QueuePanel({
                     {order.expected?.table} 号桌 · {order.expected?.item} · 「{order.expected?.note}
                     」 · {order.expected?.urgent ? "加急" : "普通"}
                   </td>
-                  <td>{order.cookTicks} 拍</td>
+                  <td>需要 {order.cookTicks} 拍</td>
                 </tr>
               ))}
             </tbody>
