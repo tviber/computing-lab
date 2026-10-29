@@ -495,3 +495,15 @@ ul.lunch-order-fix {
   padding: var(--space-3);
   margin-top: var(--space-4);
 }
+
+/* The bonus stage hides behind a collapsed rail toggle */
+.lab-stage-bonus summary {
+  cursor: pointer;
+  padding: 6px 10px;
+  color: var(--text-dim, #64748b);
+  font-size: 13px;
+  user-select: none;
+}
+.lab-stage-bonus[open] summary {
+  color: var(--accent, #6d5bf7);
+}

@@ -6,12 +6,12 @@
  */
 
 import { useParams } from "@tanstack/react-router";
-import { useCallback, useEffect, useReducer, useState } from "react";
+import { Fragment, useCallback, useEffect, useReducer, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
 import { useAuth } from "../../../shared/auth";
 import { LabAccessGate, SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
-import { StageRail } from "../../../shared/lab/StageRail";
+import { StageLink } from "../../../shared/lab/StageRail";
 import { useLabCatalog } from "../../../shared/lab/labs";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -221,14 +221,39 @@ export function LunchShiftLabPage() {
           collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
           labId="lunch-shift"
           rail={
-            <StageRail
-              label={labMetadata["lunch-shift"].title}
-              onSelect={(index) => dispatch({ type: "select-stage", stageIndex: index })}
-              passedStages={passedStages}
-              stageIndex={state.stageIndex}
-              stages={LUNCH_STAGES.filter((s) => s.index !== 5)}
-              unlocked={(s) => lunchStageUnlocked(passedStages, s.index)}
-            />
+            <aside aria-label="关卡进度" className="lab-rail">
+              <p className="eyebrow">{labMetadata["lunch-shift"].title}</p>
+              <ol>
+                {LUNCH_STAGES.filter((s) => s.index !== 5).map((stage) => (
+                  <Fragment key={stage.id}>
+                    <li>
+                      <StageLink
+                        active={stage.index === state.stageIndex}
+                        onSelect={() => dispatch({ type: "select-stage", stageIndex: stage.index })}
+                        passed={passedStages.includes(stage.index)}
+                        title={stage.title}
+                        unlocked={lunchStageUnlocked(passedStages, stage.index)}
+                      />
+                    </li>
+                    {stage.index === 3 ? (
+                      <li>
+                        <details className="lab-stage-bonus" open={state.stageIndex === 5}>
+                          <summary>附加挑战（选做）</summary>
+                          <StageLink
+                            active={state.stageIndex === 5}
+                            onSelect={() => dispatch({ type: "select-stage", stageIndex: 5 })}
+                            optional
+                            passed={passedStages.includes(5)}
+                            title="补偿超时单"
+                            unlocked={lunchStageUnlocked(passedStages, 5)}
+                          />
+                        </details>
+                      </li>
+                    ) : null}
+                  </Fragment>
+                ))}
+              </ol>
+            </aside>
           }
         >
           <main aria-label="设计餐馆系统实验区" className="lunch-workspace">
@@ -285,20 +310,6 @@ export function LunchShiftLabPage() {
               />
             ) : null}
 
-            {projectLoaded && stage?.index === 3 && passedStages.includes(3) ? (
-              <details className="lunch-reference">
-                <summary>附加挑战：给超时单结账（选做）</summary>
-                <CompensatePanel
-                  draft={draftOf(state, 5) as CompensateDraft}
-                  onChange={(draft) => dispatch({ type: "update-compensate", draft })}
-                  onSubmit={() => void submitJudge(5, draftOf(state, 5))}
-                  result={summaryFor(5, "compensate")}
-                  submitted={passedStages.includes(5)}
-                  submitting={submitting}
-                />
-              </details>
-            ) : null}
-
             {projectLoaded && stage?.index === 4 ? (
               <FinalPanel
                 draft={draftOf(state, 4) as FinalDraft}
@@ -306,6 +317,17 @@ export function LunchShiftLabPage() {
                 onSubmit={() => void submitJudge(4, draftOf(state, 4))}
                 result={finalResult}
                 submitted={finalSubmitted}
+                submitting={submitting}
+              />
+            ) : null}
+
+            {projectLoaded && stage?.index === 5 ? (
+              <CompensatePanel
+                draft={draftOf(state, 5) as CompensateDraft}
+                onChange={(draft) => dispatch({ type: "update-compensate", draft })}
+                onSubmit={() => void submitJudge(5, draftOf(state, 5))}
+                result={summaryFor(5, "compensate")}
+                submitted={passedStages.includes(5)}
                 submitting={submitting}
               />
             ) : null}
