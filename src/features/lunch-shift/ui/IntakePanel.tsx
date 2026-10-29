@@ -162,10 +162,31 @@ export function IntakePanel({
 
   return (
     <section className="lunch-challenge">
-      <p>
-        程序读不懂自然语言，只按词表记小票。菜名表已经写好，另外三张是空的——缺哪些词、
-        该往哪张表加，看每次运行后标红的单子。
-      </p>
+      <details className="lunch-reference">
+        <summary>看这 12 句顾客原话</summary>
+        <div className="lunch-table-wrap">
+          <table className="lunch-orders-table">
+            <thead>
+              <tr>
+                <th>订单</th>
+                <th>顾客说</th>
+                <th>应记的小票</th>
+              </tr>
+            </thead>
+            <tbody>
+              {INTAKE_SCENARIO.orders.map((order) => (
+                <tr key={order.id}>
+                  <td>
+                    <b>{order.id}</b>
+                  </td>
+                  <td>{order.request}</td>
+                  <td>{ticketText(order.expected!)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </details>
       <div className="lunch-params">
         <ul>
           <li>
