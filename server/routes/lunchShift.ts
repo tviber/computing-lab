@@ -12,10 +12,11 @@ import { judgeLunchShiftSubmission } from "../judge/lunch-shift/judge.ts";
 import { saveStageDraft } from "../judge/pipeline.ts";
 import { labRoutes } from "./labRoutes.ts";
 
-const SUMMARY_STAGES: Record<number, "intake" | "queue" | "final"> = {
+const SUMMARY_STAGES: Record<number, "intake" | "queue" | "final" | "compensate"> = {
   2: "intake",
   3: "queue",
   4: "final",
+  5: "compensate",
 };
 
 /** Latest recorded summary per graded stage, for the result views on reload. */
@@ -26,12 +27,13 @@ function latestRunSummaries(
   intake: LunchTestSummary | null;
   queue: LunchTestSummary | null;
   final: LunchTestSummary | null;
+  compensate: LunchTestSummary | null;
 } {
   const rows = db
     .prepare(
       `SELECT stage_index AS stageIndex, test_summary AS testSummary
        FROM submissions
-       WHERE project_id = ? AND lab_id = 'lunch-shift' AND stage_index IN (2, 3, 4)
+       WHERE project_id = ? AND lab_id = 'lunch-shift' AND stage_index IN (2, 3, 4, 5)
        ORDER BY submitted_at DESC`,
     )
     .all(projectId) as { stageIndex: number; testSummary: string }[];
@@ -39,7 +41,8 @@ function latestRunSummaries(
     intake: LunchTestSummary | null;
     queue: LunchTestSummary | null;
     final: LunchTestSummary | null;
-  } = { intake: null, queue: null, final: null };
+    compensate: LunchTestSummary | null;
+  } = { intake: null, queue: null, final: null, compensate: null };
   for (const row of rows) {
     const key = SUMMARY_STAGES[row.stageIndex];
     if (key && found[key] === null) {

@@ -27,6 +27,7 @@ import type {
   LunchJudgeResult,
   LunchProjectExtras,
   LunchProjectPayload,
+  CompensateDraft,
   QueueDraft,
   TrainingDraft,
 } from "../domain/protocol.ts";
@@ -38,6 +39,7 @@ import {
   transitionLunchLesson,
   type LunchLessonAction,
 } from "../lesson/state.ts";
+import { CompensatePanel } from "./CompensatePanel.tsx";
 import { FinalPanel } from "./FinalPanel.tsx";
 import { IntakePanel } from "./IntakePanel.tsx";
 import { QueuePanel } from "./QueuePanel.tsx";
@@ -158,7 +160,7 @@ export function LunchShiftLabPage() {
 
   const passedStages = state.passedStages;
   const outcomeForStage = (index: number) => (judgedStage === index ? state.judgeOutcome : null);
-  const summaryFor = (index: number, key: "intake" | "queue" | "final") => {
+  const summaryFor = (index: number, key: "intake" | "queue" | "final" | "compensate") => {
     const outcome = outcomeForStage(index);
     if (outcome) return outcome.testSummary;
     return state.runSummaries[key];
@@ -275,6 +277,17 @@ export function LunchShiftLabPage() {
                 onSubmit={() => void submitJudge(4, draftOf(state, 4))}
                 result={finalResult}
                 submitted={finalSubmitted}
+                submitting={submitting}
+              />
+            ) : null}
+
+            {projectLoaded && stage?.index === 5 ? (
+              <CompensatePanel
+                draft={draftOf(state, 5) as CompensateDraft}
+                onChange={(draft) => dispatch({ type: "update-compensate", draft })}
+                onSubmit={() => void submitJudge(5, draftOf(state, 5))}
+                result={summaryFor(5, "compensate")}
+                submitted={passedStages.includes(5)}
                 submitting={submitting}
               />
             ) : null}

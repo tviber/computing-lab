@@ -16,6 +16,7 @@ import {
 import { TABLES } from "../domain/contracts.ts";
 import { MAX_CODE_CHARS } from "../domain/priority.ts";
 import type {
+  CompensateDraft,
   FinalDraft,
   IntakeDraft,
   LunchDraft,
@@ -72,6 +73,7 @@ export type LunchLessonAction =
   | { type: "update-intake"; draft: IntakeDraft }
   | { type: "update-queue"; draft: QueueDraft }
   | { type: "update-final"; draft: FinalDraft }
+  | { type: "update-compensate"; draft: CompensateDraft }
   | { type: "judge-result"; outcome: LunchJudgeResult }
   | { type: "mark-saving"; stageIndex: number }
   | { type: "mark-saved"; stageIndex: number; revision?: number }
@@ -118,6 +120,7 @@ export function draftOf(state: LunchLessonState, stageIndex = state.stageIndex):
   if (stageIndex === 1) return emptyTrainingDraft();
   if (stageIndex === 2) return emptyIntakeDraft();
   if (stageIndex === 3) return emptyQueueDraft();
+  if (stageIndex === 5) return emptyCompensateDraft();
   const intake = sanitizeLunchDraft(2, state.drafts[2] ?? {}) as IntakeDraft;
   const queue = sanitizeLunchDraft(3, state.drafts[3] ?? {}) as QueueDraft;
   return {
@@ -125,6 +128,8 @@ export function draftOf(state: LunchLessonState, stageIndex = state.stageIndex):
     tables: intake.tables,
     queueCode: queue.code,
     priority: queue.priority,
+    expediteCode: "",
+    expedite: null,
   } satisfies FinalDraft;
 }
 
@@ -183,13 +188,35 @@ export function sanitizeQueueDraft(raw: unknown): QueueDraft {
 }
 
 export function sanitizeFinalDraft(raw: unknown): FinalDraft {
-  const draft: FinalDraft = { intakeCode: "", tables: null, queueCode: "", priority: null };
+  const draft: FinalDraft = {
+    intakeCode: "",
+    tables: null,
+    queueCode: "",
+    priority: null,
+    expediteCode: "",
+    expedite: null,
+  };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
   const record = raw as Record<string, unknown>;
   draft.intakeCode = codeOf(record.intakeCode);
   draft.tables = sanitizeIntakeTables(record.tables);
   draft.queueCode = codeOf(record.queueCode);
   draft.priority = sanitizePriorityTable(record.priority);
+  draft.expediteCode = codeOf(record.expediteCode);
+  draft.expedite = sanitizePriorityTable(record.expedite);
+  return draft;
+}
+
+export function emptyCompensateDraft(): CompensateDraft {
+  return { code: "", compensate: null };
+}
+
+export function sanitizeCompensateDraft(raw: unknown): CompensateDraft {
+  const draft = emptyCompensateDraft();
+  if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
+  const record = raw as Record<string, unknown>;
+  draft.code = codeOf(record.code);
+  draft.compensate = sanitizePriorityTable(record.compensate);
   return draft;
 }
 
@@ -198,6 +225,7 @@ export function sanitizeLunchDraft(stageIndex: number, raw: unknown): LunchDraft
   if (stageIndex === 1) return sanitizeTrainingDraft(raw);
   if (stageIndex === 2) return sanitizeIntakeDraft(raw);
   if (stageIndex === 3) return sanitizeQueueDraft(raw);
+  if (stageIndex === 5) return sanitizeCompensateDraft(raw);
   return sanitizeFinalDraft(raw);
 }
 
@@ -222,7 +250,7 @@ export function createLunchLessonState(stageIndex = 1): LunchLessonState {
     conflictedLocalDrafts: {},
     draftRevisions: {},
     judgeOutcome: null,
-    runSummaries: { intake: null, queue: null, final: null },
+    runSummaries: { intake: null, queue: null, final: null, compensate: null },
     training: { request: TRAINING_REQUEST, ticket: TRAINING_TICKET },
     saveStatusByStage: {},
     unresolvedSyncConflicts: {},
@@ -264,7 +292,12 @@ export function transitionLunchLesson(
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
-        runSummaries: action.runSummaries ?? { intake: null, queue: null, final: null },
+        runSummaries: action.runSummaries ?? {
+          intake: null,
+          queue: null,
+          final: null,
+          compensate: null,
+        },
         training: action.training ?? { request: TRAINING_REQUEST, ticket: TRAINING_TICKET },
       };
     }
@@ -282,6 +315,8 @@ export function transitionLunchLesson(
       return state.stageIndex === 3 ? withDraft(state, action.draft) : state;
     case "update-final":
       return state.stageIndex === 4 ? withDraft(state, action.draft) : state;
+    case "update-compensate":
+      return state.stageIndex === 5 ? withDraft(state, action.draft) : state;
 
     case "judge-result":
       return {

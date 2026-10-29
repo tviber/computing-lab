@@ -39,9 +39,17 @@ export type FinalDraft = {
   tables: IntakeTables | null;
   queueCode: string;
   priority: number[] | null;
+  expediteCode: string;
+  expedite: number[] | null;
 };
 
-export type LunchDraft = TrainingDraft | IntakeDraft | QueueDraft | FinalDraft;
+/** Stage 5 附加挑战 draft: compensate code plus its 62-cell result table. */
+export type CompensateDraft = {
+  code: string;
+  compensate: number[] | null;
+};
+
+export type LunchDraft = TrainingDraft | IntakeDraft | QueueDraft | FinalDraft | CompensateDraft;
 
 /** Stage 2 feedback: which word decided each ticket field. */
 export type IntakeOrderResult = {
@@ -86,6 +94,23 @@ export type LunchTestSummary =
       served: number;
       total: number;
       orders?: FinalOrderResult[];
+    }
+  | {
+      kind: "compensate";
+      recovered: number;
+      cost: number;
+      net: number;
+      loss: number;
+      orders?: {
+        id: string;
+        urgent: boolean;
+        wait: number;
+        overtime: number;
+        choice: number;
+        recovered: number;
+        cost: number;
+      }[];
+      errors?: string[];
     };
 
 export type LunchJudgeResult = {
@@ -106,6 +131,7 @@ export type LunchProjectExtras = {
     intake: LunchTestSummary | null;
     queue: LunchTestSummary | null;
     final: LunchTestSummary | null;
+    compensate: LunchTestSummary | null;
   };
   training: { request: string; ticket: Ticket };
 };

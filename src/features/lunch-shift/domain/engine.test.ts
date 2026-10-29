@@ -16,7 +16,8 @@ import { describe, expect, it } from "vitest";
 import { sameTicket } from "./contracts.ts";
 import { priorityIndex, PRIORITY_TABLE_SIZE, checkPriorityTable } from "./priority.ts";
 import { findFullWidthPunctuation } from "./runErrors.ts";
-import { buildScenario, INTAKE_FIXTURES, QUEUE_SCENARIO } from "./scenarios.ts";
+import { buildScenario, INTAKE_FIXTURES, QUEUE_SCENARIO, RUSH_SCENARIO } from "./scenarios.ts";
+import { checkCompensateTable, COMPENSATE_TABLE_SIZE, evaluateCompensation } from "./compensate.ts";
 import { simulate } from "./simulator.ts";
 import {
   checkIntakeTables,
@@ -326,6 +327,67 @@ describe("正式集 (mirrored hidden set)", () => {
       priority: tableFor((u) => (u ? 1 : 0)),
     }).result;
     expect(run.onTime).toBe(11);
+  });
+});
+
+describe("expedite (the stage-4 second lever)", () => {
+  const urgent = () => tableFor((u) => (u ? 1 : 0));
+
+  it("is a real lever: boosting 3-cook orders rescues the starved order", () => {
+    const without = simulate(QUEUE_SCENARIO, {
+      priority: urgent(),
+      expedite: tableFor(() => 0),
+    }).result;
+    const boosted = simulate(QUEUE_SCENARIO, {
+      priority: urgent(),
+      expedite: tableFor((_u, _w, c) => (c === 3 ? 1 : 0)),
+    }).result;
+    expect(without.onTime).toBe(11);
+    expect(boosted.onTime).toBe(12);
+    expect(boosted.expeditesUsed).toBe(3);
+  });
+
+  it("never asking for a boost spends nothing and changes nothing", () => {
+    const run = simulate(QUEUE_SCENARIO, {
+      priority: urgent(),
+      expedite: tableFor(() => 0),
+    }).result;
+    expect(run.expeditesUsed).toBe(0);
+    expect(run.onTime).toBe(11);
+  });
+});
+
+describe("compensate (附加挑战)", () => {
+  // The fixed run everyone pays for — same as the judge: urgent-first on
+  // the 20-order rush set leaves 8 orders late (loss budget 33 拍).
+  const rush = simulate(RUSH_SCENARIO, { priority: tableFor((u) => (u ? 1 : 0)) }).result;
+
+  it("the fixed run leaves exactly 8 late normal orders", () => {
+    const late = rush.orders.filter((order) => !order.onTime);
+    expect(late).toHaveLength(8);
+    expect(late.every((order) => order.expected?.urgent === false)).toBe(true);
+  });
+
+  it("checkCompensateTable bounds the 62-cell shape and 0/1/2 values", () => {
+    expect(checkCompensateTable(new Array(COMPENSATE_TABLE_SIZE).fill(0)).table).not.toBeNull();
+    expect(checkCompensateTable(new Array(5).fill(0)).table).toBeNull();
+    const bad = new Array(COMPENSATE_TABLE_SIZE).fill(0);
+    bad[10] = 3;
+    const { errors } = checkCompensateTable(bad);
+    expect(errors[0]).toContain("只能返回 0、1 或 2");
+    expect(checkCompensateTable(bad).table).toBeNull();
+  });
+
+  it("smart compensation beats refund-everything; doing nothing nets 0", () => {
+    const zeros = new Array(COMPENSATE_TABLE_SIZE).fill(0);
+    const refundAll = new Array(COMPENSATE_TABLE_SIZE).fill(2);
+    const smart = new Array(COMPENSATE_TABLE_SIZE).fill(0).map((_, i) => {
+      const w = i % 31;
+      return w >= 19 ? 2 : w >= 10 ? 1 : 0;
+    });
+    expect(evaluateCompensation(rush.orders, zeros).net).toBe(0);
+    expect(evaluateCompensation(rush.orders, refundAll).net).toBe(9);
+    expect(evaluateCompensation(rush.orders, smart).net).toBe(15);
   });
 });
 

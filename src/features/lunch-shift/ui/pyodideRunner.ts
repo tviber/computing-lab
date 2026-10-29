@@ -43,3 +43,29 @@ export async function runPriorityTable(
   const payload = await client.run<{ result: unknown }>({ kind: "priority", code }, timeoutMs);
   return payload.result;
 }
+
+/**
+ * Evaluate expedite(urgent, wait, cook) for all 124 input combinations.
+ * Returns the raw result list — validated by the caller
+ * (checkPriorityTable, same shape as priority).
+ */
+export async function runExpediteTable(
+  code: string,
+  timeoutMs = WORKER_RUN_TIMEOUT_MS,
+): Promise<unknown> {
+  const payload = await client.run<{ result: unknown }>({ kind: "expedite", code }, timeoutMs);
+  return payload.result;
+}
+
+/**
+ * Evaluate compensate(urgent, wait) for all 62 input combinations.
+ * Returns the raw result list — validated by the caller
+ * (checkCompensateTable).
+ */
+export async function runCompensateTable(
+  code: string,
+  timeoutMs = WORKER_RUN_TIMEOUT_MS,
+): Promise<unknown> {
+  const payload = await client.run<{ result: unknown }>({ kind: "compensate", code }, timeoutMs);
+  return payload.result;
+}
