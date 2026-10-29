@@ -481,3 +481,17 @@ ul.lunch-order-fix {
   font-size: 14px;
   font-weight: 600;
 }
+
+/* Extra practice area title — visible, not an eyebrow whisper */
+.lunch-extra-title {
+  margin: 0 0 var(--space-1);
+  font-size: 16px;
+  font-weight: 700;
+}
+.lunch-experiment-box {
+  border: 1px solid var(--accent);
+  background: var(--accent-soft);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3);
+  margin-top: var(--space-4);
+}

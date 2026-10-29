@@ -53,7 +53,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 4,
     id: "final-run",
     title: "正式挑战",
-    task: "词表和函数已经带过来了。换了一批写法不同的订单，只能交一次。",
+    task: "词表沿用第二关，这里只编辑 priority 函数。换了一批写法不同的订单，只能交一次。",
     judgeNote:
       "服务器用同一套判法跑 12 张隐藏订单：成绩 = 小票正确数 + 记对且准时数（加急等满 9 拍、普通等满 18 拍算超时），满分 24。",
     takeaway: "选通用词的词表，才扛得住换说法。",

@@ -78,19 +78,12 @@ export function FinalPanel({
 
   return (
     <section className="lunch-challenge">
-      <p>正式订单的说法和练习不同。词表和函数沿用前两关，提交前可以再改，只能交一次。</p>
+      <p>正式订单的说法和练习不同。词表沿用第二关，这里只编辑排队函数，只能交一次。</p>
 
-      <p className="eyebrow">接单的词表</p>
-      <p className="lunch-note">规则同第二关：按顺序查，calm 先 rush 后；每张表最多 20 项。</p>
-      <CodeEditor
-        ariaLabel="词表代码"
-        disabled={submitted || running}
-        onChange={(intakeCode) => onChange({ ...draft, intakeCode, tables: null })}
-        value={intakeSource}
-      />
       <p className="eyebrow">排队的函数</p>
       <p className="lunch-note">
-        priority 的参数同第三关：urgent 是否加急、wait 已等 0～30 拍、cook 制作 1 或 3 拍。
+        priority 的参数同第三关：urgent 是否加急、wait 已等 0～30 拍、cook 做完这张单要几拍，只会是
+        1 或 3。
       </p>
       <CodeEditor
         ariaLabel="priority 函数代码"

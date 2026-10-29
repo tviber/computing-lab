@@ -376,7 +376,8 @@ export function QueuePanel({
 
       {extraArea ? (
         <div className="lunch-experiment-box">
-          <p className="eyebrow">加练区 · 成绩不记录</p>
+          <h2 className="lunch-extra-title">进行更多测试</h2>
+          <p className="lunch-note">成绩不记录，做完可以继续改函数再测。</p>
           <div className="submit-row">
             {EXPERIMENTS.map((experiment) => (
               <button
