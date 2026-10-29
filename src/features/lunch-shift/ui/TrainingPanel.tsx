@@ -84,7 +84,7 @@ export function TrainingPanel({
       <p className="eyebrow">订单旅程 · 1 / 3</p>
       <h2>把顾客的话记成小票</h2>
       <p>
-        你是前台接单员。厨房不直接听顾客说话，只认你记的小票；菜名或桌号写错一个，餐就可能做错、送错。
+        你是前台接单员。厨房不直接听顾客说话，只认你记的小票；小票上任何地方记错，餐都可能做错或送错。
       </p>
       <img
         alt="前台接单员把小票夹到板上，柜台前顾客在说话"
@@ -207,7 +207,10 @@ export function TrainingPanel({
             src="/assets/lunch-shift/journey-cook.webp"
           />
           <h2>两张订单，先做哪一张？</h2>
-          <p>你是厨师，一次只能做一份，要决定先做哪一单。</p>
+          <p>
+            你是厨师，一次只能做一份，要决定先做哪一单。加急单等满 9 拍、普通单等满 18
+            拍还没送到就算超时。
+          </p>
           <details className="lunch-reference">
             <summary>「拍」是什么</summary>
             <TickExplainer />
@@ -385,7 +388,9 @@ export function TrainingPanel({
           </div>
           <p className="lunch-note">{cookingResult}</p>
           {passed ? (
-            <p className="stage-takeaway">已通过：订单 = 数据，字段错一个后面的流程全跟着错。</p>
+            <p className="stage-takeaway">
+              已通过：订单就是数据，一旦系统中某个环节出错，后面的流程全部跟着错。
+            </p>
           ) : (
             <div className="submit-row">
               <button

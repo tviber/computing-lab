@@ -26,7 +26,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     title: "订单旅程",
     task: "把顾客的话记成小票，选好先做哪张，再把餐送到正确的桌。",
     judgeNote: "服务器核对小票四个字段、先做哪张和送到的桌号，全对才算过。",
-    takeaway: "小票是数据：一个字段错，后面全跟着错。",
+    takeaway: "小票是数据：一旦系统中某个环节出错，后面的流程全部跟着错。",
   },
   {
     index: 2,
