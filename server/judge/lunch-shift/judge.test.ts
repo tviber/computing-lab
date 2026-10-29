@@ -46,7 +46,7 @@ const GENERIC_TABLES: IntakeTables = {
   dish: [...defaultIntakeTables().dish, ["炒饭", "蛋炒饭"]],
   note: [...defaultIntakeTables().note, ["放香菜", "不要香菜"], ["辣", "少辣"]],
   calm: [...defaultIntakeTables().calm, "不用赶", "不急"],
-  rush: [...defaultIntakeTables().rush, "快点", "等不及"],
+  rush: [...defaultIntakeTables().rush, "快", "等不及"],
 };
 
 const BOOST10 = tableFor((u, w) => (u ? 1 : 0) + (w >= 10 ? 1 : 0));
@@ -181,7 +181,7 @@ describe("lunch-shift judge", () => {
     });
     expect("error" in literalRun).toBe(false);
     if (!("error" in literalRun)) {
-      expect(literalRun.score).toBe(18); // 9 correct + 9 记对且准时
+      expect(literalRun.score).toBe(16); // 8 correct + 8 记对且准时
     }
 
     const serialized = JSON.stringify(first.testSummary);

@@ -52,7 +52,7 @@ const GENERIC_TABLES: IntakeTables = {
   dish: [...defaultIntakeTables().dish, ["炒饭", "蛋炒饭"]],
   note: [...defaultIntakeTables().note, ["放香菜", "不要香菜"], ["辣", "少辣"]],
   calm: [...defaultIntakeTables().calm, "不用赶", "不急"],
-  rush: [...defaultIntakeTables().rush, "快点", "等不及"],
+  rush: [...defaultIntakeTables().rush, "快", "等不及"],
 };
 
 // Mirrors the hidden final set in server/judge/lunch-shift/hiddenSet.ts.
@@ -61,19 +61,19 @@ const FINAL_FIXTURES = [
     request: "送到 6 号桌一份蛋炒饭，不要香菜，我不赶时间。",
     expected: { item: "蛋炒饭", note: "不要香菜", table: "6", urgent: false },
     cookTicks: 1,
-    arrivalTick: 2,
+    arrivalTick: 1,
   },
   {
     request: "2号桌鸡腿饭，别放香菜，我赶时间。",
     expected: { item: "鸡腿饭", note: "不要香菜", table: "2", urgent: true },
     cookTicks: 1,
-    arrivalTick: 3,
+    arrivalTick: 2,
   },
   {
     request: "请给 4 号桌做牛肉面，少辣，正常就好。",
     expected: { item: "牛肉面", note: "少辣", table: "4", urgent: false },
     cookTicks: 3,
-    arrivalTick: 4,
+    arrivalTick: 5,
   },
   {
     request: "3号桌蛋炒饭，加蛋，麻烦快点，我等不及了。",
@@ -85,25 +85,25 @@ const FINAL_FIXTURES = [
     request: "1号桌鸡腿饭，不要香菜，不赶时间，慢慢做。",
     expected: { item: "鸡腿饭", note: "不要香菜", table: "1", urgent: false },
     cookTicks: 3,
-    arrivalTick: 4,
+    arrivalTick: 7,
   },
   {
     request: "8号桌来一份炒饭，无备注，正常做。",
     expected: { item: "蛋炒饭", note: "无备注", table: "8", urgent: false },
-    cookTicks: 1,
+    cookTicks: 3,
     arrivalTick: 4,
   },
   {
     request: "7号桌牛肉面，少放点辣，不用赶时间。",
     expected: { item: "牛肉面", note: "少辣", table: "7", urgent: false },
     cookTicks: 1,
-    arrivalTick: 5,
+    arrivalTick: 2,
   },
   {
-    request: "5号桌鸡腿饭，加蛋，急着要。",
+    request: "5号桌鸡腿饭，加蛋，麻烦快些。",
     expected: { item: "鸡腿饭", note: "加蛋", table: "5", urgent: true },
     cookTicks: 1,
-    arrivalTick: 8,
+    arrivalTick: 6,
   },
   {
     request: "6号桌牛肉面，少辣，尽快送来，我赶时间。",
@@ -115,19 +115,19 @@ const FINAL_FIXTURES = [
     request: "给2号桌做牛肉面加蛋，尽快，我赶时间。",
     expected: { item: "牛肉面", note: "加蛋", table: "2", urgent: true },
     cookTicks: 3,
-    arrivalTick: 14,
+    arrivalTick: 12,
   },
   {
     request: "4号桌蛋炒饭，平常速度，不要催。",
     expected: { item: "蛋炒饭", note: "无备注", table: "4", urgent: false },
-    cookTicks: 1,
+    cookTicks: 3,
     arrivalTick: 16,
   },
   {
     request: "8号桌鸡腿饭，不要香菜，赶时间。",
     expected: { item: "鸡腿饭", note: "不要香菜", table: "8", urgent: true },
     cookTicks: 1,
-    arrivalTick: 16,
+    arrivalTick: 17,
   },
 ];
 
@@ -219,51 +219,15 @@ describe("word-table validation", () => {
 });
 
 describe("修接单 order set", () => {
-  /** The shipped starter: dish table filled, the other three empty. */
-  const STARTER_TABLES: IntakeTables = {
-    dish: defaultIntakeTables().dish,
-    note: [],
-    calm: [],
-    rush: [],
-  };
-
-  it("the starter leaves 11 orders wrong (only the empty-ticket one is right)", () => {
-    const wrong = evaluateIntake(intakeOrders, STARTER_TABLES).filter((o) => !o.correct);
-    expect(wrong.map((o) => o.id)).toEqual([
-      "P01",
-      "P02",
-      "P03",
-      "P04",
-      "P05",
-      "P06",
-      "P07",
-      "P08",
-      "P09",
-      "P11",
-      "P12",
-    ]);
+  it("the starter tables miss exactly the five designed orders", () => {
+    const wrong = evaluateIntake(intakeOrders, defaultIntakeTables()).filter((o) => !o.correct);
+    expect(wrong.map((o) => o.id)).toEqual(["P03", "P04", "P08", "P09", "P11"]);
   });
 
-  it("a single added word fixes its designed orders without breaking others", () => {
-    // 炒饭 covers the dish short-name order; no request reads 炒饭 as a note
-    const withDish = {
-      ...STARTER_TABLES,
-      dish: [...STARTER_TABLES.dish, ["炒饭", "蛋炒饭"] as [string, string]],
-    };
-    const afterDish = evaluateIntake(intakeOrders, withDish);
-    expect(afterDish.find((o) => o.id === "P03")?.produced.item).toBe("蛋炒饭");
-    expect(afterDish.filter((o) => o.correct)).toHaveLength(1);
-
-    // 赶时间 as a rush word fixes urgent orders — but「不用赶时间」误中它，
-    // 这正是 calm 先查的教学点
-    const withRush = { ...STARTER_TABLES, rush: ["赶时间"] };
-    const afterRush = evaluateIntake(intakeOrders, withRush);
-    expect(afterRush.find((o) => o.id === "P01")?.produced.urgent).toBe(true);
-    expect(afterRush.find((o) => o.id === "P09")?.produced.urgent).toBe(true);
-    const withCalm = { ...withRush, calm: ["不用赶"] };
-    expect(
-      evaluateIntake(intakeOrders, withCalm).find((o) => o.id === "P09")?.produced.urgent,
-    ).toBe(false);
+  it("the negated-rush order needs calm checked first", () => {
+    // 「不用赶时间」误中 rush 的「赶时间」，calm 先查才能拦下来
+    const miss = evaluateIntake(intakeOrders, defaultIntakeTables()).find((o) => o.id === "P09");
+    expect(miss?.produced.urgent).toBe(true);
   });
 
   it.each([
@@ -328,11 +292,11 @@ describe("修排队 order set", () => {
 });
 
 describe("正式集 (mirrored hidden set)", () => {
-  it("literal practice words lose exactly the three reworded orders", () => {
+  it("literal practice words lose exactly the four reworded orders", () => {
     const wrong = FINAL.orders.filter(
       (order) => !sameTicket(parseTicket(order.request, LITERAL_TABLES), order.expected!),
     );
-    expect(wrong.map((order) => order.id)).toEqual(["F02", "F04", "F07"]);
+    expect(wrong.map((order) => order.id)).toEqual(["F02", "F04", "F07", "F08"]);
   });
 
   it("generic words get every ticket right and 12/12 on time (24/24)", () => {
@@ -344,6 +308,13 @@ describe("正式集 (mirrored hidden set)", () => {
   it("the full-marks queue formula stays full marks on the final set", () => {
     for (const t of [8, 10, 12]) {
       const run = simulate(FINAL, { tables: GENERIC_TABLES, priority: boost(t) }).result;
+      expect(run.onTime).toBe(12);
+    }
+  });
+
+  it("the overwrite style also reaches 12/12 on the final set for T 8..16", () => {
+    for (let t = 8; t <= 16; t++) {
+      const run = simulate(FINAL, { tables: GENERIC_TABLES, priority: overwrite(t) }).result;
       expect(run.onTime).toBe(12);
     }
   });

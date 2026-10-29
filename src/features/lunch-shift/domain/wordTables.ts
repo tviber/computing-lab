@@ -154,7 +154,7 @@ function checkPairTable(
     const value = pair && typeof pair[1] === "string" ? pair[1].trim() : null;
     if (key === null) {
       errors.push(
-        `${name} 第 ${index + 1} 个词写得不完整——词要去掉空格后剩 1～${MAX_WORD_RUNES} 个字。`,
+        `${name} 第 ${index + 1} 个词写得不完整，词要去掉空格后剩 1～${MAX_WORD_RUNES} 个字。`,
       );
       continue;
     }
@@ -180,7 +180,7 @@ function checkListTable(raw: unknown, name: string, errors: string[]): string[] 
     const word = checkWord(entry);
     if (word === null) {
       errors.push(
-        `${name} 第 ${index + 1} 个词写得不完整——词要去掉空格后剩 1～${MAX_WORD_RUNES} 个字。`,
+        `${name} 第 ${index + 1} 个词写得不完整，词要去掉空格后剩 1～${MAX_WORD_RUNES} 个字。`,
       );
       continue;
     }
@@ -199,7 +199,7 @@ export function checkIntakeTables(raw: unknown): { tables: IntakeTables; errors:
   const errors: string[] = [];
   const empty: IntakeTables = { dish: [], note: [], calm: [], rush: [] };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) {
-    errors.push("还没有可用的词表——运行代码后才算得出。");
+    errors.push("还没有可用的词表，运行代码后才算得出。");
     return { tables: empty, errors };
   }
   const record = raw as Record<string, unknown>;

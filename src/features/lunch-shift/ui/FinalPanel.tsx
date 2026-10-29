@@ -78,7 +78,7 @@ export function FinalPanel({
 
   return (
     <section className="lunch-challenge">
-      <p>正式订单的说法和练习不同。词表和函数沿用前两关，提交前可以再改——只能交一次。</p>
+      <p>正式订单的说法和练习不同。词表和函数沿用前两关，提交前可以再改，只能交一次。</p>
 
       <p className="eyebrow">接单的词表</p>
       <p className="lunch-note">规则同第二关：按顺序查，calm 先 rush 后；每张表最多 20 项。</p>

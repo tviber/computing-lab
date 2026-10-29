@@ -13,9 +13,9 @@ import { CodeEditor } from "./CodeEditor.tsx";
 import { runIntakeTables } from "./pyodideRunner.ts";
 
 export const INTAKE_STARTER = `dish_words = {"鸡腿饭": "鸡腿饭", "蛋炒饭": "蛋炒饭", "牛肉面": "牛肉面"}
-note_words = {}
-calm_words = []
-rush_words = []
+note_words = {"不要香菜": "不要香菜", "少辣": "少辣", "加蛋": "加蛋"}
+calm_words = ["不赶时间", "不急着"]
+rush_words = ["赶时间", "急着", "快一点", "尽快"]
 `;
 
 function ticketText(ticket: {
@@ -34,14 +34,14 @@ function fieldReasons(order: IntakeOrderResult): string[] {
     reasons.push(
       order.itemKey
         ? `菜品认成了「${order.produced.item}」（dish_words 里「${order.itemKey}」先命中）`
-        : "菜品空着——dish_words 里没有词命中",
+        : "菜品空着，dish_words 里没有词命中",
     );
   }
   if (order.produced.note !== order.expected.note) {
     reasons.push(
       order.noteKey
         ? `备注写成了「${order.produced.note}」（note_words 里「${order.noteKey}」先命中）`
-        : `备注写成了「无备注」——note_words 里没有词命中，应为「${order.expected.note}」`,
+        : `备注写成了「无备注」，note_words 里没有词命中，应为「${order.expected.note}」`,
     );
   }
   if (order.produced.urgent !== order.expected.urgent) {
@@ -51,7 +51,7 @@ function fieldReasons(order: IntakeOrderResult): string[] {
         : order.urgentVia === "rush"
           ? `rush_words 里「${order.urgentKey}」命中 → 加急`
           : "两张表都没命中 → 普通";
-    reasons.push(`应为${order.expected.urgent ? "加急" : "普通"}单——${via}`);
+    reasons.push(`应为${order.expected.urgent ? "加急" : "普通"}单，${via}`);
   }
   return reasons;
 }
@@ -195,11 +195,11 @@ export function IntakePanel({
             <code>{'{"放香菜": "不要香菜"}'}</code>
           </li>
           <li>
-            <code>calm_words</code>：普通信号词，最先查——原话命中它就是普通单。写法：
+            <code>calm_words</code>：普通信号词，最先查，原话命中它就是普通单。写法：
             <code>{'["不急着", "不用赶"]'}</code>
           </li>
           <li>
-            <code>rush_words</code>：加急信号词，calm 没中才查它——命中就是加急单。写法同上。
+            <code>rush_words</code>：加急信号词，calm 没中才查它，命中就是加急单。写法同上。
           </li>
           <li>
             <code>dish_words</code>：词 → 菜名，和 note_words 一样的查法；菜名不全也可以加词。

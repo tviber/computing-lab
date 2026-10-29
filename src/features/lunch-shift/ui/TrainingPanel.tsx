@@ -303,7 +303,7 @@ export function TrainingPanel({
           />
           <h2>这份餐送到哪一桌？</h2>
           <p>
-            你是送餐员，按小票送餐——送错桌这份餐就白做了。小票：
+            你是送餐员，按小票送餐，送错桌这份餐就白做了。小票：
             <b>{ticketSummary(draft.ticket)}</b>
           </p>
           {stepIndex >= 3 ? (

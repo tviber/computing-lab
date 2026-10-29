@@ -41,7 +41,7 @@ export function checkPriorityTable(raw: unknown): { table: number[] | null; erro
   if (!Array.isArray(raw) || raw.length !== PRIORITY_TABLE_SIZE) {
     return {
       table: null,
-      errors: ["还没有可用的结果表——运行 priority 后才算得出 124 个值。"],
+      errors: ["还没有可用的结果表，运行 priority 后才算得出 124 个值。"],
     };
   }
   const table: number[] = [];

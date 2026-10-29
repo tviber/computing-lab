@@ -73,14 +73,23 @@ function LateOrders({ run }: { run: RunSummary }) {
   if (late.length === 0) {
     return <p className="lunch-feedback success">12 张订单全部准时送达。</p>;
   }
+  // A normal order that kept losing to an urgent one: that's the
+  // starvation lesson, and it should be named, not mysterious.
+  const starvedBy = (id: string) =>
+    (run.picks ?? []).some(
+      (pick) =>
+        pick.candidates.some((c) => c.id === id) &&
+        pick.candidates.find((c) => c.id === pick.picked)?.urgent === true,
+    );
   return (
     <ul className="lunch-late-list">
       {late.map((order) => (
         <li key={order.id}>
           <b>{order.id}</b>（{order.expected?.urgent ? "加急" : "普通"}）
           {order.delivered
-            ? `送到时已经等了 ${order.wait} 拍——等满 ${waitLimit(order)} 拍就算超时`
-            : `到第 30 拍还没送出去——等满 ${waitLimit(order)} 拍就算超时`}
+            ? `送到时已经等了 ${order.wait} 拍，等满 ${waitLimit(order)} 拍就算超时`
+            : `到第 30 拍还没送出去，等满 ${waitLimit(order)} 拍就算超时`}
+          {!order.expected?.urgent && starvedBy(order.id) ? "，一直排在加急单后面" : ""}
         </li>
       ))}
     </ul>
@@ -118,9 +127,12 @@ function Replay({ run }: { run: RunSummary }) {
     return () => window.clearInterval(timer);
   }, [playing, events.length]);
   const current = events[step];
+  // Draw only the events revealed so far — otherwise the map would show
+  // the rest of the same tick before its caption arrives.
+  const viewRun = { ...run, events: events.slice(0, step + 1) };
   return (
     <div className="lunch-replay">
-      <SimMap run={run} tick={current?.tick ?? 0} />
+      <SimMap run={viewRun} tick={current?.tick ?? 0} />
       <p className="lunch-replay-caption" aria-live="polite">
         {current
           ? `第 ${current.tick} 拍 · ${current.orderId} ${EVENT_TEXT[current.action]}`
@@ -267,7 +279,7 @@ export function QueuePanel({
     <section className="lunch-challenge">
       <p>
         厨房和出餐两站每拍都调用同一个 <code>priority(urgent, wait, cook)</code>
-        ——哪张单的返回值最大，就先做哪张。
+        ，哪张单的返回值最大，就先做哪张。
       </p>
       <div className="lunch-params">
         <ul>
@@ -383,7 +395,7 @@ export function QueuePanel({
             </button>
           </div>
           <p className="lunch-note">
-            晚高峰换成 20 单，你的函数还管用吗？试试把 cook 参数用上——做得快的单先做说不定更划算。
+            晚高峰换成 20 单，你的函数还管用吗？试试把 cook 参数用上，做得快的单先做说不定更划算。
           </p>
           {EXPERIMENTS.map((experiment) => {
             const summary = experiments[experiment.id];
