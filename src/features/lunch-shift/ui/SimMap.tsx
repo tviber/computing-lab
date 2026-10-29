@@ -168,6 +168,24 @@ function lanesAt(orders: OrderResult[], timeline: Map<string, OrderTimeline>, ti
   return lanes;
 }
 
+/** Sprites are static — build them once per page, not per replay step. */
+let cachedImages: Loaded | null = null;
+function sharedImages(): Loaded {
+  if (!cachedImages) {
+    const img = { dish: {} as Loaded["dish"] } as Loaded;
+    for (const [key, src] of Object.entries(SOURCES)) {
+      img[key as SpriteKey] = new Image();
+      img[key as SpriteKey].src = src;
+    }
+    for (const [dish, src] of Object.entries(DISH_SRC)) {
+      img.dish[dish] = new Image();
+      img.dish[dish].src = src;
+    }
+    cachedImages = img;
+  }
+  return cachedImages;
+}
+
 export function SimMap({ run, tick }: { run: RunSummary; tick: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const tickRef = useRef(tick);
@@ -178,15 +196,7 @@ export function SimMap({ run, tick }: { run: RunSummary; tick: number }) {
     const ctx = canvas?.getContext("2d");
     if (!canvas || !ctx) return;
 
-    const img = { dish: {} as Loaded["dish"] } as Loaded;
-    for (const [key, src] of Object.entries(SOURCES)) {
-      img[key as SpriteKey] = new Image();
-      img[key as SpriteKey].src = src;
-    }
-    for (const [dish, src] of Object.entries(DISH_SRC)) {
-      img.dish[dish] = new Image();
-      img.dish[dish].src = src;
-    }
+    const img = sharedImages();
 
     const timeline = buildTimeline(run);
     const queuePicks = run.picks ?? [];

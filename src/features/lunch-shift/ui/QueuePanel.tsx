@@ -76,11 +76,13 @@ function LateOrders({ run }: { run: RunSummary }) {
   // A normal order that kept losing to an urgent one: that's the
   // starvation lesson, and it should be named, not mysterious.
   const starvedBy = (id: string) =>
-    (run.picks ?? []).some(
-      (pick) =>
-        pick.candidates.some((c) => c.id === id) &&
-        pick.candidates.find((c) => c.id === pick.picked)?.urgent === true,
-    );
+    (run.picks ?? []).some((pick) => {
+      const me = pick.candidates.find((c) => c.id === id);
+      const winner = pick.candidates.find((c) => c.id === pick.picked);
+      // Only queue-jumping counts — an urgent order that had already waited
+      // longer is just first-come-first-served.
+      return me !== undefined && winner?.urgent === true && winner.waitTicks < me.waitTicks;
+    });
   return (
     <ul className="lunch-late-list">
       {late.map((order) => (
