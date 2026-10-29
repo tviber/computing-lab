@@ -207,10 +207,8 @@ export function TrainingPanel({
             src="/assets/lunch-shift/journey-cook.webp"
           />
           <h2>两张订单，先做哪一张？</h2>
-          <p>
-            你是厨师，一次只能做一份，要决定先做哪一单。加急单等满 9 拍、普通单等满 18
-            拍还没送到就算超时。
-          </p>
+          <p>加急的订单超过 9 拍就算超时，普通订单超过 18 拍就算超时。</p>
+          <p>现在假设你是厨师，以下两个订单，你会先做哪一个：</p>
           <details className="lunch-reference">
             <summary>「拍」是什么</summary>
             <TickExplainer />
