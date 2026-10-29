@@ -49,8 +49,8 @@ export function TickExplainer() {
             className={t <= 3 ? "tick-cell done" : "tick-cell"}
           />
         ))}
-        <text x="560" y="61" className="tick-hint">
-          3 拍的餐，做完要 3 拍
+        <text x="628" y="61" textAnchor="end" className="tick-hint">
+          做完一份要 3 拍
         </text>
 
         {/* 行二：等待 +1 */}
@@ -72,8 +72,8 @@ export function TickExplainer() {
             </text>
           </g>
         ))}
-        <text x="560" y="98" className="tick-hint">
-          每过一拍，等位 +1
+        <text x="628" y="98" textAnchor="end" className="tick-hint">
+          每过一拍等位 +1
         </text>
 
         {/* 行三：送餐走一步 */}
@@ -101,8 +101,8 @@ export function TickExplainer() {
             ) : null}
           </g>
         ))}
-        <text x="560" y="134" className="tick-hint">
-          送出去一格一格走
+        <text x="628" y="134" textAnchor="end" className="tick-hint">
+          每拍走一格
         </text>
       </svg>
       <figcaption>
