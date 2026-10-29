@@ -53,7 +53,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 4,
     id: "final-run",
     title: "正式挑战",
-    task: "词表沿用第二关。这里编辑两个函数：priority 决定先做哪张，expedite 决定是否用掉一次加速机会（共 3 次，3 拍的单缩成 1 拍）。换了一批写法不同的订单，只能交一次。",
+    task: "词表沿用第二关。这里编辑两个函数：priority 决定先做哪张，rush 决定是否用掉一次加速机会（共 3 次，3 拍的单缩成 1 拍）。换了一批写法不同的订单，只能交一次。",
     judgeNote:
       "服务器用同一套判法跑 12 张隐藏订单：成绩 = 小票正确数 + 记对且准时数（加急等满 9 拍、普通等满 18 拍算超时），满分 24。",
     takeaway: "选通用词的词表，才扛得住换说法。",
@@ -84,6 +84,9 @@ export function getLunchStage(index: number): LunchStageDef | undefined {
 
 /** Linear unlock: a stage opens once the previous one passed. */
 export function lunchStageUnlocked(passedStages: readonly number[], index: number): boolean {
+  // 附加挑战 rides alongside the formal challenge: passing priority is
+  // all it needs.
+  if (index === 5) return passedStages.includes(3);
   return index === 1 || passedStages.includes(index - 1);
 }
 

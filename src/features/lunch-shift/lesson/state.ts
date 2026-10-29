@@ -128,8 +128,8 @@ export function draftOf(state: LunchLessonState, stageIndex = state.stageIndex):
     tables: intake.tables,
     queueCode: queue.code,
     priority: queue.priority,
-    expediteCode: "",
-    expedite: null,
+    rushCode: "",
+    rush: null,
   } satisfies FinalDraft;
 }
 
@@ -193,8 +193,8 @@ export function sanitizeFinalDraft(raw: unknown): FinalDraft {
     tables: null,
     queueCode: "",
     priority: null,
-    expediteCode: "",
-    expedite: null,
+    rushCode: "",
+    rush: null,
   };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
   const record = raw as Record<string, unknown>;
@@ -202,8 +202,8 @@ export function sanitizeFinalDraft(raw: unknown): FinalDraft {
   draft.tables = sanitizeIntakeTables(record.tables);
   draft.queueCode = codeOf(record.queueCode);
   draft.priority = sanitizePriorityTable(record.priority);
-  draft.expediteCode = codeOf(record.expediteCode);
-  draft.expedite = sanitizePriorityTable(record.expedite);
+  draft.rushCode = codeOf(record.rushCode);
+  draft.rush = sanitizePriorityTable(record.rush);
   return draft;
 }
 
@@ -316,7 +316,14 @@ export function transitionLunchLesson(
     case "update-final":
       return state.stageIndex === 4 ? withDraft(state, action.draft) : state;
     case "update-compensate":
-      return state.stageIndex === 5 ? withDraft(state, action.draft) : state;
+      // The bonus panel lives on the stage-3 page — its draft belongs to
+      // slot 5 regardless of which stage is currently selected.
+      return {
+        ...state,
+        drafts: { ...state.drafts, 5: sanitizeCompensateDraft(action.draft) },
+        saveStatusByStage: markSaveStatus(state.saveStatusByStage, 5, "dirty"),
+        judgeOutcome: null,
+      };
 
     case "judge-result":
       return {

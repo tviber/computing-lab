@@ -20,7 +20,7 @@ import { installPyodideWorker } from "../../../shared/worker/workerProtocol.ts";
 
 type RunRequest =
   | { id: number; kind: "tables"; code: string }
-  | { id: number; kind: "priority" | "expedite"; code: string }
+  | { id: number; kind: "priority" | "rush"; code: string }
   | { id: number; kind: "compensate"; code: string };
 
 const TABLES_CALL = `[
@@ -31,7 +31,7 @@ const TABLES_CALL = `[
 ]`;
 
 const PRIORITY_CALL = `[priority(u, w, c) for u in (False, True) for w in range(31) for c in (1, 3)]`;
-const EXPEDITE_CALL = `[expedite(u, w, c) for u in (False, True) for w in range(31) for c in (1, 3)]`;
+const RUSH_CALL = `[rush(u, w, c) for u in (False, True) for w in range(31) for c in (1, 3)]`;
 const COMPENSATE_CALL = `[compensate(u, w) for u in (False, True) for w in range(31)]`;
 
 function mustFn(globals: ReturnType<PyodideInterface["toPy"]>, name: string, sig: string) {
@@ -48,15 +48,15 @@ async function runRequest(pyodide: PyodideInterface, request: RunRequest): Promi
     const sig =
       request.kind === "priority"
         ? "priority(urgent, wait, cook)"
-        : request.kind === "expedite"
-          ? "expedite(urgent, wait, cook)"
+        : request.kind === "rush"
+          ? "rush(urgent, wait, cook)"
           : "compensate(urgent, wait)";
     if (request.kind !== "tables") mustFn(globals, request.kind, sig);
     const call =
       request.kind === "tables"
         ? TABLES_CALL
-        : request.kind === "expedite"
-          ? EXPEDITE_CALL
+        : request.kind === "rush"
+          ? RUSH_CALL
           : request.kind === "compensate"
             ? COMPENSATE_CALL
             : PRIORITY_CALL;

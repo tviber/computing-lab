@@ -32,12 +32,12 @@ export type SimConfig = {
   tables?: IntakeTables | null;
   /** 124-cell priority table; null/absent = first-come-first-served. */
   priority?: readonly number[] | null;
-  /** 124-cell expedite table (>0 = spend a boost); null = never expedite. */
-  expedite?: readonly number[] | null;
+  /** 124-cell rush table (>0 = spend a boost); null = never rush. */
+  rush?: readonly number[] | null;
 };
 
 /** Per-run kitchen boost budget — a 3-tick order can be done in 1. */
-export const EXPEDITE_BUDGET = 3;
+export const RUSH_BUDGET = 3;
 
 /** Drops the hidden expected tickets before a scenario leaves the server. */
 export function publicScenario(scenario: Scenario): Scenario {
@@ -127,9 +127,9 @@ export function simulate(
   intakePerTick = 1,
 ): SimulationRun {
   const priority = config.priority ?? null;
-  const expedite = config.expedite ?? null;
-  let expediteBudget = EXPEDITE_BUDGET;
-  let expeditesUsed = 0;
+  const rush = config.rush ?? null;
+  let rushBudget = RUSH_BUDGET;
+  let rushUsed = 0;
   const runtime = scenario.orders
     .slice()
     .sort((a, b) => a.arrivalTick - b.arrivalTick || a.id.localeCompare(b.id))
@@ -227,14 +227,14 @@ export function simulate(
       let cookTicks = maxInt(1, order.source.cookTicks);
       if (
         cookTicks === 3 &&
-        expediteBudget > 0 &&
-        expedite !== null &&
-        priorityValue(expedite, candidate.urgent, candidate.waitTicks, 3) > 0
+        rushBudget > 0 &&
+        rush !== null &&
+        priorityValue(rush, candidate.urgent, candidate.waitTicks, 3) > 0
       ) {
         cookTicks = 1;
-        expediteBudget--;
-        expeditesUsed++;
-        events.push({ tick, stage: "kitchen", orderId: order.source.id, action: "expedite" });
+        rushBudget--;
+        rushUsed++;
+        events.push({ tick, stage: "kitchen", orderId: order.source.id, action: "rush" });
       }
       cooking.push({ order, doneTick: tick + cookTicks });
       events.push({ tick, stage: "kitchen", orderId: order.source.id, action: "cook" });
@@ -295,7 +295,7 @@ export function simulate(
       orders,
       events,
       picks,
-      expeditesUsed,
+      rushUsed,
     },
   };
 }

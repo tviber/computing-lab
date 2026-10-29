@@ -12,10 +12,10 @@ import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErr
 import { checkIntakeTables } from "../domain/wordTables.ts";
 import { CodeEditor } from "./CodeEditor.tsx";
 import { INTAKE_STARTER } from "./IntakePanel.tsx";
-import { runExpediteTable, runIntakeTables, runPriorityTable } from "./pyodideRunner.ts";
+import { runRushTable, runIntakeTables, runPriorityTable } from "./pyodideRunner.ts";
 import { QUEUE_STARTER } from "./QueuePanel.tsx";
 
-export const EXPEDITE_STARTER = `def expedite(urgent, wait, cook):
+export const RUSH_STARTER = `def rush(urgent, wait, cook):
     # 返回 True 就用掉一次加速机会（共 3 次），3 拍的单缩成 1 拍
     if cook == 1:
         return False
@@ -45,8 +45,8 @@ export function FinalPanel({
 
   const intakeSource = draft.intakeCode.trim() ? draft.intakeCode : INTAKE_STARTER;
   const queueSource = draft.queueCode.trim() ? draft.queueCode : QUEUE_STARTER;
-  const expediteSource = draft.expediteCode.trim() ? draft.expediteCode : EXPEDITE_STARTER;
-  const ready = draft.tables !== null && draft.priority !== null && draft.expedite !== null;
+  const rushSource = draft.rushCode.trim() ? draft.rushCode : RUSH_STARTER;
+  const ready = draft.tables !== null && draft.priority !== null && draft.rush !== null;
 
   const finalResult = result?.kind === "final" ? result : null;
 
@@ -58,7 +58,7 @@ export function FinalPanel({
       const punct =
         describeFullWidthPunctuation(intakeSource) ??
         describeFullWidthPunctuation(queueSource) ??
-        describeFullWidthPunctuation(expediteSource);
+        describeFullWidthPunctuation(rushSource);
       if (punct) throw new Error(punct);
       const rawTables = await runIntakeTables(intakeSource);
       const parts = Array.isArray(rawTables) ? rawTables : [];
@@ -70,10 +70,10 @@ export function FinalPanel({
       });
       const rawPriority = await runPriorityTable(queueSource);
       const priority = checkPriorityTable(rawPriority);
-      const rawExpedite = await runExpediteTable(expediteSource);
-      const expedite = checkPriorityTable(rawExpedite);
-      const errors = [...tables.errors, ...priority.errors, ...expedite.errors];
-      if (errors.length > 0 || priority.table === null || expedite.table === null) {
+      const rawExpedite = await runRushTable(rushSource);
+      const rush = checkPriorityTable(rawExpedite);
+      const errors = [...tables.errors, ...priority.errors, ...rush.errors];
+      if (errors.length > 0 || priority.table === null || rush.table === null) {
         setTableErrors(errors);
         return;
       }
@@ -83,8 +83,8 @@ export function FinalPanel({
         tables: tables.tables,
         queueCode: queueSource,
         priority: priority.table,
-        expediteCode: expediteSource,
-        expedite: expedite.table,
+        rushCode: rushSource,
+        rush: rush.table,
       });
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
@@ -110,14 +110,14 @@ export function FinalPanel({
       />
       <p className="eyebrow">决定要不要加速</p>
       <p className="lunch-note">
-        expedite 参数与 priority 相同：返回 True 就用掉一次加速机会（共 3 次），需要制作 3
-        拍的单缩成 1 拍。
+        rush 参数与 priority 相同：返回 True 就用掉一次加速机会（共 3 次），需要制作 3 拍的单缩成 1
+        拍。
       </p>
       <CodeEditor
-        ariaLabel="expedite 函数代码"
+        ariaLabel="rush 函数代码"
         disabled={submitted || running}
-        onChange={(expediteCode) => onChange({ ...draft, expediteCode, expedite: null })}
-        value={expediteSource}
+        onChange={(rushCode) => onChange({ ...draft, rushCode, rush: null })}
+        value={rushSource}
       />
 
       {submitted ? null : (

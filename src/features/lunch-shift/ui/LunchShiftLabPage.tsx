@@ -137,6 +137,21 @@ export function LunchShiftLabPage() {
     onConflict: (s) => reconcileConflict(s),
   });
 
+  // The bonus challenge lives on the stage-3 page but saves under slot 5.
+  useAutosaveDraft<LunchDraft>({
+    classId,
+    labId: "lunch-shift",
+    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, 5) : "idle",
+    stageIndex: 5,
+    draftOf: (index) => draftOf(state, index),
+    deps: [state.drafts],
+    expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
+    onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
+    onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
+    onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
+    onConflict: (s) => reconcileConflict(s),
+  });
+
   const submitJudge = useCallback(
     async (stageIndex: number, draft: LunchDraft) => {
       if (!classId) return;
@@ -211,7 +226,7 @@ export function LunchShiftLabPage() {
               onSelect={(index) => dispatch({ type: "select-stage", stageIndex: index })}
               passedStages={passedStages}
               stageIndex={state.stageIndex}
-              stages={LUNCH_STAGES}
+              stages={LUNCH_STAGES.filter((s) => s.index !== 5)}
               unlocked={(s) => lunchStageUnlocked(passedStages, s.index)}
             />
           }
@@ -270,6 +285,20 @@ export function LunchShiftLabPage() {
               />
             ) : null}
 
+            {projectLoaded && stage?.index === 3 && passedStages.includes(3) ? (
+              <details className="lunch-reference">
+                <summary>附加挑战：给超时单结账（选做）</summary>
+                <CompensatePanel
+                  draft={draftOf(state, 5) as CompensateDraft}
+                  onChange={(draft) => dispatch({ type: "update-compensate", draft })}
+                  onSubmit={() => void submitJudge(5, draftOf(state, 5))}
+                  result={summaryFor(5, "compensate")}
+                  submitted={passedStages.includes(5)}
+                  submitting={submitting}
+                />
+              </details>
+            ) : null}
+
             {projectLoaded && stage?.index === 4 ? (
               <FinalPanel
                 draft={draftOf(state, 4) as FinalDraft}
@@ -277,17 +306,6 @@ export function LunchShiftLabPage() {
                 onSubmit={() => void submitJudge(4, draftOf(state, 4))}
                 result={finalResult}
                 submitted={finalSubmitted}
-                submitting={submitting}
-              />
-            ) : null}
-
-            {projectLoaded && stage?.index === 5 ? (
-              <CompensatePanel
-                draft={draftOf(state, 5) as CompensateDraft}
-                onChange={(draft) => dispatch({ type: "update-compensate", draft })}
-                onSubmit={() => void submitJudge(5, draftOf(state, 5))}
-                result={summaryFor(5, "compensate")}
-                submitted={passedStages.includes(5)}
                 submitting={submitting}
               />
             ) : null}

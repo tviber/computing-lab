@@ -73,8 +73,7 @@ export type OrderResult = {
   expected?: Ticket;
 };
 
-export type SimulationAction =
-  "arrive" | "held" | "ticket" | "ready" | "cook" | "expedite" | "send";
+export type SimulationAction = "arrive" | "held" | "ticket" | "ready" | "cook" | "rush" | "send";
 
 export type SimulationEvent = {
   tick: number;
@@ -105,8 +104,8 @@ export type RunSummary = {
   orders: OrderResult[];
   events?: SimulationEvent[];
   picks?: QueuePick[];
-  /** How many of the 3 expedite chances were spent this run. */
-  expeditesUsed?: number;
+  /** How many of the 3 rush chances were spent this run. */
+  rushUsed?: number;
 };
 
 export type SimulationRun = {

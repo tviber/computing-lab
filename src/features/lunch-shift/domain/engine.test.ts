@@ -330,29 +330,29 @@ describe("正式集 (mirrored hidden set)", () => {
   });
 });
 
-describe("expedite (the stage-4 second lever)", () => {
+describe("rush (the stage-4 second lever)", () => {
   const urgent = () => tableFor((u) => (u ? 1 : 0));
 
   it("is a real lever: boosting 3-cook orders rescues the starved order", () => {
     const without = simulate(QUEUE_SCENARIO, {
       priority: urgent(),
-      expedite: tableFor(() => 0),
+      rush: tableFor(() => 0),
     }).result;
     const boosted = simulate(QUEUE_SCENARIO, {
       priority: urgent(),
-      expedite: tableFor((_u, _w, c) => (c === 3 ? 1 : 0)),
+      rush: tableFor((_u, _w, c) => (c === 3 ? 1 : 0)),
     }).result;
     expect(without.onTime).toBe(11);
     expect(boosted.onTime).toBe(12);
-    expect(boosted.expeditesUsed).toBe(3);
+    expect(boosted.rushUsed).toBe(3);
   });
 
   it("never asking for a boost spends nothing and changes nothing", () => {
     const run = simulate(QUEUE_SCENARIO, {
       priority: urgent(),
-      expedite: tableFor(() => 0),
+      rush: tableFor(() => 0),
     }).result;
-    expect(run.expeditesUsed).toBe(0);
+    expect(run.rushUsed).toBe(0);
     expect(run.onTime).toBe(11);
   });
 });

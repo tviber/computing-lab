@@ -50,7 +50,7 @@ const GENERIC_TABLES: IntakeTables = {
 };
 
 const BOOST10 = tableFor((u, w) => (u ? 1 : 0) + (w >= 10 ? 1 : 0));
-/** Never expedite — a valid all-zero table. */
+/** Never rush — a valid all-zero table. */
 const NEVER = tableFor(() => 0);
 
 describe("lunch-shift judge", () => {
@@ -122,8 +122,8 @@ describe("lunch-shift judge", () => {
       tables: GENERIC_TABLES,
       queueCode: "y",
       priority: BOOST10,
-      expediteCode: "z",
-      expedite: NEVER,
+      rushCode: "z",
+      rush: NEVER,
     });
     expect("error" in outcome).toBe(true);
     if (!("error" in outcome)) return;
@@ -137,7 +137,7 @@ describe("lunch-shift judge", () => {
       tables: null,
       queueCode: "y",
       priority: null,
-      expedite: null,
+      rush: null,
     });
     expect("error" in outcome).toBe(true);
     if (!("error" in outcome)) return;
@@ -155,8 +155,8 @@ describe("lunch-shift judge", () => {
       tables: GENERIC_TABLES,
       queueCode: "y",
       priority: BOOST10,
-      expediteCode: "z",
-      expedite: NEVER,
+      rushCode: "z",
+      rush: NEVER,
     };
     const first = judgeLunchShiftSubmission(db, project, 4, draft);
     expect("error" in first).toBe(false);
@@ -185,7 +185,7 @@ describe("lunch-shift judge", () => {
       tables: literal,
       queueCode: "y",
       priority: BOOST10,
-      expedite: NEVER,
+      rush: NEVER,
     });
     expect("error" in literalRun).toBe(false);
     if (!("error" in literalRun)) {

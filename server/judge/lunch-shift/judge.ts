@@ -188,23 +188,23 @@ export function judgeLunchShiftSubmission(
     const raw = rawDraft as {
       tables?: unknown;
       priority?: unknown;
-      expedite?: unknown;
+      rush?: unknown;
     } | null;
     const { tables, errors: tableErrors } = checkIntakeTables(raw?.tables);
     const { table, errors: priorityErrors } = checkPriorityTable(raw?.priority);
-    const { table: expedite, errors: expediteErrors } = checkPriorityTable(raw?.expedite);
+    const { table: rush, errors: rushErrors } = checkPriorityTable(raw?.rush);
     // Refuse before grading — a malformed request must not burn the one shot.
     if (
       tableErrors.length > 0 ||
       priorityErrors.length > 0 ||
-      expediteErrors.length > 0 ||
+      rushErrors.length > 0 ||
       table === null ||
-      expedite === null
+      rush === null
     ) {
       return { error: "missing-run", status: 400 };
     }
     const scenario: Scenario = FINAL_SCENARIO;
-    const run = simulate(scenario, { tables, priority: table, expedite }).result;
+    const run = simulate(scenario, { tables, priority: table, rush }).result;
     // Second metric is 记对且准时 — a wrong ticket earns no delivery point:
     // 数据写错，后面全错， consistent with the stage-1 lesson.
     const served = run.orders.filter((order) => order.correct === true && order.onTime).length;

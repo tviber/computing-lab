@@ -39,8 +39,8 @@ export type FinalDraft = {
   tables: IntakeTables | null;
   queueCode: string;
   priority: number[] | null;
-  expediteCode: string;
-  expedite: number[] | null;
+  rushCode: string;
+  rush: number[] | null;
 };
 
 /** Stage 5 附加挑战 draft: compensate code plus its 62-cell result table. */
