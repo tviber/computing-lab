@@ -8,8 +8,8 @@
 }
 
 .bitmap-canvas {
-  border: 1px solid #cbd5e1;
-  border-radius: 4px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-mini);
   display: block;
 }
 
@@ -17,9 +17,9 @@
 .guided-cell-task,
 .choose-size-panel,
 .recognition-panel {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
   padding: 16px 20px;
 }
 
@@ -31,15 +31,15 @@
 }
 
 .resolution-inputs input[type="number"] {
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   font: inherit;
   padding: 4px 8px;
   width: 72px;
 }
 
 .cell-count {
-  color: #475569;
+  color: var(--secondary);
   font-size: 13px;
 }
 
@@ -49,7 +49,7 @@
 }
 
 .resolution-code-status span {
-  color: #475569;
+  color: var(--secondary);
   font-size: 13px;
 }
 
@@ -69,8 +69,8 @@
 .member-chip {
   align-items: center;
   background: none;
-  border: 1px solid #e2e8f0;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -80,8 +80,8 @@
 }
 
 .member-chip.is-active {
-  border-color: #6366f1;
-  box-shadow: 0 0 0 1px #6366f1;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 1px var(--accent);
 }
 
 .sweep-table,
@@ -99,7 +99,7 @@
 .ranking-table td,
 .cell-check-table th,
 .cell-check-table td {
-  border-bottom: 1px solid #e2e8f0;
+  border-bottom: 1px solid var(--border);
   padding: 4px 8px;
   text-align: left;
 }
@@ -107,20 +107,20 @@
 .sweep-table caption,
 .ranking-table caption {
   caption-side: top;
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
   padding-bottom: 4px;
   text-align: left;
 }
 
 .sweep-table tr.is-active {
-  background: #eef2ff;
+  background: var(--accent-soft);
 }
 
 .probe-link {
   background: none;
   border: none;
-  color: #4338ca;
+  color: var(--accent-ink);
   cursor: pointer;
   font: inherit;
   padding: 0;
@@ -128,9 +128,9 @@
 }
 
 .confusion-callout {
-  background: #fef3c7;
-  border: 1px solid #f59e0b55;
-  border-radius: 8px;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-control);
   font-size: 13px;
   padding: 10px 12px;
 }
@@ -141,7 +141,7 @@
 }
 
 .confusion-clear {
-  color: #15803d;
+  color: var(--success-ink);
   font-size: 13px;
 }
 
@@ -154,29 +154,29 @@
 }
 
 .rule-toggle button {
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   cursor: pointer;
   font: inherit;
   padding: 3px 10px;
 }
 
 .rule-toggle button.is-active {
-  background: #eef2ff;
-  border-color: #6366f1;
-  color: #3730a3;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .rule-running {
-  color: #64748b;
+  color: var(--muted);
 }
 
 .rule-error {
-  background: #fff7ed;
-  border: 1px solid #fdba7466;
-  border-radius: 8px;
-  color: #9a3412;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
+  border-radius: var(--radius-control);
+  color: var(--warning-ink);
   font-size: 13px;
   padding: 8px 12px;
 }
@@ -184,7 +184,7 @@
 .pair-link {
   background: none;
   border: none;
-  color: #92400e;
+  color: var(--warning-ink);
   cursor: pointer;
   font: inherit;
   padding: 0;
@@ -196,20 +196,20 @@
 }
 
 .pair-diff-note {
-  color: #92400e;
+  color: var(--warning-ink);
   font-size: 12px;
   margin: 6px 0 0;
 }
 
 .guided-next {
-  color: #475569;
+  color: var(--secondary);
   font-size: 12px;
 }
 
 .stage-mission {
-  background: #eef2ff;
-  border: 1px solid #6366f133;
-  border-radius: 8px;
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: var(--radius-control);
   font-weight: 500;
   padding: 10px 12px;
 }
@@ -228,7 +228,7 @@
 
 .preview-pair figcaption,
 .counterexample-triptych figcaption {
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
   margin-top: 4px;
 }
@@ -241,22 +241,22 @@
 
 .cell-inspector,
 .cell-inspector-hint {
-  background: #f1f5f9;
-  border-radius: 8px;
+  background: var(--subtle);
+  border-radius: var(--radius-control);
   font-size: 13px;
   margin-top: 12px;
   padding: 10px 12px;
 }
 
 .code-editor {
-  border: 1px solid #334155;
-  border-radius: 8px;
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-control);
   font-size: 13px;
   overflow: hidden;
 }
 
 .code-editor .cm-editor {
-  background: #0f172a;
+  background: var(--code-surface);
 }
 
 .code-editor .cm-scroller {
@@ -265,7 +265,7 @@
 }
 
 .helper-note {
-  color: #475569;
+  color: var(--secondary);
   font-size: 13px;
 }
 
@@ -280,19 +280,19 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 12px;
   padding: 3px 10px;
 }
 
 .badge-pass {
-  background: #dcfce7;
-  color: #166534;
+  background: var(--success-fill);
+  color: var(--success-ink);
 }
 
 .badge-fail {
-  background: #fee2e2;
-  color: #991b1b;
+  background: var(--danger-soft);
+  color: var(--danger-ink);
 }
 
 .region-strip {
@@ -311,7 +311,7 @@
 }
 
 .region-card figcaption {
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -321,9 +321,9 @@
 }
 
 .guess-button {
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   cursor: pointer;
   font: inherit;
   min-width: 32px;
@@ -331,9 +331,9 @@
 }
 
 .guess-button.is-active {
-  background: #eef2ff;
-  border-color: #6366f1;
-  color: #3730a3;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .guess-verdict {
@@ -341,22 +341,22 @@
 }
 
 .guess-verdict.is-ok {
-  color: #15803d;
+  color: var(--success-ink);
 }
 
 .guess-verdict.is-bad {
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .code-fill {
-  background: #0f172a;
-  border: 1px solid #334155;
-  border-radius: 8px;
+  background: var(--code-surface);
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-control);
   padding: 12px;
 }
 
 .code-fill pre {
-  color: #e2e8f0;
+  color: var(--code-ink);
   font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
   font-size: 13px;
   line-height: 1.7;
@@ -368,14 +368,14 @@
 .code-blank {
   background: transparent;
   border: none;
-  border-bottom: 2px solid #64748b;
-  color: #fbbf24;
+  border-bottom: 2px solid var(--muted);
+  color: var(--code-accent);
   font: inherit;
   padding: 0 2px;
 }
 
 .code-blank:focus {
-  border-bottom-color: #fbbf24;
+  border-bottom-color: var(--code-accent);
   outline: none;
 }
 
@@ -387,9 +387,9 @@
 
 .cell-outcome {
   align-items: center;
-  background: #f8fafc;
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   display: inline-flex;
   font-weight: 700;
   height: 34px;
@@ -398,22 +398,22 @@
 }
 
 .cell-outcome.is-on {
-  background: #1c2430;
-  color: #f8fafc;
+  background: var(--code-surface);
+  color: var(--code-ink);
 }
 
 .cell-outcome.is-ok {
-  box-shadow: 0 0 0 2px #22c55e;
+  box-shadow: 0 0 0 2px var(--success);
 }
 
 .cell-outcome.is-bad {
-  box-shadow: 0 0 0 2px #ef4444;
+  box-shadow: 0 0 0 2px var(--danger);
 }
 
 .python-error {
-  background: #450a0a;
-  border-radius: 8px;
-  color: #fecaca;
+  background: var(--error-surface);
+  border-radius: var(--radius-control);
+  color: var(--error-ink);
   font-size: 12px;
   overflow-x: auto;
   padding: 12px;
@@ -421,19 +421,19 @@
 }
 
 .cell-check-table tr.is-bad {
-  background: #fef2f2;
+  background: var(--danger-soft);
 }
 
 .cell-check-table tr.is-ok {
-  background: #f0fdf4;
+  background: var(--success-soft);
 }
 
 .recognition-panel.is-passed {
-  border-color: #86efac;
+  border-color: var(--success-border);
 }
 
 .recognition-panel.is-failed {
-  border-color: #fca5a5;
+  border-color: var(--danger-border);
 }
 
 .verdict-stats {
@@ -443,7 +443,7 @@
 }
 
 .verdict-stats dt {
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -454,11 +454,11 @@
 }
 
 .verdict-stats .over-budget {
-  color: #b91c1c;
+  color: var(--danger);
 }
 
 .verdict-sub {
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 400;
 }
@@ -477,7 +477,7 @@
 }
 
 .submit-note {
-  color: #64748b;
+  color: var(--muted);
   font-size: 13px;
 }
 

@@ -39,14 +39,24 @@ export type FinalDraft = {
   tables: IntakeTables | null;
   queueCode: string;
   priority: number[] | null;
-  rushCode: string;
-  rush: number[] | null;
 };
 
-/** Stage 5 附加挑战 draft: compensate code plus its 62-cell result table. */
+/** Stage 5 附加挑战 draft: compensate code plus its 124-cell result table. */
 export type CompensateDraft = {
   code: string;
   compensate: number[] | null;
+};
+
+/** One compensated order row in the stage-5 bill. */
+export type CompensateOrderRow = {
+  id: string;
+  urgent: boolean;
+  delivered: boolean;
+  overtime: number;
+  choice: number;
+  /** Bad-review probability for the chosen action, percent. */
+  risk: number;
+  cost: number;
 };
 
 export type LunchDraft = TrainingDraft | IntakeDraft | QueueDraft | FinalDraft | CompensateDraft;
@@ -97,19 +107,14 @@ export type LunchTestSummary =
     }
   | {
       kind: "compensate";
-      recovered: number;
-      cost: number;
-      net: number;
-      loss: number;
-      orders?: {
-        id: string;
-        urgent: boolean;
-        wait: number;
-        overtime: number;
-        choice: number;
-        recovered: number;
-        cost: number;
-      }[];
+      /** Expected bad reviews ×100 (442 = 预计 4.42 单差评). */
+      badReviewPoints: number;
+      /** 补偿总花费（元）. */
+      spend: number;
+      /** Best achievable within the spend cap — the gap to aim at. */
+      bestReviewPoints: number;
+      bestSpend: number;
+      orders?: CompensateOrderRow[];
       errors?: string[];
     };
 

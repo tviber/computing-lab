@@ -103,9 +103,9 @@ button.cell-pass:hover {
 
 .cell-score {
   padding: 2px 8px;
-  border: 1px solid #f0cfcb;
+  border: 1px solid var(--danger-border);
   border-radius: var(--radius-control);
-  background: #fdf0ef;
+  background: var(--danger-soft);
   color: var(--danger);
   cursor: pointer;
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -161,7 +161,7 @@ button.cell-pass:hover {
   width: 30px;
   height: 30px;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   cursor: pointer;
 }
@@ -205,14 +205,14 @@ button.cell-pass:hover {
 }
 
 .drawer-categories li.is-pass {
-  border-color: #b7e0cd;
-  background: #f0faf6;
+  border-color: var(--success-border);
+  background: var(--success-soft);
   color: var(--success);
 }
 
 .drawer-categories li.is-fail {
-  border-color: #f0cfcb;
-  background: #fdf0ef;
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
   color: var(--danger);
 }
 

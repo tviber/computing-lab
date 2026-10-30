@@ -10,6 +10,10 @@ import {
   priorityIndex,
   PRIORITY_TABLE_SIZE,
 } from "../../../src/features/lunch-shift/domain/priority.ts";
+import {
+  COMPENSATE_TABLE_SIZE,
+  compensateIndex,
+} from "../../../src/features/lunch-shift/domain/compensate.ts";
 
 const LAB_ID = "lunch-shift";
 
@@ -50,8 +54,6 @@ const GENERIC_TABLES: IntakeTables = {
 };
 
 const BOOST10 = tableFor((u, w) => (u ? 1 : 0) + (w >= 10 ? 1 : 0));
-/** Never rush — a valid all-zero table. */
-const NEVER = tableFor(() => 0);
 
 describe("lunch-shift judge", () => {
   it("stage 2 passes only at 12/12 tickets", () => {
@@ -122,8 +124,6 @@ describe("lunch-shift judge", () => {
       tables: GENERIC_TABLES,
       queueCode: "y",
       priority: BOOST10,
-      rushCode: "z",
-      rush: NEVER,
     });
     expect("error" in outcome).toBe(true);
     if (!("error" in outcome)) return;
@@ -137,7 +137,6 @@ describe("lunch-shift judge", () => {
       tables: null,
       queueCode: "y",
       priority: null,
-      rush: null,
     });
     expect("error" in outcome).toBe(true);
     if (!("error" in outcome)) return;
@@ -155,8 +154,6 @@ describe("lunch-shift judge", () => {
       tables: GENERIC_TABLES,
       queueCode: "y",
       priority: BOOST10,
-      rushCode: "z",
-      rush: NEVER,
     };
     const first = judgeLunchShiftSubmission(db, project, 4, draft);
     expect("error" in first).toBe(false);
@@ -185,7 +182,6 @@ describe("lunch-shift judge", () => {
       tables: literal,
       queueCode: "y",
       priority: BOOST10,
-      rush: NEVER,
     });
     expect("error" in literalRun).toBe(false);
     if (!("error" in literalRun)) {
@@ -203,5 +199,71 @@ describe("lunch-shift judge", () => {
     if (!("error" in second)) return;
     expect(second.error).toBe("final-used");
     expect(second.status).toBe(409);
+  });
+
+  const compensateTableFor = (
+    fn: (urgent: boolean, overtime: number, delivered: boolean) => number,
+  ): number[] => {
+    const table = new Array(COMPENSATE_TABLE_SIZE).fill(0);
+    for (const u of [false, true])
+      for (let o = 0; o <= 30; o++)
+        for (const d of [false, true]) table[compensateIndex(u, o, d)] = fn(u, o, d);
+    return table;
+  };
+
+  it("stage 5 requires stage 3 passed", () => {
+    const { db, project } = setupProject([1, 2]);
+    const outcome = judgeLunchShiftSubmission(db, project, 5, {
+      code: "x",
+      compensate: compensateTableFor(() => 0),
+    });
+    expect("error" in outcome).toBe(true);
+    if (!("error" in outcome)) return;
+    expect(outcome.error).toBe("stage-locked");
+  });
+
+  it("stage 5 records a failed submission on a malformed table", () => {
+    const { db, project } = setupProject([1, 2, 3]);
+    const outcome = judgeLunchShiftSubmission(db, project, 5, {
+      code: "x",
+      compensate: new Array(62).fill(0), // the old 62-cell shape
+    });
+    expect("error" in outcome).toBe(false);
+    if ("error" in outcome) return;
+    expect(outcome.passed).toBe(false);
+    expect(outcome.testSummary.kind).toBe("compensate");
+    if (outcome.testSummary.kind !== "compensate") return;
+    expect(outcome.testSummary.errors?.[0]).toContain("124");
+  });
+
+  it("stage 5 needs both lines held: reviews AND spend", () => {
+    const { db, project } = setupProject([1, 2, 3]);
+    // Refund every undelivered order and snack the rest: reviews 3.28 but
+    // the bill runs 100 元 — over the spend line.
+    const blind = judgeLunchShiftSubmission(db, project, 5, {
+      code: "x",
+      compensate: compensateTableFor((_u, _o, d) => (d ? 1 : 2)),
+    });
+    expect("error" in blind).toBe(false);
+    if ("error" in blind) return;
+    expect(blind.passed).toBe(false);
+    if (blind.testSummary.kind !== "compensate") return;
+    expect(blind.testSummary.spend).toBe(100);
+
+    // Refund the urgent undelivered, snack the rest: 4.42 reviews @ 61 元.
+    const aware = judgeLunchShiftSubmission(db, project, 5, {
+      code: "x",
+      compensate: compensateTableFor((u, _o, d) => (!d ? (u ? 2 : 1) : 1)),
+    });
+    expect("error" in aware).toBe(false);
+    if ("error" in aware) return;
+    expect(aware.passed).toBe(true);
+    expect(aware.score).toBe(1);
+    expect(aware.passedStages).toEqual([1, 2, 3, 5]);
+    if (aware.testSummary.kind !== "compensate") return;
+    expect(aware.testSummary.badReviewPoints).toBe(442);
+    expect(aware.testSummary.spend).toBe(61);
+    expect(aware.testSummary.bestReviewPoints).toBe(399);
+    expect(aware.testSummary.bestSpend).toBe(74);
   });
 });

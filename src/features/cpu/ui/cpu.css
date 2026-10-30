@@ -27,8 +27,8 @@
 
 /* Soft-gate banner — guidance, never a block. */
 .cpu-gate-banner {
-  background: #fff8eb;
-  border: 1px solid #f0dcae;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning-border);
   border-radius: var(--radius-control);
   color: var(--warning);
   font-size: 13px;
@@ -228,7 +228,7 @@
 
 .cpu-phase {
   border: 1px solid var(--border);
-  border-radius: 20px;
+  border-radius: var(--radius-pill);
   color: var(--muted);
   font-size: 11px;
   padding: 2px 10px;
@@ -333,20 +333,20 @@
 }
 
 .cpu-ir-fields code {
-  border-radius: 4px;
+  border-radius: var(--radius-mini);
   padding: 1px 3px;
 }
 
 .cpu-ir-op {
-  background: #fde8d8;
+  background: var(--ir-op);
 }
 
 .cpu-ir-reg {
-  background: #e0ecfd;
+  background: var(--ir-reg);
 }
 
 .cpu-ir-operand {
-  background: #ddf2e4;
+  background: var(--ir-operand);
 }
 
 .cpu-ir-legend {
@@ -376,8 +376,8 @@
 }
 
 .cpu-carry.is-lit .cpu-carry-lamp {
-  background: #e0457b;
-  box-shadow: 0 0 8px #e0457b;
+  background: var(--cpu-lamp);
+  box-shadow: 0 0 8px var(--cpu-lamp);
 }
 
 .cpu-carry-label {
@@ -402,12 +402,12 @@
 }
 
 .cpu-view-toggle button:first-child {
-  border-radius: 6px 0 0 6px;
+  border-radius: var(--radius-control) 0 0 var(--radius-control);
 }
 
 .cpu-view-toggle button:last-child {
   border-left: none;
-  border-radius: 0 6px 6px 0;
+  border-radius: 0 var(--radius-control) var(--radius-control) 0;
 }
 
 .cpu-view-toggle button.is-active {
@@ -427,7 +427,7 @@
 
 .cpu-mem-cell {
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   display: flex;
   flex-direction: column;
   gap: 1px;
@@ -435,7 +435,7 @@
 }
 
 .cpu-mem-cell.is-code {
-  background: #f3f0ff;
+  background: var(--accent-soft);
 }
 
 .cpu-mem-cell.is-scratch {
@@ -453,7 +453,7 @@
 
 @keyframes cpu-cell-write {
   0% {
-    background: #fde68a;
+    background: var(--marker);
   }
   100% {
     background: inherit;
@@ -498,7 +498,7 @@
 }
 
 .cpu-mem-legend i {
-  border-radius: 3px;
+  border-radius: var(--radius-mini);
   display: inline-block;
   height: 9px;
   margin-right: 4px;
@@ -507,7 +507,7 @@
 }
 
 .cpu-legend-code {
-  background: #f3f0ff;
+  background: var(--accent-soft);
   border: 1px solid var(--accent);
 }
 
@@ -685,14 +685,14 @@
 }
 
 .cpu-test-categories li.is-pass {
-  background: #ecfdf5;
-  border-color: #a7e8c9;
+  background: var(--success-soft);
+  border-color: var(--success-border);
   color: var(--success);
 }
 
 .cpu-test-categories li.is-fail {
-  background: #fdf0ef;
-  border-color: #f0cfcb;
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
   color: var(--danger);
 }
 
@@ -758,7 +758,7 @@
 
 .cpu-shelf-card {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   display: flex;
   flex-direction: column;
   gap: 3px;
@@ -781,7 +781,7 @@
 
 .cpu-row.is-active {
   background: var(--accent-soft);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   outline: 1px solid var(--accent);
 }
 
@@ -797,13 +797,13 @@
 }
 
 .cpu-row.is-blank {
-  border-left: 3px solid var(--accent);
-  padding-left: 6px;
+  background: var(--accent-soft);
+  border-radius: var(--radius-control);
 }
 
 .cpu-row-blank-badge {
   background: var(--accent-soft);
-  border-radius: 10px;
+  border-radius: var(--radius-pill);
   color: var(--accent);
   font-size: 10px;
   font-weight: 700;
@@ -823,7 +823,7 @@
 
 .cpu-guide-item {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   padding: 8px 12px;
 }
 
@@ -871,7 +871,7 @@
 .cpu-guide-option {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   cursor: pointer;
   display: flex;
   flex-direction: column;
@@ -930,7 +930,7 @@
 .cpu-block-banner {
   background: var(--accent-soft);
   border: 1px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 12px;
   padding: 6px 10px;
 }
@@ -974,8 +974,8 @@
 /* ---------- memory read / pending write ---------- */
 
 .cpu-mem-cell.is-read {
-  border-color: #d97706;
-  box-shadow: 0 0 0 1px #d97706;
+  border-color: var(--warning);
+  box-shadow: 0 0 0 1px var(--warning);
 }
 
 .cpu-mem-cell.is-pending-write {
@@ -1019,7 +1019,7 @@
 .cpu-bit {
   background: var(--subtle);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: var(--muted);
   cursor: pointer;
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -1036,19 +1036,19 @@
 }
 
 .cpu-bit-f0.is-on {
-  background: #ede9fe;
+  background: var(--accent-soft);
 }
 
 .cpu-bit-f1.is-on {
-  background: #dcfce7;
-  border-color: #16a34a;
-  color: #16a34a;
+  background: var(--success-fill);
+  border-color: var(--success);
+  color: var(--success);
 }
 
 .cpu-bit-f2.is-on {
-  background: #fef3c7;
-  border-color: #d97706;
-  color: #d97706;
+  background: var(--warning-soft);
+  border-color: var(--warning);
+  color: var(--warning);
 }
 
 .cpu-byteplay-fields {
@@ -1081,7 +1081,7 @@
 .cpu-preset {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   cursor: pointer;
   font-size: 11px;
   padding: 2px 10px;
@@ -1096,16 +1096,16 @@
 /* ---------- 点餐机 I/O cells (拨码开关 / 数码管) ---------- */
 
 .cpu-mem-cell.is-input {
-  border-color: #16a34a;
+  border-color: var(--success);
 }
 
 .cpu-mem-cell.is-output {
-  border-color: #d97706;
+  border-color: var(--warning);
 }
 
 .cpu-mem-port {
   align-self: flex-start;
-  border-radius: 8px;
+  border-radius: var(--radius-control);
   font-size: 9px;
   font-weight: 700;
   line-height: 1;
@@ -1114,23 +1114,23 @@
 }
 
 .cpu-mem-port.is-input {
-  background: #dcfce7;
-  color: #16a34a;
+  background: var(--success-fill);
+  color: var(--success);
 }
 
 .cpu-mem-port.is-output {
-  background: #fef3c7;
-  color: #b45309;
+  background: var(--warning-soft);
+  color: var(--warning-ink);
 }
 
 .cpu-legend-input {
-  background: #dcfce7;
-  border: 1px solid #16a34a;
+  background: var(--success-fill);
+  border: 1px solid var(--success);
 }
 
 .cpu-legend-output {
-  background: #fef3c7;
-  border: 1px solid #d97706;
+  background: var(--warning-soft);
+  border: 1px solid var(--warning);
 }
 
 /* ---------- M3 ALU column add (4 位列加 + 第 5 位灯) ---------- */
@@ -1166,8 +1166,8 @@
 }
 
 .cpu-coladd-bits .col.carry-out.is-lit {
-  color: #e0457b;
-  text-shadow: 0 0 6px #e0457b;
+  color: var(--cpu-lamp);
+  text-shadow: 0 0 6px var(--cpu-lamp);
 }
 
 .cpu-coladd-op {

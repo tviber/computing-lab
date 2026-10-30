@@ -45,21 +45,8 @@ export async function runPriorityTable(
 }
 
 /**
- * Evaluate rush(urgent, wait, cook) for all 124 input combinations.
- * Returns the raw result list — validated by the caller
- * (checkPriorityTable, same shape as priority).
- */
-export async function runRushTable(
-  code: string,
-  timeoutMs = WORKER_RUN_TIMEOUT_MS,
-): Promise<unknown> {
-  const payload = await client.run<{ result: unknown }>({ kind: "rush", code }, timeoutMs);
-  return payload.result;
-}
-
-/**
- * Evaluate compensate(urgent, wait) for all 62 input combinations.
- * Returns the raw result list — validated by the caller
+ * Evaluate compensate(urgent, overtime, delivered) for all 124 input
+ * combinations. Returns the raw result list — validated by the caller
  * (checkCompensateTable).
  */
 export async function runCompensateTable(

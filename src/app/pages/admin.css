@@ -196,8 +196,8 @@
   min-height: 36px;
   padding: 6px 28px 6px 10px;
   border: 1px solid var(--border);
-  border-radius: 6px;
-  background: var(--surface, #fff);
+  border-radius: var(--radius-control);
+  background: var(--surface);
   font-size: 13px;
   line-height: 20px;
 }
@@ -224,7 +224,7 @@
   width: 140px;
   padding: 3px 8px;
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   font-size: 13px;
 }
 
@@ -242,7 +242,7 @@
 }
 
 .admin-danger:not(:disabled) {
-  color: var(--danger, #b42318);
+  color: var(--danger);
 }
 
 .admin-pagination {
@@ -291,7 +291,7 @@
 }
 
 .admin-lab-state.is-hidden {
-  color: var(--danger, #b42318);
+  color: var(--danger);
 }
 
 .admin-lab-config {
@@ -370,14 +370,14 @@
   gap: 2px;
   padding: 2px 4px 2px 8px;
   border: 1px solid var(--border);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 12px;
 }
 
 .admin-chip-remove {
   padding: 0 4px;
   border: none;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: transparent;
   color: var(--muted);
   cursor: pointer;
@@ -386,7 +386,7 @@
 }
 
 .admin-chip-remove:hover:not(:disabled) {
-  color: var(--danger, #b42318);
+  color: var(--danger);
 }
 
 .admin-chip-remove:disabled {
@@ -401,8 +401,8 @@
 }
 
 .button-danger:hover:not(:disabled) {
-  background: #8f1d14;
-  border-color: #8f1d14;
+  background: var(--danger-ink);
+  border-color: var(--danger-ink);
 }
 
 .admin-modal-backdrop {

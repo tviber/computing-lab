@@ -11,6 +11,9 @@
  *    before grading; missing/invalid artefacts are refused outright so a
  *    malformed request can't burn the single attempt. Score = correct
  *    tickets + on-time deliveries, total 24.
+ *  - 附加挑战: the compensate table is replayed over the fixed FIFO run's
+ *    problem orders — pass holds BOTH lines: expected bad reviews ≤ 4.5
+ *    and compensation spend ≤ 80 元 (the rates live in domain/compensate).
  *
  * Student code never runs here: the browser's Pyodide worker already
  * turned it into JSON tables; this file only re-checks their shape and
@@ -23,7 +26,6 @@ import { sameTicket, type Scenario } from "../../../src/features/lunch-shift/dom
 import {
   INTAKE_SCENARIO,
   QUEUE_SCENARIO,
-  RUSH_SCENARIO,
   trainingOrderFor,
 } from "../../../src/features/lunch-shift/domain/scenarios.ts";
 import { simulate } from "../../../src/features/lunch-shift/domain/simulator.ts";
@@ -36,13 +38,13 @@ import type {
   LunchJudgeResult,
   LunchTestSummary,
 } from "../../../src/features/lunch-shift/domain/protocol.ts";
+import { checkPriorityTable } from "../../../src/features/lunch-shift/domain/priority.ts";
 import {
-  checkPriorityTable,
-  priorityIndex,
-  PRIORITY_TABLE_SIZE,
-} from "../../../src/features/lunch-shift/domain/priority.ts";
-import {
+  bestCompensation,
   checkCompensateTable,
+  COMPENSATE_PASS_REVIEWS,
+  COMPENSATE_PASS_SPEND,
+  compensateLateOrders,
   evaluateCompensation,
 } from "../../../src/features/lunch-shift/domain/compensate.ts";
 import {
@@ -160,25 +162,31 @@ export function judgeLunchShiftSubmission(
       score = 0;
       total = 1;
       passed = false;
-      testSummary = { kind: "compensate", recovered: 0, cost: 0, net: 0, loss: 0, errors };
-    } else {
-      // Everyone pays for the same late orders — a fixed urgent-first run
-      // on the 20-order rush set. The only lever is compensate().
-      const fixed: number[] = new Array(PRIORITY_TABLE_SIZE);
-      for (const u of [false, true])
-        for (let w = 0; w <= 30; w++)
-          for (const c of [1, 3]) fixed[priorityIndex(u, w, c)] = u ? 1 : 0;
-      const run = simulate(RUSH_SCENARIO, { priority: fixed }).result;
-      const bill = evaluateCompensation(run.orders, table);
-      score = bill.net;
-      total = bill.loss;
-      passed = bill.net > 0;
       testSummary = {
         kind: "compensate",
-        recovered: bill.recovered,
-        cost: bill.cost,
-        net: bill.net,
-        loss: bill.loss,
+        badReviewPoints: 0,
+        spend: 0,
+        bestReviewPoints: 0,
+        bestSpend: 0,
+        errors,
+      };
+    } else {
+      // Everyone pays for the same problem orders — the fixed FIFO run on
+      // the 20-order rush set. Pass needs both lines held: expected bad
+      // reviews AND compensation spend.
+      const late = compensateLateOrders();
+      const bill = evaluateCompensation(late, table);
+      const best = bestCompensation(late);
+      passed =
+        bill.badReviewPoints <= COMPENSATE_PASS_REVIEWS && bill.spend <= COMPENSATE_PASS_SPEND;
+      score = passed ? 1 : 0;
+      total = 1;
+      testSummary = {
+        kind: "compensate",
+        badReviewPoints: bill.badReviewPoints,
+        spend: bill.spend,
+        bestReviewPoints: best.badReviewPoints,
+        bestSpend: best.spend,
         orders: bill.orders,
       };
     }
@@ -188,23 +196,15 @@ export function judgeLunchShiftSubmission(
     const raw = rawDraft as {
       tables?: unknown;
       priority?: unknown;
-      rush?: unknown;
     } | null;
     const { tables, errors: tableErrors } = checkIntakeTables(raw?.tables);
     const { table, errors: priorityErrors } = checkPriorityTable(raw?.priority);
-    const { table: rush, errors: rushErrors } = checkPriorityTable(raw?.rush);
     // Refuse before grading — a malformed request must not burn the one shot.
-    if (
-      tableErrors.length > 0 ||
-      priorityErrors.length > 0 ||
-      rushErrors.length > 0 ||
-      table === null ||
-      rush === null
-    ) {
+    if (tableErrors.length > 0 || priorityErrors.length > 0 || table === null) {
       return { error: "missing-run", status: 400 };
     }
     const scenario: Scenario = FINAL_SCENARIO;
-    const run = simulate(scenario, { tables, priority: table, rush }).result;
+    const run = simulate(scenario, { tables, priority: table }).result;
     // Second metric is 记对且准时 — a wrong ticket earns no delivery point:
     // 数据写错，后面全错， consistent with the stage-1 lesson.
     const served = run.orders.filter((order) => order.correct === true && order.onTime).length;

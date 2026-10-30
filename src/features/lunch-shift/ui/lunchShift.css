@@ -18,7 +18,7 @@
 .lunch-ticket-quote {
   margin: var(--space-2) 0;
   padding: var(--space-3) var(--space-4);
-  border-left: 3px solid var(--accent);
+  border: 1px solid var(--accent-line);
   background: var(--accent-soft);
   border-radius: var(--radius-control);
   font-size: 15px;
@@ -250,7 +250,7 @@
   height: auto;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
-  background: #e8ddc7;
+  background: var(--paper);
 }
 .lunch-replay {
   margin: var(--space-3) 0;
@@ -289,8 +289,8 @@
 .lunch-order-fixes .lunch-order-fix {
   margin: var(--space-2) 0;
   padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--danger);
-  background: var(--subtle);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
   border-radius: var(--radius-control);
 }
 .lunch-order-fixes .lunch-order-fix ul {
@@ -310,8 +310,8 @@
 .lunch-intake-results .lunch-order-fix {
   margin: var(--space-2) 0;
   padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--danger);
-  background: var(--subtle);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
   border-radius: var(--radius-control);
 }
 .lunch-intake-results .lunch-order-fix ul,
@@ -320,8 +320,8 @@ ul.lunch-order-fix {
 }
 ul.lunch-order-fix {
   padding: var(--space-2) var(--space-3) var(--space-2) var(--space-5);
-  border-left: 3px solid var(--danger);
-  background: var(--subtle);
+  border: 1px solid var(--danger-border);
+  background: var(--danger-soft);
   border-radius: var(--radius-control);
   list-style: disc;
 }
@@ -349,7 +349,7 @@ ul.lunch-order-fix {
 .lunch-order-item {
   margin: var(--space-1) 0;
   padding: var(--space-1) var(--space-3);
-  border-left: 3px solid var(--border);
+  border: 1px solid var(--border);
   background: var(--subtle);
   border-radius: var(--radius-control);
   font-size: 13px;
@@ -392,7 +392,7 @@ ul.lunch-order-fix {
 }
 .tick-num {
   font-size: 11px;
-  fill: var(--text);
+  fill: var(--primary);
 }
 .tick-row-label {
   font-size: 11px;
@@ -412,7 +412,7 @@ ul.lunch-order-fix {
 }
 .tick-card-text {
   font-size: 11px;
-  fill: var(--text);
+  fill: var(--primary);
 }
 .tick-dish-dot {
   fill: var(--accent);
@@ -434,7 +434,7 @@ ul.lunch-order-fix {
 .lunch-params {
   margin: var(--space-2) 0 var(--space-3);
   padding: var(--space-2) var(--space-3);
-  border-left: 3px solid var(--accent);
+  border: 1px solid var(--border);
   background: var(--subtle);
   border-radius: var(--radius-control);
   font-size: 13px;
@@ -447,7 +447,7 @@ ul.lunch-order-fix {
 .lunch-params code {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius-mini);
   padding: 0 4px;
 }
 
@@ -500,10 +500,10 @@ ul.lunch-order-fix {
 .lab-stage-bonus summary {
   cursor: pointer;
   padding: 6px 10px;
-  color: var(--text-dim, #64748b);
+  color: var(--muted);
   font-size: 13px;
   user-select: none;
 }
 .lab-stage-bonus[open] summary {
-  color: var(--accent, #6d5bf7);
+  color: var(--accent);
 }

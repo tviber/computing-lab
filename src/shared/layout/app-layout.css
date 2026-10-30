@@ -70,8 +70,8 @@
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
-  border: 1px solid #d9d8ff;
-  border-radius: 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-panel);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 20px;
@@ -214,7 +214,7 @@
 }
 
 .lab-stage-link.is-active {
-  border-color: #bfc2ff;
+  border-color: var(--accent-line);
   background: var(--accent-soft);
 }
 
