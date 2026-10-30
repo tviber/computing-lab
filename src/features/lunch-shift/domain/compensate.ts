@@ -171,22 +171,37 @@ export function evaluateCompensation(
 /**
  * The best reachable bill inside the spend cap — a small knapsack over
  * per-order choices, so the panel can show the gap without any sampling.
+ * Orders sharing one (urgent, overtime, delivered) input must take the
+ * same choice — a student's function can't tell them apart — so the DP
+ * runs over input groups, or it would show a bill no function can reach.
  */
 export function bestCompensation(
   orders: readonly CompensateLateOrder[],
   maxSpend = COMPENSATE_PASS_SPEND,
 ): { badReviewPoints: number; spend: number } {
-  const maxCost = orders.length * COMPENSATE_COST[2];
+  const groups = new Map<string, { u: boolean; o: number; d: boolean; n: number }>();
+  for (const order of orders) {
+    const key = `${order.urgent}|${order.overtime}|${order.delivered}`;
+    const group = groups.get(key) ?? {
+      u: order.urgent,
+      o: order.overtime,
+      d: order.delivered,
+      n: 0,
+    };
+    group.n++;
+    groups.set(key, group);
+  }
+  const items = [...groups.values()];
+  const maxCost = items.reduce((sum, g) => sum + g.n * COMPENSATE_COST[2], 0);
   let dp = new Array<number>(maxCost + 1).fill(Infinity);
   dp[0] = 0;
-  for (const order of orders) {
+  for (const g of items) {
     const next = new Array<number>(maxCost + 1).fill(Infinity);
     for (let spend = 0; spend <= maxCost; spend++) {
       if (dp[spend] === Infinity) continue;
       for (const choice of [0, 1, 2] as const) {
-        const total = spend + COMPENSATE_COST[choice];
-        const points =
-          dp[spend] + reviewRisk(order.urgent, order.overtime, order.delivered, choice);
+        const total = spend + COMPENSATE_COST[choice] * g.n;
+        const points = dp[spend] + reviewRisk(g.u, g.o, g.d, choice) * g.n;
         if (points < next[total]) next[total] = points;
       }
     }

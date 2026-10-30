@@ -255,12 +255,18 @@ export function migrate(db: DatabaseSync): void {
     // submissions/drafts carry a stale model and drop; stages 1–4 stay.
     if (version < 13) {
       db.exec("DELETE FROM submissions WHERE lab_id='lunch-shift' AND stage_index=5");
+      // current_stage is recomputed like nextLunchStage: the first of
+      // 1..5 not passed, else 6 — the passed_stages subquery keeps the
+      // pre-update row value, so it filters out 5 the same way.
       db.exec(
         "UPDATE student_projects SET " +
           "passed_stages=(SELECT json_group_array(value) FROM json_each(passed_stages) " +
           "WHERE value != 5), " +
           "draft_graph=json_remove(draft_graph, '$.\"5\"'), " +
-          "draft_revisions=json_remove(draft_revisions, '$.\"5\"') " +
+          "draft_revisions=json_remove(draft_revisions, '$.\"5\"'), " +
+          "current_stage=(SELECT COALESCE(MIN(j.value), 6) FROM json_each('[1,2,3,4,5]') j " +
+          "WHERE j.value NOT IN " +
+          "(SELECT value FROM json_each(passed_stages) WHERE value != 5)) " +
           "WHERE lab_id='lunch-shift'",
       );
     }
