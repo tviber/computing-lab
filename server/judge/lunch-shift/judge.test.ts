@@ -147,58 +147,54 @@ describe("lunch-shift judge", () => {
     expect(rows.n).toBe(0);
   });
 
-  it("stage 4 is one-shot and the response carries no hidden order text", () => {
+  it("stage 4 records a fail below 18 and lets the student retry to a pass", () => {
     const { db, project } = setupProject([1, 2, 3]);
-    const draft = {
-      intakeCode: "x",
-      tables: GENERIC_TABLES,
-      queueCode: "y",
-      priority: BOOST10,
-    };
-    const first = judgeLunchShiftSubmission(db, project, 4, draft);
-    expect("error" in first).toBe(false);
-    if ("error" in first) return;
-    expect(first.passed).toBe(true);
-    expect(first.score).toBe(24);
-    expect(first.total).toBe(24);
-    // a wrong ticket earns no 记对且准时 point either
+    // Word tables that only catch the practice wording don't generalize:
+    // 8 correct + 8 记对且准时 = 16, under the 18 line.
     const literal: IntakeTables = {
       dish: [...defaultIntakeTables().dish, ["炒饭", "蛋炒饭"]],
       note: [...defaultIntakeTables().note, ["不放香菜", "不要香菜"], ["别太辣", "少辣"]],
       calm: [...defaultIntakeTables().calm, "不用赶"],
       rush: [...defaultIntakeTables().rush, "能快点吗"],
     };
-    const db2 = openMemoryDb();
-    db2
-      .prepare("INSERT INTO users (id, student_no, name, password_hash) VALUES (?, ?, ?, ?)")
-      .run(newId(), "s2", "学生", "x");
-    const user2 = (db2.prepare("SELECT id FROM users").get() as { id: string }).id;
-    const project2 = getOrCreateProject(db2, user2, "class-1", LAB_ID);
-    db2
-      .prepare("UPDATE student_projects SET passed_stages = ?, current_stage = ? WHERE id = ?")
-      .run(JSON.stringify([1, 2, 3]), 4, project2.id);
-    const literalRun = judgeLunchShiftSubmission(db2, { ...project2, passedStages: [1, 2, 3] }, 4, {
+    const failed = judgeLunchShiftSubmission(db, project, 4, {
       intakeCode: "x",
       tables: literal,
       queueCode: "y",
       priority: BOOST10,
     });
-    expect("error" in literalRun).toBe(false);
-    if (!("error" in literalRun)) {
-      expect(literalRun.score).toBe(16); // 8 correct + 8 记对且准时
-    }
+    expect("error" in failed).toBe(false);
+    if ("error" in failed) return;
+    expect(failed.passed).toBe(false);
+    expect(failed.score).toBe(16);
+    expect(failed.passedStages).toEqual([1, 2, 3]);
+    const fails = db
+      .prepare(
+        "SELECT COUNT(*) AS n FROM submissions WHERE lab_id='lunch-shift' AND stage_index=4 AND passed=0",
+      )
+      .get() as { n: number };
+    expect(fails.n).toBe(1);
 
-    const serialized = JSON.stringify(first.testSummary);
+    // A failed attempt never locks the stage — the retry grades normally.
+    const draft = {
+      intakeCode: "x",
+      tables: GENERIC_TABLES,
+      queueCode: "y",
+      priority: BOOST10,
+    };
+    const retried = judgeLunchShiftSubmission(db, project, 4, draft);
+    expect("error" in retried).toBe(false);
+    if ("error" in retried) return;
+    expect(retried.passed).toBe(true);
+    expect(retried.score).toBe(24);
+    expect(retried.total).toBe(24);
+    expect(retried.passedStages).toEqual([1, 2, 3, 4]);
+
+    const serialized = JSON.stringify(retried.testSummary);
     expect(serialized).not.toContain("别放香菜");
     expect(serialized).not.toContain("麻烦快点");
     expect(serialized).not.toContain("少放点辣");
     expect(serialized).not.toContain("request");
-
-    const second = judgeLunchShiftSubmission(db, project, 4, draft);
-    expect("error" in second).toBe(true);
-    if (!("error" in second)) return;
-    expect(second.error).toBe("final-used");
-    expect(second.status).toBe(409);
   });
 
   const compensateTableFor = (

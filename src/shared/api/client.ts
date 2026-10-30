@@ -67,7 +67,6 @@ export const API_ERROR_MESSAGES: Record<string, string> = {
   "student-member-required": "只能对本班学生执行该操作。",
   "not-a-student-account": "该账号不是学生账号，请让管理员处理。",
   "stage-locked": "这一关还没有解锁。",
-  "final-used": "正式挑战已提交，不能重复提交。",
   "missing-run": "先在页面里运行代码，算出词表和结果表后再提交。",
   "invalid-stage": "关卡编号无效。",
   "unknown-stage": "关卡不存在。",

@@ -1,12 +1,13 @@
 /**
  * Stage 4 · 正式挑战: the student's word tables and priority table carry
- * over from stages 2/3. One last edit + rerun is allowed, then a one-shot
- * submission — the server replays everything on the hidden order set and
- * returns only counts.
+ * over from stages 2/3. The server replays everything on the hidden order
+ * set and returns only counts; below the pass line the student edits and
+ * submits again, like stages 2/3.
  */
 
 import { useState } from "react";
 import { checkPriorityTable } from "../domain/priority.ts";
+import { FINAL_PASS_SCORE } from "../domain/stages.ts";
 import type { FinalDraft, FinalOrderResult, LunchTestSummary } from "../domain/protocol.ts";
 import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErrors.ts";
 import { checkIntakeTables } from "../domain/wordTables.ts";
@@ -78,7 +79,10 @@ export function FinalPanel({
 
   return (
     <section className="lunch-challenge">
-      <p>正式订单的说法和练习不同。词表沿用第二关，这里只编辑排队函数，只能交一次。</p>
+      <p>
+        正式订单的说法和练习不同。词表沿用第二关，这里只编辑排队函数，合计至少 {FINAL_PASS_SCORE}{" "}
+        分过关，没过可以改了再交。
+      </p>
 
       <p className="eyebrow">排队的函数</p>
       <p className="lunch-note">
@@ -150,6 +154,17 @@ export function FinalPanel({
               合计
             </span>
           </div>
+          <p
+            className={
+              finalResult.correct + finalResult.served >= FINAL_PASS_SCORE
+                ? "lunch-feedback success"
+                : "lunch-feedback"
+            }
+          >
+            {finalResult.correct + finalResult.served >= FINAL_PASS_SCORE
+              ? "合计压线，这版过关。"
+              : `差 ${FINAL_PASS_SCORE - finalResult.correct - finalResult.served} 分到 ${FINAL_PASS_SCORE} 的过关线，改改词表或排队函数再交一次。`}
+          </p>
           <div className="lunch-table-wrap">
             <table className="lunch-orders-table">
               <thead>

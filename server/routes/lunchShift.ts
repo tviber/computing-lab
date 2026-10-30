@@ -53,8 +53,8 @@ function latestRunSummaries(
 }
 
 export function lunchShiftRoutes() {
-  // 20 submissions per stage per 10 minutes — practice reruns stay cheap
-  // but bounded; the one-shot final needs no limiter of its own.
+  // 20 submissions per stage per 10 minutes — retries on the hidden final
+  // stay bounded too.
   const judgeLimiter = new SlidingWindowLimiter(20, 10 * 60 * 1000);
   return labRoutes<LunchDraft, LunchJudgeResult>({
     labId: "lunch-shift",

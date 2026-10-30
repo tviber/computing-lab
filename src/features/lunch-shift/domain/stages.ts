@@ -1,7 +1,7 @@
 /**
  * Stage table for the lunch-shift lab. Four stages for one class period:
  * walk one order by hand → fix intake by editing word tables → fix
- * queueing by writing priority() → one-shot graded run on hidden orders.
+ * queueing by writing priority() → graded run on hidden orders.
  * Stage 5 is an optional bonus that rides the stage-3 slot in the rail.
  *
  * Each stage keeps one task sentence. The judging method and the takeaway
@@ -54,9 +54,9 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 4,
     id: "final-run",
     title: "正式挑战",
-    task: "词表沿用第二关，这里只编辑 priority 函数。换了一批写法不同的订单，只能交一次。",
+    task: "词表沿用第二关，这里只编辑 priority 函数。换了一批写法不同的订单，合计至少 18 分过关，没过可以改了再交。",
     judgeNote:
-      "服务器用同一套判法跑 12 张隐藏订单：成绩 = 小票正确数 + 记对且准时数（加急等满 9 拍、普通等满 18 拍算超时），满分 24。",
+      "服务器用同一套判法跑 12 张隐藏订单：成绩 = 小票正确数 + 记对且准时数（加急等满 9 拍、普通等满 18 拍算超时），满分 24，至少 18 分过关。",
     takeaway: "选通用词的词表，才扛得住换说法。",
     hints: [
       "练习里照抄原话加的词，正式订单换个说法就可能认不出。",
@@ -83,6 +83,14 @@ export const LUNCH_STAGES: LunchStageDef[] = [
 export function getLunchStage(index: number): LunchStageDef | undefined {
   return LUNCH_STAGES.find((stage) => stage.index === index);
 }
+
+/**
+ * Stage-4 pass line, shared by the judge and the result view. On the hidden
+ * set, generalizing word tables score ≥ 20 even under FIFO while literal
+ * practice-only tables cap at 16 — 18 splits "words carried over" from
+ * "didn't generalize" without re-testing stage-3 queueing skill.
+ */
+export const FINAL_PASS_SCORE = 18;
 
 /** Linear unlock: a stage opens once the previous one passed. */
 export function lunchStageUnlocked(passedStages: readonly number[], index: number): boolean {

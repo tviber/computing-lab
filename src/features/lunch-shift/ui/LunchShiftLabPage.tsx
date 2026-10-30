@@ -181,7 +181,6 @@ export function LunchShiftLabPage() {
     return state.runSummaries[key];
   };
   const finalResult = summaryFor(4, "final");
-  const finalSubmitted = passedStages.includes(4) || finalResult !== null;
 
   return (
     <LabAccessGate
@@ -316,7 +315,7 @@ export function LunchShiftLabPage() {
                 onChange={(draft) => dispatch({ type: "update-final", draft })}
                 onSubmit={() => void submitJudge(4, draftOf(state, 4))}
                 result={finalResult}
-                submitted={finalSubmitted}
+                submitted={passedStages.includes(4)}
                 submitting={submitting}
               />
             ) : null}

@@ -7,10 +7,11 @@
  *    a failed submission with the concrete errors (the student can retry).
  *  - 修排队: replays the submitted 124-cell priority table — pass at
  *    ≥10/12 on-time, star at 12.
- *  - 正式挑战: one-shot on the hidden set — a second submission is refused
- *    before grading; missing/invalid artefacts are refused outright so a
- *    malformed request can't burn the single attempt. Score = correct
- *    tickets + on-time deliveries, total 24.
+ *  - 正式挑战: replays the submitted tables over the hidden 12-order set —
+ *    score = correct tickets + correct-and-on-time deliveries, total 24,
+ *    pass at ≥18. A failed submission records like every other stage and
+ *    the student can retry; missing/invalid artefacts are still refused
+ *    outright before grading (a malformed request is not an attempt).
  *  - 附加挑战: the compensate table is replayed over the fixed FIFO run's
  *    problem orders — pass holds BOTH lines: expected bad reviews ≤ 4.5
  *    and compensation spend ≤ 80 元 (the rates live in domain/compensate).
@@ -30,6 +31,7 @@ import {
 } from "../../../src/features/lunch-shift/domain/scenarios.ts";
 import { simulate } from "../../../src/features/lunch-shift/domain/simulator.ts";
 import {
+  FINAL_PASS_SCORE,
   getLunchStage,
   lunchStageUnlocked,
   nextLunchStage,
@@ -199,7 +201,8 @@ export function judgeLunchShiftSubmission(
     } | null;
     const { tables, errors: tableErrors } = checkIntakeTables(raw?.tables);
     const { table, errors: priorityErrors } = checkPriorityTable(raw?.priority);
-    // Refuse before grading — a malformed request must not burn the one shot.
+    // Refuse before grading — a request without computed artefacts is a
+    // client-protocol fault, not a gradeable attempt, so it records nothing.
     if (tableErrors.length > 0 || priorityErrors.length > 0 || table === null) {
       return { error: "missing-run", status: 400 };
     }
@@ -210,7 +213,7 @@ export function judgeLunchShiftSubmission(
     const served = run.orders.filter((order) => order.correct === true && order.onTime).length;
     score = run.correct + served;
     total = scenario.orders.length * 2;
-    passed = true;
+    passed = score >= FINAL_PASS_SCORE;
     // The final's orders stay hidden: ids + outcomes only, no wording.
     testSummary = {
       kind: "final",
@@ -236,22 +239,9 @@ export function judgeLunchShiftSubmission(
     unlockedComponent: null,
   };
 
-  // Submission row + progress update commit together — and for the final
-  // stage the one-shot check rides the same IMMEDIATE transaction, so a
-  // second concurrent submit can never slip a duplicate row past it.
-  let finalUsed = false;
+  // Submission row + progress update commit together — a crash between
+  // them would record a pass the student never got credit for.
   withTransaction(db, () => {
-    if (stageIndex === 4) {
-      const existing = db
-        .prepare(
-          "SELECT id FROM submissions WHERE project_id = ? AND lab_id = ? AND stage_index = 4 LIMIT 1",
-        )
-        .get(project.id, project.labId);
-      if (existing) {
-        finalUsed = true;
-        return;
-      }
-    }
     result.submissionId = insertSubmission(db, {
       projectId: project.id,
       userId: project.userId,
@@ -269,7 +259,6 @@ export function judgeLunchShiftSubmission(
       result.currentStage = progress.currentStage;
     }
   });
-  if (finalUsed) return { error: "final-used", status: 409 };
 
   return result;
 }
