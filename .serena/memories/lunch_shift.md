@@ -18,8 +18,8 @@ drafts + save machinery), `ui/` (panels + `pyodide.worker.ts`/
   into JSON: stage 2 → `IntakeTables` (dish/note pairs, calm/rush lists,
   insertion order matters, ≤20 entries, keys 1–10 runes); stage 3 → a
   124-cell table of `priority()` over urgent×wait(0–30)×cook(1|3); stage
-  5 → a 124-cell table of `compensate()` over urgent×overtime(0–30)×
-  delivered. The server re-validates shapes (checkIntakeTables /
+  5 → a 3844-cell table of `compensate()` over urgent×overtime(0–30)×
+  delivered×price(0–30). The server re-validates shapes (checkIntakeTables /
   checkPriorityTable / checkCompensateTable, Chinese errors) and replays
   fixed parsers in `domain/`. Code snapshots (≤8000 chars) are kept for
   teacher review only.
@@ -35,20 +35,23 @@ drafts + save machinery), `ui/` (panels + `pyodide.worker.ts`/
 - The bill is ONE fixed run everyone pays: the RUSH set replayed
   first-come-first-served (`compensateLateOrders()`), leaving 11 problem
   orders — 5 delivered-late (all urgent, overtime 1–9) + 6 undelivered
-  (3 urgent / 3 normal). All three compensate() args matter.
+  (3 urgent / 3 normal), priced by `MENU_PRICES` (12/16/22 元).
 - Grounded model: `REVIEW_RISK` = bad-review percent per (4 tiers:
   mild 1–3 拍 / bad 4–8 / worst 9+ / lost) × (普通/加急) × (0/1/2),
   shown verbatim on the panel as the restaurant's historical data.
-  `COMPENSATE_COST` = [0, 2, 15] 元. Expected bad reviews = plain sum
-  (badReviewPoints = percent-sum; no RNG, reproducible).
-- Pass = BOTH badReviewPoints ≤ 450 (4.5 单) AND spend ≤ 80 元. Ranking
-  locked by engine.test: none 860 / snacks 580 fail reviews, refunds
-  212@165元 fail spend, urgent-blind refund-all-lost = 328@100元 fails
-  spend (90 元 for 6 refunds already busts), urgent-aware middle
-  442@61元 passes. `bestCompensation()` is an exact spend-DP under the
-  cap (399@74) shown as the gap target.
-- Starter code keys off overtime only → 594 points, fails; the fix path
-  teaches `delivered` first.
+  Refund cost is the order's OWN price via `compensateCost` — half for
+  delivered (ceil/2), full for undelivered; snacks are 2 元. Expected
+  bad reviews = plain sum (badReviewPoints = percent-sum; no RNG).
+- Pass = BOTH badReviewPoints ≤ 400 (4.0 单) AND spend ≤ 70 元. The
+  price dimension turns "who to refund" into yuan-per-risk-cut: refunds
+  212@142 fail spend, refund-all-lost 328@110 fail spend, the near-miss
+  (cheap-lost + delivered ot≥6) lands 401@61 — one point over; the
+  readable optimum (cheap lost ≤12 + urgent delivered ot≥4) hits
+  379@70 exactly. `bestCompensation()` is an exact spend-DP under the
+  cap (379@70) shown as the gap target.
+- Starter refunds every undelivered order → 356 pts @ 108 元, fails
+  spend; the fix path teaches price thresholds + half-price delivered
+  refunds (the `price` arg is what makes urgent matter beyond risk).
 
 ## Order sets (locked by engine.test.ts)
 
@@ -88,7 +91,8 @@ drafts + save machinery), `ui/` (panels + `pyodide.worker.ts`/
   drafts 2+3 in `draftOf`; CompensateDraft{code,compensate}.
   `runSummaries` extras keyed intake/queue/final/compensate.
 - DB migration v12 resets lunch-shift (renumbered stages); v13 drops only
-  stage-5 submissions/drafts (rescore) plus the removed rush artefacts.
+  stage-5 submissions/drafts (rescore) plus the removed rush artefacts;
+  v14 drops stage-5 again for the price-argument rescore.
 
 ## Pitfalls
 

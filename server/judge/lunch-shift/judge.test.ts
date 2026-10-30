@@ -212,12 +212,13 @@ describe("lunch-shift judge", () => {
   });
 
   const compensateTableFor = (
-    fn: (urgent: boolean, overtime: number, delivered: boolean) => number,
+    fn: (urgent: boolean, overtime: number, delivered: boolean, price: number) => number,
   ): number[] => {
     const table = new Array(COMPENSATE_TABLE_SIZE).fill(0);
     for (const u of [false, true])
       for (let o = 0; o <= 30; o++)
-        for (const d of [false, true]) table[compensateIndex(u, o, d)] = fn(u, o, d);
+        for (const d of [false, true])
+          for (let p = 0; p <= 30; p++) table[compensateIndex(u, o, d, p)] = fn(u, o, d, p);
     return table;
   };
 
@@ -236,20 +237,20 @@ describe("lunch-shift judge", () => {
     const { db, project } = setupProject([1, 2, 3]);
     const outcome = judgeLunchShiftSubmission(db, project, 5, {
       code: "x",
-      compensate: new Array(62).fill(0), // the old 62-cell shape
+      compensate: new Array(124).fill(0), // the old 124-cell shape
     });
     expect("error" in outcome).toBe(false);
     if ("error" in outcome) return;
     expect(outcome.passed).toBe(false);
     expect(outcome.testSummary.kind).toBe("compensate");
     if (outcome.testSummary.kind !== "compensate") return;
-    expect(outcome.testSummary.errors?.[0]).toContain("124");
+    expect(outcome.testSummary.errors?.[0]).toContain("3844");
   });
 
   it("stage 5 needs both lines held: reviews AND spend", () => {
     const { db, project } = setupProject([1, 2, 3]);
     // Refund every undelivered order and snack the rest: reviews 3.28 but
-    // the bill runs 100 元 — over the spend line.
+    // full-price refunds on all six lost orders run 110 元.
     const blind = judgeLunchShiftSubmission(db, project, 5, {
       code: "x",
       compensate: compensateTableFor((_u, _o, d) => (d ? 1 : 2)),
@@ -258,12 +259,15 @@ describe("lunch-shift judge", () => {
     if ("error" in blind) return;
     expect(blind.passed).toBe(false);
     if (blind.testSummary.kind !== "compensate") return;
-    expect(blind.testSummary.spend).toBe(100);
+    expect(blind.testSummary.spend).toBe(110);
 
-    // Refund the urgent undelivered, snack the rest: 4.42 reviews @ 61 元.
+    // The optimum: refund cheap (≤12) undelivered + urgent delivered late
+    // ≥4 ticks, snack the rest — 3.79 reviews @ exactly 70 元.
     const aware = judgeLunchShiftSubmission(db, project, 5, {
       code: "x",
-      compensate: compensateTableFor((u, _o, d) => (!d ? (u ? 2 : 1) : 1)),
+      compensate: compensateTableFor((u, o, d, p) =>
+        (!d && p <= 12) || (d && u && o >= 4) ? 2 : 1,
+      ),
     });
     expect("error" in aware).toBe(false);
     if ("error" in aware) return;
@@ -271,9 +275,9 @@ describe("lunch-shift judge", () => {
     expect(aware.score).toBe(1);
     expect(aware.passedStages).toEqual([1, 2, 3, 5]);
     if (aware.testSummary.kind !== "compensate") return;
-    expect(aware.testSummary.badReviewPoints).toBe(442);
-    expect(aware.testSummary.spend).toBe(61);
-    expect(aware.testSummary.bestReviewPoints).toBe(399);
-    expect(aware.testSummary.bestSpend).toBe(74);
+    expect(aware.testSummary.badReviewPoints).toBe(379);
+    expect(aware.testSummary.spend).toBe(70);
+    expect(aware.testSummary.bestReviewPoints).toBe(379);
+    expect(aware.testSummary.bestSpend).toBe(70);
   });
 });

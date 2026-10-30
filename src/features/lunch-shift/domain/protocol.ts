@@ -41,7 +41,7 @@ export type FinalDraft = {
   priority: number[] | null;
 };
 
-/** Stage 5 附加挑战 draft: compensate code plus its 124-cell result table. */
+/** Stage 5 附加挑战 draft: compensate code plus its 3844-cell result table. */
 export type CompensateDraft = {
   code: string;
   compensate: number[] | null;
@@ -53,6 +53,8 @@ export type CompensateOrderRow = {
   urgent: boolean;
   delivered: boolean;
   overtime: number;
+  /** 订单金额（元）— 退款退它的钱。 */
+  price: number;
   choice: number;
   /** Bad-review probability for the chosen action, percent. */
   risk: number;

@@ -13,8 +13,9 @@
  *    the student can retry; missing/invalid artefacts are still refused
  *    outright before grading (a malformed request is not an attempt).
  *  - 附加挑战: the compensate table is replayed over the fixed FIFO run's
- *    problem orders — pass holds BOTH lines: expected bad reviews ≤ 4.5
- *    and compensation spend ≤ 80 元 (the rates live in domain/compensate).
+ *    problem orders — pass holds BOTH lines: expected bad reviews ≤ 4.0
+ *    and compensation spend ≤ 70 元, where a refund costs the order's own
+ *    price (the rates and menu live in domain/compensate).
  *
  * Student code never runs here: the browser's Pyodide worker already
  * turned it into JSON tables; this file only re-checks their shape and

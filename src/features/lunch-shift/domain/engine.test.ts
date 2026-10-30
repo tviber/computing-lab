@@ -11,8 +11,9 @@
  *  - 正式集 (mirrored below): a tables set copied from the practice
  *    misses loses exactly 3 orders; generic words score 24/24.
  *  - 附加挑战: the fixed FIFO run on the rush set leaves 11 problem
- *    orders (urgent AND normal, 6 undelivered); the bad-review scoring
- *    makes all three extreme policies fail on different lines.
+ *    orders (urgent AND normal, 6 undelivered, priced by menu); the
+ *    bad-review scoring makes all extreme policies fail, and the optimal
+ *    3.79@70 needs half-price delivered refunds, not just lost ones.
  */
 
 import { describe, expect, it } from "vitest";
@@ -26,6 +27,7 @@ import {
   COMPENSATE_PASS_REVIEWS,
   COMPENSATE_PASS_SPEND,
   COMPENSATE_TABLE_SIZE,
+  compensateCost,
   compensateIndex,
   compensateLateOrders,
   evaluateCompensation,
@@ -348,12 +350,13 @@ describe("compensate (附加挑战)", () => {
   const late = compensateLateOrders();
 
   const compensateTableFor = (
-    fn: (urgent: boolean, overtime: number, delivered: boolean) => number,
+    fn: (urgent: boolean, overtime: number, delivered: boolean, price: number) => number,
   ): number[] => {
     const table = new Array(COMPENSATE_TABLE_SIZE).fill(0);
     for (const u of [false, true])
       for (let o = 0; o <= 30; o++)
-        for (const d of [false, true]) table[compensateIndex(u, o, d)] = fn(u, o, d);
+        for (const d of [false, true])
+          for (let p = 0; p <= 30; p++) table[compensateIndex(u, o, d, p)] = fn(u, o, d, p);
     return table;
   };
 
@@ -369,16 +372,28 @@ describe("compensate (附加挑战)", () => {
       "R12",
       "R14",
     ]);
+    // Every order carries its menu price — 蛋炒饭 is cheap to refund.
+    expect(late.find((o) => o.id === "R19")?.price).toBe(12);
+    expect(late.find((o) => o.id === "R17")?.price).toBe(22);
   });
 
-  it("checkCompensateTable bounds the 124-cell shape and 0/1/2 values", () => {
+  it("checkCompensateTable bounds the 3844-cell shape and 0/1/2 values", () => {
     expect(checkCompensateTable(new Array(COMPENSATE_TABLE_SIZE).fill(0)).table).not.toBeNull();
-    expect(checkCompensateTable(new Array(62).fill(0)).table).toBeNull();
+    expect(checkCompensateTable(new Array(124).fill(0)).table).toBeNull();
     const bad = new Array(COMPENSATE_TABLE_SIZE).fill(0);
     bad[10] = 3;
     const { errors } = checkCompensateTable(bad);
     expect(errors[0]).toContain("只能返回 0、1 或 2");
     expect(checkCompensateTable(bad).table).toBeNull();
+  });
+
+  it("a refund costs the order's own price — half delivered, full lost", () => {
+    expect(compensateCost(true, 12, 2)).toBe(6);
+    expect(compensateCost(true, 22, 2)).toBe(11);
+    expect(compensateCost(false, 12, 2)).toBe(12);
+    expect(compensateCost(false, 22, 2)).toBe(22);
+    expect(compensateCost(false, 22, 1)).toBe(2);
+    expect(compensateCost(false, 22, 0)).toBe(0);
   });
 
   it("all three extreme policies fail on different lines — the trade-off is real", () => {
@@ -395,9 +410,9 @@ describe("compensate (附加挑战)", () => {
       compensateTableFor(() => 2),
     );
     expect(none.badReviewPoints).toBe(860); // 8.60 expected bad reviews
-    expect(snacks.badReviewPoints).toBe(580); // still over the 4.50 line
+    expect(snacks.badReviewPoints).toBe(580); // still over the 4.00 line
     expect(refunds.badReviewPoints).toBe(212); // lowest reviews…
-    expect(refunds.spend).toBe(165); // …but way over the 80 元 budget
+    expect(refunds.spend).toBe(142); // …but way over the 70 元 budget
     for (const bill of [none, snacks, refunds]) {
       expect(
         bill.badReviewPoints <= COMPENSATE_PASS_REVIEWS && bill.spend <= COMPENSATE_PASS_SPEND,
@@ -405,50 +420,59 @@ describe("compensate (附加挑战)", () => {
     }
   });
 
-  it("the overtime-only starter policy misses the undelivered and fails", () => {
-    const starter = evaluateCompensation(
-      late,
-      compensateTableFor((_u, overtime) => (overtime >= 8 ? 2 : overtime >= 4 ? 1 : 0)),
-    );
-    expect(starter.badReviewPoints).toBeGreaterThan(COMPENSATE_PASS_REVIEWS);
-  });
-
-  it("urgent-blind generosity breaks the budget; urgent-aware fits it", () => {
-    // Refund every undelivered order + snack every delivered one: 100 元.
+  it("refunding every undelivered order breaks the budget at any risk mix", () => {
+    // Full refunds on all 6 lost orders already cost 100 元.
     const blind = evaluateCompensation(
       late,
       compensateTableFor((_u, _o, d) => (d ? 1 : 2)),
     );
-    expect(blind.spend).toBe(100);
+    expect(blind.spend).toBe(110);
     expect(blind.spend).toBeGreaterThan(COMPENSATE_PASS_SPEND);
-    // Refund the urgent undelivered, snack the rest — 4.42 reviews @ 61 元.
-    const aware = evaluateCompensation(
+  });
+
+  it("ignoring delivered refunds misses the line by one point", () => {
+    // Refund cheap undelivered + every delivered overtime ≥6, snack the
+    // rest — 4.01 reviews, one point over. Half-price delivered refunds
+    // are cheap; the pass needs them.
+    const near = evaluateCompensation(
       late,
-      compensateTableFor((u, _o, d) => (!d ? (u ? 2 : 1) : 1)),
+      compensateTableFor((_u, o, d, p) => ((!d && p <= 12) || (d && o >= 6) ? 2 : 1)),
     );
-    expect(aware.badReviewPoints).toBe(442);
-    expect(aware.spend).toBe(61);
+    expect(near.badReviewPoints).toBe(401);
+    expect(near.badReviewPoints).toBeGreaterThan(COMPENSATE_PASS_REVIEWS);
+    expect(near.spend).toBeLessThanOrEqual(COMPENSATE_PASS_SPEND);
+  });
+
+  it("the optimal rule is reachable and passes on the dot", () => {
+    // Refund cheap (≤12) undelivered + every urgent delivered late ≥4
+    // ticks — refunding a delivered order is half price, so expensive
+    // looking delivered orders still pay off.
+    const sharp = evaluateCompensation(
+      late,
+      compensateTableFor((u, o, d, p) => ((!d && p <= 12) || (d && u && o >= 4) ? 2 : 1)),
+    );
+    expect(sharp.badReviewPoints).toBe(379);
+    expect(sharp.spend).toBe(70);
     expect(
-      aware.badReviewPoints <= COMPENSATE_PASS_REVIEWS && aware.spend <= COMPENSATE_PASS_SPEND,
+      sharp.badReviewPoints <= COMPENSATE_PASS_REVIEWS && sharp.spend <= COMPENSATE_PASS_SPEND,
     ).toBe(true);
   });
 
   it("the best bill inside the spend cap is locked", () => {
     const best = bestCompensation(late);
-    expect(best.badReviewPoints).toBe(399); // 3.99 expected bad reviews
-    expect(best.spend).toBe(74);
+    expect(best.badReviewPoints).toBe(379); // 3.79 expected bad reviews
+    expect(best.spend).toBe(70);
   });
 
   it("best compensation must choose one tier per input, not per order", () => {
-    // Two identical (normal, 0, undelivered) orders share one table cell:
-    // a student function can snack both or refund both, never split.
-    // Ungrouped DP would refund one and skip the other (15 元, 107 pts).
+    // Two identical (normal, 0, undelivered, 16 元) orders share one table
+    // cell: a student function can snack both or refund both, never split.
     const orders = [
-      { id: "A", urgent: false, overtime: 0, delivered: false },
-      { id: "B", urgent: false, overtime: 0, delivered: false },
+      { id: "A", urgent: false, overtime: 0, delivered: false, price: 16 },
+      { id: "B", urgent: false, overtime: 0, delivered: false, price: 16 },
     ];
     expect(bestCompensation(orders, 15)).toEqual({
-      badReviewPoints: 120, // snack both: 60% × 2
+      badReviewPoints: 120, // snack both: 60% × 2 — refunding both costs 32
       spend: 4,
     });
   });

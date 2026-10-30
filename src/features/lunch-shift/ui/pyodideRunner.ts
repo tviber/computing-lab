@@ -45,9 +45,9 @@ export async function runPriorityTable(
 }
 
 /**
- * Evaluate compensate(urgent, overtime, delivered) for all 124 input
- * combinations. Returns the raw result list — validated by the caller
- * (checkCompensateTable).
+ * Evaluate compensate(urgent, overtime, delivered, price) for all 3844
+ * input combinations. Returns the raw result list — validated by the
+ * caller (checkCompensateTable).
  */
 export async function runCompensateTable(
   code: string,

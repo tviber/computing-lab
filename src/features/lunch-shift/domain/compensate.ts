@@ -1,18 +1,19 @@
 /**
- * Stage-5 附加挑战: compensate(urgent, overtime, delivered) picks a
+ * Stage-5 附加挑战: compensate(urgent, overtime, delivered, price) picks a
  * compensation tier for each problem order from ONE fixed run — the
  * 20-order rush set replayed first-come-first-served, which leaves 11
  * orders late or undelivered (urgent and normal alike, so every argument
- * matters). The browser evaluates the function over all 2×31×2 inputs →
- * a 124-cell table (0/1/2); the server replays it.
+ * matters). The browser evaluates the function over all 2×31×2×31 inputs →
+ * a 3844-cell table (0/1/2); the server replays it.
  *
  * Scoring is grounded in the bad-review table shown on the panel — the
  * restaurant's historical rates per situation. Expected bad reviews are
- * a deterministic sum (no randomness), and passing needs BOTH expected
- * reviews ≤ 4.5 and spend ≤ 80 元: refunding all six undelivered orders
- * costs 90 元, already over budget, so the student has to pick WHICH
- * undelivered orders deserve a refund — that is the trade-off the
- * takeaway describes.
+ * a deterministic sum (no randomness). The twist: a refund costs the
+ * order's own price (delivered orders refund half, undelivered refund
+ * full), so "who deserves a refund" is a yuan-per-risk-cut question, not
+ * a risk ranking — passing needs BOTH expected reviews ≤ 4.0 and spend
+ * ≤ 70 元, and the optimum (≈3.79 @ 70) needs refunding delivered urgent
+ * orders too, not just the undelivered pile.
  */
 
 import type { CompensateOrderRow } from "./protocol.ts";
@@ -20,11 +21,23 @@ import { RUSH_SCENARIO } from "./scenarios.ts";
 import { simulate } from "./simulator.ts";
 
 export const COMPENSATE_OVERTIMES = 31; // overtime ∈ 0..30, clamped like wait
-export const COMPENSATE_TABLE_SIZE = 2 * COMPENSATE_OVERTIMES * 2; // 124
+export const COMPENSATE_PRICES = 31; // price ∈ 0..30 元, clamped
+export const COMPENSATE_TABLE_SIZE = 2 * COMPENSATE_OVERTIMES * 2 * COMPENSATE_PRICES; // 3844
 
-export function compensateIndex(urgent: boolean, overtime: number, delivered: boolean): number {
-  const clamped = Math.max(0, Math.min(COMPENSATE_OVERTIMES - 1, Math.trunc(overtime)));
-  return (urgent ? COMPENSATE_OVERTIMES * 2 : 0) + clamped * 2 + (delivered ? 1 : 0);
+export function compensateIndex(
+  urgent: boolean,
+  overtime: number,
+  delivered: boolean,
+  price: number,
+): number {
+  const ot = Math.max(0, Math.min(COMPENSATE_OVERTIMES - 1, Math.trunc(overtime)));
+  const p = Math.max(0, Math.min(COMPENSATE_PRICES - 1, Math.trunc(price)));
+  return (
+    (urgent ? COMPENSATE_OVERTIMES * 2 * COMPENSATE_PRICES : 0) +
+    ot * 2 * COMPENSATE_PRICES +
+    (delivered ? COMPENSATE_PRICES : 0) +
+    p
+  );
 }
 
 export function checkCompensateTable(raw: unknown): {
@@ -34,14 +47,14 @@ export function checkCompensateTable(raw: unknown): {
   if (raw === null || raw === undefined) {
     return {
       table: null,
-      errors: ["还没有可用的结果表，运行 compensate 后才算得出 124 个值。"],
+      errors: [`还没有可用的结果表，运行 compensate 后才算得出 ${COMPENSATE_TABLE_SIZE} 个值。`],
     };
   }
   if (!Array.isArray(raw) || raw.length !== COMPENSATE_TABLE_SIZE) {
     return {
       table: null,
       errors: [
-        `结果表长度不对，应是 ${COMPENSATE_TABLE_SIZE} 个值（2 种是否加急 × 31 种超时 × 2 种是否送到）。`,
+        `结果表长度不对，应是 ${COMPENSATE_TABLE_SIZE} 个值（2 种是否加急 × 31 种超时 × 2 种是否送到 × 31 种金额）。`,
       ],
     };
   }
@@ -59,9 +72,31 @@ export function overtimeOf(wait: number, urgent: boolean): number {
   return Math.max(0, wait - (urgent ? 9 : 18) + 1);
 }
 
-/** Compensation choices: 0 不补偿 / 1 送小食 / 2 部分退款 — unit cost in 元. */
-export const COMPENSATE_COST = [0, 2, 15] as const;
-export const COMPENSATE_CHOICES = ["不补偿", "送小食", "部分退款"] as const;
+/**
+ * The restaurant's menu — a refund hands back the order's own price, so
+ * the dish decides how expensive mercy is. 蛋炒饭 is cheap to refund,
+ * 牛肉面 is not.
+ */
+export const MENU_PRICES: Record<string, number> = {
+  蛋炒饭: 12,
+  鸡腿饭: 16,
+  牛肉面: 22,
+};
+/** Item not on the menu — should never fire on the fixed set. */
+const FALLBACK_PRICE = 16;
+
+/** Compensation choices: 0 不补偿 / 1 送小食（2 元）/ 2 退款 — and a refund
+ *  is the order's own price: half back for a late delivery, full back
+ *  when nothing arrived. */
+export const COMPENSATE_CHOICES = ["不补偿", "送小食", "退款"] as const;
+export const COMPENSATE_SNACK_COST = 2;
+
+/** Yuan spent on one compensated order under the given choice. */
+export function compensateCost(delivered: boolean, price: number, choice: number): number {
+  if (choice === 1) return COMPENSATE_SNACK_COST;
+  if (choice === 2) return delivered ? Math.ceil(price / 2) : price;
+  return 0;
+}
 
 export type CompensateTier = "mild" | "bad" | "worst" | "lost";
 
@@ -75,7 +110,7 @@ export const REVIEW_RISK_TIERS: { key: CompensateTier; label: string }[] = [
 /**
  * The restaurant's historical bad-review rates (percent) — shown verbatim
  * on the panel so students score by looking, not by reverse-engineering.
- * Each tier stores [不补偿, 送小食, 部分退款] for 普通 and 加急 orders:
+ * Each tier stores [不补偿, 送小食, 退款] for 普通 and 加急 orders:
  * a rushed customer left waiting forgives less at every step.
  */
 export const REVIEW_RISK: Record<
@@ -89,8 +124,8 @@ export const REVIEW_RISK: Record<
 };
 
 /** Pass needs BOTH numbers under the line — that's what makes it a trade-off. */
-export const COMPENSATE_PASS_REVIEWS = 450; // 预计差评 ≤ 4.50 单
-export const COMPENSATE_PASS_SPEND = 80; // 补偿总花费 ≤ 80 元
+export const COMPENSATE_PASS_REVIEWS = 400; // 预计差评 ≤ 4.00 单
+export const COMPENSATE_PASS_SPEND = 70; // 补偿总花费 ≤ 70 元
 
 export function tierOf(overtime: number, delivered: boolean): CompensateTier {
   if (!delivered) return "lost";
@@ -116,6 +151,7 @@ export type CompensateLateOrder = {
   urgent: boolean;
   delivered: boolean;
   overtime: number;
+  price: number;
 };
 
 let cachedLate: CompensateLateOrder[] | null = null;
@@ -136,6 +172,7 @@ export function compensateLateOrders(): CompensateLateOrder[] {
           urgent,
           delivered: order.delivered,
           overtime: overtimeOf(order.wait, urgent),
+          price: MENU_PRICES[order.expected?.item ?? ""] ?? FALLBACK_PRICE,
         };
       });
   }
@@ -158,9 +195,10 @@ export function evaluateCompensation(
   let badReviewPoints = 0;
   let spend = 0;
   for (const order of orders) {
-    const choice = table[compensateIndex(order.urgent, order.overtime, order.delivered)] ?? 0;
+    const choice =
+      table[compensateIndex(order.urgent, order.overtime, order.delivered, order.price)] ?? 0;
     const risk = reviewRisk(order.urgent, order.overtime, order.delivered, choice);
-    const cost = COMPENSATE_COST[choice] ?? 0;
+    const cost = compensateCost(order.delivered, order.price, choice);
     rows.push({ ...order, choice, risk, cost });
     badReviewPoints += risk;
     spend += cost;
@@ -171,28 +209,32 @@ export function evaluateCompensation(
 /**
  * The best reachable bill inside the spend cap — a small knapsack over
  * per-order choices, so the panel can show the gap without any sampling.
- * Orders sharing one (urgent, overtime, delivered) input must take the
- * same choice — a student's function can't tell them apart — so the DP
- * runs over input groups, or it would show a bill no function can reach.
+ * Orders sharing one (urgent, overtime, delivered, price) input must take
+ * the same choice — a student's function can't tell them apart — so the
+ * DP runs over input groups, or it would show a bill no function can reach.
  */
 export function bestCompensation(
   orders: readonly CompensateLateOrder[],
   maxSpend = COMPENSATE_PASS_SPEND,
 ): { badReviewPoints: number; spend: number } {
-  const groups = new Map<string, { u: boolean; o: number; d: boolean; n: number }>();
+  const groups = new Map<string, { u: boolean; o: number; d: boolean; p: number; n: number }>();
   for (const order of orders) {
-    const key = `${order.urgent}|${order.overtime}|${order.delivered}`;
+    const key = `${order.urgent}|${order.overtime}|${order.delivered}|${order.price}`;
     const group = groups.get(key) ?? {
       u: order.urgent,
       o: order.overtime,
       d: order.delivered,
+      p: order.price,
       n: 0,
     };
     group.n++;
     groups.set(key, group);
   }
   const items = [...groups.values()];
-  const maxCost = items.reduce((sum, g) => sum + g.n * COMPENSATE_COST[2], 0);
+  const maxCost = items.reduce(
+    (sum, g) => sum + g.n * Math.max(...[0, 1, 2].map((c) => compensateCost(g.d, g.p, c))),
+    0,
+  );
   let dp = new Array<number>(maxCost + 1).fill(Infinity);
   dp[0] = 0;
   for (const g of items) {
@@ -200,7 +242,7 @@ export function bestCompensation(
     for (let spend = 0; spend <= maxCost; spend++) {
       if (dp[spend] === Infinity) continue;
       for (const choice of [0, 1, 2] as const) {
-        const total = spend + COMPENSATE_COST[choice] * g.n;
+        const total = spend + compensateCost(g.d, g.p, choice) * g.n;
         const points = dp[spend] + reviewRisk(g.u, g.o, g.d, choice) * g.n;
         if (points < next[total]) next[total] = points;
       }
