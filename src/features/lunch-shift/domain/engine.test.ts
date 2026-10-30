@@ -438,6 +438,20 @@ describe("compensate (附加挑战)", () => {
     expect(best.badReviewPoints).toBe(399); // 3.99 expected bad reviews
     expect(best.spend).toBe(74);
   });
+
+  it("best compensation must choose one tier per input, not per order", () => {
+    // Two identical (normal, 0, undelivered) orders share one table cell:
+    // a student function can snack both or refund both, never split.
+    // Ungrouped DP would refund one and skip the other (15 元, 107 pts).
+    const orders = [
+      { id: "A", urgent: false, overtime: 0, delivered: false },
+      { id: "B", urgent: false, overtime: 0, delivered: false },
+    ];
+    expect(bestCompensation(orders, 15)).toEqual({
+      badReviewPoints: 120, // snack both: 60% × 2
+      spend: 4,
+    });
+  });
 });
 
 describe("priority table validation", () => {
