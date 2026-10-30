@@ -71,7 +71,10 @@ drafts + save machinery), `ui/` (panels + `pyodide.worker.ts`/
   `errors` (retry allowed); stage 4 malformed → `missing-run` 400 BEFORE
   grading (a client-protocol fault, not an attempt). Stage 4 is retryable:
   failed submissions record normally and the student resubmits — pass line
-  `FINAL_PASS_SCORE` = 18/24 (stages.ts). Stage 4 summary = ids +
+  `FINAL_PASS_SCORE` = 18/24 (stages.ts); the panel never locks (like
+  stages 2/3), so a passed student can resubmit for a better score and
+  legacy always-pass rows stay fixable without a migration. Stage 4
+  summary = ids +
   correct/onTime only — no request text (hidden set stays server-side).
   Stage-4 score = 小票正确数 + 记对且准时数 (a wrong ticket earns no
   delivery point). Stage 5 is pass/fail: score 1/1.

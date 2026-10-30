@@ -190,6 +190,20 @@ describe("lunch-shift judge", () => {
     expect(retried.total).toBe(24);
     expect(retried.passedStages).toEqual([1, 2, 3, 4]);
 
+    // Passing doesn't lock the stage either — a better score can be chased
+    // the same way stages 2/3 stay resubmittable.
+    const again = judgeLunchShiftSubmission(db, { ...project, passedStages: [1, 2, 3, 4] }, 4, {
+      intakeCode: "x",
+      tables: literal,
+      queueCode: "y",
+      priority: BOOST10,
+    });
+    expect("error" in again).toBe(false);
+    if ("error" in again) return;
+    expect(again.passed).toBe(false);
+    expect(again.score).toBe(16);
+    expect(again.passedStages).toEqual([1, 2, 3, 4]);
+
     const serialized = JSON.stringify(retried.testSummary);
     expect(serialized).not.toContain("别放香菜");
     expect(serialized).not.toContain("麻烦快点");

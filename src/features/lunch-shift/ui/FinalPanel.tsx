@@ -1,8 +1,9 @@
 /**
  * Stage 4 · 正式挑战: the student's word tables and priority table carry
  * over from stages 2/3. The server replays everything on the hidden order
- * set and returns only counts; below the pass line the student edits and
- * submits again, like stages 2/3.
+ * set and returns only counts. Like stages 2/3 the panel never locks —
+ * below the pass line the student retries, and after passing they can
+ * still resubmit to chase a better score.
  */
 
 import { useState } from "react";
@@ -20,14 +21,12 @@ export function FinalPanel({
   draft,
   submitting,
   result,
-  submitted,
   onChange,
   onSubmit,
 }: {
   draft: FinalDraft;
   submitting: boolean;
   result: LunchTestSummary | null;
-  submitted: boolean;
   onChange: (draft: FinalDraft) => void;
   onSubmit: () => void;
 }) {
@@ -91,32 +90,30 @@ export function FinalPanel({
       </p>
       <CodeEditor
         ariaLabel="priority 函数代码"
-        disabled={submitted || running}
+        disabled={running}
         onChange={(queueCode) => onChange({ ...draft, queueCode, priority: null })}
         value={queueSource}
       />
 
-      {submitted ? null : (
-        <div className="submit-row">
-          <button
-            className="button button-secondary"
-            disabled={running}
-            onClick={() => void run()}
-            type="button"
-          >
-            {running ? "运行中…" : "运行，更新词表和结果表"}
-          </button>
-          <button
-            className="button button-primary"
-            disabled={submitting || !ready}
-            onClick={onSubmit}
-            type="button"
-          >
-            {submitting ? "判定中…" : "提交正式挑战"}
-          </button>
-          {ready ? null : <span className="submit-note">还没有算出的词表和结果表。</span>}
-        </div>
-      )}
+      <div className="submit-row">
+        <button
+          className="button button-secondary"
+          disabled={running}
+          onClick={() => void run()}
+          type="button"
+        >
+          {running ? "运行中…" : "运行，更新词表和结果表"}
+        </button>
+        <button
+          className="button button-primary"
+          disabled={submitting || !ready}
+          onClick={onSubmit}
+          type="button"
+        >
+          {submitting ? "判定中…" : "提交正式挑战"}
+        </button>
+        {ready ? null : <span className="submit-note">还没有算出的词表和结果表。</span>}
+      </div>
 
       {error ? (
         <p className="test-error" role="alert">

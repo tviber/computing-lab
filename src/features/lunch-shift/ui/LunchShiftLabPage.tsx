@@ -315,7 +315,6 @@ export function LunchShiftLabPage() {
                 onChange={(draft) => dispatch({ type: "update-final", draft })}
                 onSubmit={() => void submitJudge(4, draftOf(state, 4))}
                 result={finalResult}
-                submitted={passedStages.includes(4)}
                 submitting={submitting}
               />
             ) : null}
