@@ -101,7 +101,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  border-color: #bfc2ff;
+  border-color: var(--accent-line);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -147,7 +147,7 @@
 }
 
 .component-delete:hover {
-  background: #fdf0ef;
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
@@ -295,8 +295,8 @@
 }
 
 .lab-message.is-pass {
-  border-color: #b7e0cd;
-  background: #f0faf6;
+  border-color: var(--success-border);
+  background: var(--success-soft);
   color: var(--success);
 }
 
@@ -483,7 +483,7 @@
   right: 0;
   left: -4px;
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-mini);
   background: var(--primary);
   pointer-events: none;
 }
@@ -501,7 +501,7 @@
   place-items: center;
   min-height: 32px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-control);
   color: var(--muted);
   cursor: grab;
   line-height: 1;
@@ -640,7 +640,7 @@
 
 .wire {
   fill: none;
-  stroke: #98a5b5;
+  stroke: var(--border-strong);
   stroke-width: 2;
   cursor: pointer;
 }
@@ -655,11 +655,11 @@
 }
 
 .wire.is-low {
-  stroke: #b3bfcc;
+  stroke: var(--border-strong);
 }
 
 .wire.is-floating {
-  stroke: #d9a13c;
+  stroke: var(--warning);
   stroke-dasharray: 4 3;
 }
 
@@ -722,7 +722,7 @@
 }
 
 .pin-body.is-floating {
-  stroke: #d9a13c;
+  stroke: var(--warning);
   stroke-dasharray: 3 2;
 }
 
@@ -871,9 +871,9 @@
   display: flex;
   gap: 8px;
   padding: 5px 10px;
-  border: 1px solid #f0cfcb;
+  border: 1px solid var(--danger-border);
   border-radius: var(--radius-control);
-  background: #fdf0ef;
+  background: var(--danger-soft);
   font-size: 11px;
 }
 
@@ -983,7 +983,7 @@
 
 .bus-bit.is-floating {
   border-style: dashed;
-  border-color: #d9a13c;
+  border-color: var(--warning);
 }
 
 /* Implied sign bit: derived from the stage's inputs, not a real pin. */
@@ -1064,8 +1064,8 @@
 
 .case-bus-bits mark {
   padding: 0 1px;
-  border-radius: 2px;
-  background: #fde8a8;
+  border-radius: var(--radius-mini);
+  background: var(--marker);
   color: inherit;
   outline: 1px solid var(--danger);
 }
@@ -1086,9 +1086,9 @@
 .test-counterexample {
   margin-top: 12px;
   padding: 10px 12px;
-  border: 1px solid #f0cfcb;
+  border: 1px solid var(--danger-border);
   border-radius: var(--radius-control);
-  background: #fdf8f5;
+  background: var(--danger-soft);
 }
 
 .counterexample-rows {
@@ -1143,7 +1143,7 @@
 /* Coach: the first-run guided tour */
 .coach-card {
   padding: 14px 16px;
-  border: 1px solid #bfc2ff;
+  border: 1px solid var(--accent-line);
   border-radius: var(--radius-panel);
   background: var(--accent-soft);
 }

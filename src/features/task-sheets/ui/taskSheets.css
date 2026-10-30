@@ -95,7 +95,7 @@
 }
 
 .ts-card.has-problem {
-  border-color: #f0cfcb;
+  border-color: var(--danger-border);
 }
 
 .ts-card-head {
@@ -113,7 +113,7 @@
 
 .ts-badge {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--subtle);
   color: var(--secondary);
   font-size: 11px;
@@ -142,7 +142,7 @@
   width: 26px;
   height: 26px;
   border: 1px solid var(--border);
-  border-radius: 7px;
+  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--secondary);
   cursor: pointer;
@@ -289,7 +289,7 @@
 .ts-answer-score {
   flex-shrink: 0;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--subtle);
   color: var(--secondary);
   font-family: "SFMono-Regular", Consolas, monospace;
@@ -298,7 +298,7 @@
 }
 
 .ts-answer-score.is-full {
-  background: #f0faf6;
+  background: var(--success-soft);
   color: var(--success);
 }
 
@@ -329,13 +329,13 @@
 }
 
 .ts-answer-blank.is-right input {
-  border-color: #b7e0cd;
-  background: #f0faf6;
+  border-color: var(--success-border);
+  background: var(--success-soft);
 }
 
 .ts-answer-blank.is-wrong input {
-  border-color: #f0cfcb;
-  background: #fdf0ef;
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
 }
 
 .ts-blank-mark {
@@ -421,7 +421,7 @@
 
 .ts-status-pill {
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 650;
 }
@@ -432,7 +432,7 @@
 }
 
 .ts-status-pill.is-published {
-  background: #f0faf6;
+  background: var(--success-soft);
   color: var(--success);
 }
 
@@ -442,7 +442,7 @@
   display: inline-flex;
   align-items: center;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   font-size: 11px;
   font-weight: 650;
 }
@@ -454,22 +454,22 @@
 }
 
 .ts-task-badge.submitted {
-  background: #eef2ff;
+  background: var(--accent-soft);
   color: var(--accent);
 }
 
 .ts-task-badge.reviewed {
-  background: #f0faf6;
+  background: var(--success-soft);
   color: var(--success);
 }
 
 .ts-task-badge.returned {
-  background: #fdf0ef;
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
 .ts-task-badge.late {
-  background: #fdf0ef;
+  background: var(--danger-soft);
   color: var(--danger);
 }
 
@@ -599,7 +599,7 @@
   height: 9px;
   margin-right: 6px;
   border: 1.5px solid var(--muted);
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   vertical-align: 0;
 }
 
@@ -625,11 +625,13 @@
 }
 
 .ts-review-comment {
-  border-left: 3px solid var(--accent);
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   color: var(--muted);
   font-size: 13px;
   margin: 10px 0 0;
-  padding-left: 10px;
+  padding: 8px 10px;
 }
 
 .ts-actions {

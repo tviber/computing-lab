@@ -27,7 +27,7 @@ body {
 }
 
 ::selection {
-  background: #dfe0ff;
+  background: var(--accent-line);
   color: var(--primary);
 }
 
@@ -161,11 +161,11 @@ p {
 }
 
 .button-primary:hover:not(:disabled) {
-  background: #4338ca;
+  background: var(--accent-ink);
 }
 
 .button-primary:disabled {
-  background: #aab4be;
+  background: var(--border-strong);
   cursor: not-allowed;
 }
 
@@ -177,7 +177,7 @@ p {
 
 .button-secondary:hover {
   background: var(--subtle);
-  border-color: #b8c3ce;
+  border-color: var(--border-strong);
   color: var(--primary);
 }
 
@@ -300,7 +300,7 @@ p {
 }
 
 .hint-disclosure.is-revealed {
-  border-color: #bfc2ff;
+  border-color: var(--accent-line);
   background: var(--accent-soft);
 }
 

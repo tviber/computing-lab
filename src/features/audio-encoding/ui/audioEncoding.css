@@ -28,9 +28,9 @@
 }
 
 .ae-panel {
-  background: #fff;
-  border: 1px solid #e2e8f0;
-  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
   padding: 16px 20px;
 }
 
@@ -48,7 +48,7 @@
 }
 
 .ae-progress-note {
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
 }
 
@@ -62,24 +62,24 @@
 }
 
 .ae-chip {
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  color: #334155;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-pill);
+  color: var(--secondary);
   cursor: pointer;
   font-size: 13px;
   padding: 5px 12px;
 }
 
 .ae-chip.is-active {
-  background: #eef2ff;
-  border-color: #4f46e5;
-  color: #3730a3;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent-ink);
 }
 
 .ae-chip.is-rec {
-  border-color: #b42318;
-  color: #b42318;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .ae-chip:disabled {
@@ -95,8 +95,8 @@
 }
 
 .ae-custom input {
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   font-size: 13px;
   padding: 4px 8px;
   width: 90px;
@@ -119,23 +119,23 @@
 .ae-source-status,
 .ae-view-note,
 .ae-estimate {
-  color: #5f6e81;
+  color: var(--muted);
   font-size: 12.5px;
   line-height: 1.6;
 }
 
 .ae-estimate {
-  background: #f6f8fc;
-  border-radius: 8px;
+  background: var(--subtle);
+  border-radius: var(--radius-control);
   margin-top: 12px;
   padding: 8px 10px;
 }
 
 .ae-error {
-  background: #fef2f2;
-  border: 1px solid #fecaca;
-  border-radius: 8px;
-  color: #b42318;
+  background: var(--danger-soft);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-control);
+  color: var(--danger);
   font-size: 13px;
   padding: 10px 12px;
 }
@@ -152,7 +152,7 @@
 
 .ae-wave-head {
   align-items: center;
-  color: #334155;
+  color: var(--secondary);
   display: flex;
   font-size: 13px;
   justify-content: space-between;
@@ -160,27 +160,27 @@
 }
 
 .ae-wave {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   display: block;
   width: 100%;
 }
 
 .ae-inspect-canvas {
-  background: #f8fafc;
-  border: 1px solid #e2e8f0;
-  border-radius: 6px;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   display: block;
   width: 100%;
 }
 
 .ae-placeholder {
   align-items: center;
-  background: #f8fafc;
-  border: 1px dashed #cbd5e1;
-  border-radius: 6px;
-  color: #64748b;
+  background: var(--subtle);
+  border: 1px dashed var(--border);
+  border-radius: var(--radius-control);
+  color: var(--muted);
   display: flex;
   font-size: 13px;
   height: 84px;
@@ -189,7 +189,7 @@
 
 .ae-zoom-slider {
   align-items: center;
-  color: #5f6e81;
+  color: var(--muted);
   display: flex;
   font-size: 12.5px;
   gap: 10px;
@@ -201,14 +201,14 @@
 }
 
 .ae-seg {
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   display: inline-flex;
   overflow: hidden;
 }
 
 .ae-seg button {
-  background: #fff;
+  background: var(--surface);
   border: none;
   cursor: pointer;
   font-size: 12.5px;
@@ -216,7 +216,7 @@
 }
 
 .ae-seg button.is-active {
-  background: #4f46e5;
+  background: var(--accent);
   color: #fff;
 }
 
@@ -228,13 +228,13 @@
 
 .ae-metrics th,
 .ae-metrics td {
-  border-bottom: 1px solid #eef2f7;
+  border-bottom: 1px solid var(--subtle);
   padding: 6px 8px;
   text-align: left;
 }
 
 .ae-metrics thead th {
-  color: #64748b;
+  color: var(--muted);
   font-size: 12px;
   font-weight: 600;
 }
@@ -261,9 +261,9 @@
 }
 
 .ae-guide-option {
-  background: #fff;
-  border: 1px solid #cbd5e1;
-  border-radius: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   cursor: pointer;
   font-size: 13px;
   padding: 6px 12px;
@@ -271,15 +271,15 @@
 }
 
 .ae-guide-option.is-picked.is-right {
-  background: #ecfdf5;
-  border-color: #059669;
-  color: #065f46;
+  background: var(--success-soft);
+  border-color: var(--success);
+  color: var(--success-ink);
 }
 
 .ae-guide-option.is-picked.is-wrong {
-  background: #fef2f2;
-  border-color: #b42318;
-  color: #b42318;
+  background: var(--danger-soft);
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .ae-guide-note {
@@ -290,17 +290,17 @@
 }
 
 .ae-guide-reveal {
-  color: #3730a3;
+  color: var(--accent-ink);
   font-size: 12.5px;
   margin: 6px 0 0;
 }
 
 .ae-verdict.is-pass {
-  border-color: #a7f3d0;
+  border-color: var(--success-border);
 }
 
 .ae-verdict.is-fail {
-  border-color: #fecaca;
+  border-color: var(--danger-border);
 }
 
 .ae-check-list {
@@ -317,15 +317,15 @@
 }
 
 .ae-check-list li.is-ok {
-  color: #065f46;
+  color: var(--success-ink);
 }
 
 .ae-check-list li.is-bad {
-  color: #b42318;
+  color: var(--danger);
 }
 
 .ae-check-detail {
-  color: #5f6e81;
+  color: var(--muted);
   display: block;
   font-size: 12px;
   margin-left: 18px;
@@ -350,8 +350,8 @@
 }
 
 .ae-sig-select {
-  border: 1px solid #cbd5e1;
-  border-radius: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
   font-size: 12.5px;
   margin-left: 6px;
   padding: 3px 6px;

@@ -29,8 +29,8 @@
   justify-content: center;
   width: 32px;
   height: 32px;
-  border: 1px solid #d9d8ff;
-  border-radius: 10px;
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-pill);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 20px;
@@ -156,7 +156,7 @@
 .profile-success {
   padding: 8px 12px;
   border-radius: var(--radius-control);
-  background: #f0faf6;
+  background: var(--success-soft);
   color: var(--success);
   font-size: 13px;
 }

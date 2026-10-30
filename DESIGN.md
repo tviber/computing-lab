@@ -12,26 +12,52 @@ colors:
   muted: "#5f6e81"
   accent: "#4f46e5"
   accent-soft: "#eeedff"
+  accent-ink: "#3730a3"
+  accent-line: "#bfc2ff"
   focus: "#818cf8"
   focus-ring: "#4338ca"
+  border-strong: "#b8c3ce"
   success: "#17845b"
   success-soft: "#f0fdf4"
+  success-fill: "#dcfce7"
+  success-ink: "#166534"
   success-border: "#86efac66"
   warning: "#b7791f"
+  warning-soft: "#fef3c7"
+  warning-border: "#f0dcae"
+  warning-ink: "#92400e"
   danger: "#b42318"
   danger-soft: "#fdf1ef"
   danger-border: "#f0cfcb"
+  danger-ink: "#991b1b"
+  code-surface: "#0f172a"
+  code-line: "#334155"
+  code-ink: "#e2e8f0"
+  code-accent: "#fbbf24"
+  error-surface: "#450a0a"
+  error-ink: "#fecaca"
+  scrim: "rgb(15 23 42 / 25%)"
+  scrim-deep: "rgb(0 0 0 / 60%)"
+  marker: "#fde8a8"
+  paper: "#e8ddc7"
+  cpu-lamp: "#e0457b"
+  ir-op: "#fde8d8"
+  ir-reg: "#e0ecfd"
+  ir-operand: "#ddf2e4"
 elevation:
   shadow-sm: "0 4px 14px rgb(23 40 61 / 5%)"
   shadow-md: "0 16px 40px rgb(23 40 61 / 8%)"
 rounded:
+  mini: 4px
   control: 8px
   panel: 12px
+  pill: 999px
 spacing:
   space-1: 4px
   space-2: 8px
   space-3: 12px
   space-4: 16px
+  space-5: 20px
   space-6: 24px
   space-8: 32px
 layout:
@@ -99,30 +125,41 @@ rail 的竖向分隔线画在网格内部（`border-right`），内容仍然受 
 
 颜色只按角色使用，不按字面含义：
 
-| Token                                                                 | 用途                                 |
-| --------------------------------------------------------------------- | ------------------------------------ |
-| `--canvas`                                                            | 页面背景（topbar/卡片之外的区域）    |
-| `--surface`                                                           | 卡片、面板、topbar、弹层             |
-| `--subtle`                                                            | 次级填充：hover 底、图表槽位、禁用态 |
-| `--border`                                                            | 所有描边、分隔线                     |
-| `--primary`                                                           | 正文标题、重要文字                   |
-| `--secondary`                                                         | 说明文字                             |
-| `--muted`                                                             | 弱化提示、placeholder 级文字         |
-| `--accent` / `--accent-soft`                                          | 主交互色及其浅底（按钮、当前态）     |
-| `--focus` / `--focus-ring`                                            | hover 边框 / `:focus-visible` 描边   |
-| `--success`/`--warning`/`--danger`                                    | 状态语义色，仅用于状态               |
-| `--success-soft`/`--success-border`/`--danger-soft`/`--danger-border` | 状态提示条的底色与描边               |
+| Token                                                                 | 用途                                           |
+| --------------------------------------------------------------------- | ---------------------------------------------- |
+| `--canvas`                                                            | 页面背景（topbar/卡片之外的区域）              |
+| `--surface`                                                           | 卡片、面板、topbar、弹层                       |
+| `--subtle`                                                            | 次级填充：hover 底、图表槽位、禁用态           |
+| `--border`                                                            | 所有描边、分隔线                               |
+| `--primary`                                                           | 正文标题、重要文字                             |
+| `--secondary`                                                         | 说明文字                                       |
+| `--muted`                                                             | 弱化提示、placeholder 级文字                   |
+| `--accent` / `--accent-soft`                                          | 主交互色及其浅底（按钮、当前态）               |
+| `--focus` / `--focus-ring`                                            | hover 边框 / `:focus-visible` 描边             |
+| `--success`/`--warning`/`--danger`                                    | 状态语义色，仅用于状态                         |
+| `--success-soft`/`--success-border`/`--danger-soft`/`--danger-border` | 状态提示条的底色与描边                         |
+| `--success-fill`/`--warning-soft`                                     | 状态徽章、图例的实底（比 -soft 深一档）        |
+| `--success-ink`/`--warning-ink`/`--danger-ink`                        | 状态浅底上的 AA 文字色                         |
+| `--accent-ink`/`--accent-line`                                        | 深一号主色文字 / accent 族浅描边               |
+| `--border-strong`                                                     | 比 `--border` 深一级的灰线、禁用底             |
+| `--code-surface`/`--code-line`/`--code-ink`/`--code-accent`           | 深色代码面板的底、描边、文字、高亮             |
+| `--error-surface`/`--error-ink`                                       | 深色错误终端面板                               |
+| `--scrim`/`--scrim-deep`                                              | 色块描边 / 色块内文字阴影                      |
+| `--marker`/`--paper`/`--cpu-lamp`/`--ir-*`                            | 领域色：高亮标记、小票纸、进位灯、指令字段底色 |
 
 `--muted` 在 canvas/surface/subtle/accent-soft 上均满足 WCAG AA 4.5:1 对比度要求。与 `--secondary` 的层级主要靠字号/字重区分。
 
-不要在组件里写死近似色（如 `#e2e8f0`）。需要新颜色时先加 token。
+不要在组件里写死近似色（如 `#e2e8f0`）。需要新颜色时先加 token；
+领域色（指示灯、图纸、字段底色）也用命名 token，不写散落的 hex。
 
 ## Typography & radius
 
 - UI 字体：system 栈（`base.css` 统一设置）。标题字重 650–760，
   正文 400–500，强调用 `font-weight` 而不是颜色加深。
-- 圆角只有两档：`--radius-control`（按钮、输入、菜单）8px，
-  `--radius-panel`（卡片、面板、弹层）12px。
+- 圆角四档：`--radius-mini`（swatch、mark 等小元素）4px，
+  `--radius-control`（按钮、输入、菜单）8px，
+  `--radius-panel`（卡片、面板、弹层）12px，
+  `--radius-pill`（chip/badge 胶囊）999px——只用于胶囊形小件，不用于面板。
 - 阴影只有两档：`--shadow-sm`（静态卡片）/ `--shadow-md`（弹层、下拉）。
 
 ## Components

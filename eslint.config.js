@@ -9,6 +9,8 @@ export default tseslint.config(
       "dist",
       "node_modules",
       "coverage",
+      // Gitignored local-only material (AGENTS.md) — not our code.
+      "local",
       "**/*.test.{ts,tsx}",
       "src/test/**",
       // Vendored runtime assets (e.g. public/vendor/pyodide) — not our code.

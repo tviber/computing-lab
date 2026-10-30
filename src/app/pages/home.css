@@ -46,7 +46,7 @@
   min-height: 190px;
   padding: 18px;
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--radius-panel);
   background: var(--surface);
   color: var(--primary);
   text-decoration: none;
@@ -58,7 +58,7 @@
 }
 
 .lab-card:hover {
-  border-color: #bfc2ff;
+  border-color: var(--accent-line);
   box-shadow: var(--shadow-sm);
   transform: translateY(-2px);
 }
@@ -136,7 +136,7 @@
 }
 
 .lab-card.is-primary {
-  border-color: #bfc2ff;
+  border-color: var(--accent-line);
 }
 
 @media (min-width: 681px) {
@@ -160,7 +160,7 @@
 
 .progress-track {
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--subtle);
   overflow: hidden;
 }
@@ -168,7 +168,7 @@
 .progress-fill {
   display: block;
   height: 100%;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent);
   transition: width 240ms ease;
 }
@@ -198,7 +198,7 @@
 .lab-card-grid.lab-catalog-grid .category-label {
   display: inline-flex;
   padding: 4px 8px;
-  border-radius: 999px;
+  border-radius: var(--radius-pill);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 9px;
