@@ -103,7 +103,6 @@ const EVENT_TEXT = {
   held: "小票暂缓录入",
   ticket: "小票记好了",
   cook: "厨房开始做",
-  rush: "用了一次加速",
   ready: "做好了，等送出",
   send: "送达",
 } as const;

@@ -10,14 +10,26 @@
  *    reaches 12/12 for every threshold in 8..16 (not one magic number).
  *  - 正式集 (mirrored below): a tables set copied from the practice
  *    misses loses exactly 3 orders; generic words score 24/24.
+ *  - 附加挑战: the fixed FIFO run on the rush set leaves 11 problem
+ *    orders (urgent AND normal, 6 undelivered); the bad-review scoring
+ *    makes all three extreme policies fail on different lines.
  */
 
 import { describe, expect, it } from "vitest";
 import { sameTicket } from "./contracts.ts";
 import { priorityIndex, PRIORITY_TABLE_SIZE, checkPriorityTable } from "./priority.ts";
 import { findFullWidthPunctuation } from "./runErrors.ts";
-import { buildScenario, INTAKE_FIXTURES, QUEUE_SCENARIO, RUSH_SCENARIO } from "./scenarios.ts";
-import { checkCompensateTable, COMPENSATE_TABLE_SIZE, evaluateCompensation } from "./compensate.ts";
+import { buildScenario, INTAKE_FIXTURES, QUEUE_SCENARIO } from "./scenarios.ts";
+import {
+  bestCompensation,
+  checkCompensateTable,
+  COMPENSATE_PASS_REVIEWS,
+  COMPENSATE_PASS_SPEND,
+  COMPENSATE_TABLE_SIZE,
+  compensateIndex,
+  compensateLateOrders,
+  evaluateCompensation,
+} from "./compensate.ts";
 import { simulate } from "./simulator.ts";
 import {
   checkIntakeTables,
@@ -330,47 +342,38 @@ describe("正式集 (mirrored hidden set)", () => {
   });
 });
 
-describe("rush (the stage-4 second lever)", () => {
-  const urgent = () => tableFor((u) => (u ? 1 : 0));
-
-  it("is a real lever: boosting 3-cook orders rescues the starved order", () => {
-    const without = simulate(QUEUE_SCENARIO, {
-      priority: urgent(),
-      rush: tableFor(() => 0),
-    }).result;
-    const boosted = simulate(QUEUE_SCENARIO, {
-      priority: urgent(),
-      rush: tableFor((_u, _w, c) => (c === 3 ? 1 : 0)),
-    }).result;
-    expect(without.onTime).toBe(11);
-    expect(boosted.onTime).toBe(12);
-    expect(boosted.rushUsed).toBe(3);
-  });
-
-  it("never asking for a boost spends nothing and changes nothing", () => {
-    const run = simulate(QUEUE_SCENARIO, {
-      priority: urgent(),
-      rush: tableFor(() => 0),
-    }).result;
-    expect(run.rushUsed).toBe(0);
-    expect(run.onTime).toBe(11);
-  });
-});
-
 describe("compensate (附加挑战)", () => {
-  // The fixed run everyone pays for — same as the judge: urgent-first on
-  // the 20-order rush set leaves 8 orders late (loss budget 33 拍).
-  const rush = simulate(RUSH_SCENARIO, { priority: tableFor((u) => (u ? 1 : 0)) }).result;
+  // The fixed run everyone pays for — same as the judge: plain FIFO on
+  // the 20-order rush set leaves 11 orders late or undelivered.
+  const late = compensateLateOrders();
 
-  it("the fixed run leaves exactly 8 late normal orders", () => {
-    const late = rush.orders.filter((order) => !order.onTime);
-    expect(late).toHaveLength(8);
-    expect(late.every((order) => order.expected?.urgent === false)).toBe(true);
+  const compensateTableFor = (
+    fn: (urgent: boolean, overtime: number, delivered: boolean) => number,
+  ): number[] => {
+    const table = new Array(COMPENSATE_TABLE_SIZE).fill(0);
+    for (const u of [false, true])
+      for (let o = 0; o <= 30; o++)
+        for (const d of [false, true]) table[compensateIndex(u, o, d)] = fn(u, o, d);
+    return table;
+  };
+
+  it("the first-come-first-served run leaves 11 problem orders, urgent included", () => {
+    expect(late).toHaveLength(11);
+    expect(late.filter((o) => o.urgent)).toHaveLength(8);
+    expect(late.filter((o) => !o.delivered)).toHaveLength(6);
+    expect(late.filter((o) => !o.urgent && !o.delivered)).toHaveLength(3);
+    expect(late.filter((o) => o.delivered).map((o) => o.id)).toEqual([
+      "R06",
+      "R08",
+      "R10",
+      "R12",
+      "R14",
+    ]);
   });
 
-  it("checkCompensateTable bounds the 62-cell shape and 0/1/2 values", () => {
+  it("checkCompensateTable bounds the 124-cell shape and 0/1/2 values", () => {
     expect(checkCompensateTable(new Array(COMPENSATE_TABLE_SIZE).fill(0)).table).not.toBeNull();
-    expect(checkCompensateTable(new Array(5).fill(0)).table).toBeNull();
+    expect(checkCompensateTable(new Array(62).fill(0)).table).toBeNull();
     const bad = new Array(COMPENSATE_TABLE_SIZE).fill(0);
     bad[10] = 3;
     const { errors } = checkCompensateTable(bad);
@@ -378,16 +381,62 @@ describe("compensate (附加挑战)", () => {
     expect(checkCompensateTable(bad).table).toBeNull();
   });
 
-  it("smart compensation beats refund-everything; doing nothing nets 0", () => {
-    const zeros = new Array(COMPENSATE_TABLE_SIZE).fill(0);
-    const refundAll = new Array(COMPENSATE_TABLE_SIZE).fill(2);
-    const smart = new Array(COMPENSATE_TABLE_SIZE).fill(0).map((_, i) => {
-      const w = i % 31;
-      return w >= 19 ? 2 : w >= 10 ? 1 : 0;
-    });
-    expect(evaluateCompensation(rush.orders, zeros).net).toBe(0);
-    expect(evaluateCompensation(rush.orders, refundAll).net).toBe(9);
-    expect(evaluateCompensation(rush.orders, smart).net).toBe(15);
+  it("all three extreme policies fail on different lines — the trade-off is real", () => {
+    const none = evaluateCompensation(
+      late,
+      compensateTableFor(() => 0),
+    );
+    const snacks = evaluateCompensation(
+      late,
+      compensateTableFor(() => 1),
+    );
+    const refunds = evaluateCompensation(
+      late,
+      compensateTableFor(() => 2),
+    );
+    expect(none.badReviewPoints).toBe(860); // 8.60 expected bad reviews
+    expect(snacks.badReviewPoints).toBe(580); // still over the 4.50 line
+    expect(refunds.badReviewPoints).toBe(212); // lowest reviews…
+    expect(refunds.spend).toBe(165); // …but way over the 80 元 budget
+    for (const bill of [none, snacks, refunds]) {
+      expect(
+        bill.badReviewPoints <= COMPENSATE_PASS_REVIEWS && bill.spend <= COMPENSATE_PASS_SPEND,
+      ).toBe(false);
+    }
+  });
+
+  it("the overtime-only starter policy misses the undelivered and fails", () => {
+    const starter = evaluateCompensation(
+      late,
+      compensateTableFor((_u, overtime) => (overtime >= 8 ? 2 : overtime >= 4 ? 1 : 0)),
+    );
+    expect(starter.badReviewPoints).toBeGreaterThan(COMPENSATE_PASS_REVIEWS);
+  });
+
+  it("urgent-blind generosity breaks the budget; urgent-aware fits it", () => {
+    // Refund every undelivered order + snack every delivered one: 100 元.
+    const blind = evaluateCompensation(
+      late,
+      compensateTableFor((_u, _o, d) => (d ? 1 : 2)),
+    );
+    expect(blind.spend).toBe(100);
+    expect(blind.spend).toBeGreaterThan(COMPENSATE_PASS_SPEND);
+    // Refund the urgent undelivered, snack the rest — 4.42 reviews @ 61 元.
+    const aware = evaluateCompensation(
+      late,
+      compensateTableFor((u, _o, d) => (!d ? (u ? 2 : 1) : 1)),
+    );
+    expect(aware.badReviewPoints).toBe(442);
+    expect(aware.spend).toBe(61);
+    expect(
+      aware.badReviewPoints <= COMPENSATE_PASS_REVIEWS && aware.spend <= COMPENSATE_PASS_SPEND,
+    ).toBe(true);
+  });
+
+  it("the best bill inside the spend cap is locked", () => {
+    const best = bestCompensation(late);
+    expect(best.badReviewPoints).toBe(399); // 3.99 expected bad reviews
+    expect(best.spend).toBe(74);
   });
 });
 

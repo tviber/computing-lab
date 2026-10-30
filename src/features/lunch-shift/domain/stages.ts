@@ -2,6 +2,7 @@
  * Stage table for the lunch-shift lab. Four stages for one class period:
  * walk one order by hand → fix intake by editing word tables → fix
  * queueing by writing priority() → one-shot graded run on hidden orders.
+ * Stage 5 is an optional bonus that rides the stage-3 slot in the rail.
  *
  * Each stage keeps one task sentence. The judging method and the takeaway
  * are only shown after the stage is passed; `hints` are the three
@@ -53,27 +54,28 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 4,
     id: "final-run",
     title: "正式挑战",
-    task: "词表沿用第二关。这里编辑两个函数：priority 决定先做哪张，rush 决定是否用掉一次加速机会（共 3 次，3 拍的单缩成 1 拍）。换了一批写法不同的订单，只能交一次。",
+    task: "词表沿用第二关，这里只编辑 priority 函数。换了一批写法不同的订单，只能交一次。",
     judgeNote:
       "服务器用同一套判法跑 12 张隐藏订单：成绩 = 小票正确数 + 记对且准时数（加急等满 9 拍、普通等满 18 拍算超时），满分 24。",
     takeaway: "选通用词的词表，才扛得住换说法。",
     hints: [
       "练习里照抄原话加的词，正式订单换个说法就可能认不出。",
       "又长又具体的练习原话，正式订单换个说法就认不出，换成更短的通用词。",
-      "加速只有 3 次：全给前几张单，后面的长单就没机会了。",
+      "哪张表里还有只在练习原话里出现过的长词？换成更通用的。",
     ],
   },
   {
     index: 5,
     id: "compensate",
     title: "附加挑战",
-    task: "晚高峰 20 单跑完，有些单超时了。写 compensate(urgent, wait) 决定每张超时单补偿几档：0 不补偿、1 送小食（成本 1，最多挽回 3 拍损失）、2 部分退款（成本 3，全挽回）。净挽回 = 挽回 − 成本。",
-    judgeNote: "服务器用固定排法跑同一组订单，按你的表给每张超时单结账：净挽回越高越好。",
+    task: "晚高峰 20 单按先来先做跑完，有的单送晚了、有的没送到。写 compensate(urgent, overtime, delivered) 给每张出问题的单选补偿：0 不补偿、1 送小食（2 元）、2 部分退款（15 元）。照店里的差评率表估计，预计差评不超过 4.5 单、补偿花费不超过 80 元才过关。",
+    judgeNote:
+      "服务器用同一套先来先做的跑法找出 11 张问题单，按你的结果表逐张查差评率和花费：两条线都压住才算过。",
     takeaway: "信息系统不只执行规则，也在做权衡：补偿太少伤顾客，补偿太多伤成本。",
     hints: [
-      "超时损失 = 等超过上限的拍数，先把这笔账算出来。",
-      "第一种写法：return 1 if wait >= 19 else 0 只补普通单里损失最大的。",
-      "损失超过多少拍时，退款（成本 3 全挽回）才比小食（成本 1 挽回 3）划算？",
+      "差评率最高的是「没送到」的单，先把 delivered 为 False 的处理好。",
+      "第一行可以这样开头：if not delivered: return 2。",
+      "退款一张 15 元，预算退不起 6 张没送到的：先退哪一种更划算？看差评率表里的加急行。",
     ],
   },
 ];

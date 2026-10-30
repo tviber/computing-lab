@@ -34,6 +34,7 @@ import {
   type LunchStageDef,
 } from "../domain/stages.ts";
 import { sanitizeIntakeTables } from "../domain/wordTables.ts";
+import { checkCompensateTable } from "../domain/compensate.ts";
 import { sanitizePriorityTable } from "../domain/priority.ts";
 
 export type { SaveStatus };
@@ -128,8 +129,6 @@ export function draftOf(state: LunchLessonState, stageIndex = state.stageIndex):
     tables: intake.tables,
     queueCode: queue.code,
     priority: queue.priority,
-    rushCode: "",
-    rush: null,
   } satisfies FinalDraft;
 }
 
@@ -193,8 +192,6 @@ export function sanitizeFinalDraft(raw: unknown): FinalDraft {
     tables: null,
     queueCode: "",
     priority: null,
-    rushCode: "",
-    rush: null,
   };
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
   const record = raw as Record<string, unknown>;
@@ -202,8 +199,6 @@ export function sanitizeFinalDraft(raw: unknown): FinalDraft {
   draft.tables = sanitizeIntakeTables(record.tables);
   draft.queueCode = codeOf(record.queueCode);
   draft.priority = sanitizePriorityTable(record.priority);
-  draft.rushCode = codeOf(record.rushCode);
-  draft.rush = sanitizePriorityTable(record.rush);
   return draft;
 }
 
@@ -216,7 +211,7 @@ export function sanitizeCompensateDraft(raw: unknown): CompensateDraft {
   if (!raw || typeof raw !== "object" || Array.isArray(raw)) return draft;
   const record = raw as Record<string, unknown>;
   draft.code = codeOf(record.code);
-  draft.compensate = sanitizePriorityTable(record.compensate);
+  draft.compensate = checkCompensateTable(record.compensate).table;
   return draft;
 }
 
