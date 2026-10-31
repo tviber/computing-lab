@@ -41,7 +41,7 @@
     "@uiw/react-codemirror": "4.25.11",
     "hono": "^4.13.8",
     "pyodide": "314.0.5",
-    "react": "^19.1.1",
+    "react": "^19.3.0",
     "react-dom": "^19.1.1"
   },
   "devDependencies": {
@@ -51,7 +51,7 @@
     "@testing-library/jest-dom": "^7.0.1",
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.4",
-    "@types/react": "^19.1.1",
+    "@types/react": "^19.3.0",
     "@types/react-dom": "^19.1.1",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.5",
