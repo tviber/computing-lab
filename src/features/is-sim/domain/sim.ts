@@ -7,14 +7,16 @@
  * small runtime view; the same event arriving again (e.g. fanned out
  * and reconverging at a db) is deduped per device by event id.
  *
- * Determinism: a min-heap keyed on (tick, insertion seq) makes same-tick
- * order stable; the single seeded rng drives sensor jitter and gateway
- * drop-rate only.
+ * Determinism: the queue is a plain array and `pop` is an O(n) scan for
+ * the earliest (tick, insertion seq) item — cheap at MAX_EVENTS=512, and
+ * it keeps same-tick order stable. The single seeded rng drives sensor
+ * jitter and gateway drop-rate only.
  *
- * Termination: `done` when the queue drains before `horizon`; `budget`
- * when `maxEvents` pops first (runaway amplification). Events due at or
- * after the horizon are recorded as drops (cause "timeout") — human
- * queues left non-empty then report as pending.
+ * Termination: `done` when the queue drains; `budget` only when the step
+ * counter hits `maxEvents` with work still queued (runaway
+ * amplification). Events due at or after the horizon are recorded as
+ * drops (cause "timeout") — human queues left non-empty then report as
+ * pending.
  *
  * Drops are first-class rows (separate `dropped` list sharing the `step`
  * counter with `trace`) so the timeline can show where an event died.
@@ -570,7 +572,10 @@ export function runScenario(
   }
 
   return {
-    reason: step >= maxEvents ? "budget" : "done",
+    // Draining the last item exactly on the maxEvents step is still a
+    // completed run; only a non-empty queue at the cap means the budget
+    // genuinely ran out.
+    reason: step >= maxEvents && queue.length > 0 ? "budget" : "done",
     horizon: testCase.horizon,
     trace,
     dropped,

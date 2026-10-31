@@ -148,6 +148,28 @@ describe("is-sim routes", () => {
     expect(outcome).toMatchObject({ passed: true, score: outcome.total, currentStage: 2 });
   });
 
+  it("judges with stage prefill params even when the draft retunes a frozen device", async () => {
+    const { app, classId, studentId, cookieFor } = await setup();
+    // The S1 scanner is fixedParams; a crafted request claiming an
+    // auto-emit interval would otherwise flood the db with junk records.
+    const tampered = {
+      nodes: SOLVED_S1.nodes.map((n) =>
+        n.id === "scan"
+          ? { ...n, fixedParams: false, params: { interval: 2, base: 500, noise: 0 } }
+          : n,
+      ),
+      links: SOLVED_S1.links,
+    };
+    const res = await judge(app, classId, cookieFor(studentId), {
+      stageIndex: 1,
+      draft: tampered,
+    });
+    expect(res.status).toBe(200);
+    const outcome = (await res.json()) as { passed: boolean; score: number; total: number };
+    expect(outcome.passed).toBe(true);
+    expect(outcome.score).toBe(outcome.total);
+  });
+
   it("refuses a locked stage", async () => {
     const { app, classId, studentId, cookieFor } = await setup();
     const res = await judge(app, classId, cookieFor(studentId), {

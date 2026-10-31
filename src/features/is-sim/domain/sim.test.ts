@@ -289,6 +289,22 @@ describe("determinism and bounds", () => {
     expect(run.trace[1].node).toBe("b");
   });
 
+  it("draining the queue exactly on the maxEvents step still reports done", () => {
+    const t = topo([sensor("s"), db("store")], [{ from: "s", to: "store", port: "write" }]);
+    // 2 steps per borrow (stim + delivery): two emits = exactly 4 steps.
+    const run = runScenario(
+      t,
+      baseCase({
+        script: [emit(0, "s", "borrow", 1), emit(1, "s", "borrow", 2)],
+        expect: { events: 8 },
+      }),
+      4,
+    );
+    expect(run.reason).toBe("done");
+    expect(run.eventsUsed).toBe(4);
+    expect(run.devices.store.stored).toEqual([1, 2]);
+  });
+
   it("event budget caps runaway amplification", () => {
     // s -> g -> g2 -> g (cycle across two gateways) would loop-drop,
     // so instead flood: one emit fanning into many hops is bounded anyway.

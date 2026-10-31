@@ -259,6 +259,26 @@ function clampInt(value: unknown, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
 }
 
+/**
+ * Re-apply stage-frozen params: a node matching a `fixedParams` prefill
+ * entry keeps the prefill's params no matter what the wire draft claims.
+ * The reducer refuses param edits on these nodes, but a crafted request
+ * can retune a calibrated device — judges re-assert prefill before
+ * running cases.
+ */
+export function enforcePrefillParams(topology: IsTopology, prefill: IsTopology): IsTopology {
+  const frozen = new Map(prefill.nodes.filter((n) => n.fixedParams).map((n) => [n.id, n]));
+  if (frozen.size === 0) return topology;
+  return {
+    ...topology,
+    nodes: topology.nodes.map((node) => {
+      const prefillNode = frozen.get(node.id);
+      if (!prefillNode) return node;
+      return { ...node, fixedParams: true, params: { ...prefillNode.params } };
+    }),
+  };
+}
+
 export function nodeById(topology: IsTopology, id: string): IsNode | null {
   return topology.nodes.find((n) => n.id === id) ?? null;
 }

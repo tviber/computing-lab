@@ -11,6 +11,7 @@ import type {
   IsJudgeResult,
   IsTestSummary,
 } from "../../../src/features/is-sim/domain/protocol.ts";
+import { enforcePrefillParams } from "../../../src/features/is-sim/domain/model.ts";
 import { seedFor } from "../../../src/features/is-sim/domain/rng.ts";
 import { judgeCase } from "../../../src/features/is-sim/domain/scenario.ts";
 import {
@@ -41,7 +42,10 @@ export function judgeIsSimSubmission(
   if ("error" in gated) return gated;
   const stage = gated.stage;
 
-  const draft = sanitizeDraft(rawDraft);
+  // sanitizeTopology keeps wire-claimed fixedParams flags as-is; the
+  // reducer refuses param edits on frozen devices but a crafted request
+  // could retune one, so stage prefill is re-applied before judging.
+  const draft = enforcePrefillParams(sanitizeDraft(rawDraft), stage.prefill);
 
   const seed = seedFor(project.userId, project.labId, stage.index);
   const cases = hiddenCasesFor(stage.index, seed);
