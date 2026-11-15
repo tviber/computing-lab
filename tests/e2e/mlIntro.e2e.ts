@@ -197,7 +197,7 @@ test("walks through all 5 stages of ml-intro with persistence and sealed Stage 5
   expect(s5BodyText).not.toContain("瑞金北村小学");
 
   await expect(page.getByText("通过本关判定")).toBeVisible();
-  await expect(page.getByText("300 条隐藏测试集结业盲测")).toBeVisible();
+  await expect(page.getByText("300 条隐藏测试集结业盲测", { exact: true })).toBeVisible();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });
