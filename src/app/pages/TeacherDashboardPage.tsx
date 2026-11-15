@@ -7,6 +7,7 @@ import { CPU_STAGES } from "../../features/cpu";
 import { DECODING_STAGES } from "../../features/decoding";
 import { IS_SIM_STAGES } from "../../features/is-sim";
 import { LUNCH_STAGES } from "../../features/lunch-shift";
+import { ML_STAGES } from "../../features/ml-intro";
 import { IMAGE_SAMPLING_STAGES } from "../../features/image-sampling/domain/stages";
 import { COLOR_QUANT_STAGES } from "../../features/color-quantization/domain/stages";
 import { TaskDashboard, type AssignmentSummary } from "../../features/task-sheets/ui/TaskDashboard";
@@ -32,6 +33,7 @@ const LAB_OPTIONS: LabOption[] = [
   { id: "decoding", title: labMetadata.decoding.title, stages: DECODING_STAGES },
   { id: "is-sim", title: labMetadata["is-sim"].title, stages: IS_SIM_STAGES },
   { id: "lunch-shift", title: labMetadata["lunch-shift"].title, stages: LUNCH_STAGES },
+  { id: "ml-intro", title: labMetadata["ml-intro"].title, stages: ML_STAGES },
   {
     id: "image-sampling",
     title: labMetadata["image-sampling"].title,

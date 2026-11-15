@@ -6,6 +6,7 @@
 - For the image labs' shared "low-bandwidth transmission" frame (mission lines, student-code-driven preview toggles, lost-feature collision feedback), read `mem:image_labs`.
 - For the decoding lab's artifact-as-submission judging (per-user seeded payloads re-derived server-side, Pyodide ack-after-load contract, BMP profile constraints), read `mem:decoding_lab`.
 - For the lunch-shift lab's AI-intake + priority judging (browser Pyodide + vendored BGE embeddings → normalized JSON, deterministic server replay, order-set difficulty ladder), read `mem:lunch_shift`.
+- For the ML intro lab (`ml-intro`), its public/hidden stratified SMS corpus boundary and 5-stage linear curriculum invariants, read `mem:ml_intro`.
 - Read `mem:conventions` when changing shared UI or architecture; `mem:tech_stack` when changing runtime or dependencies.
 - Read `mem:suggested_commands` when selecting local commands and `mem:task_completion` when preparing validation or handoff.
 - Preserve feature ownership: `src/app` composes routes/pages; lesson semantics stay under `src/features/<lab>`; shared code is infrastructure only.

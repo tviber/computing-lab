@@ -42,6 +42,13 @@ export const labMetadata = {
     entryPath: "/labs/lunch-shift",
     category: "information-systems",
   },
+  "ml-intro": {
+    title: "机器学习入门",
+    description:
+      "把短信切词变成向量，从手调词权到让机器自己算损失、做梯度下降：用真实语料看懂分类器是怎么炼成的。",
+    entryPath: "/labs/ml-intro",
+    category: "information-systems",
+  },
   "image-sampling": {
     title: "空间采样",
     description: "把信号图压成格子发到低带宽接收端：格子数越少越省，但差异特征会先被抹平。",

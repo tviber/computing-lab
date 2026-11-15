@@ -11,6 +11,7 @@ import { CPU_CORE_STAGES } from "../../features/cpu";
 import { DECODING_CORE_STAGES } from "../../features/decoding";
 import { IS_SIM_CORE_STAGES } from "../../features/is-sim";
 import { LUNCH_STAGES } from "../../features/lunch-shift";
+import { ML_CORE_STAGES } from "../../features/ml-intro";
 import "./home.css";
 
 type ProjectSummary = { currentStage: number };
@@ -36,6 +37,7 @@ const HOME_LAB_CARDS: Record<LabId, { stages: number | null; primary?: true }> =
   decoding: { stages: DECODING_CORE_STAGES.length },
   "is-sim": { stages: IS_SIM_CORE_STAGES.length },
   "lunch-shift": { stages: LUNCH_STAGES.length },
+  "ml-intro": { stages: ML_CORE_STAGES.length },
   "image-sampling": { stages: null },
   "color-quantization": { stages: null },
   "audio-encoding": { stages: null },

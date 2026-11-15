@@ -37,6 +37,7 @@ import { cpuRoutes } from "./routes/cpu.ts";
 import { decodingRoutes } from "./routes/decoding.ts";
 import { isSimRoutes } from "./routes/isSim.ts";
 import { lunchShiftRoutes } from "./routes/lunchShift.ts";
+import { mlIntroRoutes } from "./routes/mlIntro.ts";
 import { labsRoutes } from "./routes/labs.ts";
 import { teacherRoutes } from "./routes/teacher.ts";
 
@@ -95,6 +96,7 @@ export function createApp(db: DatabaseSync) {
   app.route("/api/classes/:classId/labs/decoding", decodingRoutes());
   app.route("/api/classes/:classId/labs/is-sim", isSimRoutes());
   app.route("/api/classes/:classId/labs/lunch-shift", lunchShiftRoutes());
+  app.route("/api/classes/:classId/labs/ml-intro", mlIntroRoutes());
   app.route("/api/labs", labsRoutes());
   app.route("/api/teacher", teacherRoutes());
   app.route("/api/classes/:classId/dashboard", dashboardRoutes());
