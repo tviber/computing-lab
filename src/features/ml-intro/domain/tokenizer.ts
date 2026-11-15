@@ -1,8 +1,11 @@
+import { CN_LEXICON } from "./cnLexicon.ts";
+
 /**
- * Browser-safe Chinese + alphanumeric tokenizer for interactive SMS probing.
- * Segmentation boundaries use the known vocabulary plus common compound cues,
- * while kept vs. OOV status checks strictly against the training vocabulary so
- * unseen words never falsely look learned.
+ * Single unified Chinese + alphanumeric tokenizer shared by training,
+ * validation, held-out testing, Stage 1-2 calibration, and browser probing.
+ * Word boundaries depend solely on the fixed general segmentation lexicon so
+ * learned training vocabularies never alter boundary decisions and UI
+ * explanations always match the exact features evaluated by the model.
  */
 
 export type RawTokenStatus = "kept" | "duplicate" | "filtered" | "oov";
@@ -35,94 +38,12 @@ export type MessageInspection = {
   pred: 0 | 1;
 };
 
-const DEMO_COMPOUNDS = [
-  "元宇宙",
-  "盲盒",
-  "空投",
-  "优惠券",
-  "辅导员",
-  "四六级",
-  "验证码",
-  "微信号",
-  "拼多多",
-  "教学楼",
-  "笔记本",
-  "现金红包",
-  "红包",
-  "奶茶",
-  "食堂",
-  "退订",
-  "回复",
-  "特惠",
-  "折扣",
-  "限时",
-  "免费",
-  "领取",
-  "点击",
-  "链接",
-  "中奖",
-  "恭喜",
-  "客服",
-  "积分",
-  "兑换",
-  "明天",
-  "下午",
-  "上午",
-  "今天",
-  "同学",
-  "朋友",
-  "开会",
-  "借我",
-  "谢谢",
-  "好评",
-  "激活",
-  "神秘",
-  "微信",
-  "京东",
-  "淘宝",
-  "支付宝",
-  "全场",
-  "商城",
-  "尊敬",
-  "客户",
-  "用户",
-  "通知",
-  "作业",
-  "考试",
-  "教室",
-  "电脑",
-  "别错过",
-  "好礼",
-  "快递",
-  "取件码",
-];
-
 const CJK_RE = /[\u4e00-\u9fff]/;
 const ASCII_WORD_RE = /^[a-zA-Z0-9]+/;
 const SPACE_RE = /^\s+/;
 
-type SegCache = {
-  vocab: Set<string>;
-  lexicon: Set<string>;
-  maxLen: number;
-};
-
-let lastSegCache: SegCache | null = null;
-
-function buildSegLexicon(vocab: Set<string>): SegCache {
-  if (lastSegCache && lastSegCache.vocab === vocab) return lastSegCache;
-  const lexicon = new Set<string>(vocab);
-  let maxLen = 1;
-  for (const w of vocab) {
-    if (w.length > maxLen && w.length <= 8) maxLen = w.length;
-  }
-  for (const w of DEMO_COMPOUNDS) {
-    lexicon.add(w);
-    if (w.length > maxLen) maxLen = w.length;
-  }
-  lastSegCache = { vocab, lexicon, maxLen: Math.min(maxLen, 8) };
-  return lastSegCache;
-}
+const LEXICON_SET = new Set<string>(CN_LEXICON);
+const MAX_LEXICON_LEN = CN_LEXICON.reduce((m, w) => (w.length > m ? w.length : m), 1);
 
 function stableSigmoid(z: number): number {
   if (z >= 35) return 1;
@@ -130,14 +51,7 @@ function stableSigmoid(z: number): number {
   return 1 / (1 + Math.exp(-z));
 }
 
-function segmentPiecewise(
-  text: string,
-  lexicon: Set<string>,
-  maxLen: number,
-): {
-  raw: string;
-  isWord: boolean;
-}[] {
+function segmentPiecewise(text: string): { raw: string; isWord: boolean }[] {
   const out: { raw: string; isWord: boolean }[] = [];
   let i = 0;
   while (i < text.length) {
@@ -155,10 +69,10 @@ function segmentPiecewise(
     }
     if (CJK_RE.test(text[i])) {
       let matched = text[i];
-      const upper = Math.min(maxLen, text.length - i);
+      const upper = Math.min(MAX_LEXICON_LEN, text.length - i);
       for (let len = upper; len >= 2; len--) {
         const cand = text.slice(i, i + len);
-        if (lexicon.has(cand)) {
+        if (LEXICON_SET.has(cand)) {
           matched = cand;
           break;
         }
@@ -173,18 +87,28 @@ function segmentPiecewise(
   return out;
 }
 
-/** Tokenize text and tag each segment for Bag-of-Words construction. */
-export function analyzeTokens(
-  text: string,
-  trainVocab: Set<string>,
+/**
+ * Authoritative word tokenizer used identically for corpus ingestion
+ * (train, val, hidden test) and interactive browser message probing.
+ */
+export function tokenizeWords(text: string): string[] {
+  const segments = segmentPiecewise(text.trim());
+  const words: string[] = [];
+  for (const seg of segments) {
+    if (seg.isWord) words.push(seg.raw);
+  }
+  return words;
+}
+
+function tagSegments(
+  segments: readonly { raw: string; isWord: boolean }[],
+  trainVocab: ReadonlySet<string>,
   wordToIndex?: ReadonlyMap<string, number>,
 ): TokenItem[] {
-  const { lexicon, maxLen } = buildSegLexicon(trainVocab);
-  const rawSegments = segmentPiecewise(text.trim(), lexicon, maxLen);
   const seenInMessage = new Set<string>();
   const tokens: TokenItem[] = [];
 
-  for (const seg of rawSegments) {
+  for (const seg of segments) {
     if (!seg.isWord) {
       tokens.push({
         text: seg.raw,
@@ -225,19 +149,22 @@ export function analyzeTokens(
   return tokens;
 }
 
-/**
- * Inspect any custom or dataset message under a given weight vector & bias,
- * yielding both token status and cumulative dot-product score breakdown.
- */
-export function inspectMessageWithModel(
+/** Tokenize text and tag each segment for Bag-of-Words construction. */
+export function analyzeTokens(
   text: string,
+  trainVocab: ReadonlySet<string>,
+  wordToIndex?: ReadonlyMap<string, number>,
+): TokenItem[] {
+  return tagSegments(segmentPiecewise(text.trim()), trainVocab, wordToIndex);
+}
+
+function buildInspectionFromTokens(
+  text: string,
+  tokens: TokenItem[],
   weightsByWord: ReadonlyMap<string, number>,
   bias: number,
-  trainVocab: Set<string>,
-  threshold = 0.5,
-  wordToIndex?: ReadonlyMap<string, number>,
+  threshold: number,
 ): MessageInspection {
-  const tokens = analyzeTokens(text, trainVocab, wordToIndex);
   const keptWords: string[] = [];
   const duplicateWords: string[] = [];
   const oovWords: string[] = [];
@@ -289,4 +216,54 @@ export function inspectMessageWithModel(
     probability,
     pred: probability >= threshold ? 1 : 0,
   };
+}
+
+/**
+ * Inspect any custom text under a given weight vector & bias, yielding both
+ * token status and cumulative dot-product score breakdown.
+ */
+export function inspectMessageWithModel(
+  text: string,
+  weightsByWord: ReadonlyMap<string, number>,
+  bias: number,
+  trainVocab: ReadonlySet<string>,
+  threshold = 0.5,
+  wordToIndex?: ReadonlyMap<string, number>,
+): MessageInspection {
+  const tokens = analyzeTokens(text, trainVocab, wordToIndex);
+  return buildInspectionFromTokens(text, tokens, weightsByWord, bias, threshold);
+}
+
+function arrayEquals(a: readonly string[], b: readonly string[]): boolean {
+  if (a.length !== b.length) return false;
+  for (let i = 0; i < a.length; i++) {
+    if (a[i] !== b[i]) return false;
+  }
+  return true;
+}
+
+/**
+ * Inspect a corpus message directly from its authoritative `msg.tokens` so
+ * feature selection, raw score, and probability stay guaranteed identical to
+ * vectorized evaluation (while retaining punctuation display chips when the
+ * raw-text segmentation matches `msg.tokens`).
+ */
+export function inspectCorpusMessageWithModel(
+  msg: { text: string; tokens: readonly string[] },
+  weightsByWord: ReadonlyMap<string, number>,
+  bias: number,
+  trainVocab: ReadonlySet<string>,
+  threshold = 0.5,
+  wordToIndex?: ReadonlyMap<string, number>,
+): MessageInspection {
+  const textTokens = analyzeTokens(msg.text, trainVocab, wordToIndex);
+  const textWords = textTokens.filter((t) => t.status !== "filtered").map((t) => t.text);
+  const tokens = arrayEquals(textWords, msg.tokens)
+    ? textTokens
+    : tagSegments(
+        msg.tokens.map((w) => ({ raw: w, isWord: true })),
+        trainVocab,
+        wordToIndex,
+      );
+  return buildInspectionFromTokens(msg.text, tokens, weightsByWord, bias, threshold);
 }

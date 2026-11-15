@@ -255,9 +255,11 @@ export function GeneralizePanel({
         >
           {submitting ? "盲测评分中…" : "提交并挑战 300 条隐藏测试集"}
         </button>
-        {!allConceptsDone ? (
-          <span className="ml-muted-note">请先答对全部概念题再挑战盲测</span>
-        ) : null}
+        <span className="ml-muted-note">
+          {!allConceptsDone
+            ? "请先答对全部概念题再挑战盲测"
+            : "盲测仅给出是否通过的最终结论，不返回隐藏集明细分数，请依据公开验证集调参"}
+        </span>
       </div>
 
       <JudgeVerdictCard

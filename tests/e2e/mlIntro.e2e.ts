@@ -20,7 +20,11 @@ function collectFailures(page: Page): string[] {
   return failures;
 }
 
-test("unlocks stage 2 of ml-intro through real API submission", async ({ page, request }) => {
+test("walks through all 5 stages of ml-intro with persistence and sealed Stage 5 blind exam", async ({
+  page,
+  request,
+}) => {
+  test.setTimeout(30_000);
   const failures = collectFailures(page);
 
   const adminLogin = await request.post("/api/auth/login", {
@@ -39,7 +43,7 @@ test("unlocks stage 2 of ml-intro through real API submission", async ({ page, r
   const createStudent = await request.post("/api/admin/users", {
     data: {
       studentNo,
-      name: "ML Smoke Student",
+      name: "ML Full Journey Student",
       password: studentPassword,
       role: "user",
       classId,
@@ -50,7 +54,11 @@ test("unlocks stage 2 of ml-intro through real API submission", async ({ page, r
   await page.goto("login", { waitUntil: "networkidle" });
   await page.getByLabel("学号").fill(studentNo);
   await page.getByLabel("密码").fill(studentPassword);
+  const loginResp = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().endsWith("/auth/login"),
+  );
   await page.getByRole("button", { name: "登录" }).click();
+  expect((await loginResp).status()).toBe(200);
   await page.waitForURL("**/");
 
   await page.goto("labs/ml-intro", { waitUntil: "networkidle" });
@@ -58,6 +66,7 @@ test("unlocks stage 2 of ml-intro through real API submission", async ({ page, r
   await expect(page.getByRole("heading", { name: "把短信变成数字" })).toBeVisible();
   await expect(page.getByRole("button", { name: /给词打分与概率/ })).toBeDisabled();
 
+  // Stage 1: Tokenize + concepts
   let freeSeen = 0;
   for (const item of STAGE1_PUZZLE_ITEMS) {
     const label = `片段 ${item.text} 的归类`;
@@ -65,25 +74,119 @@ test("unlocks stage 2 of ml-intro through real API submission", async ({ page, r
       item.text === "免费"
         ? page.getByRole("group", { name: label }).nth(freeSeen++)
         : page.getByRole("group", { name: label });
-    await group.getByRole("button", { name: CHOICE_LABEL[item.expected] }).click();
+    await group.getByRole("button", { name: CHOICE_LABEL[item.expected], exact: true }).click();
   }
-
   for (const prompt of ML_STAGES[0].prompts) {
-    await page.getByRole("button", { name: prompt.options[prompt.correct].label }).click();
+    await page
+      .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })
+      .click();
   }
-
-  const judgeResponse = page.waitForResponse(
-    (response) =>
-      response.request().method() === "POST" && response.url().endsWith("/labs/ml-intro/judge"),
+  const s1RespPromise = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().endsWith("/labs/ml-intro/judge"),
   );
   await page.getByRole("button", { name: "提交第 1 关判定" }).click();
-  expect((await judgeResponse).status()).toBe(200);
-
+  expect((await s1RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
-  await expect(page.getByRole("button", { name: /给词打分与概率/ })).toBeEnabled();
-
   await page.getByRole("button", { name: /进入下一关/ }).click();
   await expect(page.getByRole("heading", { name: "给词打分与概率" })).toBeVisible();
+
+  // Edit one Stage 2 slider, wait for autosave PUT /draft, reload, and verify both stage unlock & draft restore
+  const draftSavePromise = page.waitForResponse(
+    (res) => res.request().method() === "PUT" && res.url().endsWith("/labs/ml-intro/draft"),
+  );
+  await page.locator("#ml-w-免费").fill("2.2");
+  expect((await draftSavePromise).status()).toBe(200);
+
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "给词打分与概率" })).toBeVisible();
+  await expect(page.locator("#ml-w-免费")).toHaveValue("2.2");
+
+  // Stage 2: Finish manual weights on 6 calibration messages
+  const s2Weights: Record<string, string> = {
+    免费: "2.2",
+    领取: "2",
+    点击: "2",
+    退订: "2",
+    优惠: "2",
+    同学: "-2",
+    明天: "-1.6",
+    一起: "-1.6",
+  };
+  for (const [word, val] of Object.entries(s2Weights)) {
+    await page.locator(`#ml-w-${word}`).fill(val);
+  }
+  await expect(page.getByText("分对 6 / 6")).toBeVisible();
+  for (const prompt of ML_STAGES[1].prompts) {
+    await page
+      .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })
+      .click();
+  }
+  const s2RespPromise = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().endsWith("/labs/ml-intro/judge"),
+  );
+  await page.getByRole("button", { name: "提交第 2 关判定" }).click();
+  expect((await s2RespPromise).status()).toBe(200);
+  await expect(page.getByText("通过本关判定")).toBeVisible();
+  await page.getByRole("button", { name: /进入下一关/ }).click();
+  await expect(page.getByRole("heading", { name: "让机器自己改错" })).toBeVisible();
+
+  // Stage 3: Steady learning rate preset + concepts
+  await page.getByRole("button", { name: "稳健 η = 0.1" }).click();
+  for (const prompt of ML_STAGES[2].prompts) {
+    await page
+      .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })
+      .click();
+  }
+  const s3RespPromise = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().endsWith("/labs/ml-intro/judge"),
+  );
+  await page.getByRole("button", { name: "提交第 3 关判定" }).click();
+  expect((await s3RespPromise).status()).toBe(200);
+  await expect(page.getByText("通过本关判定")).toBeVisible();
+  await page.getByRole("button", { name: /进入下一关/ }).click();
+  await expect(page.getByRole("heading", { name: "别被高分假象骗了" })).toBeVisible();
+
+  // Stage 4: Restore balanced threshold + verify UI explanation parity + concepts
+  await page.getByRole("button", { name: "恢复推荐初值" }).click();
+  const firstCaseBtn = page.locator(".ml-case-btn").first();
+  await expect(firstCaseBtn).toBeVisible();
+  const listProb = (await firstCaseBtn.locator(".ml-case-prob").textContent())?.trim() ?? "";
+  expect(listProb).toMatch(/^\d+\.\d%$/);
+  await expect(page.getByText(new RegExp(`模型判定：.*（${listProb}）`))).toBeVisible();
+
+  for (const prompt of ML_STAGES[3].prompts) {
+    await page
+      .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })
+      .click();
+  }
+  const s4RespPromise = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().endsWith("/labs/ml-intro/judge"),
+  );
+  await page.getByRole("button", { name: "提交第 4 关判定" }).click();
+  expect((await s4RespPromise).status()).toBe(200);
+  await expect(page.getByText("通过本关判定")).toBeVisible();
+  await page.getByRole("button", { name: /进入下一关/ }).click();
+  await expect(page.getByRole("heading", { name: "数据规模与未知大考" })).toBeVisible();
+
+  // Stage 5: Full training sample preset + sealed blind exam
+  await page.getByRole("button", { name: "1,400 条（全量公开训练）" }).click();
+  for (const prompt of ML_STAGES[4].prompts) {
+    await page
+      .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })
+      .click();
+  }
+  const s5RespPromise = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().endsWith("/labs/ml-intro/judge"),
+  );
+  await page.getByRole("button", { name: "提交并挑战 300 条隐藏测试集" }).click();
+  const s5Resp = await s5RespPromise;
+  expect(s5Resp.status()).toBe(200);
+  const s5BodyText = await s5Resp.text();
+  expect(s5BodyText).not.toContain("test-accuracy");
+  expect(s5BodyText).not.toContain("瑞金北村小学");
+
+  await expect(page.getByText("通过本关判定")).toBeVisible();
+  await expect(page.getByText("300 条隐藏测试集结业盲测")).toBeVisible();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });

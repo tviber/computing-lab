@@ -1,4 +1,5 @@
 import { TRAIN_ROWS, VAL_ROWS } from "./corpusData.ts";
+import { tokenizeWords } from "./tokenizer.ts";
 
 export type CorpusMessage = {
   id: number;
@@ -14,7 +15,7 @@ export function parseCorpusRows(rows: readonly string[]): CorpusMessage[] {
     const label = parts[0] === "1" ? 1 : 0;
     const text = parts[1] ?? "";
     const tokStr = parts[2] ?? "";
-    const tokens = tokStr ? tokStr.split(" ").filter(Boolean) : [];
+    const tokens = tokStr ? tokStr.split(" ").filter(Boolean) : tokenizeWords(text);
     result.push({ id: i, label, text, tokens });
   }
   return result;

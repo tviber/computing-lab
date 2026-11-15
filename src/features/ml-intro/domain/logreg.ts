@@ -2,6 +2,26 @@ import { getPublicCorpus, type CorpusMessage } from "./corpus.ts";
 
 export const EPS = 1e-12;
 export const BLIND_GUESS_LOSS = Math.LN2;
+export const DEFAULT_TRAIN_SEED = 2026;
+
+function mulberry32(seed: number): () => number {
+  let a = seed >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function shuffleOrder(order: number[], rng: () => number): void {
+  for (let i = order.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    const tmp = order[i];
+    order[i] = order[j];
+    order[j] = tmp;
+  }
+}
 
 export const MIN_ETA = 0.001;
 export const MAX_ETA = 5.0;
@@ -164,6 +184,7 @@ export type TrainingRun = {
   eta: number;
   epochs: number;
   threshold: number;
+  seed: number;
   vocabSize: number;
   baselineAcc: number;
   epochsHistory: EpochSnapshot[];
@@ -396,14 +417,17 @@ export type TrainingOptions = {
   eta: number;
   epochs: number;
   threshold?: number;
+  seed?: number;
+  shuffleEpochs?: boolean;
   includeTrace?: boolean;
   includeBgd?: boolean;
   topWordsCount?: number;
 };
 
 /**
- * Deterministic Bag-of-Words logistic regression trainer using SGD (with
- * optional real intra-epoch SGD checkpoints & real BGD epoch reference).
+ * Deterministic Bag-of-Words logistic regression trainer using seeded
+ * per-epoch shuffled SGD (with optional real intra-epoch SGD checkpoints
+ * and full-batch BGD epoch reference).
  */
 export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
   const pub = getPublicCorpus();
@@ -418,6 +442,8 @@ export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
   const eta = clampEta(options.eta);
   const epochs = clampEpochs(options.epochs);
   const threshold = clampThreshold(options.threshold ?? 0.5);
+  const seed = Number.isFinite(options.seed) ? Math.trunc(options.seed!) : DEFAULT_TRAIN_SEED;
+  const shuffleEpochs = options.shuffleEpochs ?? true;
   const topWordsCount = options.topWordsCount ?? 10;
 
   const trainSlice = fullTrain.slice(0, trainCount);
@@ -473,11 +499,14 @@ export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
   const checkpointsPerEpoch = 10;
   const traceEpochs = Math.min(3, epochs);
   let checkpointIdx = 1;
+  const order = Array.from({ length: trainVecs.length }, (_, idx) => idx);
+  const rng = mulberry32(seed);
 
   for (let epoch = 1; epoch <= epochs; epoch++) {
+    if (shuffleEpochs) shuffleOrder(order, rng);
     const sampleStep = Math.max(1, Math.floor(trainVecs.length / checkpointsPerEpoch));
     for (let i = 0; i < trainVecs.length; i++) {
-      const sample = trainVecs[i];
+      const sample = trainVecs[order[i]];
       const ids = sample.activeIds;
       let z = bias;
       for (let k = 0; k < ids.length; k++) z += weights[ids[k]];
@@ -561,6 +590,7 @@ export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
     eta,
     epochs,
     threshold,
+    seed,
     vocabSize: vocab.length,
     baselineAcc: alwaysZeroBaseline(valMessages),
     epochsHistory,

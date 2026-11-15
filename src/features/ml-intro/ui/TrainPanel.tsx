@@ -16,7 +16,7 @@ const ETA_PRESETS = [
   { label: "极小 η = 0.002", eta: 0.002, epochs: 12 },
   { label: "稳健 η = 0.1", eta: 0.1, epochs: 12 },
   { label: "偏激进 η = 0.8", eta: 0.8, epochs: 12 },
-  { label: "过大震荡 η = 3.5", eta: 3.5, epochs: 12 },
+  { label: "过大震荡 η = 5.0", eta: 5.0, epochs: 12 },
 ];
 
 export function TrainPanel({
@@ -176,7 +176,7 @@ export function TrainPanel({
             </div>
             <input
               id="ml-eta-slider"
-              max={0.602}
+              max={0.699}
               min={-3}
               onChange={(e) => {
                 const eta = Number((10 ** Number(e.target.value)).toFixed(4));

@@ -2,7 +2,13 @@ import { describe, expect, it } from "vitest";
 import { newId, openMemoryDb } from "../../db/client.ts";
 import { getOrCreateProject } from "../pipeline.ts";
 import { judgeMlIntroSubmission } from "./judge.ts";
+import {
+  evaluateModelOnMessages,
+  trainLogisticRegression,
+} from "../../../src/features/ml-intro/domain/logreg.ts";
 import { ML_STAGES, STAGE1_PUZZLE_ITEMS } from "../../../src/features/ml-intro/domain/stages.ts";
+import { HIDDEN_TEST_ROWS } from "./hiddenCorpus.ts";
+import { getHiddenTestMessages } from "./hiddenSet.ts";
 
 const LAB_ID = "ml-intro";
 
@@ -110,7 +116,7 @@ describe("ml-intro judge", () => {
     if (!("error" in tooSlow)) expect(tooSlow.passed).toBe(false);
 
     const tooBig = judgeMlIntroSubmission(db, project, 3, {
-      eta: 4.0,
+      eta: 5.0,
       epochs: 12,
       concepts: correctConcepts(3),
     });
@@ -158,8 +164,26 @@ describe("ml-intro judge", () => {
     expect(pass.passedStages).toEqual([1, 2, 3, 4]);
   });
 
-  it("judges stage 5 generalization strictly on the held-out server corpus", () => {
+  it("keeps held-out server corpus free of unredacted PII and classroom-unsafe text", () => {
+    const patterns = [
+      /(?<!\d)1[3-9]\d{9}(?!\d)/,
+      /(?<!\d)1\d{2}[x*]{4}\d{2,4}/i,
+      /(?<!\d)[48]00[-\s]?\d{3}[-\s]?\d{4}/,
+      /https?:\/\/|www\./i,
+      /强奸|强暴|乱伦|轮奸|他妈|操你|滚蛋|蠢货/,
+    ];
+    expect(HIDDEN_TEST_ROWS).toHaveLength(300);
+    for (const row of HIDDEN_TEST_ROWS) {
+      const text = row.split("\t")[1] ?? "";
+      for (const re of patterns) {
+        expect(text, `hidden row matched ${re}: ${text}`).not.toMatch(re);
+      }
+    }
+  });
+
+  it("grades stage 5 generalization on the held-out corpus without leaking test metrics or texts", () => {
     const { db, project } = setupProject([1, 2, 3, 4]);
+    const hiddenMessages = getHiddenTestMessages();
 
     const overfitSmall = judgeMlIntroSubmission(db, project, 5, {
       sampleSize: 150,
@@ -168,7 +192,31 @@ describe("ml-intro judge", () => {
       threshold: 0.4,
       concepts: correctConcepts(5),
     });
-    if (!("error" in overfitSmall)) expect(overfitSmall.passed).toBe(false);
+    expect("error" in overfitSmall).toBe(false);
+    if (!("error" in overfitSmall)) {
+      expect(overfitSmall.passed).toBe(false);
+      expect(overfitSmall.testSummary.parts.map((p) => p.id)).toEqual([
+        "val-loss",
+        "hidden-blind-exam",
+        "concepts",
+      ]);
+    }
+
+    const borderlineFail = judgeMlIntroSubmission(db, project, 5, {
+      sampleSize: 1400,
+      eta: 0.1,
+      epochs: 12,
+      threshold: 0.9,
+      concepts: correctConcepts(5),
+    });
+    expect("error" in borderlineFail).toBe(false);
+    if ("error" in borderlineFail) return;
+    expect(borderlineFail.passed).toBe(false);
+    expect(borderlineFail.testSummary.parts[0]).toMatchObject({ id: "val-loss", ok: true });
+    expect(borderlineFail.testSummary.parts[1]).toMatchObject({
+      id: "hidden-blind-exam",
+      ok: false,
+    });
 
     const pass = judgeMlIntroSubmission(db, project, 5, {
       sampleSize: 1400,
@@ -181,6 +229,40 @@ describe("ml-intro judge", () => {
     if ("error" in pass) return;
     expect(pass.passed).toBe(true);
     expect(pass.passedStages).toEqual([1, 2, 3, 4, 5]);
-    expect(JSON.stringify(pass.testSummary)).not.toContain("梅龙镇伊势丹");
+    expect(pass.testSummary.parts.map((p) => p.id)).toEqual([
+      "val-loss",
+      "hidden-blind-exam",
+      "concepts",
+    ]);
+
+    const expectedVal = trainLogisticRegression({
+      trainCount: 1400,
+      eta: 0.1,
+      epochs: 15,
+      threshold: 0.4,
+    });
+    const hiddenEval = evaluateModelOnMessages(expectedVal.finalModel, hiddenMessages, 0.4);
+    expect(pass.testSummary.metrics?.accuracy).toBeCloseTo(expectedVal.finalMetrics.accuracy, 10);
+    expect(pass.testSummary.metrics?.recall).toBeCloseTo(expectedVal.finalMetrics.recall, 10);
+    expect(pass.testSummary.metrics?.tp).toBe(expectedVal.finalMetrics.tp);
+
+    const serializedPass = JSON.stringify(pass.testSummary);
+    const serializedFail = JSON.stringify(borderlineFail.testSummary);
+    const hiddenAccPct = `${(hiddenEval.metrics.accuracy * 100).toFixed(1)}%`;
+    const hiddenRecPct = `${(hiddenEval.metrics.recall * 100).toFixed(1)}%`;
+    if (hiddenAccPct !== `${(expectedVal.finalMetrics.accuracy * 100).toFixed(1)}%`) {
+      expect(serializedPass).not.toContain(hiddenAccPct);
+    }
+    if (hiddenRecPct !== `${(expectedVal.finalMetrics.recall * 100).toFixed(1)}%`) {
+      expect(serializedPass).not.toContain(hiddenRecPct);
+    }
+    expect(serializedPass).not.toContain("test-accuracy");
+    expect(serializedFail).not.toContain("test-precision");
+    for (const msg of hiddenMessages) {
+      if (msg.text.length >= 12) {
+        expect(serializedPass).not.toContain(msg.text.slice(0, 12));
+        expect(serializedFail).not.toContain(msg.text.slice(0, 12));
+      }
+    }
   });
 });

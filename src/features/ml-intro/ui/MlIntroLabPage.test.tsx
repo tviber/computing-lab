@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt, teacherAuthState } from "../../../test/router-test-helpers.tsx";
 import type { MlJudgeResult, MlProjectPayload } from "../domain/protocol.ts";
 import { ML_STAGES, STAGE1_PUZZLE_ITEMS } from "../domain/stages.ts";
+import type { RawTokenStatus } from "../domain/tokenizer.ts";
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -39,8 +40,8 @@ function stubMlFetch(
       const parsed = init?.body ? JSON.parse(String(init.body)) : {};
       return onJudge(parsed);
     }
-    if (url.includes("/drafts/")) {
-      return json({ revision: 1 });
+    if (url.includes("/draft")) {
+      return json({ applied: true, revision: 4 });
     }
     if (url.includes("/project")) {
       return json(project);
@@ -169,5 +170,79 @@ describe("MlIntroLabPage", () => {
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /给词打分与概率/ })).toBeDisabled(),
     );
+  });
+
+  it("matches Stage 4 validation list probabilities identically with MessageProbeCard explanation", async () => {
+    const project = makeProject({
+      currentStage: 4,
+      passedStages: [1, 2, 3],
+      drafts: {
+        "4": {
+          eta: 0.1,
+          epochs: 12,
+          threshold: 0.5,
+          activeBucket: "fn",
+          concepts: {},
+        },
+      },
+    });
+    stubMlFetch(project, () => json({}));
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "别被高分假象骗了" });
+
+    for (const bucketLabel of [/FN · 漏网之鱼/, /FP · 误杀好人/, /TP · 正确拦截/]) {
+      fireEvent.click(screen.getByRole("button", { name: bucketLabel }));
+      const caseButtons = document.querySelectorAll(".ml-case-btn");
+      if (caseButtons.length === 0) continue;
+      for (const btn of Array.from(caseButtons).slice(0, 3)) {
+        fireEvent.click(btn);
+        const probText = btn.querySelector(".ml-case-prob")?.textContent?.trim();
+        expect(probText).toBeTruthy();
+        expect(screen.getByText(new RegExp(`模型判定：.*（${probText}）`))).toBeInTheDocument();
+      }
+    }
+  });
+
+  it("restores saved Stage 1 draft from server and autosaves updates", async () => {
+    const prefilled: Record<string, RawTokenStatus> = {};
+    for (const item of STAGE1_PUZZLE_ITEMS) {
+      prefilled[item.id] = item.expected;
+    }
+    const project = makeProject({
+      currentStage: 1,
+      passedStages: [],
+      drafts: {
+        "1": {
+          selectedPresetId: "promo",
+          customText: "自定义测试短信：免费领取红包",
+          classifications: prefilled,
+          concepts: { "bag-of-words": 0 },
+        },
+      },
+      draftRevisions: { "1": 3 },
+    });
+    const fetchSpy = stubMlFetch(project, () => json({}));
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "把短信变成数字" });
+
+    const input = screen.getByLabelText(/实验文本/) as HTMLInputElement;
+    expect(input.value).toBe("自定义测试短信：免费领取红包");
+
+    fireEvent.change(input, { target: { value: "更新后的短信文本" } });
+    await waitFor(
+      () =>
+        expect(
+          fetchSpy.mock.calls.some(([url, init]) => {
+            const u = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+            if (!u.includes("/labs/ml-intro/draft") || init?.method !== "PUT") return false;
+            const parsed = init.body ? JSON.parse(String(init.body)) : {};
+            return parsed.stageIndex === 1 && parsed.draft?.customText === "更新后的短信文本";
+          }),
+        ).toBe(true),
+      { timeout: 3000 },
+    );
+    await screen.findByText("已保存");
   });
 });

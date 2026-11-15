@@ -5,7 +5,7 @@ import type {
   ThresholdCurvePoint,
   TrainedModel,
 } from "../domain/logreg.ts";
-import { inspectMessageWithModel } from "../domain/tokenizer.ts";
+import { inspectCorpusMessageWithModel } from "../domain/tokenizer.ts";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
 
 const BUCKET_META: {
@@ -56,8 +56,8 @@ export function ConfusionPanel({
   const activeMsg = bucketItems.find((item) => item.id === selectedMsgId) ?? bucketItems[0] ?? null;
 
   const inspection = activeMsg
-    ? inspectMessageWithModel(
-        activeMsg.text,
+    ? inspectCorpusMessageWithModel(
+        activeMsg,
         model.weightsByWord,
         model.bias,
         model.vocabSet,

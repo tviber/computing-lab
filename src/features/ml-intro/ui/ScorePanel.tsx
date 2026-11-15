@@ -9,7 +9,7 @@ import {
 } from "../domain/logreg.ts";
 import type { MlTestSummary, ScoreDraft } from "../domain/protocol.ts";
 import { STAGE2_CALIBRATION_SMS, STAGE2_WORDS, type MlStageDef } from "../domain/stages.ts";
-import { inspectMessageWithModel } from "../domain/tokenizer.ts";
+import { inspectCorpusMessageWithModel } from "../domain/tokenizer.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
@@ -52,8 +52,8 @@ export function ScorePanel({
   }, [draft.weights]);
 
   const inspection = useMemo(
-    () => inspectMessageWithModel(selectedSms.text, weightMap, draft.bias, fullTrainVocab, 0.5),
-    [selectedSms.text, weightMap, draft.bias, fullTrainVocab],
+    () => inspectCorpusMessageWithModel(selectedSms, weightMap, draft.bias, fullTrainVocab, 0.5),
+    [selectedSms, weightMap, draft.bias, fullTrainVocab],
   );
 
   const allConceptsDone = stage.prompts.every((p) => draft.concepts[p.id] === p.correct);

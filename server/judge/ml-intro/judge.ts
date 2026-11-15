@@ -269,59 +269,47 @@ export function judgeMlIntroSubmission(
     const hiddenMessages = getHiddenTestMessages();
     const hiddenEval = evaluateModelOnMessages(run.finalModel, hiddenMessages, draft.threshold);
     const hm = hiddenEval.metrics;
-    const hiddenBaseline = alwaysZeroBaseline(hiddenMessages);
+    const valBaseline = alwaysZeroBaseline(run.valPredictions);
 
     const valLossOk = run.finalMetrics.loss <= STAGE5_MAX_VAL_LOSS;
     const testAccOk = hm.accuracy >= STAGE5_MIN_TEST_ACCURACY;
     const testPrecOk = hm.precision >= STAGE5_MIN_TEST_PRECISION;
     const testRecOk = hm.recall >= STAGE5_MIN_TEST_RECALL;
+    const hiddenAllOk = testAccOk && testPrecOk && testRecOk;
     const conceptCheck = checkConcepts(stage.prompts, draft.concepts);
-    score =
-      (valLossOk ? 1 : 0) +
-      (testAccOk ? 1 : 0) +
-      (testPrecOk ? 1 : 0) +
-      (testRecOk ? 1 : 0) +
-      conceptCheck.correct;
-    total = 4 + conceptCheck.total;
-    passed = valLossOk && testAccOk && testPrecOk && testRecOk && conceptCheck.ok;
+    score = (valLossOk ? 1 : 0) + (hiddenAllOk ? 2 : 0) + conceptCheck.correct;
+    total = 3 + conceptCheck.total;
+    passed = valLossOk && hiddenAllOk && conceptCheck.ok;
 
     const parts: MlPartSummary[] = [
       {
         id: "val-loss",
-        label: "验证损失稳定 (≤ 0.14)",
+        label: "公开验证损失稳定 (≤ 0.14)",
         ok: valLossOk,
-        detail: `训练样本 ${draft.sampleSize} 条，验证损失 ${run.finalMetrics.loss.toFixed(3)}，验证 OOV ${pct(run.finalMetrics.oovRate)}`,
+        detail: `训练样本 ${draft.sampleSize} 条，验证损失 ${run.finalMetrics.loss.toFixed(3)}，验证准确率 ${pct(run.finalMetrics.accuracy)}，验证 OOV ${pct(run.finalMetrics.oovRate)}`,
       },
       {
-        id: "test-accuracy",
-        label: "隐藏测试集准确率 (≥ 94.5%)",
-        ok: testAccOk,
-        detail: `盲测准确率 ${pct(hm.accuracy)}（盲猜基线 ${pct(hiddenBaseline)}，盲测 OOV ${pct(hm.oovRate)}）`,
-      },
-      {
-        id: "test-precision",
-        label: "隐藏测试集 Precision (≥ 85.0%)",
-        ok: testPrecOk,
-        detail: `盲测 Precision ${pct(hm.precision)}（误杀正常 ${hm.fp} 条）`,
-      },
-      {
-        id: "test-recall",
-        label: "隐藏测试集 Recall (≥ 75.0%)",
-        ok: testRecOk,
-        detail: `盲测 Recall ${pct(hm.recall)}（拦住 ${hm.tp} / ${hm.tp + hm.fn} 条真垃圾）`,
+        id: "hidden-blind-exam",
+        label: "300 条隐藏测试集结业盲测",
+        ok: hiddenAllOk,
+        detail: hiddenAllOk
+          ? "盲测通过：模型在未见短信上同时满足准确率、Precision 与 Recall 结业要求（明细指标封存保护）。"
+          : "盲测未达标：当前模型在未见短信上的准确率、Precision 或 Recall 尚有短板；请回到公开验证集观察 OOV、损失与错误样本继续改进（盲测明细指标不公开，以免被当作第二份验证集反复调参）。",
       },
       conceptCheck.part,
     ];
     testSummary = {
       parts,
       metrics: {
-        ...hm,
+        ...run.finalMetrics,
         trainLoss: run.epochsHistory[run.epochsHistory.length - 1].trainLoss,
-        baselineAcc: hiddenBaseline,
+        baselineAcc: valBaseline,
       },
       detail: passed
-        ? `300 条盲测通过：准确率 ${pct(hm.accuracy)}、Precision ${pct(hm.precision)}、Recall ${pct(hm.recall)}（OOV ${pct(hm.oovRate)}）。`
-        : `隐藏测试集尚未全部达标（样本数=${draft.sampleSize}，准确率 ${pct(hm.accuracy)}，Precision ${pct(hm.precision)}，Recall ${pct(hm.recall)}）。`,
+        ? `验证损失 ${run.finalMetrics.loss.toFixed(3)}（样本量=${draft.sampleSize}），已通过 300 条隐藏测试集结业盲测。`
+        : valLossOk
+          ? `公开验证损失已稳定（${run.finalMetrics.loss.toFixed(3)}），但 300 条隐藏盲测尚未同时达标；请利用公开验证集排查过拟合或阈值取舍。`
+          : `公开验证损失 ${run.finalMetrics.loss.toFixed(3)} 过高（OOV ${pct(run.finalMetrics.oovRate)}），请增大训练样本并检查学习率后再试。`,
     };
   }
 
