@@ -3,12 +3,14 @@ import { Hono } from "hono";
 import { hashPassword, verifyPassword } from "../auth/password.ts";
 import { openMemoryDb, newId } from "../db/client.ts";
 import { attachDb, attachSession, type AppVariables } from "../http/context.ts";
-import { canAccessLab } from "../labs.ts";
+import { canAccessLab, LAB_REGISTRY } from "../labs.ts";
+import { labMetadata } from "../../src/shared/lab/labMetadata.ts";
 import { adminRoutes } from "./admin.ts";
 import { authRoutes } from "./auth.ts";
 import { calculatorRoutes } from "./calculator.ts";
 import { dashboardRoutes } from "./dashboard.ts";
 import { labsRoutes } from "./labs.ts";
+import { mlIntroRoutes } from "./mlIntro.ts";
 
 async function setup() {
   const db = openMemoryDb();
@@ -32,6 +34,7 @@ async function setup() {
   app.route("/api/admin", adminRoutes());
   app.route("/api/classes/:classId/dashboard", dashboardRoutes());
   app.route("/api/classes/:classId/labs/calculator", calculatorRoutes());
+  app.route("/api/classes/:classId/labs/ml-intro", mlIntroRoutes());
   app.route("/api/labs", labsRoutes());
   return { db, app };
 }
@@ -1268,5 +1271,64 @@ describe("lab visibility", () => {
       admin,
     );
     expect((await project(student)).status).toBe(200);
+  });
+
+  it("registers ml-intro in both the visibility registry and shared lab metadata", async () => {
+    const { app, db } = await setup();
+    const admin = await login(app, "admin", "admin-pass");
+    const teacher = await login(app, "teacher", "teacher-pass");
+    const student = await login(app, "20260101", "student-pass");
+    db.prepare(
+      "INSERT INTO class_members (id, class_id, user_id, role) VALUES (?, 'c1', ?, 'teacher')",
+    ).run(newId(), memberOf(db, "teacher"));
+    db.prepare(
+      "INSERT INTO class_members (id, class_id, user_id, role) VALUES (?, 'c1', ?, 'student')",
+    ).run(newId(), memberOf(db, "20260101"));
+
+    for (const lab of LAB_REGISTRY) {
+      expect(labMetadata[lab.id as keyof typeof labMetadata]?.title).toBeTruthy();
+    }
+
+    const catalogRes = await request(app, "GET", "/api/labs", undefined, admin);
+    expect(catalogRes.status).toBe(200);
+    const { labs } = (await catalogRes.json()) as {
+      labs: { id: string; stageCount: number; hidden: boolean; openClassIds: string[] | null }[];
+    };
+    expect(labs.find((lab) => lab.id === "ml-intro")).toMatchObject({
+      id: "ml-intro",
+      stageCount: 5,
+      hidden: false,
+      openClassIds: null,
+    });
+
+    await request(app, "PUT", "/api/admin/labs/ml-intro/visibility", { hidden: true }, admin);
+    expect(
+      (await request(app, "GET", "/api/classes/c1/labs/ml-intro/project", undefined, student))
+        .status,
+    ).toBe(403);
+    expect(
+      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, teacher))
+        .status,
+    ).toBe(403);
+    expect(
+      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, admin))
+        .status,
+    ).toBe(200);
+
+    await request(
+      app,
+      "PUT",
+      "/api/admin/labs/ml-intro/visibility",
+      { hidden: false, openClassIds: ["c1"] },
+      admin,
+    );
+    expect(
+      (await request(app, "GET", "/api/classes/c1/labs/ml-intro/project", undefined, student))
+        .status,
+    ).toBe(200);
+    expect(
+      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, teacher))
+        .status,
+    ).toBe(200);
   });
 });

@@ -8,7 +8,9 @@ import { authRoutes } from "./auth.ts";
 import { calculatorRoutes } from "./calculator.ts";
 import { dashboardRoutes } from "./dashboard.ts";
 import { labsRoutes } from "./labs.ts";
+import { mlIntroRoutes } from "./mlIntro.ts";
 import { teacherRoutes } from "./teacher.ts";
+import { ML_STAGES, STAGE1_PUZZLE_ITEMS } from "../../src/features/ml-intro/domain/stages.ts";
 
 async function setup() {
   const db = openMemoryDb();
@@ -49,6 +51,7 @@ async function setup() {
   app.route("/api/teacher", teacherRoutes());
   app.route("/api/classes/:classId/dashboard", dashboardRoutes());
   app.route("/api/classes/:classId/labs/calculator", calculatorRoutes());
+  app.route("/api/classes/:classId/labs/ml-intro", mlIntroRoutes());
   app.route("/api/labs", labsRoutes());
   return { db, app };
 }
@@ -339,5 +342,121 @@ describe("teacher lab routes", () => {
     expect(
       db.prepare("SELECT class_id FROM lab_class_settings WHERE class_id = ?").get(empty.id),
     ).toBeUndefined();
+  });
+
+  it("exposes ml-intro in teacher lab switches and class dashboard matrix + drawer", async () => {
+    const { app } = await setup();
+    const teacher = await login(app, "teacher", "teacher-pass");
+    const student = await login(app, "20260101", "student-pass");
+
+    const listRes = await request(app, "GET", "/api/teacher/labs", undefined, teacher);
+    expect(listRes.status).toBe(200);
+    const { labs } = (await listRes.json()) as {
+      labs: { id: string; stageCount: number; classes: { classId: string; open: boolean }[] }[];
+    };
+    expect(labs.find((l) => l.id === "ml-intro")).toMatchObject({
+      id: "ml-intro",
+      stageCount: 5,
+      classes: [{ classId: "c1", open: true }],
+    });
+
+    // Teacher closes ml-intro for c1 -> student & dashboard blocked, then reopens.
+    await request(
+      app,
+      "PUT",
+      "/api/teacher/labs/ml-intro/classes/c1/open",
+      { open: false },
+      teacher,
+    );
+    expect(
+      (await request(app, "GET", "/api/classes/c1/labs/ml-intro/project", undefined, student))
+        .status,
+    ).toBe(403);
+    expect(
+      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, teacher))
+        .status,
+    ).toBe(403);
+    await request(
+      app,
+      "PUT",
+      "/api/teacher/labs/ml-intro/classes/c1/open",
+      { open: true },
+      teacher,
+    );
+
+    // Student submits an incomplete Stage 1 attempt; teacher inspects matrix & failure drawer.
+    const classifications = Object.fromEntries(
+      STAGE1_PUZZLE_ITEMS.slice(0, 3).map((item) => [item.id, item.expected]),
+    );
+    const judgeRes = await request(
+      app,
+      "POST",
+      "/api/classes/c1/labs/ml-intro/judge",
+      {
+        stageIndex: 1,
+        draft: {
+          selectedPresetId: "promo",
+          customText: "",
+          classifications,
+          concepts: { [ML_STAGES[0].prompts[0].id]: ML_STAGES[0].prompts[0].correct },
+        },
+      },
+      student,
+    );
+    expect(judgeRes.status).toBe(200);
+    const judged = (await judgeRes.json()) as {
+      passed: boolean;
+      score: number;
+      total: number;
+      submissionId: string;
+    };
+    expect(judged.passed).toBe(false);
+
+    const dashRes = await request(
+      app,
+      "GET",
+      "/api/classes/c1/dashboard?lab=ml-intro",
+      undefined,
+      teacher,
+    );
+    expect(dashRes.status).toBe(200);
+    const dash = (await dashRes.json()) as {
+      labId: string;
+      rows: {
+        studentNo: string;
+        cells: Record<
+          string,
+          { score: number; total: number; passed: boolean; submissionId: string }
+        >;
+      }[];
+    };
+    expect(dash.labId).toBe("ml-intro");
+    const studentRow = dash.rows.find((r) => r.studentNo === "20260101");
+    expect(studentRow?.cells["1"]).toMatchObject({
+      score: judged.score,
+      total: judged.total,
+      passed: false,
+      submissionId: judged.submissionId,
+    });
+
+    const detailRes = await request(
+      app,
+      "GET",
+      `/api/classes/c1/dashboard/submissions/${judged.submissionId}`,
+      undefined,
+      teacher,
+    );
+    expect(detailRes.status).toBe(200);
+    expect(await detailRes.json()).toMatchObject({
+      id: judged.submissionId,
+      stageIndex: 1,
+      passed: false,
+      testSummary: {
+        parts: [
+          { id: "tokens", label: "切词与特征归类", ok: false },
+          { id: "concepts", label: "概念检查", ok: false },
+        ],
+      },
+    });
   });
 });
