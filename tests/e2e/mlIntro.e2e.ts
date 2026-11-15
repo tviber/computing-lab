@@ -201,3 +201,82 @@ test("walks through all 5 stages of ml-intro with persistence and sealed Stage 5
 
   expect(failures, failures.join("\n")).toEqual([]);
 });
+
+test("lists ml-intro in admin/teacher lab management and renders its matrix & drawer in class dashboard", async ({
+  page,
+  request,
+}) => {
+  const failures = collectFailures(page);
+
+  const adminLogin = await request.post("/api/auth/login", {
+    data: { studentNo: "admin", password: "admin-dev-password" },
+  });
+  expect(adminLogin.status()).toBe(200);
+
+  const classesRes = await request.get("/api/admin/classes");
+  expect(classesRes.status()).toBe(200);
+  const { classes } = (await classesRes.json()) as { classes: { id: string }[] };
+  const classId = classes[0]?.id;
+  expect(classId).toBeTruthy();
+
+  const studentNo = `e2e-mldash-${Date.now()}`;
+  const createStudent = await request.post("/api/admin/users", {
+    data: {
+      studentNo,
+      name: "ML Dashboard Student",
+      password: "e2e-password",
+      role: "user",
+      classId,
+    },
+  });
+  expect(createStudent.status()).toBe(201);
+
+  const studentLogin = await request.post("/api/auth/login", {
+    data: { studentNo, password: "e2e-password" },
+  });
+  expect(studentLogin.status()).toBe(200);
+
+  const judgeRes = await request.post(`/api/classes/${classId}/labs/ml-intro/judge`, {
+    data: { stageIndex: 1, draft: {} },
+  });
+  expect(judgeRes.status()).toBe(200);
+  const judgeBody = (await judgeRes.json()) as { score: number; total: number; passed: boolean };
+  expect(judgeBody.passed).toBe(false);
+
+  await page.goto("login", { waitUntil: "networkidle" });
+  await page.getByLabel("学号").fill("admin");
+  await page.getByLabel("密码").fill("admin-dev-password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await page.waitForURL("**/");
+
+  await page.goto("admin/labs", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "实验管理" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /机器学习入门\s*ml-intro\s*5/ })).toBeVisible();
+
+  await page.getByRole("button", { name: /管理员/ }).click();
+  await page.getByRole("menuitem", { name: "退出登录" }).click();
+  await page.waitForURL(/\/login$/);
+
+  await page.getByLabel("学号").fill("teacher");
+  await page.getByLabel("密码").fill("teacher-dev-password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await page.waitForURL("**/");
+
+  await page.goto("teacher/labs", { waitUntil: "networkidle" });
+  await expect(page.getByRole("row", { name: /机器学习入门\s*ml-intro\s*5/ })).toBeVisible();
+
+  await page.goto(`classes/${classId}/dashboard?lab=ml-intro`, { waitUntil: "networkidle" });
+  await expect(page.getByRole("combobox", { name: "选择实验" })).toHaveValue("ml-intro");
+  for (const stage of ML_STAGES) {
+    await expect(
+      page.getByRole("columnheader", { name: stage.englishTitle ?? stage.title }),
+    ).toBeVisible();
+  }
+
+  const studentRow = page.getByRole("row", { name: new RegExp(studentNo) });
+  await studentRow.getByRole("button", { name: `${judgeBody.score}/${judgeBody.total}` }).click();
+  await expect(page.getByRole("dialog", { name: "提交详情" })).toBeVisible();
+  await expect(page.getByText("切词与特征归类")).toBeVisible();
+
+  expect(failures, failures.join("\n")).toEqual([]);
+});

@@ -21,6 +21,14 @@ const labs = [
     visibleClassIds: [],
   },
   {
+    id: "ml-intro",
+    stageCount: 5,
+    hidden: false,
+    openClassIds: null,
+    visible: true,
+    visibleClassIds: ["c1", "c2"],
+  },
+  {
     id: "audio-encoding",
     stageCount: 0,
     hidden: false,
@@ -153,6 +161,32 @@ describe("AdminLabsPage", () => {
         expect.objectContaining({
           method: "PUT",
           body: JSON.stringify({ hidden: true, openClassIds: null }),
+        }),
+      ),
+    );
+  });
+
+  it("lists ml-intro and saves class-scoped visibility", async () => {
+    const fetchMock = mockApi();
+    const user = userEvent.setup();
+
+    await renderAppAt("/admin/labs", { auth: adminAuthState });
+
+    await waitFor(() => expect(screen.getByText("机器学习入门")).toBeInTheDocument());
+    const mlRow = labRow("机器学习入门");
+    expect(mlRow.getByText("ml-intro")).toBeInTheDocument();
+    expect(mlRow.getByText("5")).toBeInTheDocument();
+    await waitFor(() => expect(mlRow.getByRole("radio", { name: "开放" })).toBeChecked());
+
+    await user.click(mlRow.getByRole("checkbox", { name: "二班" }));
+    await user.click(mlRow.getByRole("button", { name: "保存" }));
+
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/admin/labs/ml-intro/visibility",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ hidden: false, openClassIds: ["c1"] }),
         }),
       ),
     );

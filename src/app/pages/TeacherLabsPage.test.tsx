@@ -31,6 +31,17 @@ const payload = {
         { classId: "c2", adminAllowed: false, teacherOpen: false, open: false },
       ],
     },
+    {
+      id: "ml-intro",
+      stageCount: 5,
+      hidden: false,
+      openClassIds: null,
+      visibleClassIds: ["c1", "c2"],
+      classes: [
+        { classId: "c1", adminAllowed: true, teacherOpen: true, open: true },
+        { classId: "c2", adminAllowed: true, teacherOpen: true, open: true },
+      ],
+    },
   ],
 };
 
@@ -103,5 +114,16 @@ describe("TeacherLabsPage", () => {
     // The open count reflects the teacher's switch regardless of the
     // admin scope — the row reads 2 个班开放 now.
     await waitFor(() => expect(cpu.getByText("2 个班开放")).toBeInTheDocument());
+
+    const mlRow = labRow("机器学习入门");
+    expect(mlRow.getByText("ml-intro")).toBeInTheDocument();
+    expect(mlRow.getByText("5")).toBeInTheDocument();
+    await user.click(mlRow.getByRole("checkbox", { name: "一班" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/teacher/labs/ml-intro/classes/c1/open",
+        expect.objectContaining({ method: "PUT", body: JSON.stringify({ open: false }) }),
+      ),
+    );
   });
 });

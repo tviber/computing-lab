@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, describeApiError } from "../../shared/api/client";
 import { isStaffRole, useAuth } from "../../shared/auth";
 import { CALCULATOR_STAGES } from "../../features/calculator";
@@ -27,24 +27,25 @@ type LabOption = {
   stages: { index: number; englishTitle?: string; title: string }[];
 };
 
-const LAB_OPTIONS: LabOption[] = [
-  { id: "calculator", title: labMetadata.calculator.title, stages: CALCULATOR_STAGES },
-  { id: "cpu", title: labMetadata.cpu.title, stages: CPU_STAGES },
-  { id: "decoding", title: labMetadata.decoding.title, stages: DECODING_STAGES },
-  { id: "is-sim", title: labMetadata["is-sim"].title, stages: IS_SIM_STAGES },
-  { id: "lunch-shift", title: labMetadata["lunch-shift"].title, stages: LUNCH_STAGES },
-  { id: "ml-intro", title: labMetadata["ml-intro"].title, stages: ML_STAGES },
-  {
-    id: "image-sampling",
-    title: labMetadata["image-sampling"].title,
-    stages: IMAGE_SAMPLING_STAGES,
-  },
-  {
-    id: "color-quantization",
-    title: labMetadata["color-quantization"].title,
-    stages: COLOR_QUANT_STAGES,
-  },
-];
+/** Browser-only demos (0 stages, no judge API) stay out of the progress matrix. */
+type DashboardLabId = Exclude<keyof typeof labMetadata, "audio-encoding">;
+
+const DASHBOARD_STAGES: Record<DashboardLabId, LabOption["stages"]> = {
+  calculator: CALCULATOR_STAGES,
+  cpu: CPU_STAGES,
+  decoding: DECODING_STAGES,
+  "is-sim": IS_SIM_STAGES,
+  "lunch-shift": LUNCH_STAGES,
+  "ml-intro": ML_STAGES,
+  "image-sampling": IMAGE_SAMPLING_STAGES,
+  "color-quantization": COLOR_QUANT_STAGES,
+};
+
+const LAB_OPTIONS: LabOption[] = (Object.keys(DASHBOARD_STAGES) as DashboardLabId[]).map((id) => ({
+  id,
+  title: labMetadata[id].title,
+  stages: DASHBOARD_STAGES[id],
+}));
 
 type MatrixCell = {
   stageIndex: number;
@@ -189,20 +190,41 @@ export function TeacherDashboardPage() {
   const lab = labOptions.find((l) => l.id === search.lab) ?? labOptions[0] ?? LAB_OPTIONS[0];
   const assignment = assignments.find((a) => a.id === search.assignment) ?? assignments[0] ?? null;
 
+  const loadSeqRef = useRef(0);
+  const assignmentsSeqRef = useRef(0);
+
   const load = useCallback(() => {
     if (!classId) return;
+    const seq = ++loadSeqRef.current;
+    setError(null);
     void api
       .get<MatrixPayload>(`/api/classes/${classId}/dashboard?lab=${lab.id}`)
-      .then(setPayload)
-      .catch((caught) => setError(describeApiError(caught)));
+      .then((next) => {
+        if (loadSeqRef.current !== seq) return;
+        setError(null);
+        setPayload(next);
+      })
+      .catch((caught) => {
+        if (loadSeqRef.current !== seq) return;
+        setError(describeApiError(caught));
+      });
   }, [classId, lab.id]);
 
   const loadAssignments = useCallback(() => {
     if (!classId) return;
+    const seq = ++assignmentsSeqRef.current;
+    setError(null);
     void api
       .get<{ assignments: AssignmentSummary[] }>(`/api/classes/${classId}/task-assignments`)
-      .then((p) => setAssignments(p.assignments))
-      .catch((caught) => setError(describeApiError(caught)));
+      .then((p) => {
+        if (assignmentsSeqRef.current !== seq) return;
+        setError(null);
+        setAssignments(p.assignments);
+      })
+      .catch((caught) => {
+        if (assignmentsSeqRef.current !== seq) return;
+        setError(describeApiError(caught));
+      });
   }, [classId]);
 
   useEffect(() => {
