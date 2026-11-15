@@ -20,6 +20,7 @@ import { CpuRedirectPage } from "./pages/CpuRedirectPage";
 import { DecodingRedirectPage } from "./pages/DecodingRedirectPage";
 import { IsSimRedirectPage } from "./pages/IsSimRedirectPage";
 import { LunchShiftRedirectPage } from "./pages/LunchShiftRedirectPage";
+import { MlIntroRedirectPage } from "./pages/MlIntroRedirectPage";
 import { TeacherDashboardPage } from "./pages/TeacherDashboardPage";
 import { ClassMembersPage } from "./pages/ClassMembersPage";
 import { StudentLabPreviewPage } from "./pages/StudentLabPreviewPage";
@@ -203,6 +204,21 @@ const lunchShiftLabRoute = createRoute({
   errorComponent: LabErrorPage,
 });
 
+const mlIntroEntryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/labs/ml-intro",
+  component: MlIntroRedirectPage,
+  errorComponent: LabErrorPage,
+});
+
+const mlIntroLabRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/classes/$classId/labs/ml-intro",
+  validateSearch: passThroughSearch,
+  component: lazyRouteComponent(() => import("../features/ml-intro"), "MlIntroLabPage"),
+  errorComponent: LabErrorPage,
+});
+
 /** Audio-encoding demo page — a tool, not a judged lab: no stages,
  * no submissions, everything runs locally in the browser. */
 const audioEncodingRoute = createRoute({
@@ -320,6 +336,8 @@ const routeTree = rootRoute.addChildren([
   isSimLabRoute,
   lunchShiftEntryRoute,
   lunchShiftLabRoute,
+  mlIntroEntryRoute,
+  mlIntroLabRoute,
   audioEncodingRoute,
   dashboardRoute,
   classMembersRoute,
