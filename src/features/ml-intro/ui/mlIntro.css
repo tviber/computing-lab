@@ -1114,6 +1114,242 @@
   color: var(--muted);
 }
 
+/* ---- Stage 1 10-Word Strategy Game ---- */
+
+.ml-strategy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.ml-strategy-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.ml-strategy-word {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+}
+
+.ml-strategy-word-text {
+  font-weight: 600;
+}
+
+.ml-strategy-role {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--subtle);
+}
+
+.ml-strategy-role.is-pos {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+
+.ml-strategy-role.is-neg {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+}
+
+.ml-tier-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.ml-tier-btn {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.ml-tier-btn:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.ml-tier-btn.is-active.is-neg {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success);
+}
+
+.ml-tier-btn.is-active.is-zero {
+  background: var(--subtle);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.ml-tier-btn.is-active.is-pos {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.ml-strategy-meter-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.ml-strategy-score-tag {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.ml-strategy-meter {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.ml-strategy-meter-zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.ml-strategy-meter-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition:
+    left 120ms ease-out,
+    width 120ms ease-out;
+}
+
+.ml-strategy-meter-fill.is-spam {
+  background: var(--danger);
+}
+
+.ml-strategy-meter-fill.is-warn {
+  background: var(--accent);
+}
+
+.ml-strategy-meter-fill.is-ham {
+  background: var(--success);
+}
+
+.ml-strategy-meter-cut {
+  position: absolute;
+  left: 58.3%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--danger);
+  opacity: 0.75;
+}
+
+/* ---- Stage 3 Sigmoid Curve Card ---- */
+
+.ml-sigmoid-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+  margin-bottom: 10px;
+}
+
+.ml-sigmoid-box p {
+  margin: 0;
+}
+
+.ml-leg-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.ml-leg-dot.is-bias {
+  background: var(--success);
+}
+
+.ml-leg-dot.is-msg {
+  background: var(--accent);
+}
+
+.ml-strategy-matrix-wrap {
+  overflow-x: auto;
+}
+
+.ml-strategy-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.ml-strategy-matrix th,
+.ml-strategy-matrix td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.ml-strategy-matrix thead th {
+  background: var(--subtle);
+  font-weight: 600;
+}
+
+.ml-strategy-matrix tbody th {
+  text-align: left;
+  background: var(--subtle);
+  font-weight: 600;
+}
+
+.ml-strategy-matrix td.is-hit {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.ml-strategy-matrix td.is-miss {
+  color: var(--muted);
+}
+
+.ml-strategy-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+  font-size: 13px;
+}
+
+.ml-strategy-formula p {
+  margin: 0;
+}
+
 @media (max-width: 960px) {
   .ml-bow-summary,
   .ml-score-layout,

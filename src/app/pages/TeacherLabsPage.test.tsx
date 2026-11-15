@@ -33,7 +33,7 @@ const payload = {
     },
     {
       id: "ml-intro",
-      stageCount: 5,
+      stageCount: 6,
       hidden: false,
       openClassIds: null,
       visibleClassIds: ["c1", "c2"],
@@ -117,7 +117,7 @@ describe("TeacherLabsPage", () => {
 
     const mlRow = labRow("机器学习入门");
     expect(mlRow.getByText("ml-intro")).toBeInTheDocument();
-    expect(mlRow.getByText("5")).toBeInTheDocument();
+    expect(mlRow.getByText("6")).toBeInTheDocument();
     await user.click(mlRow.getByRole("checkbox", { name: "一班" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(

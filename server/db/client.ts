@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
 /** Current schema version; bump alongside every migration step below. */
-export const SCHEMA_VERSION = 16;
+export const SCHEMA_VERSION = 17;
 
 export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
 
@@ -78,6 +78,17 @@ function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
     name: string;
   }[];
   return rows.some((r) => r.name === column);
+}
+
+function shiftMlStageMap(raw: string): string {
+  const parsed = parseJsonColumn<Record<string, unknown>>(raw, {});
+  const shifted: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(parsed)) {
+    const num = Number(key);
+    const nextKey = Number.isInteger(num) && num >= 1 && num <= 5 ? String(num + 1) : key;
+    shifted[nextKey] = value;
+  }
+  return JSON.stringify(shifted);
 }
 
 export function migrate(db: DatabaseSync): void {
@@ -320,6 +331,54 @@ export function migrate(db: DatabaseSync): void {
           "(SELECT value FROM json_each(passed_stages) WHERE value != 3)) " +
           "WHERE lab_id='lunch-shift'",
       );
+    }
+    // v16 -> v17: ml-intro prepended a Stage 1 intuition-strategy game and shifted
+    // the original 5 stages (tokenize..generalize) from 1..5 to 2..6. Shift existing
+    // student submissions, passed_stages, drafts, and revisions forward so prior
+    // work aligns with the 6-stage curriculum instead of colliding with Stage 1.
+    if (version < 17) {
+      db.exec(
+        "UPDATE submissions SET stage_index = stage_index + 1 " +
+          "WHERE lab_id = 'ml-intro' AND stage_index BETWEEN 1 AND 5",
+      );
+      const mlRows = db
+        .prepare(
+          "SELECT id, passed_stages, draft_graph, draft_revisions FROM student_projects " +
+            "WHERE lab_id = 'ml-intro'",
+        )
+        .all() as {
+        id: string;
+        passed_stages: string;
+        draft_graph: string;
+        draft_revisions: string;
+      }[];
+      const updateStmt = db.prepare(
+        "UPDATE student_projects SET passed_stages = ?, current_stage = ?, draft_graph = ?, draft_revisions = ? " +
+          "WHERE id = ?",
+      );
+      for (const row of mlRows) {
+        const shiftedPassed = Array.from(
+          new Set(
+            parseJsonColumn<number[]>(row.passed_stages, [])
+              .filter((n) => Number.isInteger(n) && n >= 1 && n <= 5)
+              .map((n) => n + 1),
+          ),
+        ).sort((a, b) => a - b);
+        let nextStage = 7;
+        for (let s = 1; s <= 6; s += 1) {
+          if (!shiftedPassed.includes(s)) {
+            nextStage = s;
+            break;
+          }
+        }
+        updateStmt.run(
+          JSON.stringify(shiftedPassed),
+          nextStage,
+          shiftMlStageMap(row.draft_graph),
+          shiftMlStageMap(row.draft_revisions),
+          row.id,
+        );
+      }
     }
     if (version < SCHEMA_VERSION) db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });

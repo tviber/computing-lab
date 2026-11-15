@@ -12,7 +12,21 @@ import {
   sweepThresholds,
   trainLogisticRegression,
 } from "./logreg.ts";
-import { STAGE1_PUZZLE_ITEMS, STAGE1_PUZZLE_SENTENCE, STAGE2_CALIBRATION_SMS } from "./stages.ts";
+import {
+  SCORE_CALIBRATION_SMS,
+  TOKENIZE_PUZZLE_ITEMS,
+  TOKENIZE_PUZZLE_SENTENCE,
+} from "./stages.ts";
+import {
+  clampStrategyWeight,
+  evaluateStrategyWeights,
+  MAX_STRATEGY_WEIGHT,
+  MIN_STRATEGY_WEIGHT,
+  STRATEGY_SCORE_SPAM_THRESHOLD,
+  STRATEGY_SMS_EXAMPLES,
+  STRATEGY_WEIGHT_TIERS,
+  STRATEGY_WORDS,
+} from "./strategy.ts";
 import {
   analyzeTokens,
   inspectCorpusMessageWithModel,
@@ -47,10 +61,82 @@ describe("ml-intro domain engine", () => {
     }
   });
 
-  it("tokenizes stage-1 puzzle sentence into kept, duplicate, filtered, and oov categories", () => {
+  it("evaluates Stage 1 10-word strategy with discrete tiers and signed risk cutoff w·x >= +1", () => {
+    expect(STRATEGY_WORDS).toHaveLength(10);
+    expect(MIN_STRATEGY_WEIGHT).toBe(-2);
+    expect(MAX_STRATEGY_WEIGHT).toBe(2);
+    expect(STRATEGY_SCORE_SPAM_THRESHOLD).toBe(1);
+    expect(STRATEGY_WEIGHT_TIERS.map((tier) => tier.value)).toEqual([-2, -1, 0, 1, 2]);
+
+    const vocab = new Set<string>(STRATEGY_WORDS);
+    const seen = new Set<string>();
+    for (const msg of STRATEGY_SMS_EXAMPLES) {
+      expect(msg.tokens.length).toBeGreaterThan(0);
+      for (const tok of msg.tokens) {
+        expect(vocab.has(tok)).toBe(true);
+        seen.add(tok);
+      }
+    }
+    expect(seen.size).toBe(10);
+
+    expect(clampStrategyWeight(99)).toBe(2);
+    expect(clampStrategyWeight(-99)).toBe(-2);
+    expect(clampStrategyWeight(1.74)).toBe(2);
+    expect(clampStrategyWeight(-0.2)).toBe(0);
+
+    const zeroEval = evaluateStrategyWeights({});
+    expect(zeroEval.correctCount).toBe(3);
+    for (const item of zeroEval.items) {
+      expect(item.score).toBe(0);
+      expect(item.pred).toBe(0);
+      expect("prob" in item).toBe(false);
+    }
+
+    const atCutoff = evaluateStrategyWeights({ 中奖: 1 });
+    expect(atCutoff.items.find((i) => i.message.id === "st-spam-1")?.score).toBe(1);
+    expect(atCutoff.items.find((i) => i.message.id === "st-spam-1")?.pred).toBe(1);
+    expect(atCutoff.items.find((i) => i.message.id === "st-ham-2")?.score).toBe(0);
+    expect(atCutoff.items.find((i) => i.message.id === "st-ham-2")?.pred).toBe(0);
+
+    const noNeg = evaluateStrategyWeights({ 中奖: 2, 发票: 1, 退款: 1, 优惠: 1 });
+    expect(noNeg.correctCount).toBeLessThan(STRATEGY_SMS_EXAMPLES.length);
+    expect(noNeg.items.find((i) => i.message.id === "st-ham-3")?.ok).toBe(false);
+
+    const pollutedNeutral = evaluateStrategyWeights({
+      中奖: 2,
+      发票: 1,
+      退款: 1,
+      优惠: 1,
+      妈妈: -2,
+      开会: -1,
+      老师: -1,
+      今天: 1,
+      通知: 1,
+    });
+    expect(pollutedNeutral.items.find((i) => i.message.id === "st-ham-2")?.ok).toBe(false);
+
+    // Pure polarity choice (+/-1, 0) suffices without exact numeric tweaking.
+    const equalTiers = evaluateStrategyWeights({
+      中奖: 1,
+      发票: 1,
+      退款: 1,
+      优惠: 1,
+      妈妈: -1,
+      开会: -1,
+      老师: -1,
+      今天: 0,
+      明天: 0,
+      通知: 0,
+    });
+    expect(equalTiers.correctCount).toBe(STRATEGY_SMS_EXAMPLES.length);
+    expect(equalTiers.positiveWordCount).toBe(4);
+    expect(equalTiers.negativeWordCount).toBe(3);
+  });
+
+  it("tokenizes stage-2 puzzle sentence into kept, duplicate, filtered, and oov categories", () => {
     const { fullTrainVocab } = getPublicCorpus();
-    const tokens = analyzeTokens(STAGE1_PUZZLE_SENTENCE, fullTrainVocab);
-    expect(tokens.map((t) => t.status)).toEqual(STAGE1_PUZZLE_ITEMS.map((item) => item.expected));
+    const tokens = analyzeTokens(TOKENIZE_PUZZLE_SENTENCE, fullTrainVocab);
+    expect(tokens.map((t) => t.status)).toEqual(TOKENIZE_PUZZLE_ITEMS.map((item) => item.expected));
 
     const pairA = analyzeTokens("朋友请我免费喝奶茶", fullTrainVocab)
       .filter((t) => t.status === "kept")
@@ -67,9 +153,9 @@ describe("ml-intro domain engine", () => {
     const blacklistOnly = evaluateManualWeights(
       { 免费: 2, 领取: 2, 点击: 2, 退订: 2, 优惠: 2, 同学: 0, 明天: 0, 一起: 0 },
       -1,
-      STAGE2_CALIBRATION_SMS,
+      SCORE_CALIBRATION_SMS,
     );
-    expect(blacklistOnly.correctCount).toBeLessThan(STAGE2_CALIBRATION_SMS.length);
+    expect(blacklistOnly.correctCount).toBeLessThan(SCORE_CALIBRATION_SMS.length);
 
     const balancedWeights = {
       免费: 2.2,
@@ -81,13 +167,13 @@ describe("ml-intro domain engine", () => {
       明天: -1.6,
       一起: -1.6,
     };
-    const balanced = evaluateManualWeights(balancedWeights, -1, STAGE2_CALIBRATION_SMS);
-    expect(balanced.correctCount).toBe(STAGE2_CALIBRATION_SMS.length);
+    const balanced = evaluateManualWeights(balancedWeights, -1, SCORE_CALIBRATION_SMS);
+    expect(balanced.correctCount).toBe(SCORE_CALIBRATION_SMS.length);
     expect(balanced.emptyProbability).toBeLessThan(0.5);
 
     const { fullTrainVocab } = getPublicCorpus();
     const wMap = new Map(Object.entries(balancedWeights));
-    STAGE2_CALIBRATION_SMS.forEach((sms, i) => {
+    SCORE_CALIBRATION_SMS.forEach((sms, i) => {
       const fromText = inspectMessageWithModel(sms.text, wMap, -1, fullTrainVocab, 0.5);
       const fromTokens = inspectCorpusMessageWithModel(sms, wMap, -1, fullTrainVocab, 0.5);
       expect(fromText.probability).toBeCloseTo(balanced.items[i].probability, 12);

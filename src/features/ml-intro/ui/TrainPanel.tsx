@@ -6,7 +6,7 @@ import {
   trainLogisticRegression,
 } from "../domain/logreg.ts";
 import type { MlTestSummary, TrainDraft } from "../domain/protocol.ts";
-import { STAGE3_MAX_TRAIN_LOSS, STAGE3_MAX_VAL_LOSS, type MlStageDef } from "../domain/stages.ts";
+import { TRAIN_MAX_TRAIN_LOSS, TRAIN_MAX_VAL_LOSS, type MlStageDef } from "../domain/stages.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { LossChartSvg } from "./LossChartSvg.tsx";
@@ -68,8 +68,8 @@ export function TrainPanel({
 
   const logSliderVal = Math.log10(Math.max(0.001, Math.min(4.0, draft.eta)));
   const allConceptsDone = stage.prompts.every((p) => draft.concepts[p.id] === p.correct);
-  const trOk = finalEpoch.trainLoss <= STAGE3_MAX_TRAIN_LOSS;
-  const valOk = finalEpoch.valLoss <= STAGE3_MAX_VAL_LOSS;
+  const trOk = finalEpoch.trainLoss <= TRAIN_MAX_TRAIN_LOSS;
+  const valOk = finalEpoch.valLoss <= TRAIN_MAX_VAL_LOSS;
 
   return (
     <div className="ml-stage-stack">
@@ -223,11 +223,11 @@ export function TrainPanel({
 
         <div className="ml-target-strip">
           <div className={`ml-stat-box ${trOk ? "is-ok" : "is-warn"}`}>
-            <span>最终训练损失（目标 ≤ {STAGE3_MAX_TRAIN_LOSS}）</span>
+            <span>最终训练损失（目标 ≤ {TRAIN_MAX_TRAIN_LOSS}）</span>
             <strong className="ml-mono">{finalEpoch.trainLoss.toFixed(4)}</strong>
           </div>
           <div className={`ml-stat-box ${valOk ? "is-ok" : "is-warn"}`}>
-            <span>最终验证损失（目标 ≤ {STAGE3_MAX_VAL_LOSS}）</span>
+            <span>最终验证损失（目标 ≤ {TRAIN_MAX_VAL_LOSS}）</span>
             <strong className="ml-mono">{finalEpoch.valLoss.toFixed(4)}</strong>
           </div>
           <div className="ml-stat-box">
@@ -288,7 +288,7 @@ export function TrainPanel({
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "判题中…" : "提交第 3 关判定"}
+          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!allConceptsDone ? (
           <span className="ml-muted-note">请先答对下方全部概念题再提交</span>

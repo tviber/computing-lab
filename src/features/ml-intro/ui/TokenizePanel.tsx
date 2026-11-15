@@ -2,9 +2,9 @@ import { useMemo } from "react";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import type { MlTestSummary, TokenizeDraft } from "../domain/protocol.ts";
 import {
-  STAGE1_PRESETS,
-  STAGE1_PUZZLE_ITEMS,
-  STAGE1_PUZZLE_SENTENCE,
+  TOKENIZE_PRESETS,
+  TOKENIZE_PUZZLE_ITEMS,
+  TOKENIZE_PUZZLE_SENTENCE,
   type MlStageDef,
 } from "../domain/stages.ts";
 import { analyzeTokens, type RawTokenStatus } from "../domain/tokenizer.ts";
@@ -47,7 +47,7 @@ export function TokenizePanel({
   onNextStage: () => void;
 }) {
   const { fullTrainVocab } = useMemo(() => getPublicCorpus(), []);
-  const activePreset = STAGE1_PRESETS.find((p) => p.id === draft.selectedPresetId);
+  const activePreset = TOKENIZE_PRESETS.find((p) => p.id === draft.selectedPresetId);
 
   const tokens = useMemo(
     () => analyzeTokens(draft.customText, fullTrainVocab),
@@ -74,11 +74,11 @@ export function TokenizePanel({
     [fullTrainVocab],
   );
 
-  const classifiedCount = STAGE1_PUZZLE_ITEMS.filter(
+  const classifiedCount = TOKENIZE_PUZZLE_ITEMS.filter(
     (item) => draft.classifications[item.id] !== undefined,
   ).length;
   const allConceptsDone = stage.prompts.every((p) => draft.concepts[p.id] === p.correct);
-  const readyToSubmit = classifiedCount === STAGE1_PUZZLE_ITEMS.length && allConceptsDone;
+  const readyToSubmit = classifiedCount === TOKENIZE_PUZZLE_ITEMS.length && allConceptsDone;
 
   return (
     <div className="ml-stage-stack">
@@ -89,7 +89,7 @@ export function TokenizePanel({
         </div>
 
         <div className="ml-preset-row">
-          {STAGE1_PRESETS.map((preset) => (
+          {TOKENIZE_PRESETS.map((preset) => (
             <button
               className={`ml-chip-btn${draft.selectedPresetId === preset.id ? " is-active" : ""}`}
               key={preset.id}
@@ -168,16 +168,16 @@ export function TokenizePanel({
         <div className="ml-panel-head">
           <h3>动手任务：给测验句的每个片段归类</h3>
           <span className="ml-badge-neutral">
-            已选择 {classifiedCount} / {STAGE1_PUZZLE_ITEMS.length}
+            已选择 {classifiedCount} / {TOKENIZE_PUZZLE_ITEMS.length}
           </span>
         </div>
         <p className="ml-muted-note">
           请判断下面这句短信里的每个切词片段在「仅使用训练集词表的 0/1 词袋模型」中会被怎样处理：
         </p>
-        <blockquote className="ml-quote ml-mono">{STAGE1_PUZZLE_SENTENCE}</blockquote>
+        <blockquote className="ml-quote ml-mono">{TOKENIZE_PUZZLE_SENTENCE}</blockquote>
 
         <div className="ml-puzzle-list">
-          {STAGE1_PUZZLE_ITEMS.map((item) => {
+          {TOKENIZE_PUZZLE_ITEMS.map((item) => {
             const chosen = draft.classifications[item.id];
             return (
               <div className="ml-puzzle-row" key={item.id}>
@@ -234,7 +234,7 @@ export function TokenizePanel({
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "判题中…" : "提交第 1 关判定"}
+          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!readyToSubmit ? (
           <span className="ml-muted-note">完成 7 个片段归类并答对全部概念题后即可提交</span>

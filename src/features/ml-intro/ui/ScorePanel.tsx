@@ -6,13 +6,164 @@ import {
   MAX_MANUAL_WEIGHT,
   MIN_MANUAL_BIAS,
   MIN_MANUAL_WEIGHT,
+  sigmoid,
 } from "../domain/logreg.ts";
 import type { MlTestSummary, ScoreDraft } from "../domain/protocol.ts";
-import { STAGE2_CALIBRATION_SMS, STAGE2_WORDS, type MlStageDef } from "../domain/stages.ts";
+import { SCORE_CALIBRATION_SMS, SCORE_WORDS, type MlStageDef } from "../domain/stages.ts";
+import { defaultScoreDraft } from "../lesson/state.ts";
 import { inspectCorpusMessageWithModel } from "../domain/tokenizer.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
+
+function SigmoidCurveSvg({
+  bias,
+  emptyProb,
+  selectedZ,
+  selectedProb,
+  selectedTag,
+}: {
+  bias: number;
+  emptyProb: number;
+  selectedZ: number;
+  selectedProb: number;
+  selectedTag: string;
+}) {
+  const W = 440;
+  const H = 165;
+  const PAD_L = 40;
+  const PAD_R = 16;
+  const PAD_T = 14;
+  const PAD_B = 24;
+  const zMin = -6;
+  const zMax = 6;
+
+  const xOfZ = (z: number) => {
+    const c = Math.max(zMin, Math.min(zMax, z));
+    return PAD_L + ((c - zMin) / (zMax - zMin)) * (W - PAD_L - PAD_R);
+  };
+  const yOfP = (p: number) => H - PAD_B - p * (H - PAD_T - PAD_B);
+
+  const curvePts: string[] = [];
+  for (let i = 0; i <= 48; i++) {
+    const z = zMin + ((zMax - zMin) * i) / 48;
+    curvePts.push(`${xOfZ(z).toFixed(1)},${yOfP(sigmoid(z)).toFixed(1)}`);
+  }
+
+  const bx = xOfZ(bias);
+  const by = yOfP(emptyProb);
+  const mx = xOfZ(selectedZ);
+  const my = yOfP(selectedProb);
+
+  return (
+    <div className="ml-sigmoid-box">
+      <div className="ml-chart-head">
+        <h4>实时 Sigmoid S 曲线：z = w · x + b → p = σ(z)</h4>
+        <div className="ml-legend">
+          <span className="ml-leg-item">
+            <i className="ml-leg-swatch is-val" /> σ(z) 曲线
+          </span>
+          <span className="ml-leg-item">
+            <i className="ml-leg-dot is-bias" /> 无词基准 b
+          </span>
+          <span className="ml-leg-item">
+            <i className="ml-leg-dot is-msg" /> 当前短信
+          </span>
+        </div>
+      </div>
+      <svg
+        aria-label="Sigmoid 曲线与当前模型定位"
+        className="ml-svg-chart"
+        viewBox={`0 0 ${W} ${H}`}
+      >
+        {[0, 0.5, 1].map((p) => (
+          <g key={p}>
+            <line
+              stroke={p === 0.5 ? "var(--danger)" : "var(--border)"}
+              strokeDasharray={p === 0.5 ? "4 3" : undefined}
+              strokeWidth={p === 0.5 ? "1.1" : "0.8"}
+              x1={PAD_L}
+              x2={W - PAD_R}
+              y1={yOfP(p)}
+              y2={yOfP(p)}
+            />
+            <text fill="var(--muted)" fontSize="9.5" textAnchor="end" x={PAD_L - 5} y={yOfP(p) + 3}>
+              {Math.round(p * 100)}%
+            </text>
+          </g>
+        ))}
+
+        <line
+          stroke="var(--border)"
+          strokeDasharray="3 3"
+          strokeWidth="1"
+          x1={xOfZ(0)}
+          x2={xOfZ(0)}
+          y1={PAD_T}
+          y2={H - PAD_B}
+        />
+
+        {[-6, -3, 0, 3, 6].map((z) => (
+          <text
+            fill="var(--muted)"
+            fontSize="9.5"
+            key={z}
+            textAnchor="middle"
+            x={xOfZ(z)}
+            y={H - 7}
+          >
+            {z > 0 ? `+${z}` : z}
+          </text>
+        ))}
+
+        <polyline
+          fill="none"
+          points={curvePts.join(" ")}
+          stroke="var(--accent)"
+          strokeWidth="2.4"
+        />
+
+        <line
+          stroke={selectedProb >= 0.5 ? "var(--danger)" : "var(--success)"}
+          strokeDasharray="2.5 2.5"
+          strokeWidth="1"
+          x1={mx}
+          x2={mx}
+          y1={my}
+          y2={H - PAD_B}
+        />
+
+        <circle
+          cx={bx}
+          cy={by}
+          fill={emptyProb >= 0.5 ? "var(--danger)" : "var(--success)"}
+          r="5"
+          stroke="var(--surface)"
+          strokeWidth="1.5"
+        >
+          <title>{`无词基准：z = b = ${bias.toFixed(1)}, σ(b) = ${(emptyProb * 100).toFixed(1)}%`}</title>
+        </circle>
+
+        <circle
+          cx={mx}
+          cy={my}
+          fill="var(--accent)"
+          r="5.5"
+          stroke="var(--surface)"
+          strokeWidth="1.8"
+        >
+          <title>{`${selectedTag}：z = ${selectedZ.toFixed(2)}, p = ${(selectedProb * 100).toFixed(1)}%`}</title>
+        </circle>
+      </svg>
+      <p className="ml-muted-note">
+        无已知词基准 z=b=<strong>{bias >= 0 ? `+${bias.toFixed(1)}` : bias.toFixed(1)}</strong> 对应{" "}
+        <strong>{(emptyProb * 100).toFixed(1)}%</strong>；选中「{selectedTag}」z=
+        <strong>{selectedZ >= 0 ? `+${selectedZ.toFixed(2)}` : selectedZ.toFixed(2)}</strong> →{" "}
+        <strong>{(selectedProb * 100).toFixed(1)}%</strong>
+      </p>
+    </div>
+  );
+}
 
 export function ScorePanel({
   stage,
@@ -38,12 +189,12 @@ export function ScorePanel({
   const { fullTrainVocab } = useMemo(() => getPublicCorpus(), []);
 
   const evalSummary = useMemo(
-    () => evaluateManualWeights(draft.weights, draft.bias, STAGE2_CALIBRATION_SMS, 0.5),
+    () => evaluateManualWeights(draft.weights, draft.bias, SCORE_CALIBRATION_SMS, 0.5),
     [draft.weights, draft.bias],
   );
 
   const selectedSms =
-    STAGE2_CALIBRATION_SMS.find((m) => m.id === draft.selectedMsgId) ?? STAGE2_CALIBRATION_SMS[0];
+    SCORE_CALIBRATION_SMS.find((m) => m.id === draft.selectedMsgId) ?? SCORE_CALIBRATION_SMS[0];
 
   const weightMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -58,10 +209,13 @@ export function ScorePanel({
 
   const allConceptsDone = stage.prompts.every((p) => draft.concepts[p.id] === p.correct);
 
-  const resetWeights = () => {
-    const zeroW: Record<string, number> = {};
-    for (const w of STAGE2_WORDS) zeroW[w] = 0;
-    onChange({ ...draft, weights: zeroW, bias: -1 });
+  const resetToBlacklistStarter = () => {
+    const starter = defaultScoreDraft();
+    onChange({
+      ...draft,
+      weights: starter.weights,
+      bias: starter.bias,
+    });
   };
 
   return (
@@ -69,20 +223,23 @@ export function ScorePanel({
       <div className="ml-score-layout">
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>动手调权：给 8 个词配权重和偏置 b</h3>
-            <button className="button button-ghost" onClick={resetWeights} type="button">
-              清零重置
+            <h3>调节偏置 b 与连续词权：体验 Sigmoid 概率变化</h3>
+            <button className="button button-ghost" onClick={resetToBlacklistStarter} type="button">
+              恢复起点预设
             </button>
           </div>
           <p className="ml-muted-note">
-            正权重（+）把短信推向「垃圾」，负权重（−）拉回「正常」。偏置 b
-            决定没有任何词命中时的默认倾向。
+            当前起点已填好垃圾黑名单但故意把偏置设成了 <strong>b = +0.4</strong>
+            ，导致日常词与全生词短信都误超 50%。请先拉低偏置 <strong>b</strong>，再给「同学 / 明天 /
+            一起」加负权救回正常短信！
           </p>
 
           <div className="ml-slider-row is-bias">
             <label htmlFor="ml-bias-slider">
               <strong>基准偏置 b</strong>
-              <small>全生词/空消息概率：{(evalSummary.emptyProbability * 100).toFixed(1)}%</small>
+              <small>
+                全生词/无触发基准概率：{(evalSummary.emptyProbability * 100).toFixed(1)}%
+              </small>
             </label>
             <input
               id="ml-bias-slider"
@@ -100,7 +257,7 @@ export function ScorePanel({
           </div>
 
           <div className="ml-sliders-grid">
-            {STAGE2_WORDS.map((word) => {
+            {SCORE_WORDS.map((word) => {
               const val = draft.weights[word] ?? 0;
               return (
                 <div className="ml-slider-row" key={word}>
@@ -133,16 +290,24 @@ export function ScorePanel({
 
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>6 条分诊短信实时测试（点卡片拆解分数）</h3>
+            <h3>6 条分诊短信实时概率（点卡片联动曲线）</h3>
             <span
-              className={`ml-pill ${evalSummary.correctCount === STAGE2_CALIBRATION_SMS.length ? "is-success" : "is-warn"}`}
+              className={`ml-pill ${evalSummary.correctCount === SCORE_CALIBRATION_SMS.length ? "is-success" : "is-warn"}`}
             >
-              分对 {evalSummary.correctCount} / {STAGE2_CALIBRATION_SMS.length}
+              分对 {evalSummary.correctCount} / {SCORE_CALIBRATION_SMS.length}
             </span>
           </div>
 
+          <SigmoidCurveSvg
+            bias={draft.bias}
+            emptyProb={evalSummary.emptyProbability}
+            selectedProb={inspection.probability}
+            selectedTag={selectedSms.tag}
+            selectedZ={inspection.rawZ}
+          />
+
           <ul className="ml-triage-list">
-            {STAGE2_CALIBRATION_SMS.map((msg, i) => {
+            {SCORE_CALIBRATION_SMS.map((msg, i) => {
               const ev = evalSummary.items[i];
               const isSelected = msg.id === selectedSms.id;
               return (
@@ -195,7 +360,7 @@ export function ScorePanel({
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "判题中…" : "提交第 2 关判定"}
+          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!allConceptsDone ? (
           <span className="ml-muted-note">请先答对下方全部概念题再提交</span>

@@ -1,7 +1,8 @@
 /**
- * Machine Learning Intro lab page: progressive 5-stage curriculum teaching text
- * vectorization, linear scoring + Sigmoid, loss + gradient descent, confusion-matrix
- * tradeoffs, and sample-size generalization against a server-side held-out test set.
+ * Machine Learning Intro lab page: progressive 6-stage curriculum starting with a
+ * 10-word intuition strategy game, then teaching text vectorization, linear scoring
+ * + Sigmoid, loss + gradient descent, confusion-matrix tradeoffs, and generalization
+ * against a server-side held-out test set.
  */
 
 import { useParams } from "@tanstack/react-router";
@@ -27,6 +28,7 @@ import type {
   MlProjectExtras,
   MlProjectPayload,
   ScoreDraft,
+  StrategyDraft,
   TokenizeDraft,
   TrainDraft,
 } from "../domain/protocol.ts";
@@ -42,6 +44,7 @@ import {
 import { EvaluatePanel } from "./EvaluatePanel.tsx";
 import { GeneralizePanel } from "./GeneralizePanel.tsx";
 import { ScorePanel } from "./ScorePanel.tsx";
+import { StrategyPanel } from "./StrategyPanel.tsx";
 import { TokenizePanel } from "./TokenizePanel.tsx";
 import { TrainPanel } from "./TrainPanel.tsx";
 import "./mlIntro.css";
@@ -230,8 +233,8 @@ export function MlIntroLabPage() {
             ) : null}
 
             {projectLoaded && stage?.index === 1 ? (
-              <TokenizePanel
-                draft={draftOf(state, 1) as TokenizeDraft}
+              <StrategyPanel
+                draft={draftOf(state, 1) as StrategyDraft}
                 hasNextStage={hasNextStage}
                 onChange={(draft) => dispatch({ type: "update-stage1", draft })}
                 onNextStage={goNextStage}
@@ -244,8 +247,8 @@ export function MlIntroLabPage() {
             ) : null}
 
             {projectLoaded && stage?.index === 2 ? (
-              <ScorePanel
-                draft={draftOf(state, 2) as ScoreDraft}
+              <TokenizePanel
+                draft={draftOf(state, 2) as TokenizeDraft}
                 hasNextStage={hasNextStage}
                 onChange={(draft) => dispatch({ type: "update-stage2", draft })}
                 onNextStage={goNextStage}
@@ -258,8 +261,8 @@ export function MlIntroLabPage() {
             ) : null}
 
             {projectLoaded && stage?.index === 3 ? (
-              <TrainPanel
-                draft={draftOf(state, 3) as TrainDraft}
+              <ScorePanel
+                draft={draftOf(state, 3) as ScoreDraft}
                 hasNextStage={hasNextStage}
                 onChange={(draft) => dispatch({ type: "update-stage3", draft })}
                 onNextStage={goNextStage}
@@ -272,8 +275,8 @@ export function MlIntroLabPage() {
             ) : null}
 
             {projectLoaded && stage?.index === 4 ? (
-              <EvaluatePanel
-                draft={draftOf(state, 4) as EvaluateDraft}
+              <TrainPanel
+                draft={draftOf(state, 4) as TrainDraft}
                 hasNextStage={hasNextStage}
                 onChange={(draft) => dispatch({ type: "update-stage4", draft })}
                 onNextStage={goNextStage}
@@ -286,12 +289,26 @@ export function MlIntroLabPage() {
             ) : null}
 
             {projectLoaded && stage?.index === 5 ? (
-              <GeneralizePanel
-                draft={draftOf(state, 5) as GeneralizeDraft}
+              <EvaluatePanel
+                draft={draftOf(state, 5) as EvaluateDraft}
                 hasNextStage={hasNextStage}
                 onChange={(draft) => dispatch({ type: "update-stage5", draft })}
                 onNextStage={goNextStage}
                 onSubmit={() => void submitJudge(5, draftOf(state, 5))}
+                passed={activePassed}
+                result={activeResult}
+                stage={stage}
+                submitting={submitting}
+              />
+            ) : null}
+
+            {projectLoaded && stage?.index === 6 ? (
+              <GeneralizePanel
+                draft={draftOf(state, 6) as GeneralizeDraft}
+                hasNextStage={hasNextStage}
+                onChange={(draft) => dispatch({ type: "update-stage6", draft })}
+                onNextStage={goNextStage}
+                onSubmit={() => void submitJudge(6, draftOf(state, 6))}
                 passed={activePassed}
                 result={activeResult}
                 stage={stage}

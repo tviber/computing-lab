@@ -3,6 +3,12 @@ import type { RawTokenStatus } from "./tokenizer.ts";
 
 export type ConceptAnswers = Record<string, number>;
 
+export type StrategyDraft = {
+  weights: Record<string, number>;
+  selectedMsgId: string;
+  concepts: ConceptAnswers;
+};
+
 export type TokenizeDraft = {
   selectedPresetId: string;
   customText: string;
@@ -42,7 +48,8 @@ export type GeneralizeDraft = {
   concepts: ConceptAnswers;
 };
 
-export type MlDraft = TokenizeDraft | ScoreDraft | TrainDraft | EvaluateDraft | GeneralizeDraft;
+export type MlDraft =
+  StrategyDraft | TokenizeDraft | ScoreDraft | TrainDraft | EvaluateDraft | GeneralizeDraft;
 
 export type MlPartSummary = {
   id: string;
@@ -77,6 +84,7 @@ export type MlRunSummaries = {
   s3: MlTestSummary | null;
   s4: MlTestSummary | null;
   s5: MlTestSummary | null;
+  s6: MlTestSummary | null;
 };
 
 export type MlProjectExtras = {

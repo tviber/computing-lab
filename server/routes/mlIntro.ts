@@ -18,6 +18,7 @@ const SUMMARY_KEYS: Record<number, keyof MlRunSummaries> = {
   3: "s3",
   4: "s4",
   5: "s5",
+  6: "s6",
 };
 
 function latestRunSummaries(
@@ -28,11 +29,18 @@ function latestRunSummaries(
     .prepare(
       `SELECT stage_index AS stageIndex, test_summary AS testSummary
        FROM submissions
-       WHERE project_id = ? AND lab_id = 'ml-intro' AND stage_index IN (1, 2, 3, 4, 5)
+       WHERE project_id = ? AND lab_id = 'ml-intro' AND stage_index IN (1, 2, 3, 4, 5, 6)
        ORDER BY submitted_at DESC`,
     )
     .all(projectId) as { stageIndex: number; testSummary: string }[];
-  const found: MlRunSummaries = { s1: null, s2: null, s3: null, s4: null, s5: null };
+  const found: MlRunSummaries = {
+    s1: null,
+    s2: null,
+    s3: null,
+    s4: null,
+    s5: null,
+    s6: null,
+  };
   for (const row of rows) {
     const key = SUMMARY_KEYS[row.stageIndex];
     if (key && found[key] === null) {

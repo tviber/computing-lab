@@ -1,6 +1,6 @@
 /**
- * Authoritative server-side judge for the ml-intro lab across all 5 stages.
- * Re-runs deterministic scoring & SGD training server-side and grades Stage 5
+ * Authoritative server-side judge for the ml-intro lab across all 6 stages.
+ * Re-runs deterministic scoring & SGD training server-side and grades Stage 6
  * against the held-out 300-SMS corpus in hiddenCorpus.ts without leaking any
  * hidden message text back to the browser.
  */
@@ -19,26 +19,28 @@ import type {
   MlTestSummary,
 } from "../../../src/features/ml-intro/domain/protocol.ts";
 import {
+  EVAL_MIN_ACCURACY,
+  EVAL_MIN_PRECISION,
+  EVAL_MIN_RECALL,
+  GENERALIZE_MAX_VAL_LOSS,
+  GENERALIZE_MIN_TEST_ACCURACY,
+  GENERALIZE_MIN_TEST_PRECISION,
+  GENERALIZE_MIN_TEST_RECALL,
   getMlStage,
   mlStageUnlocked,
   nextMlStage,
-  STAGE1_PUZZLE_ITEMS,
-  STAGE2_CALIBRATION_SMS,
-  STAGE3_MAX_TRAIN_LOSS,
-  STAGE3_MAX_VAL_LOSS,
-  STAGE4_MIN_ACCURACY,
-  STAGE4_MIN_PRECISION,
-  STAGE4_MIN_RECALL,
-  STAGE5_MAX_VAL_LOSS,
-  STAGE5_MIN_TEST_ACCURACY,
-  STAGE5_MIN_TEST_PRECISION,
-  STAGE5_MIN_TEST_RECALL,
+  SCORE_CALIBRATION_SMS,
+  TOKENIZE_PUZZLE_ITEMS,
+  TRAIN_MAX_TRAIN_LOSS,
+  TRAIN_MAX_VAL_LOSS,
   type ConceptPrompt,
 } from "../../../src/features/ml-intro/domain/stages.ts";
+import { evaluateStrategyWeights } from "../../../src/features/ml-intro/domain/strategy.ts";
 import {
   sanitizeEvaluateDraft,
   sanitizeGeneralizeDraft,
   sanitizeScoreDraft,
+  sanitizeStrategyDraft,
   sanitizeTokenizeDraft,
   sanitizeTrainDraft,
 } from "../../../src/features/ml-intro/lesson/state.ts";
@@ -100,13 +102,49 @@ export function judgeMlIntroSubmission(
   let snapshot: unknown;
 
   if (stageIndex === 1) {
+    const draft = sanitizeStrategyDraft(rawDraft);
+    snapshot = draft;
+    const evalRes = evaluateStrategyWeights(draft.weights);
+    const smsOk = evalRes.correctCount === evalRes.totalCount;
+    const diversityOk = evalRes.positiveWordCount >= 2 && evalRes.negativeWordCount >= 2;
+    const conceptCheck = checkConcepts(stage.prompts, draft.concepts);
+    score = evalRes.correctCount + (diversityOk ? 1 : 0) + conceptCheck.correct;
+    total = evalRes.totalCount + 1 + conceptCheck.total;
+    passed = smsOk && diversityOk && conceptCheck.ok;
+    const wrongTags = evalRes.items.filter((item) => !item.ok).map((item) => item.message.tag);
+    const parts: MlPartSummary[] = [
+      {
+        id: "strategy-sms",
+        label: "6 条 10 词短信分类",
+        ok: smsOk,
+        detail: smsOk
+          ? `${evalRes.correctCount} / ${evalRes.totalCount} 条全部分对`
+          : `${evalRes.correctCount} / ${evalRes.totalCount} 条分对（未过：${wrongTags.join("、")}）`,
+      },
+      {
+        id: "strategy-balance",
+        label: "正负线索词策略分布",
+        ok: diversityOk,
+        detail: diversityOk
+          ? `已设置 ${evalRes.positiveWordCount} 个正相关词、${evalRes.negativeWordCount} 个负相关词`
+          : `至少需设定 2 个正相关词和 2 个负相关词（当前正 ${evalRes.positiveWordCount} / 负 ${evalRes.negativeWordCount}），兼顾抓广告与防误杀`,
+      },
+      conceptCheck.part,
+    ];
+    testSummary = {
+      parts,
+      detail: passed
+        ? "10 词点积风险策略全部命中，解锁第 2 关探索真实切词与词袋。"
+        : "请调整 10 个词的倾向规则并完成概念题。",
+    };
+  } else if (stageIndex === 2) {
     const draft = sanitizeTokenizeDraft(rawDraft);
     snapshot = draft;
     let tokCorrect = 0;
-    for (const item of STAGE1_PUZZLE_ITEMS) {
+    for (const item of TOKENIZE_PUZZLE_ITEMS) {
       if (draft.classifications[item.id] === item.expected) tokCorrect++;
     }
-    const tokTotal = STAGE1_PUZZLE_ITEMS.length;
+    const tokTotal = TOKENIZE_PUZZLE_ITEMS.length;
     const tokOk = tokCorrect === tokTotal;
     const conceptCheck = checkConcepts(stage.prompts, draft.concepts);
     score = tokCorrect + conceptCheck.correct;
@@ -126,22 +164,22 @@ export function judgeMlIntroSubmission(
     testSummary = {
       parts,
       detail: passed
-        ? "文本特征抽取与词袋规则全对，解锁第 2 关。"
+        ? "文本特征抽取与词袋规则全对，解锁第 3 关。"
         : "特征归类或概念题尚未全部通过。",
     };
-  } else if (stageIndex === 2) {
+  } else if (stageIndex === 3) {
     const draft = sanitizeScoreDraft(rawDraft);
     snapshot = draft;
-    const evalRes = evaluateManualWeights(draft.weights, draft.bias, STAGE2_CALIBRATION_SMS, 0.5);
-    const smsOk = evalRes.correctCount === STAGE2_CALIBRATION_SMS.length;
+    const evalRes = evaluateManualWeights(draft.weights, draft.bias, SCORE_CALIBRATION_SMS, 0.5);
+    const smsOk = evalRes.correctCount === SCORE_CALIBRATION_SMS.length;
     const priorOk = evalRes.emptyProbability < 0.5;
     const conceptCheck = checkConcepts(stage.prompts, draft.concepts);
     score = evalRes.correctCount + (priorOk ? 1 : 0) + conceptCheck.correct;
-    total = STAGE2_CALIBRATION_SMS.length + 1 + conceptCheck.total;
+    total = SCORE_CALIBRATION_SMS.length + 1 + conceptCheck.total;
     passed = smsOk && priorOk && conceptCheck.ok;
     const wrongTags = evalRes.items
       .filter((item) => !item.correct)
-      .map((item) => STAGE2_CALIBRATION_SMS.find((m) => m.id === item.id)?.tag ?? item.id);
+      .map((item) => SCORE_CALIBRATION_SMS.find((m) => m.id === item.id)?.tag ?? item.id);
     const parts: MlPartSummary[] = [
       {
         id: "calibration",
@@ -167,7 +205,7 @@ export function judgeMlIntroSubmission(
         ? "正负词权与偏置搭配成功，接下来看机器如何自动学会这些权重。"
         : "请调整权重和偏置让 6 条短信与空消息基线都达标。",
     };
-  } else if (stageIndex === 3) {
+  } else if (stageIndex === 4) {
     const draft = sanitizeTrainDraft(rawDraft);
     snapshot = draft;
     const run = trainLogisticRegression({
@@ -177,8 +215,8 @@ export function judgeMlIntroSubmission(
       threshold: 0.5,
     });
     const finalEpoch = run.epochsHistory[run.epochsHistory.length - 1];
-    const trOk = finalEpoch.trainLoss <= STAGE3_MAX_TRAIN_LOSS;
-    const valOk = finalEpoch.valLoss <= STAGE3_MAX_VAL_LOSS;
+    const trOk = finalEpoch.trainLoss <= TRAIN_MAX_TRAIN_LOSS;
+    const valOk = finalEpoch.valLoss <= TRAIN_MAX_VAL_LOSS;
     const conceptCheck = checkConcepts(stage.prompts, draft.concepts);
     score = (trOk ? 1 : 0) + (valOk ? 1 : 0) + conceptCheck.correct;
     total = 2 + conceptCheck.total;
@@ -209,7 +247,7 @@ export function judgeMlIntroSubmission(
         ? `η=${draft.eta}、${draft.epochs} 轮训练收敛良好（验证损失 ${finalEpoch.valLoss.toFixed(3)}）。`
         : `当前训练/验证损失尚未压到目标线（η=${draft.eta}，${draft.epochs} 轮）。`,
     };
-  } else if (stageIndex === 4) {
+  } else if (stageIndex === 5) {
     const draft = sanitizeEvaluateDraft(rawDraft);
     snapshot = draft;
     const run = trainLogisticRegression({
@@ -219,9 +257,9 @@ export function judgeMlIntroSubmission(
       threshold: draft.threshold,
     });
     const m = run.finalMetrics;
-    const accOk = m.accuracy >= STAGE4_MIN_ACCURACY;
-    const precOk = m.precision >= STAGE4_MIN_PRECISION;
-    const recOk = m.recall >= STAGE4_MIN_RECALL;
+    const accOk = m.accuracy >= EVAL_MIN_ACCURACY;
+    const precOk = m.precision >= EVAL_MIN_PRECISION;
+    const recOk = m.recall >= EVAL_MIN_RECALL;
     const conceptCheck = checkConcepts(stage.prompts, draft.concepts);
     score = (accOk ? 1 : 0) + (precOk ? 1 : 0) + (recOk ? 1 : 0) + conceptCheck.correct;
     total = 3 + conceptCheck.total;
@@ -271,10 +309,10 @@ export function judgeMlIntroSubmission(
     const hm = hiddenEval.metrics;
     const valBaseline = alwaysZeroBaseline(run.valPredictions);
 
-    const valLossOk = run.finalMetrics.loss <= STAGE5_MAX_VAL_LOSS;
-    const testAccOk = hm.accuracy >= STAGE5_MIN_TEST_ACCURACY;
-    const testPrecOk = hm.precision >= STAGE5_MIN_TEST_PRECISION;
-    const testRecOk = hm.recall >= STAGE5_MIN_TEST_RECALL;
+    const valLossOk = run.finalMetrics.loss <= GENERALIZE_MAX_VAL_LOSS;
+    const testAccOk = hm.accuracy >= GENERALIZE_MIN_TEST_ACCURACY;
+    const testPrecOk = hm.precision >= GENERALIZE_MIN_TEST_PRECISION;
+    const testRecOk = hm.recall >= GENERALIZE_MIN_TEST_RECALL;
     const hiddenAllOk = testAccOk && testPrecOk && testRecOk;
     const conceptCheck = checkConcepts(stage.prompts, draft.concepts);
     score = (valLossOk ? 1 : 0) + (hiddenAllOk ? 2 : 0) + conceptCheck.correct;

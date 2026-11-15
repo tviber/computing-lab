@@ -7,9 +7,9 @@ import {
 } from "../domain/logreg.ts";
 import type { EvaluateDraft, MlTestSummary } from "../domain/protocol.ts";
 import {
-  STAGE4_MIN_ACCURACY,
-  STAGE4_MIN_PRECISION,
-  STAGE4_MIN_RECALL,
+  EVAL_MIN_ACCURACY,
+  EVAL_MIN_PRECISION,
+  EVAL_MIN_RECALL,
   type MlStageDef,
 } from "../domain/stages.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
@@ -57,9 +57,9 @@ export function EvaluatePanel({
   const prCurve = useMemo(() => sweepThresholds(baseRun.valPredictions), [baseRun.valPredictions]);
 
   const m = reEval.metrics;
-  const accOk = m.accuracy >= STAGE4_MIN_ACCURACY;
-  const precOk = m.precision >= STAGE4_MIN_PRECISION;
-  const recOk = m.recall >= STAGE4_MIN_RECALL;
+  const accOk = m.accuracy >= EVAL_MIN_ACCURACY;
+  const precOk = m.precision >= EVAL_MIN_PRECISION;
+  const recOk = m.recall >= EVAL_MIN_RECALL;
   const allConceptsDone = stage.prompts.every((p) => draft.concepts[p.id] === p.correct);
 
   return (
@@ -202,7 +202,7 @@ export function EvaluatePanel({
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "判题中…" : "提交第 4 关判定"}
+          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!allConceptsDone ? <span className="ml-muted-note">请先答对全部概念题再提交</span> : null}
       </div>

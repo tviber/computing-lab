@@ -1296,7 +1296,7 @@ describe("lab visibility", () => {
     };
     expect(labs.find((lab) => lab.id === "ml-intro")).toMatchObject({
       id: "ml-intro",
-      stageCount: 5,
+      stageCount: 6,
       hidden: false,
       openClassIds: null,
     });
