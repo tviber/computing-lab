@@ -12,7 +12,19 @@ import {
   sweepThresholds,
   trainLogisticRegression,
 } from "./logreg.ts";
-import { STAGE1_PUZZLE_ITEMS, STAGE1_PUZZLE_SENTENCE, STAGE2_CALIBRATION_SMS } from "./stages.ts";
+import {
+  SCORE_CALIBRATION_SMS,
+  TOKENIZE_PUZZLE_ITEMS,
+  TOKENIZE_PUZZLE_SENTENCE,
+} from "./stages.ts";
+import {
+  clampStrategyWeight,
+  evaluateStrategyWeights,
+  STRATEGY_BASELINE_PROB,
+  STRATEGY_SMS_EXAMPLES,
+  STRATEGY_WORDS,
+  strategyScoreToProbability,
+} from "./strategy.ts";
 import {
   analyzeTokens,
   inspectCorpusMessageWithModel,
@@ -47,10 +59,72 @@ describe("ml-intro domain engine", () => {
     }
   });
 
-  it("tokenizes stage-1 puzzle sentence into kept, duplicate, filtered, and oov categories", () => {
+  it("evaluates Stage 1 10-word strategy weights with calibrated non-LR probability curve", () => {
+    expect(STRATEGY_WORDS).toHaveLength(10);
+    const vocab = new Set<string>(STRATEGY_WORDS);
+    const seen = new Set<string>();
+    for (const msg of STRATEGY_SMS_EXAMPLES) {
+      expect(msg.tokens.length).toBeGreaterThan(0);
+      for (const tok of msg.tokens) {
+        expect(vocab.has(tok)).toBe(true);
+        seen.add(tok);
+      }
+    }
+    expect(seen.size).toBe(10);
+
+    // Non-LR baseline at score = 0 stays at 15% rather than Logistic Regression's 50% tie.
+    expect(strategyScoreToProbability(0)).toBeCloseTo(STRATEGY_BASELINE_PROB, 6);
+    expect(strategyScoreToProbability(-3)).toBeLessThan(STRATEGY_BASELINE_PROB);
+    expect(strategyScoreToProbability(-10)).toBeCloseTo(0.02, 6);
+    expect(strategyScoreToProbability(0.5)).toBeLessThan(0.5);
+    expect(strategyScoreToProbability(1)).toBeGreaterThanOrEqual(0.5);
+    expect(strategyScoreToProbability(20)).toBeCloseTo(0.98, 6);
+
+    expect(clampStrategyWeight(99)).toBe(5);
+    expect(clampStrategyWeight(-99)).toBe(-5);
+    expect(clampStrategyWeight(1.74)).toBe(1.5);
+
+    const zeroEval = evaluateStrategyWeights({});
+    expect(zeroEval.correctCount).toBeLessThan(STRATEGY_SMS_EXAMPLES.length);
+
+    const noNeg = evaluateStrategyWeights({ 中奖: 2, 发票: 2, 退款: 2, 优惠: 2 });
+    expect(noNeg.correctCount).toBeLessThan(STRATEGY_SMS_EXAMPLES.length);
+    expect(noNeg.items.find((i) => i.message.id === "st-ham-3")?.ok).toBe(false);
+
+    const pollutedNeutral = evaluateStrategyWeights({
+      中奖: 2,
+      发票: 2,
+      退款: 2,
+      优惠: 2,
+      妈妈: -3,
+      开会: -2,
+      老师: -2,
+      今天: 1,
+      通知: 1,
+    });
+    expect(pollutedNeutral.items.find((i) => i.message.id === "st-ham-2")?.ok).toBe(false);
+
+    const balanced = evaluateStrategyWeights({
+      中奖: 3,
+      发票: 2,
+      退款: 2,
+      优惠: 2,
+      妈妈: -3,
+      开会: -2,
+      老师: -2,
+      今天: 0,
+      明天: 0,
+      通知: 0,
+    });
+    expect(balanced.correctCount).toBe(STRATEGY_SMS_EXAMPLES.length);
+    expect(balanced.positiveWordCount).toBe(4);
+    expect(balanced.negativeWordCount).toBe(3);
+  });
+
+  it("tokenizes stage-2 puzzle sentence into kept, duplicate, filtered, and oov categories", () => {
     const { fullTrainVocab } = getPublicCorpus();
-    const tokens = analyzeTokens(STAGE1_PUZZLE_SENTENCE, fullTrainVocab);
-    expect(tokens.map((t) => t.status)).toEqual(STAGE1_PUZZLE_ITEMS.map((item) => item.expected));
+    const tokens = analyzeTokens(TOKENIZE_PUZZLE_SENTENCE, fullTrainVocab);
+    expect(tokens.map((t) => t.status)).toEqual(TOKENIZE_PUZZLE_ITEMS.map((item) => item.expected));
 
     const pairA = analyzeTokens("朋友请我免费喝奶茶", fullTrainVocab)
       .filter((t) => t.status === "kept")
@@ -67,9 +141,9 @@ describe("ml-intro domain engine", () => {
     const blacklistOnly = evaluateManualWeights(
       { 免费: 2, 领取: 2, 点击: 2, 退订: 2, 优惠: 2, 同学: 0, 明天: 0, 一起: 0 },
       -1,
-      STAGE2_CALIBRATION_SMS,
+      SCORE_CALIBRATION_SMS,
     );
-    expect(blacklistOnly.correctCount).toBeLessThan(STAGE2_CALIBRATION_SMS.length);
+    expect(blacklistOnly.correctCount).toBeLessThan(SCORE_CALIBRATION_SMS.length);
 
     const balancedWeights = {
       免费: 2.2,
@@ -81,13 +155,13 @@ describe("ml-intro domain engine", () => {
       明天: -1.6,
       一起: -1.6,
     };
-    const balanced = evaluateManualWeights(balancedWeights, -1, STAGE2_CALIBRATION_SMS);
-    expect(balanced.correctCount).toBe(STAGE2_CALIBRATION_SMS.length);
+    const balanced = evaluateManualWeights(balancedWeights, -1, SCORE_CALIBRATION_SMS);
+    expect(balanced.correctCount).toBe(SCORE_CALIBRATION_SMS.length);
     expect(balanced.emptyProbability).toBeLessThan(0.5);
 
     const { fullTrainVocab } = getPublicCorpus();
     const wMap = new Map(Object.entries(balancedWeights));
-    STAGE2_CALIBRATION_SMS.forEach((sms, i) => {
+    SCORE_CALIBRATION_SMS.forEach((sms, i) => {
       const fromText = inspectMessageWithModel(sms.text, wMap, -1, fullTrainVocab, 0.5);
       const fromTokens = inspectCorpusMessageWithModel(sms, wMap, -1, fullTrainVocab, 0.5);
       expect(fromText.probability).toBeCloseTo(balanced.items[i].probability, 12);

@@ -1,7 +1,7 @@
 /**
  * Lesson reducer & strict boundary sanitization for ml-intro.
  * Pure state machine — zero React/network imports, mirrors computing-lab's
- * OCC save-status and conflict reconciliation semantics across all 5 stages.
+ * OCC save-status and conflict reconciliation semantics across all 6 stages.
  */
 
 import type { SaveStatus } from "../../../shared/api/client";
@@ -32,6 +32,7 @@ import type {
   MlProjectExtras,
   MlTestSummary,
   ScoreDraft,
+  StrategyDraft,
   TokenizeDraft,
   TrainDraft,
 } from "../domain/protocol.ts";
@@ -40,12 +41,13 @@ import {
   ML_STAGES,
   mlStageUnlocked,
   nextMlStage,
-  STAGE1_PRESETS,
-  STAGE1_PUZZLE_ITEMS,
-  STAGE2_CALIBRATION_SMS,
-  STAGE2_WORDS,
+  SCORE_CALIBRATION_SMS,
+  SCORE_WORDS,
+  TOKENIZE_PRESETS,
+  TOKENIZE_PUZZLE_ITEMS,
   type MlStageDef,
 } from "../domain/stages.ts";
+import { clampStrategyWeight, STRATEGY_SMS_EXAMPLES, STRATEGY_WORDS } from "../domain/strategy.ts";
 import type { RawTokenStatus } from "../domain/tokenizer.ts";
 
 export type { SaveStatus };
@@ -66,10 +68,20 @@ function sanitizeConcepts(raw: unknown): ConceptAnswers {
   return out;
 }
 
+export function defaultStrategyDraft(): StrategyDraft {
+  const weights: Record<string, number> = {};
+  for (const w of STRATEGY_WORDS) weights[w] = 0;
+  return {
+    weights,
+    selectedMsgId: STRATEGY_SMS_EXAMPLES[0].id,
+    concepts: {},
+  };
+}
+
 export function defaultTokenizeDraft(): TokenizeDraft {
   return {
-    selectedPresetId: STAGE1_PRESETS[0].id,
-    customText: STAGE1_PRESETS[0].text,
+    selectedPresetId: TOKENIZE_PRESETS[0].id,
+    customText: TOKENIZE_PRESETS[0].text,
     classifications: {},
     concepts: {},
   };
@@ -77,11 +89,11 @@ export function defaultTokenizeDraft(): TokenizeDraft {
 
 export function defaultScoreDraft(): ScoreDraft {
   const weights: Record<string, number> = {};
-  for (const w of STAGE2_WORDS) weights[w] = 0;
+  for (const w of SCORE_WORDS) weights[w] = 0;
   return {
     weights,
     bias: -1,
-    selectedMsgId: STAGE2_CALIBRATION_SMS[0].id,
+    selectedMsgId: SCORE_CALIBRATION_SMS[0].id,
     concepts: {},
   };
 }
@@ -117,11 +129,37 @@ export function defaultGeneralizeDraft(): GeneralizeDraft {
   };
 }
 
+export function sanitizeStrategyDraft(raw: unknown): StrategyDraft {
+  const base = defaultStrategyDraft();
+  if (!raw || typeof raw !== "object") return base;
+  const obj = raw as Record<string, unknown>;
+  const weights: Record<string, number> = { ...base.weights };
+  if (obj.weights && typeof obj.weights === "object") {
+    const rawW = obj.weights as Record<string, unknown>;
+    for (const w of STRATEGY_WORDS) {
+      const val = rawW[w];
+      if (typeof val === "number" && Number.isFinite(val)) {
+        weights[w] = clampStrategyWeight(val);
+      }
+    }
+  }
+  const msgIds = new Set(STRATEGY_SMS_EXAMPLES.map((m) => m.id));
+  const selectedMsgId =
+    typeof obj.selectedMsgId === "string" && msgIds.has(obj.selectedMsgId)
+      ? obj.selectedMsgId
+      : base.selectedMsgId;
+  return {
+    weights,
+    selectedMsgId,
+    concepts: sanitizeConcepts(obj.concepts),
+  };
+}
+
 export function sanitizeTokenizeDraft(raw: unknown): TokenizeDraft {
   const base = defaultTokenizeDraft();
   if (!raw || typeof raw !== "object") return base;
   const obj = raw as Record<string, unknown>;
-  const presetIds = new Set(STAGE1_PRESETS.map((p) => p.id));
+  const presetIds = new Set(TOKENIZE_PRESETS.map((p) => p.id));
   const selectedPresetId =
     typeof obj.selectedPresetId === "string" &&
     (presetIds.has(obj.selectedPresetId) || obj.selectedPresetId === "custom")
@@ -131,7 +169,7 @@ export function sanitizeTokenizeDraft(raw: unknown): TokenizeDraft {
     typeof obj.customText === "string" ? obj.customText.slice(0, MAX_TEXT_CHARS) : base.customText;
   const classifications: Record<string, RawTokenStatus> = {};
   if (obj.classifications && typeof obj.classifications === "object") {
-    const allowedIds = new Set(STAGE1_PUZZLE_ITEMS.map((item) => item.id));
+    const allowedIds = new Set(TOKENIZE_PUZZLE_ITEMS.map((item) => item.id));
     for (const [k, v] of Object.entries(obj.classifications as Record<string, unknown>)) {
       if (allowedIds.has(k) && typeof v === "string" && VALID_STATUSES.has(v as RawTokenStatus)) {
         classifications[k] = v as RawTokenStatus;
@@ -153,7 +191,7 @@ export function sanitizeScoreDraft(raw: unknown): ScoreDraft {
   const weights: Record<string, number> = { ...base.weights };
   if (obj.weights && typeof obj.weights === "object") {
     const rawW = obj.weights as Record<string, unknown>;
-    for (const w of STAGE2_WORDS) {
+    for (const w of SCORE_WORDS) {
       const val = rawW[w];
       if (typeof val === "number" && Number.isFinite(val)) {
         weights[w] = Number(clamp(val, MIN_MANUAL_WEIGHT, MAX_MANUAL_WEIGHT).toFixed(2));
@@ -164,7 +202,7 @@ export function sanitizeScoreDraft(raw: unknown): ScoreDraft {
     typeof obj.bias === "number" && Number.isFinite(obj.bias)
       ? Number(clamp(obj.bias, MIN_MANUAL_BIAS, MAX_MANUAL_BIAS).toFixed(2))
       : base.bias;
-  const msgIds = new Set(STAGE2_CALIBRATION_SMS.map((m) => m.id));
+  const msgIds = new Set(SCORE_CALIBRATION_SMS.map((m) => m.id));
   const selectedMsgId =
     typeof obj.selectedMsgId === "string" && msgIds.has(obj.selectedMsgId)
       ? obj.selectedMsgId
@@ -245,34 +283,38 @@ export function sanitizeGeneralizeDraft(raw: unknown): GeneralizeDraft {
 export function defaultDraftForStage(stageIndex: number): MlDraft {
   switch (stageIndex) {
     case 1:
-      return defaultTokenizeDraft();
+      return defaultStrategyDraft();
     case 2:
-      return defaultScoreDraft();
+      return defaultTokenizeDraft();
     case 3:
-      return defaultTrainDraft();
+      return defaultScoreDraft();
     case 4:
-      return defaultEvaluateDraft();
+      return defaultTrainDraft();
     case 5:
+      return defaultEvaluateDraft();
+    case 6:
       return defaultGeneralizeDraft();
     default:
-      return defaultTokenizeDraft();
+      return defaultStrategyDraft();
   }
 }
 
 export function sanitizeMlDraft(stageIndex: number, raw: unknown): MlDraft {
   switch (stageIndex) {
     case 1:
-      return sanitizeTokenizeDraft(raw);
+      return sanitizeStrategyDraft(raw);
     case 2:
-      return sanitizeScoreDraft(raw);
+      return sanitizeTokenizeDraft(raw);
     case 3:
-      return sanitizeTrainDraft(raw);
+      return sanitizeScoreDraft(raw);
     case 4:
-      return sanitizeEvaluateDraft(raw);
+      return sanitizeTrainDraft(raw);
     case 5:
+      return sanitizeEvaluateDraft(raw);
+    case 6:
       return sanitizeGeneralizeDraft(raw);
     default:
-      return sanitizeTokenizeDraft(raw);
+      return sanitizeStrategyDraft(raw);
   }
 }
 
@@ -300,11 +342,12 @@ export type MlLessonAction =
       runSummaries?: MlProjectExtras["runSummaries"];
     }
   | { type: "select-stage"; stageIndex: number }
-  | { type: "update-stage1"; draft: TokenizeDraft }
-  | { type: "update-stage2"; draft: ScoreDraft }
-  | { type: "update-stage3"; draft: TrainDraft }
-  | { type: "update-stage4"; draft: EvaluateDraft }
-  | { type: "update-stage5"; draft: GeneralizeDraft }
+  | { type: "update-stage1"; draft: StrategyDraft }
+  | { type: "update-stage2"; draft: TokenizeDraft }
+  | { type: "update-stage3"; draft: ScoreDraft }
+  | { type: "update-stage4"; draft: TrainDraft }
+  | { type: "update-stage5"; draft: EvaluateDraft }
+  | { type: "update-stage6"; draft: GeneralizeDraft }
   | { type: "judge-result"; stageIndex: number; outcome: MlJudgeResult }
   | { type: "mark-saving"; stageIndex: number }
   | { type: "mark-saved"; stageIndex: number; revision?: number }
@@ -322,6 +365,7 @@ const EMPTY_SUMMARIES: MlProjectExtras["runSummaries"] = {
   s3: null,
   s4: null,
   s5: null,
+  s6: null,
 };
 
 const SUMMARY_KEYS: Record<number, keyof MlProjectExtras["runSummaries"]> = {
@@ -330,6 +374,7 @@ const SUMMARY_KEYS: Record<number, keyof MlProjectExtras["runSummaries"]> = {
   3: "s3",
   4: "s4",
   5: "s5",
+  6: "s6",
 };
 
 export function createMlLessonState(initialStage = 1): MlLessonState {
@@ -339,11 +384,12 @@ export function createMlLessonState(initialStage = 1): MlLessonState {
     currentStage: 1,
     passedStages: [],
     drafts: {
-      1: defaultTokenizeDraft(),
-      2: defaultScoreDraft(),
-      3: defaultTrainDraft(),
-      4: defaultEvaluateDraft(),
-      5: defaultGeneralizeDraft(),
+      1: defaultStrategyDraft(),
+      2: defaultTokenizeDraft(),
+      3: defaultScoreDraft(),
+      4: defaultTrainDraft(),
+      5: defaultEvaluateDraft(),
+      6: defaultGeneralizeDraft(),
     },
     conflictedLocalDrafts: {},
     draftRevisions: {},
@@ -396,11 +442,12 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
         draftRevisions[Number(key)] = rev;
       }
       const drafts: Record<number, MlDraft> = {
-        1: defaultTokenizeDraft(),
-        2: defaultScoreDraft(),
-        3: defaultTrainDraft(),
-        4: defaultEvaluateDraft(),
-        5: defaultGeneralizeDraft(),
+        1: defaultStrategyDraft(),
+        2: defaultTokenizeDraft(),
+        3: defaultScoreDraft(),
+        4: defaultTrainDraft(),
+        5: defaultEvaluateDraft(),
+        6: defaultGeneralizeDraft(),
       };
       for (const [key, draft] of Object.entries(action.drafts)) {
         const s = Number(key);
@@ -441,6 +488,8 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
       return state.stageIndex === 4 ? withDraft(state, 4, action.draft) : state;
     case "update-stage5":
       return state.stageIndex === 5 ? withDraft(state, 5, action.draft) : state;
+    case "update-stage6":
+      return state.stageIndex === 6 ? withDraft(state, 6, action.draft) : state;
 
     case "judge-result": {
       const summaryKey = SUMMARY_KEYS[action.stageIndex];

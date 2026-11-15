@@ -22,7 +22,7 @@ export type TokenizePreset = {
   note: string;
 };
 
-export const STAGE1_PRESETS: TokenizePreset[] = [
+export const TOKENIZE_PRESETS: TokenizePreset[] = [
   {
     id: "promo",
     label: "促销广告",
@@ -60,9 +60,9 @@ export type TokenPuzzleItem = {
   expected: RawTokenStatus;
 };
 
-export const STAGE1_PUZZLE_SENTENCE = "免费领取免费红包！元宇宙限时";
+export const TOKENIZE_PUZZLE_SENTENCE = "免费领取免费红包！元宇宙限时";
 
-export const STAGE1_PUZZLE_ITEMS: TokenPuzzleItem[] = [
+export const TOKENIZE_PUZZLE_ITEMS: TokenPuzzleItem[] = [
   { id: "tok-0", text: "免费", displayNote: "第 1 个词（训练词表内）", expected: "kept" },
   { id: "tok-1", text: "领取", displayNote: "第 2 个词（训练词表内）", expected: "kept" },
   { id: "tok-2", text: "免费", displayNote: "同句第 2 次出现", expected: "duplicate" },
@@ -72,7 +72,7 @@ export const STAGE1_PUZZLE_ITEMS: TokenPuzzleItem[] = [
   { id: "tok-6", text: "限时", displayNote: "末尾词（训练词表内）", expected: "kept" },
 ];
 
-export const STAGE2_WORDS = [
+export const SCORE_WORDS = [
   "免费",
   "领取",
   "点击",
@@ -83,7 +83,7 @@ export const STAGE2_WORDS = [
   "一起",
 ] as const;
 
-export const STAGE2_CALIBRATION_SMS: CalibrationMessage[] = [
+export const SCORE_CALIBRATION_SMS: CalibrationMessage[] = [
   {
     id: "spam-1",
     label: 1,
@@ -128,17 +128,17 @@ export const STAGE2_CALIBRATION_SMS: CalibrationMessage[] = [
   },
 ];
 
-export const STAGE3_MAX_TRAIN_LOSS = 0.08;
-export const STAGE3_MAX_VAL_LOSS = 0.12;
+export const TRAIN_MAX_TRAIN_LOSS = 0.08;
+export const TRAIN_MAX_VAL_LOSS = 0.12;
 
-export const STAGE4_MIN_PRECISION = 0.9;
-export const STAGE4_MIN_RECALL = 0.8;
-export const STAGE4_MIN_ACCURACY = 0.95;
+export const EVAL_MIN_PRECISION = 0.9;
+export const EVAL_MIN_RECALL = 0.8;
+export const EVAL_MIN_ACCURACY = 0.95;
 
-export const STAGE5_MIN_TEST_ACCURACY = 0.945;
-export const STAGE5_MIN_TEST_PRECISION = 0.85;
-export const STAGE5_MIN_TEST_RECALL = 0.75;
-export const STAGE5_MAX_VAL_LOSS = 0.14;
+export const GENERALIZE_MIN_TEST_ACCURACY = 0.945;
+export const GENERALIZE_MIN_TEST_PRECISION = 0.85;
+export const GENERALIZE_MIN_TEST_RECALL = 0.75;
+export const GENERALIZE_MAX_VAL_LOSS = 0.14;
 
 export type MlStageDef = {
   index: number;
@@ -156,14 +156,75 @@ export type MlStageDef = {
 export const ML_STAGES: MlStageDef[] = [
   {
     index: 1,
+    id: "strategy",
+    title: "直觉策略：给 10 个词打分",
+    englishTitle: "Strategy Game",
+    description:
+      "先不急着上公式：假设整门语言一共只有 10 个词，给每个词设定正相关、负相关或无关的权重，用点积 w · x 直接算出一条短信总分，再通过分段概率表看看你的规则会不会误伤正常消息。",
+    task: "拖动滑块或直接输入数值，为 10 个词设定权重（正相关 >0、负相关 <0、无关 0），让 6 条 10 词示例短信全部分对（垃圾 ≥50%，正常 <50%），并至少包含 2 个正权重和 2 个负权重后完成概念题。",
+    judgeNote:
+      "服务器核对你的 10 词权重策略（至少 2 正 2 负）、6 条 10 词短信是否全部分对及概念题是否全对，全对解锁第 2 关。",
+    takeaway:
+      "「每个词出现记 1、乘权重再求和」的 w · x 点积本身就是一种可解释的分类策略。当语料从 10 个词扩展到上千词时，就需要正式建词表、用偏置 b 与 Sigmoid 输出概率。",
+    hints: [
+      "「中奖、发票、退款、优惠」偏向垃圾线索设为正数，「妈妈、开会、老师」偏向日常线索设为负数。",
+      "第 6 条「妈妈明天和老师开会，要今天的发票和退款」里混进了「发票」「退款」：只有把「妈妈、老师、开会」设为负数且压得住正分，才不会把报销沟通误杀。",
+      "「今天、明天、通知」两边都会出现：设为 0 保持中立，否则第 5 条纯中性短信「今天和明天的通知」就会被推成垃圾。",
+    ],
+    prompts: [
+      {
+        id: "dot-product-strategy",
+        prompt:
+          "当短信被写成由 0/1 组成的特征向量 x，并配上一组词权重 w 时，计算点积 w · x 实质是在做什么？",
+        options: [
+          {
+            label: "只统计短信总字数并按出现先后顺序加权",
+            note: "点积只按词典位置加权求和，不依赖字数与前后顺序。",
+          },
+          {
+            label: "只把这条短信里出现过的词（x_i = 1）对应的权重 w_i 相加得到总分",
+          },
+          {
+            label: "把 10 个词权重直接连乘，只要有一个无关词为 0 总分就归零",
+            note: "点积是逐项相乘再相加（Σ w_i·x_i），不是全部权重连乘。",
+          },
+        ],
+        correct: 1,
+        reveal:
+          "正确。w · x = Σ w_i·x_i 会跳过未出现的词（x_i = 0），把出现过的词的正负权重相加得到净倾向分。",
+      },
+      {
+        id: "neutral-zero",
+        prompt:
+          "像「今天」「明天」「通知」这样在日常通知与营销短信里都常见的词，策略权重怎么设更合理？",
+        options: [
+          {
+            label: "设为大整数 +4，见到「通知」就先拦下再说",
+            note: "日常家校与工作消息也常出现「通知」，设为强正权会导致频繁误杀。",
+          },
+          {
+            label: "保持在 0 附近（无关），把加减分留给真正有区分度的线索词",
+          },
+          {
+            label: "设为 -5，用它硬抵消掉所有「中奖」「退款」",
+            note: "如果「通知」拿到 -5，带「中奖通知」的垃圾短信就会漏网。",
+          },
+        ],
+        correct: 1,
+        reveal: "正确。在正负两类消息里都高频出现的词没有区分度，权重保持在 0 附近最稳妥。",
+      },
+    ],
+  },
+  {
+    index: 2,
     id: "tokenize",
     title: "把短信变成数字",
     englishTitle: "Features",
     description:
-      "计算机不会直接「读懂」中文句子，第一步必须把短信拆成词元并映射到固定长度的特征向量。",
+      "第 1 关只有 10 个固定词汇；面对真实世界里千变万化的中文短信，机器第一步必须先切词、去标点，并把文本映射到训练集词表的 0/1 特征向量。",
     task: "先在上方实验区观察切词、重复词、标点过滤和词序互换的效果，再把下方测验句的 7 个片段正确归类并答对概念题。",
     judgeNote:
-      "服务器核对 7 个切词片段的归类（入表 / 重复忽略 / 标点过滤 / 未见词 OOV）与全部概念题，全对解锁第 2 关。",
+      "服务器核对 7 个切词片段的归类（入表 / 重复忽略 / 标点过滤 / 未见词 OOV）与全部概念题，全对解锁第 3 关。",
     takeaway:
       "0/1 词袋把文本变成机器能算的向量，但代价是丢掉了词序、词频和训练词表之外的新词（OOV）。",
     hints: [
@@ -232,12 +293,12 @@ export const ML_STAGES: MlStageDef[] = [
     ],
   },
   {
-    index: 2,
+    index: 3,
     id: "score",
     title: "给词打分与概率",
     englishTitle: "Linear Score",
     description:
-      "只靠单一关键词黑名单，正常消息里夹一个「优惠」「免费」就会被误杀。线性分类器会给每个词配正负权重，再用偏置 b 和 Sigmoid 把总分映射成概率。",
+      "第 1 关用分段概率表做了一个 10 词小游戏；在真正的统计分类器里，机器会用偏置 b 设好零线索基准，再用平滑的 Sigmoid 函数把线性总分 z = w·x + b 连续映射成 0~1 概率。",
     task: "调节下方 8 个词的权重和偏置 b，让 6 条测试短信全部分类正确（垃圾 ≥50%，正常 <50%），且无特征短信保持判定为正常（b < 0），再完成概念题。",
     judgeNote:
       "服务器用你提交的 8 个词权重与偏置 b，校验全部分诊短信是否 6/6 判对、空消息基线是否低于 50%，以及概念题是否全对。",
@@ -292,7 +353,7 @@ export const ML_STAGES: MlStageDef[] = [
     ],
   },
   {
-    index: 3,
+    index: 4,
     id: "train",
     title: "让机器自己改错",
     englishTitle: "Gradient Descent",
@@ -354,7 +415,7 @@ export const ML_STAGES: MlStageDef[] = [
     ],
   },
   {
-    index: 4,
+    index: 5,
     id: "evaluate",
     title: "别被高分假象骗了",
     englishTitle: "Confusion Matrix",
@@ -437,7 +498,7 @@ export const ML_STAGES: MlStageDef[] = [
     ],
   },
   {
-    index: 5,
+    index: 6,
     id: "generalize",
     title: "数据规模与未知大考",
     englishTitle: "Generalization",

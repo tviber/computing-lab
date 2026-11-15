@@ -1,9 +1,9 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt, teacherAuthState } from "../../../test/router-test-helpers.tsx";
 import type { MlJudgeResult, MlProjectPayload } from "../domain/protocol.ts";
-import { ML_STAGES, STAGE1_PUZZLE_ITEMS } from "../domain/stages.ts";
-import type { RawTokenStatus } from "../domain/tokenizer.ts";
+import { ML_STAGES } from "../domain/stages.ts";
+import { STRATEGY_WORDS } from "../domain/strategy.ts";
 
 function json(body: unknown, init?: ResponseInit) {
   return new Response(JSON.stringify(body), {
@@ -18,17 +18,10 @@ function makeProject(overrides: Partial<MlProjectPayload> = {}): MlProjectPayloa
     passedStages: [],
     drafts: {},
     draftRevisions: {},
-    runSummaries: { s1: null, s2: null, s3: null, s4: null, s5: null },
+    runSummaries: { s1: null, s2: null, s3: null, s4: null, s5: null, s6: null },
     ...overrides,
   };
 }
-
-const CHOICE_LABEL: Record<string, string> = {
-  kept: "入表 (x=1)",
-  duplicate: "重复忽略",
-  filtered: "标点过滤",
-  oov: "新词 OOV",
-};
 
 function stubMlFetch(
   project: MlProjectPayload,
@@ -61,51 +54,55 @@ describe("MlIntroLabPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders stage 1 tokenizer workspace with stage 2 locked", async () => {
+  it("renders stage 1 10-word strategy workspace with stage 2 locked", async () => {
     stubMlFetch(makeProject(), () => json({}));
 
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
 
-    await screen.findByRole("heading", { name: "把短信变成数字" });
-    expect(screen.getByText(/训练词表总维数/)).toBeInTheDocument();
+    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
+    for (const word of STRATEGY_WORDS) {
+      expect(screen.getByLabelText(`${word} 权重滑块`)).toBeInTheDocument();
+      expect(screen.getByLabelText(`${word} 权重数值`)).toBeInTheDocument();
+    }
+    expect(screen.getByText(/点积拆解（10 维向量 × 你的权重）/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交第 1 关判定" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /给词打分与概率/ })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled();
   });
 
-  it("completes stage 1 puzzle + concepts, passes judge, and unlocks stage 2", async () => {
+  it("completes stage 1 weights + concepts, passes judge, and unlocks stage 2", async () => {
     const passResult: MlJudgeResult = {
       passed: true,
-      score: 10,
-      total: 10,
+      score: 9,
+      total: 9,
       submissionId: "sub-1",
       currentStage: 2,
       passedStages: [1],
       testSummary: {
         parts: [
-          { id: "tokens", label: "词元归类测验（7/7）", ok: true, detail: null },
-          { id: "concepts", label: "概念检查（3/3）", ok: true, detail: null },
+          { id: "strategy-sms", label: "6 条 10 词短信分类", ok: true, detail: "6 / 6 条全部分对" },
+          { id: "concepts", label: "概念检查", ok: true, detail: "2 / 2 题全对" },
         ],
-        detail: "7 个切词片段与概念题全部答对。",
+        detail: "10 词点积策略全部命中，解锁第 2 关探索真实词袋。",
       },
     };
 
     const fetchSpy = stubMlFetch(makeProject(), () => json(passResult));
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
 
-    await screen.findByRole("heading", { name: "把短信变成数字" });
+    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
-    // Select classifications for all 7 puzzle items (two groups share label "免费").
-    let freeSeen = 0;
-    for (const item of STAGE1_PUZZLE_ITEMS) {
-      const label = `片段 ${item.text} 的归类`;
-      const group =
-        item.text === "免费"
-          ? screen.getAllByRole("group", { name: label })[freeSeen++]
-          : screen.getByRole("group", { name: label });
-      fireEvent.click(within(group).getByRole("button", { name: CHOICE_LABEL[item.expected] }));
-    }
+    // Adjust spam and normal weights via slider and number inputs.
+    fireEvent.change(screen.getByLabelText("中奖 权重滑块"), { target: { value: "3" } });
+    fireEvent.change(screen.getByLabelText("发票 权重数值"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("退款 权重数值"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("优惠 权重数值"), { target: { value: "2" } });
+    fireEvent.change(screen.getByLabelText("妈妈 权重滑块"), { target: { value: "-3" } });
+    fireEvent.change(screen.getByLabelText("开会 权重数值"), { target: { value: "-2" } });
+    fireEvent.change(screen.getByLabelText("老师 权重数值"), { target: { value: "-2" } });
 
-    // Answer all 3 progressive concept prompts for stage 1.
+    expect(screen.getByText("判对 6 / 6")).toBeInTheDocument();
+
+    // Answer all progressive concept prompts for stage 1.
     for (const prompt of ML_STAGES[0].prompts) {
       const btn = await screen.findByRole("button", { name: prompt.options[prompt.correct].label });
       fireEvent.click(btn);
@@ -122,42 +119,39 @@ describe("MlIntroLabPage", () => {
       expect.objectContaining({ method: "POST" }),
     );
 
-    const stage2Nav = screen.getByRole("button", { name: /给词打分与概率/ });
+    const stage2Nav = screen.getByRole("button", { name: /把短信变成数字/ });
     expect(stage2Nav).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: /进入下一关/ }));
-    await screen.findByRole("heading", { name: "给词打分与概率" });
+    await screen.findByRole("heading", { name: "把短信变成数字" });
   });
 
   it("keeps stage 2 locked and displays verdict details on failed submission", async () => {
     const failResult: MlJudgeResult = {
       passed: false,
       score: 6,
-      total: 10,
+      total: 9,
       submissionId: "sub-fail",
       currentStage: 1,
       passedStages: [],
       testSummary: {
         parts: [
-          { id: "tokens", label: "词元归类测验（5/7）", ok: false, detail: "仍有 2 项归类有误" },
+          {
+            id: "strategy-sms",
+            label: "6 条 10 词短信分类",
+            ok: false,
+            detail: "5 / 6 条分对（未过：含报销词的日常）",
+          },
         ],
-        detail: "请检查重复词与未见词（OOV）的区分。",
+        detail: "请调整 10 个词的权重策略并完成概念题。",
       },
     };
 
     stubMlFetch(makeProject(), () => json(failResult));
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "把短信变成数字" });
+    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
-    let freeSeen = 0;
-    for (const item of STAGE1_PUZZLE_ITEMS) {
-      const label = `片段 ${item.text} 的归类`;
-      const group =
-        item.text === "免费"
-          ? screen.getAllByRole("group", { name: label })[freeSeen++]
-          : screen.getByRole("group", { name: label });
-      fireEvent.click(within(group).getByRole("button", { name: CHOICE_LABEL.kept }));
-    }
+    fireEvent.change(screen.getByLabelText("中奖 权重数值"), { target: { value: "2" } });
     for (const prompt of ML_STAGES[0].prompts) {
       fireEvent.click(
         await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
@@ -168,16 +162,16 @@ describe("MlIntroLabPage", () => {
 
     await screen.findByText("尚未通过本关");
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /给词打分与概率/ })).toBeDisabled(),
+      expect(screen.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled(),
     );
   });
 
-  it("matches Stage 4 validation list probabilities identically with MessageProbeCard explanation", async () => {
+  it("matches Stage 5 validation list probabilities identically with MessageProbeCard explanation", async () => {
     const project = makeProject({
-      currentStage: 4,
-      passedStages: [1, 2, 3],
+      currentStage: 5,
+      passedStages: [1, 2, 3, 4],
       drafts: {
-        "4": {
+        "5": {
           eta: 0.1,
           epochs: 12,
           threshold: 0.5,
@@ -205,19 +199,14 @@ describe("MlIntroLabPage", () => {
   });
 
   it("restores saved Stage 1 draft from server and autosaves updates", async () => {
-    const prefilled: Record<string, RawTokenStatus> = {};
-    for (const item of STAGE1_PUZZLE_ITEMS) {
-      prefilled[item.id] = item.expected;
-    }
     const project = makeProject({
       currentStage: 1,
       passedStages: [],
       drafts: {
         "1": {
-          selectedPresetId: "promo",
-          customText: "自定义测试短信：免费领取红包",
-          classifications: prefilled,
-          concepts: { "bag-of-words": 0 },
+          weights: { 中奖: 2.5, 妈妈: -3 },
+          selectedMsgId: "st-ham-1",
+          concepts: { "dot-product-strategy": 1 },
         },
       },
       draftRevisions: { "1": 3 },
@@ -225,12 +214,12 @@ describe("MlIntroLabPage", () => {
     const fetchSpy = stubMlFetch(project, () => json({}));
 
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "把短信变成数字" });
+    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
-    const input = screen.getByLabelText(/实验文本/) as HTMLInputElement;
-    expect(input.value).toBe("自定义测试短信：免费领取红包");
+    const numInput = screen.getByLabelText("中奖 权重数值") as HTMLInputElement;
+    expect(numInput.value).toBe("2.5");
 
-    fireEvent.change(input, { target: { value: "更新后的短信文本" } });
+    fireEvent.change(numInput, { target: { value: "4" } });
     await waitFor(
       () =>
         expect(
@@ -238,7 +227,7 @@ describe("MlIntroLabPage", () => {
             const u = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
             if (!u.includes("/labs/ml-intro/draft") || init?.method !== "PUT") return false;
             const parsed = init.body ? JSON.parse(String(init.body)) : {};
-            return parsed.stageIndex === 1 && parsed.draft?.customText === "更新后的短信文本";
+            return parsed.stageIndex === 1 && parsed.draft?.weights?.["中奖"] === 4;
           }),
         ).toBe(true),
       { timeout: 3000 },

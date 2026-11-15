@@ -173,12 +173,12 @@ describe("TeacherDashboardPage", () => {
   it("includes every judged lab and renders ml-intro progress and part details", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
-      const payload = path.includes("/submissions/ml-sub-5")
+      const payload = path.includes("/submissions/ml-sub-6")
         ? {
-            id: "ml-sub-5",
+            id: "ml-sub-6",
             studentNo: "20260101",
             name: "张三",
-            stageIndex: 5,
+            stageIndex: 6,
             score: 4,
             total: 6,
             passed: false,
@@ -216,22 +216,22 @@ describe("TeacherDashboardPage", () => {
                   userId: "u-student",
                   studentNo: "20260101",
                   name: "张三",
-                  currentStage: 5,
+                  currentStage: 6,
                   cells: {
                     1: {
                       stageIndex: 1,
-                      score: 10,
-                      total: 10,
+                      score: 9,
+                      total: 9,
                       passed: true,
                       submissionId: "ml-sub-1",
                       submittedAt: "2026-10-11T00:00:00.000Z",
                     },
-                    5: {
-                      stageIndex: 5,
+                    6: {
+                      stageIndex: 6,
                       score: 4,
                       total: 6,
                       passed: false,
-                      submissionId: "ml-sub-5",
+                      submissionId: "ml-sub-6",
                       submittedAt: "2026-10-11T00:05:00.000Z",
                     },
                   },

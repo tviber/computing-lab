@@ -8,7 +8,7 @@ import {
   MIN_MANUAL_WEIGHT,
 } from "../domain/logreg.ts";
 import type { MlTestSummary, ScoreDraft } from "../domain/protocol.ts";
-import { STAGE2_CALIBRATION_SMS, STAGE2_WORDS, type MlStageDef } from "../domain/stages.ts";
+import { SCORE_CALIBRATION_SMS, SCORE_WORDS, type MlStageDef } from "../domain/stages.ts";
 import { inspectCorpusMessageWithModel } from "../domain/tokenizer.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
@@ -38,12 +38,12 @@ export function ScorePanel({
   const { fullTrainVocab } = useMemo(() => getPublicCorpus(), []);
 
   const evalSummary = useMemo(
-    () => evaluateManualWeights(draft.weights, draft.bias, STAGE2_CALIBRATION_SMS, 0.5),
+    () => evaluateManualWeights(draft.weights, draft.bias, SCORE_CALIBRATION_SMS, 0.5),
     [draft.weights, draft.bias],
   );
 
   const selectedSms =
-    STAGE2_CALIBRATION_SMS.find((m) => m.id === draft.selectedMsgId) ?? STAGE2_CALIBRATION_SMS[0];
+    SCORE_CALIBRATION_SMS.find((m) => m.id === draft.selectedMsgId) ?? SCORE_CALIBRATION_SMS[0];
 
   const weightMap = useMemo(() => {
     const m = new Map<string, number>();
@@ -60,7 +60,7 @@ export function ScorePanel({
 
   const resetWeights = () => {
     const zeroW: Record<string, number> = {};
-    for (const w of STAGE2_WORDS) zeroW[w] = 0;
+    for (const w of SCORE_WORDS) zeroW[w] = 0;
     onChange({ ...draft, weights: zeroW, bias: -1 });
   };
 
@@ -100,7 +100,7 @@ export function ScorePanel({
           </div>
 
           <div className="ml-sliders-grid">
-            {STAGE2_WORDS.map((word) => {
+            {SCORE_WORDS.map((word) => {
               const val = draft.weights[word] ?? 0;
               return (
                 <div className="ml-slider-row" key={word}>
@@ -135,14 +135,14 @@ export function ScorePanel({
           <div className="ml-panel-head">
             <h3>6 条分诊短信实时测试（点卡片拆解分数）</h3>
             <span
-              className={`ml-pill ${evalSummary.correctCount === STAGE2_CALIBRATION_SMS.length ? "is-success" : "is-warn"}`}
+              className={`ml-pill ${evalSummary.correctCount === SCORE_CALIBRATION_SMS.length ? "is-success" : "is-warn"}`}
             >
-              分对 {evalSummary.correctCount} / {STAGE2_CALIBRATION_SMS.length}
+              分对 {evalSummary.correctCount} / {SCORE_CALIBRATION_SMS.length}
             </span>
           </div>
 
           <ul className="ml-triage-list">
-            {STAGE2_CALIBRATION_SMS.map((msg, i) => {
+            {SCORE_CALIBRATION_SMS.map((msg, i) => {
               const ev = evalSummary.items[i];
               const isSelected = msg.id === selectedSms.id;
               return (
@@ -195,7 +195,7 @@ export function ScorePanel({
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "判题中…" : "提交第 2 关判定"}
+          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!allConceptsDone ? (
           <span className="ml-muted-note">请先答对下方全部概念题再提交</span>

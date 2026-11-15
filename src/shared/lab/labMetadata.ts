@@ -45,7 +45,7 @@ export const labMetadata = {
   "ml-intro": {
     title: "机器学习入门",
     description:
-      "把短信切词变成向量，从手调词权到让机器自己算损失、做梯度下降：用真实语料看懂分类器是怎么炼成的。",
+      "从 10 个词的直觉策略打分起步，再一路走进切词向量、S 曲线概率与梯度下降，用真实语料看懂分类器是怎么炼成的。",
     entryPath: "/labs/ml-intro",
     category: "information-systems",
   },

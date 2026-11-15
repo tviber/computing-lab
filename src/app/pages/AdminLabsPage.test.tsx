@@ -22,7 +22,7 @@ const labs = [
   },
   {
     id: "ml-intro",
-    stageCount: 5,
+    stageCount: 6,
     hidden: false,
     openClassIds: null,
     visible: true,
@@ -175,7 +175,7 @@ describe("AdminLabsPage", () => {
     await waitFor(() => expect(screen.getByText("机器学习入门")).toBeInTheDocument());
     const mlRow = labRow("机器学习入门");
     expect(mlRow.getByText("ml-intro")).toBeInTheDocument();
-    expect(mlRow.getByText("5")).toBeInTheDocument();
+    expect(mlRow.getByText("6")).toBeInTheDocument();
     await waitFor(() => expect(mlRow.getByRole("radio", { name: "开放" })).toBeChecked());
 
     await user.click(mlRow.getByRole("checkbox", { name: "二班" }));

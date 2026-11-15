@@ -10,7 +10,7 @@ import { dashboardRoutes } from "./dashboard.ts";
 import { labsRoutes } from "./labs.ts";
 import { mlIntroRoutes } from "./mlIntro.ts";
 import { teacherRoutes } from "./teacher.ts";
-import { ML_STAGES, STAGE1_PUZZLE_ITEMS } from "../../src/features/ml-intro/domain/stages.ts";
+import { ML_STAGES } from "../../src/features/ml-intro/domain/stages.ts";
 
 async function setup() {
   const db = openMemoryDb();
@@ -356,7 +356,7 @@ describe("teacher lab routes", () => {
     };
     expect(labs.find((l) => l.id === "ml-intro")).toMatchObject({
       id: "ml-intro",
-      stageCount: 5,
+      stageCount: 6,
       classes: [{ classId: "c1", open: true }],
     });
 
@@ -385,9 +385,6 @@ describe("teacher lab routes", () => {
     );
 
     // Student submits an incomplete Stage 1 attempt; teacher inspects matrix & failure drawer.
-    const classifications = Object.fromEntries(
-      STAGE1_PUZZLE_ITEMS.slice(0, 3).map((item) => [item.id, item.expected]),
-    );
     const judgeRes = await request(
       app,
       "POST",
@@ -395,9 +392,8 @@ describe("teacher lab routes", () => {
       {
         stageIndex: 1,
         draft: {
-          selectedPresetId: "promo",
-          customText: "",
-          classifications,
+          weights: { 中奖: 2, 发票: 2 },
+          selectedMsgId: "st-spam-1",
           concepts: { [ML_STAGES[0].prompts[0].id]: ML_STAGES[0].prompts[0].correct },
         },
       },
@@ -453,7 +449,8 @@ describe("teacher lab routes", () => {
       passed: false,
       testSummary: {
         parts: [
-          { id: "tokens", label: "切词与特征归类", ok: false },
+          { id: "strategy-sms", label: "6 条 10 词短信分类", ok: false },
+          { id: "strategy-balance", label: "正负线索词策略分布", ok: false },
           { id: "concepts", label: "概念检查", ok: false },
         ],
       },
