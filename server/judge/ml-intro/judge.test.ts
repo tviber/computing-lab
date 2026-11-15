@@ -60,13 +60,13 @@ describe("ml-intro judge", () => {
     // Turning neutral words positive misfires on purely neutral SMS.
     const noisyNeutral = judgeMlIntroSubmission(db, project, 1, {
       weights: {
-        中奖: 3,
-        发票: 2,
-        退款: 2,
-        优惠: 2,
-        妈妈: -3,
-        开会: -2,
-        老师: -2,
+        中奖: 2,
+        发票: 1,
+        退款: 1,
+        优惠: 1,
+        妈妈: -2,
+        开会: -1,
+        老师: -1,
         今天: 1,
         通知: 1,
       },
@@ -76,13 +76,13 @@ describe("ml-intro judge", () => {
 
     const ok = judgeMlIntroSubmission(db, project, 1, {
       weights: {
-        中奖: 3,
-        发票: 2,
-        退款: 2,
-        优惠: 2,
-        妈妈: -3,
-        开会: -2,
-        老师: -2,
+        中奖: 2,
+        发票: 1,
+        退款: 1,
+        优惠: 1,
+        妈妈: -2,
+        开会: -1,
+        老师: -1,
         今天: 0,
         明天: 0,
         通知: 0,

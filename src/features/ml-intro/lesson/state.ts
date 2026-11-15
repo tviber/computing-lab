@@ -88,11 +88,18 @@ export function defaultTokenizeDraft(): TokenizeDraft {
 }
 
 export function defaultScoreDraft(): ScoreDraft {
-  const weights: Record<string, number> = {};
-  for (const w of SCORE_WORDS) weights[w] = 0;
   return {
-    weights,
-    bias: -1,
+    weights: {
+      免费: 2,
+      领取: 2,
+      点击: 1.8,
+      退订: 1.8,
+      优惠: 1.8,
+      同学: 0,
+      明天: 0,
+      一起: 0,
+    },
+    bias: 0.4,
     selectedMsgId: SCORE_CALIBRATION_SMS[0].id,
     concepts: {},
   };

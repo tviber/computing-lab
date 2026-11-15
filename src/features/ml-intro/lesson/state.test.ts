@@ -7,6 +7,8 @@ describe("ml-intro lesson state", () => {
     expect(mlStageUnlocked([], 1)).toBe(true);
     expect(mlStageUnlocked([], 2)).toBe(false);
     expect(mlStageUnlocked([1], 2)).toBe(true);
+    expect(mlStageUnlocked([2, 3], 2)).toBe(true);
+    expect(mlStageUnlocked([2, 3], 4)).toBe(true);
     expect(mlStageUnlocked([1, 2, 3, 4, 5], 6)).toBe(true);
     expect(nextMlStage([])).toBe(1);
     expect(nextMlStage([1, 2])).toBe(3);
@@ -20,8 +22,8 @@ describe("ml-intro lesson state", () => {
       concepts: { "dot-product-strategy": 1, bad: -1 },
     });
     if ("weights" in s1) {
-      expect(s1.weights["中奖"]).toBe(5);
-      expect(s1.weights["妈妈"]).toBe(-5);
+      expect(s1.weights["中奖"]).toBe(2);
+      expect(s1.weights["妈妈"]).toBe(-2);
       expect(s1.weights["unknown"]).toBeUndefined();
     }
 

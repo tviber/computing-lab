@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt, teacherAuthState } from "../../../test/router-test-helpers.tsx";
 import type { MlJudgeResult, MlProjectPayload } from "../domain/protocol.ts";
@@ -61,10 +61,9 @@ describe("MlIntroLabPage", () => {
 
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
     for (const word of STRATEGY_WORDS) {
-      expect(screen.getByLabelText(`${word} 权重滑块`)).toBeInTheDocument();
-      expect(screen.getByLabelText(`${word} 权重数值`)).toBeInTheDocument();
+      expect(screen.getByRole("group", { name: `${word} 倾向设置` })).toBeInTheDocument();
     }
-    expect(screen.getByText(/点积拆解（10 维向量 × 你的权重）/)).toBeInTheDocument();
+    expect(screen.getByText(/点积拆解（10 维向量 × 你的策略分）/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交第 1 关判定" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled();
   });
@@ -91,14 +90,20 @@ describe("MlIntroLabPage", () => {
 
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
-    // Adjust spam and normal weights via slider and number inputs.
-    fireEvent.change(screen.getByLabelText("中奖 权重滑块"), { target: { value: "3" } });
-    fireEvent.change(screen.getByLabelText("发票 权重数值"), { target: { value: "2" } });
-    fireEvent.change(screen.getByLabelText("退款 权重数值"), { target: { value: "2" } });
-    fireEvent.change(screen.getByLabelText("优惠 权重数值"), { target: { value: "2" } });
-    fireEvent.change(screen.getByLabelText("妈妈 权重滑块"), { target: { value: "-3" } });
-    fireEvent.change(screen.getByLabelText("开会 权重数值"), { target: { value: "-2" } });
-    fireEvent.change(screen.getByLabelText("老师 权重数值"), { target: { value: "-2" } });
+    // Click discrete polarity tiers for spam and normal words.
+    const tierSelections: Record<string, string> = {
+      中奖: "+2 强垃圾",
+      发票: "+1 偏垃圾",
+      退款: "+1 偏垃圾",
+      优惠: "+1 偏垃圾",
+      妈妈: "−2 强正常",
+      开会: "−1 偏正常",
+      老师: "−1 偏正常",
+    };
+    for (const [word, tierLabel] of Object.entries(tierSelections)) {
+      const group = screen.getByRole("group", { name: `${word} 倾向设置` });
+      fireEvent.click(within(group).getByRole("button", { name: tierLabel }));
+    }
 
     expect(screen.getByText("判对 6 / 6")).toBeInTheDocument();
 
@@ -151,7 +156,11 @@ describe("MlIntroLabPage", () => {
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
-    fireEvent.change(screen.getByLabelText("中奖 权重数值"), { target: { value: "2" } });
+    fireEvent.click(
+      within(screen.getByRole("group", { name: "中奖 倾向设置" })).getByRole("button", {
+        name: "+2 强垃圾",
+      }),
+    );
     for (const prompt of ML_STAGES[0].prompts) {
       fireEvent.click(
         await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
@@ -204,7 +213,7 @@ describe("MlIntroLabPage", () => {
       passedStages: [],
       drafts: {
         "1": {
-          weights: { 中奖: 2.5, 妈妈: -3 },
+          weights: { 中奖: 1, 妈妈: -2 },
           selectedMsgId: "st-ham-1",
           concepts: { "dot-product-strategy": 1 },
         },
@@ -216,10 +225,18 @@ describe("MlIntroLabPage", () => {
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
-    const numInput = screen.getByLabelText("中奖 权重数值") as HTMLInputElement;
-    expect(numInput.value).toBe("2.5");
+    const prizeGroup = screen.getByRole("group", { name: "中奖 倾向设置" });
+    expect(within(prizeGroup).getByRole("button", { name: "+1 偏垃圾" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const momGroup = screen.getByRole("group", { name: "妈妈 倾向设置" });
+    expect(within(momGroup).getByRole("button", { name: "−2 强正常" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
 
-    fireEvent.change(numInput, { target: { value: "4" } });
+    fireEvent.click(within(prizeGroup).getByRole("button", { name: "+2 强垃圾" }));
     await waitFor(
       () =>
         expect(
@@ -227,11 +244,25 @@ describe("MlIntroLabPage", () => {
             const u = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
             if (!u.includes("/labs/ml-intro/draft") || init?.method !== "PUT") return false;
             const parsed = init.body ? JSON.parse(String(init.body)) : {};
-            return parsed.stageIndex === 1 && parsed.draft?.weights?.["中奖"] === 4;
+            return parsed.stageIndex === 1 && parsed.draft?.weights?.["中奖"] === 2;
           }),
         ).toBe(true),
       { timeout: 3000 },
     );
     await screen.findByText("已保存");
+  });
+
+  it("renders Stage 3 Sigmoid curve and prefilled positive-bias blacklist starter", async () => {
+    const project = makeProject({
+      currentStage: 3,
+      passedStages: [1, 2],
+    });
+    stubMlFetch(project, () => json({}));
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "给词打分与概率" });
+
+    expect(screen.getByLabelText("Sigmoid 曲线与当前模型定位")).toBeInTheDocument();
+    expect(screen.getByText(/全生词\/无触发基准概率：59\.9%/)).toBeInTheDocument();
   });
 });

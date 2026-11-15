@@ -312,6 +312,61 @@ describe("migrate", () => {
     db.close();
   });
 
+  it("shifts ml-intro 5-stage progress, drafts, revisions, and submissions forward on v16 -> v17", () => {
+    const db = fixtureDb(16);
+    db.prepare("INSERT INTO classes (id, name, invite_code) VALUES ('c1', 'class', 'inv')").run();
+    db.prepare(
+      "INSERT INTO users (id, student_no, name, password_hash, role) VALUES ('u1', 'no1', 'n', 'h', 'user')",
+    ).run();
+    db.prepare(
+      "INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage, passed_stages, draft_graph, draft_revisions) " +
+        "VALUES ('p1', 'u1', 'c1', 'ml-intro', 3, '[1,2]', '{\"1\":{\"customText\":\"hi\"},\"2\":{\"bias\":-1}}', '{\"1\":4,\"2\":2}')",
+    ).run();
+    db.prepare(
+      "INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage, passed_stages) " +
+        "VALUES ('p2', 'u1', 'c1', 'calculator', 3, '[1,2]')",
+    ).run();
+    for (const stage of [1, 2]) {
+      db.prepare(
+        "INSERT INTO submissions (id, project_id, user_id, lab_id, stage_index, snapshot_graph, score, total, passed, test_summary) " +
+          `VALUES ('ml-${stage}', 'p1', 'u1', 'ml-intro', ${stage}, '{}', 1, 1, 1, '{}')`,
+      ).run();
+    }
+
+    migrate(db);
+
+    expect(versionOf(db)).toBe(SCHEMA_VERSION);
+    const mlRow = db
+      .prepare(
+        "SELECT passed_stages, current_stage, draft_graph, draft_revisions FROM student_projects WHERE id='p1'",
+      )
+      .get() as {
+      passed_stages: string;
+      current_stage: number;
+      draft_graph: string;
+      draft_revisions: string;
+    };
+    expect(mlRow.passed_stages).toBe("[2,3]");
+    expect(mlRow.current_stage).toBe(1);
+    expect(JSON.parse(mlRow.draft_graph)).toEqual({
+      "2": { customText: "hi" },
+      "3": { bias: -1 },
+    });
+    expect(JSON.parse(mlRow.draft_revisions)).toEqual({ "2": 4, "3": 2 });
+    const mlSubs = db
+      .prepare("SELECT stage_index FROM submissions WHERE lab_id='ml-intro' ORDER BY stage_index")
+      .all() as { stage_index: number }[];
+    expect(mlSubs.map((s) => s.stage_index)).toEqual([2, 3]);
+    expect(
+      (
+        db.prepare("SELECT passed_stages FROM student_projects WHERE id='p2'").get() as {
+          passed_stages: string;
+        }
+      ).passed_stages,
+    ).toBe("[1,2]");
+    db.close();
+  });
+
   it("leaves a current database untouched", () => {
     const db = fixtureDb(SCHEMA_VERSION);
     migrate(db);

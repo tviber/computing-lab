@@ -13,11 +13,24 @@ export const STRATEGY_WORDS = [
 
 export type StrategyWord = (typeof STRATEGY_WORDS)[number];
 
-export const MIN_STRATEGY_WEIGHT = -5;
-export const MAX_STRATEGY_WEIGHT = 5;
-export const STRATEGY_WEIGHT_STEP = 0.5;
-export const STRATEGY_THRESHOLD = 0.5;
-export const STRATEGY_BASELINE_PROB = 0.15;
+export const MIN_STRATEGY_WEIGHT = -2;
+export const MAX_STRATEGY_WEIGHT = 2;
+export const STRATEGY_SCORE_SPAM_THRESHOLD = 1;
+
+export type StrategyTier = {
+  value: -2 | -1 | 0 | 1 | 2;
+  label: string;
+  shortLabel: string;
+  role: "neg" | "zero" | "pos";
+};
+
+export const STRATEGY_WEIGHT_TIERS: readonly StrategyTier[] = [
+  { value: -2, label: "−2 强正常", shortLabel: "−2", role: "neg" },
+  { value: -1, label: "−1 偏正常", shortLabel: "−1", role: "neg" },
+  { value: 0, label: "0 无关", shortLabel: "0", role: "zero" },
+  { value: 1, label: "+1 偏垃圾", shortLabel: "+1", role: "pos" },
+  { value: 2, label: "+2 强垃圾", shortLabel: "+2", role: "pos" },
+] as const;
 
 export type StrategyMessage = {
   id: string;
@@ -72,24 +85,6 @@ export const STRATEGY_SMS_EXAMPLES: readonly StrategyMessage[] = [
   },
 ];
 
-/**
- * Calibrated piecewise linear score-to-probability mapping for the Stage 1
- * 10-word strategy activity. Deliberately avoids unbiased Logistic Regression
- * (`sigmoid(0) = 50%`) so neutral messages with `w · x = 0` sit at a low 15%
- * prior instead of hovering on the 50% spam boundary, and small positive scores
- * scale smoothly without saturating too abruptly.
- */
-export function strategyScoreToProbability(score: number): number {
-  if (!Number.isFinite(score)) return STRATEGY_BASELINE_PROB;
-  if (score <= 0) {
-    return Math.max(0.02, Math.min(STRATEGY_BASELINE_PROB, STRATEGY_BASELINE_PROB + 0.03 * score));
-  }
-  if (score < 1) {
-    return STRATEGY_BASELINE_PROB + 0.4 * score;
-  }
-  return Math.min(0.98, 0.55 + 0.06 * (score - 1));
-}
-
 export type StrategyWordContribution = {
   word: StrategyWord;
   present: 0 | 1;
@@ -100,7 +95,6 @@ export type StrategyWordContribution = {
 export type StrategyItemEval = {
   message: StrategyMessage;
   score: number;
-  prob: number;
   pred: 0 | 1;
   ok: boolean;
   contributions: StrategyWordContribution[];
@@ -117,7 +111,8 @@ export type StrategyEvalResult = {
 export function clampStrategyWeight(value: number): number {
   if (!Number.isFinite(value)) return 0;
   const clamped = Math.max(MIN_STRATEGY_WEIGHT, Math.min(MAX_STRATEGY_WEIGHT, value));
-  return Math.round(clamped * 2) / 2;
+  const rounded = Math.round(clamped);
+  return rounded === 0 ? 0 : rounded;
 }
 
 export function evaluateStrategyWeights(weights: Record<string, number>): StrategyEvalResult {
@@ -142,12 +137,10 @@ export function evaluateStrategyWeights(weights: Record<string, number>): Strate
       score += contribution;
       return { word, present, weight, contribution };
     });
-    const prob = strategyScoreToProbability(score);
-    const pred: 0 | 1 = prob >= STRATEGY_THRESHOLD ? 1 : 0;
+    const pred: 0 | 1 = score >= STRATEGY_SCORE_SPAM_THRESHOLD ? 1 : 0;
     return {
       message,
       score,
-      prob,
       pred,
       ok: pred === message.label,
       contributions,

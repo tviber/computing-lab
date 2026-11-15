@@ -20,10 +20,12 @@ import {
 import {
   clampStrategyWeight,
   evaluateStrategyWeights,
-  STRATEGY_BASELINE_PROB,
+  MAX_STRATEGY_WEIGHT,
+  MIN_STRATEGY_WEIGHT,
+  STRATEGY_SCORE_SPAM_THRESHOLD,
   STRATEGY_SMS_EXAMPLES,
+  STRATEGY_WEIGHT_TIERS,
   STRATEGY_WORDS,
-  strategyScoreToProbability,
 } from "./strategy.ts";
 import {
   analyzeTokens,
@@ -59,8 +61,13 @@ describe("ml-intro domain engine", () => {
     }
   });
 
-  it("evaluates Stage 1 10-word strategy weights with calibrated non-LR probability curve", () => {
+  it("evaluates Stage 1 10-word strategy with discrete tiers and signed risk cutoff w·x >= +1", () => {
     expect(STRATEGY_WORDS).toHaveLength(10);
+    expect(MIN_STRATEGY_WEIGHT).toBe(-2);
+    expect(MAX_STRATEGY_WEIGHT).toBe(2);
+    expect(STRATEGY_SCORE_SPAM_THRESHOLD).toBe(1);
+    expect(STRATEGY_WEIGHT_TIERS.map((tier) => tier.value)).toEqual([-2, -1, 0, 1, 2]);
+
     const vocab = new Set<string>(STRATEGY_WORDS);
     const seen = new Set<string>();
     for (const msg of STRATEGY_SMS_EXAMPLES) {
@@ -72,53 +79,58 @@ describe("ml-intro domain engine", () => {
     }
     expect(seen.size).toBe(10);
 
-    // Non-LR baseline at score = 0 stays at 15% rather than Logistic Regression's 50% tie.
-    expect(strategyScoreToProbability(0)).toBeCloseTo(STRATEGY_BASELINE_PROB, 6);
-    expect(strategyScoreToProbability(-3)).toBeLessThan(STRATEGY_BASELINE_PROB);
-    expect(strategyScoreToProbability(-10)).toBeCloseTo(0.02, 6);
-    expect(strategyScoreToProbability(0.5)).toBeLessThan(0.5);
-    expect(strategyScoreToProbability(1)).toBeGreaterThanOrEqual(0.5);
-    expect(strategyScoreToProbability(20)).toBeCloseTo(0.98, 6);
-
-    expect(clampStrategyWeight(99)).toBe(5);
-    expect(clampStrategyWeight(-99)).toBe(-5);
-    expect(clampStrategyWeight(1.74)).toBe(1.5);
+    expect(clampStrategyWeight(99)).toBe(2);
+    expect(clampStrategyWeight(-99)).toBe(-2);
+    expect(clampStrategyWeight(1.74)).toBe(2);
+    expect(clampStrategyWeight(-0.2)).toBe(0);
 
     const zeroEval = evaluateStrategyWeights({});
-    expect(zeroEval.correctCount).toBeLessThan(STRATEGY_SMS_EXAMPLES.length);
+    expect(zeroEval.correctCount).toBe(3);
+    for (const item of zeroEval.items) {
+      expect(item.score).toBe(0);
+      expect(item.pred).toBe(0);
+      expect("prob" in item).toBe(false);
+    }
 
-    const noNeg = evaluateStrategyWeights({ 中奖: 2, 发票: 2, 退款: 2, 优惠: 2 });
+    const atCutoff = evaluateStrategyWeights({ 中奖: 1 });
+    expect(atCutoff.items.find((i) => i.message.id === "st-spam-1")?.score).toBe(1);
+    expect(atCutoff.items.find((i) => i.message.id === "st-spam-1")?.pred).toBe(1);
+    expect(atCutoff.items.find((i) => i.message.id === "st-ham-2")?.score).toBe(0);
+    expect(atCutoff.items.find((i) => i.message.id === "st-ham-2")?.pred).toBe(0);
+
+    const noNeg = evaluateStrategyWeights({ 中奖: 2, 发票: 1, 退款: 1, 优惠: 1 });
     expect(noNeg.correctCount).toBeLessThan(STRATEGY_SMS_EXAMPLES.length);
     expect(noNeg.items.find((i) => i.message.id === "st-ham-3")?.ok).toBe(false);
 
     const pollutedNeutral = evaluateStrategyWeights({
       中奖: 2,
-      发票: 2,
-      退款: 2,
-      优惠: 2,
-      妈妈: -3,
-      开会: -2,
-      老师: -2,
+      发票: 1,
+      退款: 1,
+      优惠: 1,
+      妈妈: -2,
+      开会: -1,
+      老师: -1,
       今天: 1,
       通知: 1,
     });
     expect(pollutedNeutral.items.find((i) => i.message.id === "st-ham-2")?.ok).toBe(false);
 
-    const balanced = evaluateStrategyWeights({
-      中奖: 3,
-      发票: 2,
-      退款: 2,
-      优惠: 2,
-      妈妈: -3,
-      开会: -2,
-      老师: -2,
+    // Pure polarity choice (+/-1, 0) suffices without exact numeric tweaking.
+    const equalTiers = evaluateStrategyWeights({
+      中奖: 1,
+      发票: 1,
+      退款: 1,
+      优惠: 1,
+      妈妈: -1,
+      开会: -1,
+      老师: -1,
       今天: 0,
       明天: 0,
       通知: 0,
     });
-    expect(balanced.correctCount).toBe(STRATEGY_SMS_EXAMPLES.length);
-    expect(balanced.positiveWordCount).toBe(4);
-    expect(balanced.negativeWordCount).toBe(3);
+    expect(equalTiers.correctCount).toBe(STRATEGY_SMS_EXAMPLES.length);
+    expect(equalTiers.positiveWordCount).toBe(4);
+    expect(equalTiers.negativeWordCount).toBe(3);
   });
 
   it("tokenizes stage-2 puzzle sentence into kept, duplicate, filtered, and oov categories", () => {

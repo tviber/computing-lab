@@ -1,7 +1,9 @@
 # ML Intro Lab (`ml-intro`)
 
 - **6 linear stages** (`src/features/ml-intro/domain/stages.ts`): `1. strategy` -> `2. tokenize` -> `3. score` -> `4. train` -> `5. evaluate` -> `6. generalize`.
-  - Stage 1 (`strategy.ts`): 10-word toy strategy (`[-5, 5]` slider/numeric weights, 6 10-word SMS examples) using piecewise baseline probability `strategyScoreToProbability` (`15%` at `w·x = 0`, deliberately NOT Logistic Regression) and requiring both positive (`>=2`) and negative (`>=2`) weights.
+  - Stage 1 (`strategy.ts`): 10-word intuition strategy with 5 discrete polarity tiers (`[-2, 2]` integer weights: `−2 强正常`..`+2 强垃圾`), 6 10-word SMS examples, and signed risk score cutoff `w·x >= +1` (deliberately no synthetic probabilities; requires both positive and negative polarity choices without polluting neutral words).
+  - Stage 3 (`ScorePanel.tsx`, `state.ts`): Starts from a prefilled spam blacklist (`b = +0.4`, spam weights pre-set, normal words `0`) with a live Sigmoid S-curve SVG visualizer (`z = w·x + b -> σ(z)`), focusing students on why `b < 0` and negative counter-weights are needed for probabilistic calibration.
+- **SQLite migration (`SCHEMA_VERSION = 17` in `server/db/client.ts`)**: Legacy 5-stage `ml-intro` progress (`passed_stages`, `draft_graph`, `draft_revisions`, `submissions.stage_index` `1..5`) shifts forward `+1` to `2..6` on upgrade; `mlStageUnlocked` allows `passedStages.includes(index)` so migrated rows keep linear continuity.
 - **Corpus split & classroom scrubbing**: 2,000 classroom-curated, PII-redacted (`TEL`/`URL`/`ID`/`NUM`) SMS rows (~14.1% spam) stored as `<label>\t<text>`:
   - Browser & judge (`src/features/ml-intro/domain/corpusData.ts`): `TRAIN_ROWS` (1,400) + `VAL_ROWS` (300). Train vocabulary is built strictly from `TRAIN_ROWS` to prevent OOV leakage.
   - Server-only held-out test (`server/judge/ml-intro/hiddenCorpus.ts`): `HIDDEN_TEST_ROWS` (300). Never import into `src/` or return raw hidden texts or detailed hidden-test metrics in judge responses.

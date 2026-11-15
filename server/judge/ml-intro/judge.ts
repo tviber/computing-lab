@@ -134,8 +134,8 @@ export function judgeMlIntroSubmission(
     testSummary = {
       parts,
       detail: passed
-        ? "10 词点积策略全部命中，解锁第 2 关探索真实词袋。"
-        : "请调整 10 个词的权重策略并完成概念题。",
+        ? "10 词点积风险策略全部命中，解锁第 2 关探索真实切词与词袋。"
+        : "请调整 10 个词的倾向规则并完成概念题。",
     };
   } else if (stageIndex === 2) {
     const draft = sanitizeTokenizeDraft(rawDraft);

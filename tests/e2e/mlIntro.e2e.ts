@@ -67,6 +67,9 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await expect(page.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled();
 
   // Stage 1: Set weights via numeric box + slider, verify autosave + reload restore, then pass
+  const prizeStrongSpam = page
+    .getByRole("group", { name: "中奖 倾向设置" })
+    .getByRole("button", { name: "+2 强垃圾" });
   const s1DraftSave = page.waitForResponse((res) => {
     if (res.request().method() !== "PUT" || !res.url().endsWith("/labs/ml-intro/draft")) {
       return false;
@@ -75,28 +78,31 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
       stageIndex?: number;
       draft?: { weights?: Record<string, number> };
     } | null;
-    return body?.stageIndex === 1 && body.draft?.weights?.["中奖"] === 3;
+    return body?.stageIndex === 1 && body.draft?.weights?.["中奖"] === 2;
   });
-  await page.getByLabel("中奖 权重数值").fill("3");
-  await expect(page.getByLabel("中奖 权重数值")).toHaveValue("3");
+  await prizeStrongSpam.click();
+  await expect(prizeStrongSpam).toHaveAttribute("aria-pressed", "true");
   const s1SaveRes = await s1DraftSave;
   expect(s1SaveRes.status()).toBe(200);
   await expect(page.getByText("已保存")).toBeVisible();
 
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "直觉策略：给 10 个词打分" })).toBeVisible();
-  await expect(page.getByLabel("中奖 权重数值")).toHaveValue("3");
+  await expect(prizeStrongSpam).toHaveAttribute("aria-pressed", "true");
 
-  const s1Weights: Record<string, string> = {
-    发票: "2",
-    退款: "2",
-    优惠: "2",
-    妈妈: "-3",
-    开会: "-2",
-    老师: "-2",
+  const s1Tiers: Record<string, string> = {
+    发票: "+1 偏垃圾",
+    退款: "+1 偏垃圾",
+    优惠: "+1 偏垃圾",
+    妈妈: "−2 强正常",
+    开会: "−1 偏正常",
+    老师: "−1 偏正常",
   };
-  for (const [word, val] of Object.entries(s1Weights)) {
-    await page.getByLabel(`${word} 权重数值`).fill(val);
+  for (const [word, tierLabel] of Object.entries(s1Tiers)) {
+    await page
+      .getByRole("group", { name: `${word} 倾向设置` })
+      .getByRole("button", { name: tierLabel })
+      .click();
   }
   await expect(page.getByText("判对 6 / 6")).toBeVisible();
   for (const prompt of ML_STAGES[0].prompts) {
@@ -159,6 +165,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await expect(page.getByRole("heading", { name: "给词打分与概率" })).toBeVisible();
   await expect(page.locator("#ml-w-免费")).toHaveValue("2.2");
 
+  await page.locator("#ml-bias-slider").fill("-1");
   const s3Weights: Record<string, string> = {
     免费: "2.2",
     领取: "2",

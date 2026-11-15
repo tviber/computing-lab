@@ -1,26 +1,43 @@
-import { useMemo, useState } from "react";
+import { useMemo } from "react";
 import type { MlTestSummary, StrategyDraft } from "../domain/protocol.ts";
 import type { MlStageDef } from "../domain/stages.ts";
 import {
   clampStrategyWeight,
   evaluateStrategyWeights,
-  MAX_STRATEGY_WEIGHT,
-  MIN_STRATEGY_WEIGHT,
-  STRATEGY_WEIGHT_STEP,
+  STRATEGY_SCORE_SPAM_THRESHOLD,
+  STRATEGY_WEIGHT_TIERS,
   STRATEGY_WORDS,
 } from "../domain/strategy.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 
 function fmtSigned(value: number): string {
-  const rounded = Math.round(value * 10) / 10;
-  return `${rounded > 0 ? "+" : ""}${rounded.toFixed(1).replace(/\.0$/, "")}`;
+  const rounded = Math.round(value);
+  return `${rounded > 0 ? "+" : ""}${rounded}`;
 }
 
 function roleMeta(weight: number): { label: string; cls: string } {
-  if (weight > 0) return { label: "正相关", cls: "is-pos" };
-  if (weight < 0) return { label: "负相关", cls: "is-neg" };
+  if (weight > 0) return { label: "偏垃圾", cls: "is-pos" };
+  if (weight < 0) return { label: "偏正常", cls: "is-neg" };
   return { label: "无关", cls: "is-zero" };
+}
+
+function scoreBarStyle(score: number): { left: string; width: string; cls: string } {
+  // Map integer risk scores in [-6, +6] onto a zero-centered signed meter; cutoff is +1 (~58.3%).
+  const clamped = Math.max(-6, Math.min(6, score));
+  const pctFromZero = (Math.abs(clamped) / 6) * 50;
+  if (clamped >= 0) {
+    return {
+      left: "50%",
+      width: `${pctFromZero.toFixed(1)}%`,
+      cls: clamped >= STRATEGY_SCORE_SPAM_THRESHOLD ? "is-spam" : "is-warn",
+    };
+  }
+  return {
+    left: `${(50 - pctFromZero).toFixed(1)}%`,
+    width: `${pctFromZero.toFixed(1)}%`,
+    cls: "is-ham",
+  };
 }
 
 export function StrategyPanel({
@@ -44,8 +61,6 @@ export function StrategyPanel({
   onSubmit: () => void;
   onNextStage: () => void;
 }) {
-  const [editingWord, setEditingWord] = useState<{ word: string; raw: string } | null>(null);
-
   const evalResult = useMemo(() => evaluateStrategyWeights(draft.weights), [draft.weights]);
 
   const selectedEval =
@@ -63,7 +78,6 @@ export function StrategyPanel({
   const resetWeights = () => {
     const zeroW: Record<string, number> = {};
     for (const w of STRATEGY_WORDS) zeroW[w] = 0;
-    setEditingWord(null);
     onChange({ ...draft, weights: zeroW });
   };
 
@@ -74,61 +88,43 @@ export function StrategyPanel({
       <div className="ml-score-layout">
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>10 词策略面板：拖滑块或输入权重</h3>
+            <h3>10 词策略面板：点击设定每个词的倾向</h3>
             <button className="button button-ghost" onClick={resetWeights} type="button">
               全部清零
             </button>
           </div>
           <p className="ml-muted-note">
-            范围 {MIN_STRATEGY_WEIGHT} 到 +{MAX_STRATEGY_WEIGHT}
-            ：正数（+）推高垃圾概率，负数（−）保护正常消息，0 代表与判断无关。
+            只需判断倾向不用算小数：<strong>正分</strong>提高垃圾风险，<strong>负分</strong>
+            保护正常日常，<strong>0</strong> 代表与判断无关；规则：净风险分{" "}
+            <strong className="ml-mono">w · x ≥ +1</strong> 判为垃圾。
           </p>
 
           <div className="ml-strategy-list">
             {STRATEGY_WORDS.map((word) => {
-              const val = draft.weights[word] ?? 0;
+              const val = clampStrategyWeight(draft.weights[word] ?? 0);
               const role = roleMeta(val);
-              const numberText =
-                editingWord?.word === word ? editingWord.raw : String(Number(val.toFixed(1)));
               return (
                 <div className="ml-strategy-row" key={word}>
                   <div className="ml-strategy-word">
-                    <label htmlFor={`ml-st-range-${word}`}>{word}</label>
+                    <span className="ml-strategy-word-text">{word}</span>
                     <span className={`ml-strategy-role ${role.cls}`}>{role.label}</span>
                   </div>
-                  <input
-                    aria-label={`${word} 权重滑块`}
-                    id={`ml-st-range-${word}`}
-                    max={MAX_STRATEGY_WEIGHT}
-                    min={MIN_STRATEGY_WEIGHT}
-                    onChange={(e) => {
-                      setEditingWord(null);
-                      updateWeight(word, Number(e.target.value));
-                    }}
-                    step={STRATEGY_WEIGHT_STEP}
-                    type="range"
-                    value={val}
-                  />
-                  <input
-                    aria-label={`${word} 权重数值`}
-                    className={`ml-mono ml-strategy-num ${role.cls}`}
-                    max={MAX_STRATEGY_WEIGHT}
-                    min={MIN_STRATEGY_WEIGHT}
-                    onBlur={() => setEditingWord(null)}
-                    onChange={(e) => {
-                      const raw = e.target.value;
-                      setEditingWord({ word, raw });
-                      if (raw.trim() !== "") {
-                        const parsed = Number(raw);
-                        if (Number.isFinite(parsed)) {
-                          updateWeight(word, parsed);
-                        }
-                      }
-                    }}
-                    step={STRATEGY_WEIGHT_STEP}
-                    type="number"
-                    value={numberText}
-                  />
+                  <div aria-label={`${word} 倾向设置`} className="ml-tier-group" role="group">
+                    {STRATEGY_WEIGHT_TIERS.map((tier) => {
+                      const active = val === tier.value;
+                      return (
+                        <button
+                          aria-pressed={active}
+                          className={`ml-tier-btn is-${tier.role}${active ? " is-active" : ""}`}
+                          key={tier.value}
+                          onClick={() => updateWeight(word, tier.value)}
+                          type="button"
+                        >
+                          {tier.label}
+                        </button>
+                      );
+                    })}
+                  </div>
                 </div>
               );
             })}
@@ -137,7 +133,7 @@ export function StrategyPanel({
 
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>6 条 10 词短信实时预测（点击拆解点积）</h3>
+            <h3>6 条 10 词短信实时判分（点击拆解点积）</h3>
             <span
               className={`ml-pill ${evalResult.correctCount === evalResult.totalCount ? "is-success" : "is-warn"}`}
             >
@@ -145,16 +141,20 @@ export function StrategyPanel({
             </span>
           </div>
           <p className="ml-muted-note">
-            当前策略：{evalResult.positiveWordCount} 个正相关 · {evalResult.negativeWordCount}{" "}
-            个负相关 ·{" "}
+            当前策略：{evalResult.positiveWordCount} 个偏垃圾 · {evalResult.negativeWordCount}{" "}
+            个偏正常 ·{" "}
             {STRATEGY_WORDS.length - evalResult.positiveWordCount - evalResult.negativeWordCount}{" "}
-            个无关
+            个无关（门槛 w·x ≥ +{STRATEGY_SCORE_SPAM_THRESHOLD}）
           </p>
 
           <ul className="ml-triage-list">
             {evalResult.items.map((item) => {
               const isSelected = item.message.id === selectedEval.message.id;
-              const pctText = `${(item.prob * 100).toFixed(1)}%`;
+              const bar = scoreBarStyle(item.score);
+              const ruleText =
+                item.pred === 1
+                  ? `≥ +${STRATEGY_SCORE_SPAM_THRESHOLD} 判垃圾`
+                  : `< +${STRATEGY_SCORE_SPAM_THRESHOLD} 放行`;
               return (
                 <li key={item.message.id}>
                   <button
@@ -169,7 +169,7 @@ export function StrategyPanel({
                         真实：{item.message.label === 1 ? "垃圾" : "正常"}（{item.message.tag}）
                       </span>
                       <span className={`ml-mono ml-triage-prob ${item.ok ? "is-ok" : "is-bad"}`}>
-                        垃圾概率 {pctText} ·{" "}
+                        风险分 {fmtSigned(item.score)}（{ruleText}） ·{" "}
                         {item.ok ? "判对了" : item.pred === 1 ? "误杀成垃圾" : "漏放成正常"}
                       </span>
                     </div>
@@ -179,11 +179,15 @@ export function StrategyPanel({
                         w·x = {fmtSigned(item.score)}
                       </span>
                       <div aria-hidden="true" className="ml-strategy-meter">
+                        <span className="ml-strategy-meter-zero" />
                         <div
-                          className={`ml-strategy-meter-fill ${item.pred === 1 ? "is-spam" : "is-ham"}`}
-                          style={{ width: `${Math.round(item.prob * 100)}%` }}
+                          className={`ml-strategy-meter-fill ${bar.cls}`}
+                          style={{ left: bar.left, width: bar.width }}
                         />
-                        <span className="ml-strategy-meter-cut" />
+                        <span
+                          className="ml-strategy-meter-cut"
+                          title={`拦截线 +${STRATEGY_SCORE_SPAM_THRESHOLD}`}
+                        />
                       </div>
                     </div>
                   </button>
@@ -196,11 +200,12 @@ export function StrategyPanel({
 
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>点积拆解（10 维向量 × 你的权重）：{selectedEval.message.tag}</h3>
+          <h3>点积拆解（10 维向量 × 你的策略分）：{selectedEval.message.tag}</h3>
           <span className={`ml-pill ${selectedEval.pred === 1 ? "is-danger" : "is-success"}`}>
-            w·x = {fmtSigned(selectedEval.score)} → 垃圾概率 {(selectedEval.prob * 100).toFixed(1)}
-            %（
-            {selectedEval.pred === 1 ? "判为垃圾" : "判为正常"}）
+            风险分 w·x = {fmtSigned(selectedEval.score)} →{" "}
+            {selectedEval.pred === 1
+              ? `≥ +${STRATEGY_SCORE_SPAM_THRESHOLD} 判为垃圾`
+              : `< +${STRATEGY_SCORE_SPAM_THRESHOLD} 放行正常`}
           </span>
         </div>
 
@@ -226,7 +231,7 @@ export function StrategyPanel({
                 ))}
               </tr>
               <tr>
-                <th scope="row">设定权重 wᵢ</th>
+                <th scope="row">设定分值 wᵢ</th>
                 {selectedEval.contributions.map((c) => (
                   <td
                     className={`ml-mono ${c.weight > 0 ? "is-pos" : c.weight < 0 ? "is-neg" : "is-zero"}`}
@@ -263,8 +268,9 @@ export function StrategyPanel({
             <strong>{fmtSigned(selectedEval.score)}</strong>
           </p>
           <p className="ml-muted-note">
-            规则游戏换算（第 1 关采用 15% 低先验分段规则，尚未引入逻辑回归）：w · x = 0 时维持 15.0%
-            正常底色（不象无偏置逻辑回归那样落在 50% 模棱两可），总分越过 +0.9 后跨过 50% 判为垃圾。
+            规则游戏说明：本关只比较人工加减出的<strong>净风险分</strong>（规定 w·x ≥ +
+            {STRATEGY_SCORE_SPAM_THRESHOLD} 才判垃圾，还不涉及真实概率）；第 3 关才会引入偏置 b 与
+            Sigmoid 函数，把总分连续转换为 0%~100% 概率。
           </p>
         </div>
       </section>
