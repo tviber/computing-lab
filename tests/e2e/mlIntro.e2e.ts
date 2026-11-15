@@ -208,15 +208,10 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
 }) => {
   const failures = collectFailures(page);
 
-  await page.goto("login", { waitUntil: "networkidle" });
-  await page.getByLabel("学号").fill("admin");
-  await page.getByLabel("密码").fill("admin-dev-password");
-  await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForURL("**/");
-
-  await page.goto("admin/labs", { waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "实验管理" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /机器学习入门\s*ml-intro\s*5/ })).toBeVisible();
+  const adminLogin = await request.post("/api/auth/login", {
+    data: { studentNo: "admin", password: "admin-dev-password" },
+  });
+  expect(adminLogin.status()).toBe(200);
 
   const classesRes = await request.get("/api/admin/classes");
   expect(classesRes.status()).toBe(200);
@@ -245,8 +240,23 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
     data: { stageIndex: 1, draft: {} },
   });
   expect(judgeRes.status()).toBe(200);
+  const judgeBody = (await judgeRes.json()) as { score: number; total: number; passed: boolean };
+  expect(judgeBody.passed).toBe(false);
 
   await page.goto("login", { waitUntil: "networkidle" });
+  await page.getByLabel("学号").fill("admin");
+  await page.getByLabel("密码").fill("admin-dev-password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await page.waitForURL("**/");
+
+  await page.goto("admin/labs", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "实验管理" })).toBeVisible();
+  await expect(page.getByRole("row", { name: /机器学习入门\s*ml-intro\s*5/ })).toBeVisible();
+
+  await page.getByRole("button", { name: /管理员/ }).click();
+  await page.getByRole("menuitem", { name: "退出登录" }).click();
+  await page.waitForURL(/\/login$/);
+
   await page.getByLabel("学号").fill("teacher");
   await page.getByLabel("密码").fill("teacher-dev-password");
   await page.getByRole("button", { name: "登录" }).click();
@@ -264,7 +274,7 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
   }
 
   const studentRow = page.getByRole("row", { name: new RegExp(studentNo) });
-  await studentRow.getByRole("button", { name: "0/10" }).click();
+  await studentRow.getByRole("button", { name: `${judgeBody.score}/${judgeBody.total}` }).click();
   await expect(page.getByRole("dialog", { name: "提交详情" })).toBeVisible();
   await expect(page.getByText("切词与特征归类")).toBeVisible();
 

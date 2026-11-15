@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { api, describeApiError } from "../../shared/api/client";
 import { isStaffRole, useAuth } from "../../shared/auth";
 import { CALCULATOR_STAGES } from "../../features/calculator";
@@ -190,28 +190,41 @@ export function TeacherDashboardPage() {
   const lab = labOptions.find((l) => l.id === search.lab) ?? labOptions[0] ?? LAB_OPTIONS[0];
   const assignment = assignments.find((a) => a.id === search.assignment) ?? assignments[0] ?? null;
 
+  const loadSeqRef = useRef(0);
+  const assignmentsSeqRef = useRef(0);
+
   const load = useCallback(() => {
     if (!classId) return;
+    const seq = ++loadSeqRef.current;
     setError(null);
     void api
       .get<MatrixPayload>(`/api/classes/${classId}/dashboard?lab=${lab.id}`)
       .then((next) => {
+        if (loadSeqRef.current !== seq) return;
         setError(null);
         setPayload(next);
       })
-      .catch((caught) => setError(describeApiError(caught)));
+      .catch((caught) => {
+        if (loadSeqRef.current !== seq) return;
+        setError(describeApiError(caught));
+      });
   }, [classId, lab.id]);
 
   const loadAssignments = useCallback(() => {
     if (!classId) return;
+    const seq = ++assignmentsSeqRef.current;
     setError(null);
     void api
       .get<{ assignments: AssignmentSummary[] }>(`/api/classes/${classId}/task-assignments`)
       .then((p) => {
+        if (assignmentsSeqRef.current !== seq) return;
         setError(null);
         setAssignments(p.assignments);
       })
-      .catch((caught) => setError(describeApiError(caught)));
+      .catch((caught) => {
+        if (assignmentsSeqRef.current !== seq) return;
+        setError(describeApiError(caught));
+      });
   }, [classId]);
 
   useEffect(() => {

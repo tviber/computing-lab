@@ -268,7 +268,7 @@ describe("TeacherDashboardPage", () => {
     ).toBeInTheDocument();
   });
 
-  it("clears the transient closed-lab error when catalog filtering falls back to an open lab", async () => {
+  async function openTeacherWithClosedMlIntro(closedLabFetch: () => Promise<Response>) {
     const teacherAuth: AuthState = {
       status: "authenticated",
       session: {
@@ -289,12 +289,7 @@ describe("TeacherDashboardPage", () => {
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
-      if (path.includes("lab=ml-intro")) {
-        return new Response(JSON.stringify({ error: "lab-not-available" }), {
-          status: 403,
-          headers: { "content-type": "application/json" },
-        });
-      }
+      if (path.includes("lab=ml-intro")) return closedLabFetch();
       return new Response(
         JSON.stringify({
           classId: "c11",
@@ -310,6 +305,37 @@ describe("TeacherDashboardPage", () => {
     await waitFor(() =>
       expect(screen.getByRole("combobox", { name: "选择实验" })).toHaveValue("calculator"),
     );
+    expect(await screen.findByText("还没有学生加入这个班级。")).toBeInTheDocument();
+  }
+
+  it("clears the transient closed-lab error when catalog filtering falls back to an open lab", async () => {
+    await openTeacherWithClosedMlIntro(
+      async () =>
+        new Response(JSON.stringify({ error: "lab-not-available" }), {
+          status: 403,
+          headers: { "content-type": "application/json" },
+        }),
+    );
+
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("ignores a late 403 error from ml-intro after falling back to calculator", async () => {
+    let resolveStaleClosed!: (response: Response) => void;
+    const staleClosed = new Promise<Response>((resolve) => {
+      resolveStaleClosed = resolve;
+    });
+
+    await openTeacherWithClosedMlIntro(() => staleClosed);
+
+    resolveStaleClosed(
+      new Response(JSON.stringify({ error: "lab-not-available" }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    await Promise.resolve();
+    await Promise.resolve();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 });
