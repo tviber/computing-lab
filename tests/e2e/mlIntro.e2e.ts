@@ -90,12 +90,23 @@ test("walks through all 5 stages of ml-intro with persistence and sealed Stage 5
   await page.getByRole("button", { name: /进入下一关/ }).click();
   await expect(page.getByRole("heading", { name: "给词打分与概率" })).toBeVisible();
 
-  // Edit one Stage 2 slider, wait for autosave PUT /draft, reload, and verify both stage unlock & draft restore
-  const draftSavePromise = page.waitForResponse(
-    (res) => res.request().method() === "PUT" && res.url().endsWith("/labs/ml-intro/draft"),
-  );
+  // Edit one Stage 2 slider, wait specifically for Stage 2's autosave PUT /draft, reload, and verify both stage unlock & draft restore
+  const draftSavePromise = page.waitForResponse((res) => {
+    if (res.request().method() !== "PUT" || !res.url().endsWith("/labs/ml-intro/draft")) {
+      return false;
+    }
+    const body = res.request().postDataJSON() as {
+      stageIndex?: number;
+      draft?: { weights?: Record<string, number> };
+    } | null;
+    return body?.stageIndex === 2 && body.draft?.weights?.["免费"] === 2.2;
+  });
   await page.locator("#ml-w-免费").fill("2.2");
-  expect((await draftSavePromise).status()).toBe(200);
+  await expect(page.locator("#ml-w-免费")).toHaveValue("2.2");
+  const draftSaveRes = await draftSavePromise;
+  expect(draftSaveRes.status()).toBe(200);
+  expect((await draftSaveRes.json()) as { applied?: boolean }).toMatchObject({ applied: true });
+  await expect(page.getByText("已保存")).toBeVisible();
 
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "给词打分与概率" })).toBeVisible();
