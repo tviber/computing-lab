@@ -65,6 +65,55 @@ test("admin dropdown opens account, class, and lab management as separate pages"
   await expect(page.getByRole("tab")).toHaveCount(0);
 });
 
+test("browser back leaves a lab and forward reopens it without a redirect loop", async ({
+  page,
+}) => {
+  const failures = collectFailures(page);
+  await page.goto("login", { waitUntil: "networkidle" });
+  await page.getByLabel("学号").fill("teacher");
+  await page.getByLabel("密码").fill("teacher-dev-password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "实验课程" })).toBeVisible();
+  const homeUrl = page.url();
+
+  const card = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "实现ALU" }) });
+  await card.getByRole("link", { name: "开始实验" }).click();
+  await expect(page.getByRole("main", { name: "计算器实验区" })).toBeVisible();
+  const labUrl = page.url();
+  expect(labUrl).toMatch(/\/classes\/[^/]+\/labs\/calculator/);
+
+  const verifyUndo = async () => {
+    const skip = page.getByRole("button", { name: "跳过引导", exact: true });
+    if (await skip.isVisible()) await skip.click();
+    const input = page.getByRole("button", { name: /^切换 A，当前 [01]$/ });
+    const before = await input.getAttribute("aria-label");
+    await input.click();
+    await expect(input).not.toHaveAttribute("aria-label", before!);
+    await page.getByRole("button", { name: "撤销", exact: true }).click();
+    await expect(input).toHaveAttribute("aria-label", before!);
+    await input.click();
+    await expect(input).not.toHaveAttribute("aria-label", before!);
+    await page.keyboard.press("Meta+z");
+    await expect(input).toHaveAttribute("aria-label", before!);
+    await expect(page).toHaveURL(labUrl);
+  };
+  await verifyUndo();
+
+  await page.goBack();
+  await expect(page).toHaveURL(homeUrl);
+  await expect(page.getByRole("heading", { name: "实验课程" })).toBeVisible();
+
+  await page.goForward();
+  await expect(page).toHaveURL(labUrl);
+  await expect(page.getByRole("main", { name: "计算器实验区" })).toBeVisible();
+  await verifyUndo();
+  await page.goBack();
+  await expect(page).toHaveURL(homeUrl);
+  expect(failures, failures.join("\n")).toEqual([]);
+});
+
 test("teacher manages the roster of their own class from the members page", async ({
   page,
   request,

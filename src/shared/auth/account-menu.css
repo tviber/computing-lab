@@ -6,21 +6,49 @@
 .account-menu-trigger {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  min-height: 34px;
-  padding: 6px 9px 6px 11px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
+  gap: 10px;
+  min-height: 44px;
+  max-width: 240px;
+  padding: 4px 8px 4px 4px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-panel);
+  background: transparent;
   color: var(--primary);
   cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
+  font-size: 13px;
+  font-weight: 600;
+  transition: background-color 140ms ease;
 }
 
-.account-menu-trigger:hover {
-  border-color: var(--border-strong);
-  background: var(--subtle);
+.account-menu-trigger:hover,
+.account-menu-trigger[aria-expanded="true"] {
+  background: var(--accent-soft);
+}
+
+.account-menu-trigger:focus-visible {
+  outline: 2px solid var(--focus);
+  outline-offset: 2px;
+}
+
+.account-menu-avatar {
+  display: grid;
+  flex: 0 0 32px;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--accent);
+  color: var(--surface);
+  font-size: 13px;
+  font-weight: 600;
+  line-height: 1;
+}
+
+.account-menu-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .account-menu-chevron {
@@ -39,55 +67,76 @@
   top: calc(100% + 8px);
   right: 0;
   display: grid;
-  min-width: 174px;
-  padding: 6px;
+  width: 240px;
+  max-width: calc(100vw - 2 * var(--page-gutter));
+  max-height: calc(100dvh - 140px);
+  overflow-y: auto;
+  padding: 8px;
   border: 1px solid var(--border);
-  border-radius: var(--radius-control);
+  border-radius: var(--radius-panel);
   background: var(--surface);
   box-shadow: var(--shadow-md);
 }
 
 .account-menu-summary {
   display: grid;
-  gap: 2px;
-  padding: 8px 10px 9px;
+  gap: 5px;
+  margin-bottom: 6px;
+  padding: 10px 12px 14px;
   border-bottom: 1px solid var(--border);
 }
 
 .account-menu-summary strong {
   color: var(--primary);
-  font-size: 12px;
+  font-size: 14px;
+  overflow-wrap: anywhere;
 }
 
 .account-menu-summary span {
   color: var(--muted);
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 10px;
+  font-size: 11px;
+  overflow-wrap: anywhere;
 }
 
 .account-menu-item {
   display: block;
   width: 100%;
-  padding: 9px 10px;
+  min-height: 40px;
+  padding: 10px 12px;
   border: 0;
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--secondary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
   text-align: left;
   text-decoration: none;
 }
 
-.account-menu-item:hover {
-  background: var(--subtle);
-  color: var(--primary);
+.account-menu-item:hover,
+.account-menu-item:focus-visible {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 .account-menu-logout {
+  margin-top: 6px;
   border-top: 1px solid var(--border);
   border-radius: 0 0 var(--radius-panel) var(--radius-panel);
   color: var(--danger);
+}
+
+.account-menu-logout:hover,
+.account-menu-logout:focus-visible {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .account-menu-trigger,
+  .account-menu-chevron {
+    transition: none;
+  }
 }
 
 @media (max-width: 520px) {
@@ -96,5 +145,12 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+}
+
+@media (max-width: 760px) {
+  .account-menu-popover {
+    right: auto;
+    left: 0;
   }
 }

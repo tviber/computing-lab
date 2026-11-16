@@ -24,12 +24,12 @@ export function LabRedirectPage({ labId }: { labId: LabId }) {
 
   useEffect(() => {
     if (status === "anonymous") {
-      void navigate({ to: "/login" });
+      void navigate({ to: "/login", replace: true });
       return;
     }
     // Non-admins wait for the catalog so a closed lab never flashes through.
     if (classId && (role === "admin" || (catalog !== null && !closed))) {
-      void navigate({ to: `/classes/$classId/labs/${labId}`, params: { classId } });
+      void navigate({ to: `/classes/$classId/labs/${labId}`, params: { classId }, replace: true });
     }
   }, [status, classId, role, catalog, closed, labId, navigate]);
 

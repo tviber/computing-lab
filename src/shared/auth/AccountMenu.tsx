@@ -36,6 +36,9 @@ export function AccountMenu() {
         onClick={() => setOpen((value) => !value)}
         type="button"
       >
+        <span aria-hidden="true" className="account-menu-avatar">
+          <Icon name="user" size={20} />
+        </span>
         <span className="account-menu-name">{session.user.name}</span>
         <span aria-hidden="true" className="account-menu-chevron" data-open={open}>
           <Icon name="chevron-down" size={13} />

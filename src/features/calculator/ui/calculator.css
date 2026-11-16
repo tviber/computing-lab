@@ -329,7 +329,7 @@
 }
 
 .selection-box {
-  fill: rgb(79 70 229 / 10%);
+  fill: color-mix(in srgb, var(--accent) 10%, transparent);
   stroke: var(--accent);
   stroke-dasharray: 6 4;
   stroke-width: 1.5;
@@ -1253,12 +1253,12 @@
   100% {
     box-shadow:
       0 0 0 2px var(--accent-soft),
-      0 0 0 4px rgb(79 70 229 / 55%);
+      0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent);
   }
   50% {
     box-shadow:
       0 0 0 4px var(--accent-soft),
-      0 0 0 7px rgb(79 70 229 / 75%);
+      0 0 0 7px color-mix(in srgb, var(--accent) 75%, transparent);
   }
 }
 
@@ -1269,7 +1269,7 @@
 
 g.circuit-node.coach-focus {
   animation: none;
-  filter: drop-shadow(0 0 6px rgb(79 70 229 / 55%));
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
 }
 
 g.circuit-node.coach-focus .node-body,

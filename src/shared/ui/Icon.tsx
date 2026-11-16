@@ -10,6 +10,7 @@ export type IconName =
   | "circle"
   | "copy"
   | "lock"
+  | "user"
   | "warning"
   | "x";
 
@@ -36,6 +37,12 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <rect height="10" rx="2" width="16" x="4" y="11" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
+  user: (
+    <>
+      <circle cx="12" cy="8" r="4" />
+      <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
     </>
   ),
   warning: (
