@@ -157,7 +157,7 @@ p {
 .button-primary {
   background: var(--accent);
   color: var(--surface);
-  box-shadow: 0 4px 10px rgb(79 70 229 / 18%);
+  box-shadow: 0 4px 10px color-mix(in srgb, var(--accent) 18%, transparent);
 }
 
 .button-primary:hover:not(:disabled) {

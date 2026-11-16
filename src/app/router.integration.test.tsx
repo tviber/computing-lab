@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LAB_IDS } from "../shared/lab/labMetadata";
 import {
@@ -106,6 +106,33 @@ describe("application router integration", () => {
       expect(router.state.location.pathname).toBe("/classes/c1/labs/image-sampling"),
     );
     expect(screen.queryByText(/仅对管理员开放预览/)).not.toBeInTheDocument();
+  });
+
+  it("keeps one history entry per lab visit so back and forward work", async () => {
+    const { router, history } = await renderAppAt("/", { auth: teacherAuthState });
+    const card = screen.getByRole("heading", { name: "实现ALU" }).closest("article")!;
+    fireEvent.click(within(card).getByRole("link", { name: "开始实验" }));
+
+    await waitFor(() => expect(router.state.location.pathname).toBe("/classes/c1/labs/calculator"));
+    expect(history.length).toBe(2);
+
+    await act(async () => history.back());
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    expect(screen.getByRole("heading", { name: "实验课程" })).toBeInTheDocument();
+
+    await act(async () => history.forward());
+    await waitFor(() => expect(router.state.location.pathname).toBe("/classes/c1/labs/calculator"));
+    expect(history.length).toBe(2);
+  });
+
+  it("replaces an anonymous lab entry with login without trapping back navigation", async () => {
+    const { router, history } = await renderAppAt("/", { auth: anonymousAuthState });
+    await act(async () => router.navigate({ to: "/labs/calculator" }));
+    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    expect(history.length).toBe(2);
+
+    await act(async () => history.back());
+    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
   });
 
   it("shows the calculator lab and account menu to admins", async () => {
