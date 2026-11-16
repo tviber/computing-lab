@@ -4,6 +4,7 @@ import { api, describeApiError } from "../../shared/api/client";
 import { useAuth } from "../../shared/auth";
 import { LAB_TITLES, type LabVisibility } from "../../shared/lab/labs";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
+import { mergeAdminLabCatalog, type AdminLabCatalogEntry } from "../labCatalog";
 import type { AdminClass } from "./AdminTypes";
 import "./admin.css";
 
@@ -31,18 +32,25 @@ function sameDraft(a: LabDraft, b: LabDraft): boolean {
 
 export function AdminLabsPage() {
   const { status, role } = useAuth();
-  const [labs, setLabs] = useState<LabVisibility[] | null>(null);
+  const [labs, setLabs] = useState<AdminLabCatalogEntry[] | null>(null);
   const [classes, setClasses] = useState<AdminClass[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, LabDraft>>({});
   const [error, setError] = useState<string | null>(null);
   const [labsLoadError, setLabsLoadError] = useState<string | null>(null);
   const [classesLoadError, setClassesLoadError] = useState<string | null>(null);
+  const [catalogWarning, setCatalogWarning] = useState<string | null>(null);
   const [busyLab, setBusyLab] = useState<string | null>(null);
 
   const reload = useCallback(() => {
     void api.get<{ labs: LabVisibility[] }>("/api/labs").then(
       (payload) => {
-        setLabs(payload.labs);
+        const merged = mergeAdminLabCatalog(payload.labs);
+        setLabs(merged.labs);
+        setCatalogWarning(
+          merged.missingIds.length > 0
+            ? `服务器尚未注册：${merged.missingIds.map((id) => LAB_TITLES[id] ?? id).join("、")}。这些实验暂时不能修改开放设置。`
+            : null,
+        );
         setLabsLoadError(null);
       },
       (caught) => setLabsLoadError(describeApiError(caught)),
@@ -77,9 +85,9 @@ export function AdminLabsPage() {
   }, []);
 
   const save = useCallback(
-    async (lab: LabVisibility) => {
+    async (lab: AdminLabCatalogEntry) => {
       const draft = drafts[lab.id];
-      if (!draft || classes === null) return;
+      if (!lab.serverRegistered || !draft || classes === null) return;
       setError(null);
       setBusyLab(lab.id);
       try {
@@ -136,6 +144,11 @@ export function AdminLabsPage() {
             {pageError}
           </p>
         ) : null}
+        {catalogWarning ? (
+          <p className="auth-error" role="status">
+            {catalogWarning}
+          </p>
+        ) : null}
 
         <div className="admin-grid admin-grid-single">
           <section className="profile-card" aria-labelledby="labs-title">
@@ -170,19 +183,23 @@ export function AdminLabsPage() {
                       <td>{lab.stageCount}</td>
                       <td>
                         <span className={`admin-lab-state${draft?.hidden ? " is-hidden" : ""}`}>
-                          {!draft
-                            ? "…"
-                            : draft.hidden
-                              ? "已隐藏"
-                              : classes === null
-                                ? "班级数据不可用"
-                                : draft.checked.size === classes.length
-                                  ? "全部班级"
-                                  : `${draft.checked.size} 个班`}
+                          {!lab.serverRegistered
+                            ? "待服务器同步"
+                            : !draft
+                              ? "…"
+                              : draft.hidden
+                                ? "已隐藏"
+                                : classes === null
+                                  ? "班级数据不可用"
+                                  : draft.checked.size === classes.length
+                                    ? "全部班级"
+                                    : `${draft.checked.size} 个班`}
                         </span>
                       </td>
                       <td className="admin-lab-config">
-                        {draft ? (
+                        {!lab.serverRegistered ? (
+                          <span>服务器尚未注册此实验，暂不能修改开放设置。</span>
+                        ) : draft ? (
                           <>
                             <div className="admin-lab-mode" role="radiogroup">
                               <label className="admin-lab-mode-option">
@@ -268,7 +285,12 @@ export function AdminLabsPage() {
                       <td>
                         <button
                           className="button button-ghost admin-inline-button"
-                          disabled={!dirty || classes === null || busyLab === lab.id}
+                          disabled={
+                            !lab.serverRegistered ||
+                            !dirty ||
+                            classes === null ||
+                            busyLab === lab.id
+                          }
                           onClick={() => void save(lab)}
                           title="保存这个实验的开放设置"
                           type="button"

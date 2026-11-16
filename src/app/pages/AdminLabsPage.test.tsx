@@ -196,6 +196,34 @@ describe("AdminLabsPage", () => {
     expect(labRow("实现ALU").getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
+  it("shows current registered labs when an older API still returns retired ids", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/admin/classes")) return jsonResponse({ classes });
+      if (path.includes("/api/labs")) {
+        return jsonResponse({
+          labs: [
+            labs[0],
+            { ...labs[0], id: "cpu" },
+            { ...labs[0], id: "audio-encoding" },
+            { ...labs[0], id: "is-sim" },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+
+    await renderAppAt("/admin/labs", { auth: adminAuthState });
+
+    expect(await screen.findByText("机器学习入门")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(7);
+    for (const retiredId of ["cpu", "audio-encoding", "is-sim"]) {
+      expect(screen.queryByText(retiredId)).not.toBeInTheDocument();
+    }
+    expect(screen.getByText(/服务器尚未注册：.*机器学习入门/)).toBeInTheDocument();
+    expect(labRow("机器学习入门").getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
   it("shows a loading status while classes are still being fetched", async () => {
     let resolveClasses!: (response: Response) => void;
     const classesResponse = new Promise<Response>((resolve) => {
