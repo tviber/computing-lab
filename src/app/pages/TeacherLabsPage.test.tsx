@@ -2,6 +2,8 @@ import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt, teacherAuthState } from "../../test/router-test-helpers";
+import { labMetadata } from "../../shared/lab/labMetadata";
+import { APP_LABS } from "../labRegistry";
 
 const payload = {
   classes: [
@@ -57,6 +59,18 @@ function mockApi() {
     const path = String(input);
     if (init?.method === "PUT") return jsonResponse({ ok: true });
     if (path.includes("/api/teacher/labs")) return jsonResponse(payload);
+    if (path.includes("/api/labs")) {
+      return jsonResponse({
+        labs: payload.labs.map(({ id, stageCount, hidden, openClassIds, visibleClassIds }) => ({
+          id,
+          stageCount,
+          hidden,
+          openClassIds,
+          visible: true,
+          visibleClassIds,
+        })),
+      });
+    }
     return jsonResponse({});
   });
 }
@@ -125,5 +139,104 @@ describe("TeacherLabsPage", () => {
         expect.objectContaining({ method: "PUT", body: JSON.stringify({ open: false }) }),
       ),
     );
+  });
+
+  it("shows current labs and filters retired ids from a stale server catalog", async () => {
+    const stalePayload = {
+      ...payload,
+      labs: [
+        payload.labs[0],
+        { ...payload.labs[0], id: "cpu" },
+        { ...payload.labs[0], id: "audio-encoding" },
+        { ...payload.labs[0], id: "is-sim" },
+      ],
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/teacher/labs")) return jsonResponse(stalePayload);
+      if (path.includes("/api/labs")) {
+        return jsonResponse({
+          labs: [
+            {
+              id: "calculator",
+              stageCount: APP_LABS.calculator.dashboardStages.length,
+              hidden: false,
+              openClassIds: null,
+              visible: true,
+              visibleClassIds: ["c1", "c2"],
+            },
+            {
+              id: "cpu",
+              stageCount: 3,
+              hidden: false,
+              openClassIds: null,
+              visible: true,
+              visibleClassIds: ["c1", "c2"],
+            },
+            {
+              id: "audio-encoding",
+              stageCount: 3,
+              hidden: false,
+              openClassIds: null,
+              visible: true,
+              visibleClassIds: ["c1", "c2"],
+            },
+            {
+              id: "is-sim",
+              stageCount: 3,
+              hidden: false,
+              openClassIds: null,
+              visible: true,
+              visibleClassIds: ["c1", "c2"],
+            },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+
+    await renderAppAt("/teacher/labs", { auth: teacherAuthState });
+
+    expect(await screen.findByText("机器学习入门")).toBeInTheDocument();
+    expect(screen.getAllByRole("row")).toHaveLength(7);
+    expect(
+      screen.getByText(new RegExp(`服务器尚未注册：.*${labMetadata["ml-intro"].title}`)),
+    ).toBeInTheDocument();
+    for (const retiredId of ["cpu", "audio-encoding", "is-sim"]) {
+      expect(screen.queryByText(retiredId)).not.toBeInTheDocument();
+    }
+    expect(labRow("机器学习入门").getByText("待服务器同步")).toBeInTheDocument();
+  });
+
+  it("keeps admin-hidden labs out of the teacher management list", async () => {
+    const hiddenMlPayload = {
+      ...payload,
+      labs: payload.labs.filter((lab) => lab.id !== "ml-intro"),
+    };
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/teacher/labs")) return jsonResponse(hiddenMlPayload);
+      if (path.includes("/api/labs")) {
+        return jsonResponse({
+          labs: [
+            ...payload.labs.map((lab) => ({ ...lab, visible: true })),
+            {
+              id: "ml-intro",
+              stageCount: 6,
+              hidden: true,
+              openClassIds: null,
+              visible: false,
+              visibleClassIds: [],
+            },
+          ],
+        });
+      }
+      return jsonResponse({});
+    });
+
+    await renderAppAt("/teacher/labs", { auth: teacherAuthState });
+
+    await waitFor(() => expect(screen.getByText("实现ALU")).toBeInTheDocument());
+    expect(screen.queryByText("机器学习入门")).not.toBeInTheDocument();
   });
 });

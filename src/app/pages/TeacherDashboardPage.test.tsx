@@ -3,7 +3,7 @@ import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { ML_STAGES } from "../../features/ml-intro";
 import type { AuthState } from "../../shared/auth";
-import { labMetadata } from "../../shared/lab/labMetadata";
+import { LAB_IDS, labMetadata } from "../../shared/lab/labMetadata";
 import { renderAppAt } from "../../test/router-test-helpers";
 
 const multiClassTeacher: AuthState = {
@@ -179,6 +179,9 @@ describe("TeacherDashboardPage", () => {
 
     const labSelect = screen.getByRole("combobox", { name: "选择实验" });
     expect(labSelect).toHaveValue("ml-intro");
+    expect(Array.from(labSelect.querySelectorAll("option")).map((option) => option.value)).toEqual(
+      LAB_IDS,
+    );
     for (const meta of Object.values(labMetadata)) {
       expect(screen.getByRole("option", { name: meta.title })).toBeInTheDocument();
     }

@@ -1006,6 +1006,11 @@ describe("lab visibility", () => {
     const before = (await (await request(app, "GET", "/api/labs", undefined, cookie)).json()) as {
       labs: { id: string; hidden: boolean; openClassIds: string[] | null; visible: boolean }[];
     };
+    expect(before.labs.map((lab) => lab.id)).toEqual(LAB_REGISTRY.map((lab) => lab.id));
+    expect(before.labs.some((lab) => lab.id === "ml-intro")).toBe(true);
+    expect(before.labs.map((lab) => lab.id)).not.toContain("cpu");
+    expect(before.labs.map((lab) => lab.id)).not.toContain("audio-encoding");
+    expect(before.labs.map((lab) => lab.id)).not.toContain("is-sim");
     expect(before.labs.every((lab) => lab.hidden === false)).toBe(true);
     expect(before.labs.every((lab) => lab.openClassIds === null)).toBe(true);
     expect(before.labs.every((lab) => lab.visible === true)).toBe(true);
