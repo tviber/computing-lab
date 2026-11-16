@@ -3,6 +3,10 @@ import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it } from "vitest";
 import ts from "typescript";
+import { LAB_REGISTRY } from "../../server/labs.ts";
+import { LAB_IDS, labMetadata } from "../shared/lab/labMetadata.ts";
+import { APP_LABS } from "./labRegistry.ts";
+import { router } from "./router.tsx";
 
 const srcRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appRoot = join(srcRoot, "app");
@@ -134,16 +138,6 @@ function runtimeDependencies(entry: string, seen = new Set<string>()): Set<strin
   return seen;
 }
 
-it("keeps the real CPU workspace independent of controller execution, lesson state and backend", () => {
-  const dependencies = runtimeDependencies(join(featuresRoot, "cpu/ui/CpuWorkspace.tsx"));
-  const forbidden = [...dependencies].filter(
-    (path) =>
-      /[/\\](server|auth|api|controller|lesson)[/\\]/.test(path) ||
-      /cpu[/\\]domain[/\\](machine|stages)\.ts$/.test(path),
-  );
-  expect(forbidden.map((path) => relative(srcRoot, path))).toEqual([]);
-});
-
 it("keeps the real decoding workspace independent of controller execution, lesson state and backend", () => {
   const dependencies = runtimeDependencies(join(featuresRoot, "decoding/ui/DecodingWorkspace.tsx"));
   const forbidden = [...dependencies].filter(
@@ -155,13 +149,24 @@ it("keeps the real decoding workspace independent of controller execution, lesso
 });
 
 it("keeps development previews independent of server data and live controller hooks", () => {
-  for (const entry of [
-    "cpu/preview/CpuPreviewPage.tsx",
-    "decoding/preview/DecodingPreviewPage.tsx",
-  ]) {
+  for (const entry of ["decoding/preview/DecodingPreviewPage.tsx"]) {
     const dependencies = runtimeDependencies(join(featuresRoot, entry));
     expect(
       [...dependencies].filter((path) => /[/\\]server[/\\]|[/\\]controller[/\\]use/.test(path)),
     ).toEqual([]);
+  }
+});
+
+it("keeps lab metadata, frontend registry, router, and server visibility registry in sync", () => {
+  const metadataIds = Object.keys(labMetadata);
+  expect(LAB_IDS).toEqual(metadataIds);
+  expect(Object.keys(APP_LABS)).toEqual(metadataIds);
+  expect(LAB_REGISTRY.map((entry) => entry.id)).toEqual(metadataIds);
+
+  for (const id of LAB_IDS) {
+    const reg = LAB_REGISTRY.find((entry) => entry.id === id);
+    expect(reg?.stageCount).toBe(APP_LABS[id].dashboardStages.length);
+    expect(router.routesByPath[`/labs/${id}`]).toBeDefined();
+    expect(router.routesByPath[`/classes/$classId/labs/${id}`]).toBeDefined();
   }
 });

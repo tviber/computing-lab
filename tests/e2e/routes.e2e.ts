@@ -24,13 +24,9 @@ test("serves the root app, calculator entry, and not-found fallback", async ({ p
   expect(calculator?.status()).toBe(200);
   await expect(page.locator("h1").first()).toHaveText("登录");
 
-  const audio = await page.goto("labs/audio-encoding", { waitUntil: "networkidle" });
-  expect(audio?.status()).toBe(200);
-  await expect(page.locator("h1").first()).toHaveText("登录");
-
-  await page.goto("__dev/labs/cpu?scenario=challenge", { waitUntil: "networkidle" });
+  await page.goto("__dev/labs/decoding?scenario=initial", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: /实验不存在/ })).toBeVisible();
-  await expect(page.getByRole("main", { name: "CPU 数据通路实验区" })).toHaveCount(0);
+  await expect(page.getByRole("main", { name: "解码实验区" })).toHaveCount(0);
 
   const missing = await page.goto("missing-route", { waitUntil: "networkidle" });
   expect(missing?.status()).toBe(200);

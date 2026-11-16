@@ -37,7 +37,7 @@ describe("TeacherDashboardPage", () => {
     await waitFor(() => expect(history.location.pathname).toBe("/classes/c12/dashboard"));
   });
 
-  it("renders decoding parts in the failure drawer and shows recorded CPU predictions", async () => {
+  it("renders decoding parts in the failure drawer", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
       const payload = path.includes("/submissions/sub-1")
@@ -57,14 +57,6 @@ describe("TeacherDashboardPage", () => {
                   label: "解码出的文本",
                   ok: false,
                   detail: "第 1 个字符不符",
-                },
-              ],
-              predictions: [
-                {
-                  promptId: "first-fetch",
-                  prompt: "机器从哪一格取指？",
-                  selected: "第 14 格",
-                  correct: false,
                 },
               ],
             },
@@ -105,69 +97,6 @@ describe("TeacherDashboardPage", () => {
 
     expect(await screen.findByText("解码出的文本")).toBeInTheDocument();
     expect(screen.getByText("第 1 个字符不符")).toBeInTheDocument();
-    expect(screen.getByRole("region", { name: "预测首答" })).toHaveTextContent("第 14 格");
-  });
-
-  it("lets teachers inspect first predictions after a CPU stage passes", async () => {
-    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
-      const path = String(input);
-      const payload = path.includes("/submissions/cpu-sub")
-        ? {
-            id: "cpu-sub",
-            studentNo: "20260101",
-            name: "张三",
-            stageIndex: 1,
-            score: 3,
-            total: 3,
-            passed: true,
-            submittedAt: "2026-10-11T00:00:00.000Z",
-            testSummary: {
-              categories: { basic: { passed: 3, total: 3 } },
-              predictions: [
-                {
-                  promptId: "first-fetch",
-                  prompt: "机器从哪一格取指？",
-                  selected: "第 14 格",
-                  correct: false,
-                },
-              ],
-            },
-          }
-        : path.includes("/api/classes/c11/dashboard?lab=cpu")
-          ? {
-              classId: "c11",
-              className: "2026-高二信息技术-11",
-              rows: [
-                {
-                  userId: "u-student",
-                  studentNo: "20260101",
-                  name: "张三",
-                  currentStage: 2,
-                  cells: {
-                    1: {
-                      stageIndex: 1,
-                      score: 3,
-                      total: 3,
-                      passed: true,
-                      submissionId: "cpu-sub",
-                      submittedAt: "2026-10-11T00:00:00.000Z",
-                    },
-                  },
-                  lastActiveAt: null,
-                },
-              ],
-            }
-          : { labs: [] };
-      return new Response(JSON.stringify(payload), {
-        status: 200,
-        headers: { "content-type": "application/json" },
-      });
-    });
-
-    await renderAppAt("/classes/c11/dashboard?lab=cpu", { auth: multiClassTeacher });
-    await userEvent.click(await screen.findByTitle("查看提交详情"));
-
-    expect(await screen.findByRole("region", { name: "预测首答" })).toHaveTextContent("第 14 格");
   });
 
   it("includes every judged lab and renders ml-intro progress and part details", async () => {
@@ -250,8 +179,7 @@ describe("TeacherDashboardPage", () => {
 
     const labSelect = screen.getByRole("combobox", { name: "选择实验" });
     expect(labSelect).toHaveValue("ml-intro");
-    for (const [id, meta] of Object.entries(labMetadata)) {
-      if (id === "audio-encoding") continue;
+    for (const meta of Object.values(labMetadata)) {
       expect(screen.getByRole("option", { name: meta.title })).toBeInTheDocument();
     }
 

@@ -2,9 +2,8 @@ import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
-import { LabAccessGate, SaveIndicator } from "../../../shared/lab/LabGate";
+import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
-import { useLabCatalog } from "../../../shared/lab/labs";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -72,7 +71,6 @@ export function ImageSamplingLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/image-sampling" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { status, role } = useAuth();
-  const catalog = useLabCatalog(status === "authenticated");
   const [state, dispatch] = useReducer(transitionSamplingLesson, undefined, () =>
     createSamplingLessonState(1),
   );
@@ -204,134 +202,124 @@ export function ImageSamplingLabPage() {
       : undefined;
 
   return (
-    <LabAccessGate
-      classId={classId}
-      closed={catalog?.get("image-sampling")?.visible === false}
-      labName={labMetadata["image-sampling"].title}
-      role={role}
-      status={status}
+    <AppPageLayout
+      className="sampling-lab"
+      topbar={
+        <SaveIndicator
+          status={statusForStage(state.saveStatusByStage, state.stageIndex)}
+          unresolvedSyncConflict={syncConflictForStage(
+            state.unresolvedSyncConflicts,
+            state.stageIndex,
+          )}
+          onRetrySync={() => reconcileConflict(state.stageIndex)}
+          onRestoreLocal={
+            state.conflictedLocalDrafts[state.stageIndex] !== undefined
+              ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
+              : undefined
+          }
+          onDiscardLocal={
+            state.conflictedLocalDrafts[state.stageIndex] !== undefined
+              ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
+              : undefined
+          }
+        />
+      }
+      topbarProps={{
+        subtitle: stage?.englishTitle,
+        title: stage?.title ?? labMetadata["image-sampling"].title,
+      }}
     >
-      <AppPageLayout
-        className="sampling-lab"
-        topbar={
-          <SaveIndicator
-            status={statusForStage(state.saveStatusByStage, state.stageIndex)}
-            unresolvedSyncConflict={syncConflictForStage(
-              state.unresolvedSyncConflicts,
-              state.stageIndex,
-            )}
-            onRetrySync={() => reconcileConflict(state.stageIndex)}
-            onRestoreLocal={
-              state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
-                : undefined
-            }
-            onDiscardLocal={
-              state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
-                : undefined
-            }
+      <LabPageShell
+        collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
+        labId="image-sampling"
+        rail={
+          <StageRail
+            label={labMetadata["image-sampling"].title}
+            onSelect={(index) => dispatch({ type: "select-stage", stageIndex: index })}
+            passedStages={state.passedStages}
+            stageIndex={state.stageIndex}
+            stages={IMAGE_SAMPLING_STAGES}
+            unlocked={(stage) => samplingStageUnlocked(state.passedStages, stage.index)}
           />
         }
-        topbarProps={{
-          subtitle: stage?.englishTitle,
-          title: stage?.title ?? labMetadata["image-sampling"].title,
-        }}
       >
-        <LabPageShell
-          collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
-          labId="image-sampling"
-          rail={
-            <StageRail
-              label={labMetadata["image-sampling"].title}
-              onSelect={(index) => dispatch({ type: "select-stage", stageIndex: index })}
-              passedStages={state.passedStages}
-              stageIndex={state.stageIndex}
-              stages={IMAGE_SAMPLING_STAGES}
-              unlocked={(stage) => samplingStageUnlocked(state.passedStages, stage.index)}
-            />
-          }
-        >
-          <main aria-label="图像采样实验区" className="sampling-workspace">
-            {stage ? <StageBrief stage={stage} /> : null}
+        <main aria-label="图像采样实验区" className="sampling-workspace">
+          {stage ? <StageBrief stage={stage} /> : null}
 
-            {state.message ? (
-              <p className="test-error" role="alert">
-                {state.message}
-                <button onClick={() => dispatch({ type: "dismiss-message" })} type="button">
-                  <Icon name="x" size={12} />
-                </button>
-              </p>
-            ) : null}
-            {(loadError ?? submitError) ? (
-              <p className="test-error" role="alert">
-                {loadError ?? submitError}
-              </p>
-            ) : null}
+          {state.message ? (
+            <p className="test-error" role="alert">
+              {state.message}
+              <button onClick={() => dispatch({ type: "dismiss-message" })} type="button">
+                <Icon name="x" size={12} />
+              </button>
+            </p>
+          ) : null}
+          {(loadError ?? submitError) ? (
+            <p className="test-error" role="alert">
+              {loadError ?? submitError}
+            </p>
+          ) : null}
 
-            {stage ? (
-              <>
-                <DownsampleExplorer
-                  height={previewHeight}
-                  onCellPick={(cell) => dispatch({ type: "select-cell", cell })}
-                  onResolution={(w, h) => dispatch({ type: "set-resolution", width: w, height: h })}
-                  ruleCode={draftOf(state, 1).code}
-                  resolutionReady={resolution != null}
-                  selectedCell={state.selectedCell}
-                  shareSearch={shareSearch}
-                  stage={stage}
-                  width={previewWidth}
+          {stage ? (
+            <>
+              <DownsampleExplorer
+                height={previewHeight}
+                onCellPick={(cell) => dispatch({ type: "select-cell", cell })}
+                onResolution={(w, h) => dispatch({ type: "set-resolution", width: w, height: h })}
+                ruleCode={draftOf(state, 1).code}
+                resolutionReady={resolution != null}
+                selectedCell={state.selectedCell}
+                shareSearch={shareSearch}
+                stage={stage}
+                width={previewWidth}
+              />
+
+              {stage.guided ? (
+                <GuidedCellTask
+                  code={draft.code}
+                  onCodeChange={(code) => dispatch({ type: "set-code", code })}
                 />
+              ) : null}
 
-                {stage.guided ? (
-                  <GuidedCellTask
-                    code={draft.code}
-                    onCodeChange={(code) => dispatch({ type: "set-code", code })}
-                  />
-                ) : null}
+              {!stage.guided ? (
+                <ChooseSizePanel
+                  code={draft.code}
+                  helperCode={draftOf(state, 1).code}
+                  onCodeChange={(code) => dispatch({ type: "set-code", code })}
+                  onResolution={(w, h) => dispatch({ type: "set-resolution", width: w, height: h })}
+                  stage={stage}
+                />
+              ) : null}
 
-                {!stage.guided ? (
-                  <ChooseSizePanel
-                    code={draft.code}
-                    helperCode={draftOf(state, 1).code}
-                    onCodeChange={(code) => dispatch({ type: "set-code", code })}
-                    onResolution={(w, h) =>
-                      dispatch({ type: "set-resolution", width: w, height: h })
-                    }
-                    stage={stage}
-                  />
-                ) : null}
+              <div className="submit-row">
+                <button
+                  className="button button-primary"
+                  disabled={
+                    submitting || !resolution || (stage.requiresChooseSize && !draft.code.trim())
+                  }
+                  onClick={() => void onSubmit()}
+                  type="button"
+                >
+                  {submitting ? "判定中…" : "提交判定"}
+                </button>
+                <span className="submit-note">
+                  {resolution
+                    ? stage.requiresChooseSize && !draft.code.trim()
+                      ? "先填写并运行 choose_size(images)。"
+                      : `将以 ${resolution.width}×${resolution.height}（${resolution.width * resolution.height} 格）把整组信号发给接收端判定。`
+                    : stage.requiresChooseSize
+                      ? "先运行 choose_size(images) 生成分辨率。"
+                      : "先选一个分辨率。"}
+                </span>
+              </div>
 
-                <div className="submit-row">
-                  <button
-                    className="button button-primary"
-                    disabled={
-                      submitting || !resolution || (stage.requiresChooseSize && !draft.code.trim())
-                    }
-                    onClick={() => void onSubmit()}
-                    type="button"
-                  >
-                    {submitting ? "判定中…" : "提交判定"}
-                  </button>
-                  <span className="submit-note">
-                    {resolution
-                      ? stage.requiresChooseSize && !draft.code.trim()
-                        ? "先填写并运行 choose_size(images)。"
-                        : `将以 ${resolution.width}×${resolution.height}（${resolution.width * resolution.height} 格）把整组信号发给接收端判定。`
-                      : stage.requiresChooseSize
-                        ? "先运行 choose_size(images) 生成分辨率。"
-                        : "先选一个分辨率。"}
-                  </span>
-                </div>
-
-                {state.judgeOutcome ? (
-                  <RecognitionPanel outcome={state.judgeOutcome} stage={stage} />
-                ) : null}
-              </>
-            ) : null}
-          </main>
-        </LabPageShell>
-      </AppPageLayout>
-    </LabAccessGate>
+              {state.judgeOutcome ? (
+                <RecognitionPanel outcome={state.judgeOutcome} stage={stage} />
+              ) : null}
+            </>
+          ) : null}
+        </main>
+      </LabPageShell>
+    </AppPageLayout>
   );
 }

@@ -38,17 +38,18 @@ export function AdminLabsPage() {
   const [busyLab, setBusyLab] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    void api
-      .get<{ labs: LabVisibility[] }>("/api/labs")
-      .then((payload) => setLabs(payload.labs))
+    void Promise.all([
+      api.get<{ labs: LabVisibility[] }>("/api/labs"),
+      api.get<{ classes: AdminClass[] }>("/api/admin/classes"),
+    ])
+      .then(([labsPayload, classesPayload]) => {
+        setClasses(classesPayload.classes);
+        setLabs(labsPayload.labs);
+      })
       .catch((caught) => {
         setLabs([]);
         setError(describeApiError(caught));
       });
-    void api
-      .get<{ classes: AdminClass[] }>("/api/admin/classes")
-      .then((payload) => setClasses(payload.classes))
-      .catch((caught) => setError(describeApiError(caught)));
   }, []);
 
   useEffect(() => {

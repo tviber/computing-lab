@@ -7,17 +7,21 @@
 import type { DatabaseSync } from "node:sqlite";
 import { CALCULATOR_STAGES } from "../src/features/calculator/domain/stages.ts";
 import { COLOR_QUANT_STAGES } from "../src/features/color-quantization/domain/stages.ts";
-import { CPU_STAGES } from "../src/features/cpu/domain/stages.ts";
 import { DECODING_STAGES } from "../src/features/decoding/domain/stages.ts";
 import { IMAGE_SAMPLING_STAGES } from "../src/features/image-sampling/domain/stages.ts";
-import { IS_SIM_STAGES } from "../src/features/is-sim/domain/stages.ts";
 import { LUNCH_STAGES } from "../src/features/lunch-shift/domain/stages.ts";
 import { ML_STAGES } from "../src/features/ml-intro/domain/stages.ts";
+import {
+  LAB_IDS,
+  labMetadata,
+  type LabId,
+  type LabMetadataEntry,
+} from "../src/shared/lab/labMetadata.ts";
 import type { SessionUser } from "./auth/session.ts";
 import { parseJsonColumn } from "./db/client.ts";
 
 export type LabInfo = {
-  id: string;
+  id: LabId;
   stageCount: number;
   /** Labs awaiting review stay closed until an administrator opens them. */
   defaultHidden?: boolean;
@@ -33,17 +37,23 @@ export type LabVisibility = {
   openClassIds: string[] | null;
 };
 
-export const LAB_REGISTRY: LabInfo[] = [
-  { id: "calculator", stageCount: CALCULATOR_STAGES.length },
-  { id: "image-sampling", stageCount: IMAGE_SAMPLING_STAGES.length },
-  { id: "color-quantization", stageCount: COLOR_QUANT_STAGES.length },
-  { id: "cpu", stageCount: CPU_STAGES.length },
-  { id: "decoding", stageCount: DECODING_STAGES.length },
-  { id: "is-sim", stageCount: IS_SIM_STAGES.length },
-  { id: "lunch-shift", stageCount: LUNCH_STAGES.length },
-  { id: "ml-intro", stageCount: ML_STAGES.length },
-  { id: "audio-encoding", stageCount: 0, defaultHidden: true },
-];
+const LAB_SPECS: Record<LabId, Omit<LabInfo, "id">> = {
+  calculator: { stageCount: CALCULATOR_STAGES.length },
+  decoding: { stageCount: DECODING_STAGES.length },
+  "lunch-shift": { stageCount: LUNCH_STAGES.length },
+  "ml-intro": { stageCount: ML_STAGES.length },
+  "image-sampling": { stageCount: IMAGE_SAMPLING_STAGES.length },
+  "color-quantization": { stageCount: COLOR_QUANT_STAGES.length },
+};
+
+export const LAB_REGISTRY: LabInfo[] = LAB_IDS.map((id) => {
+  const meta: LabMetadataEntry = labMetadata[id];
+  return {
+    id,
+    stageCount: LAB_SPECS[id].stageCount,
+    defaultHidden: LAB_SPECS[id].defaultHidden ?? meta.defaultHidden,
+  };
+});
 
 export function labInfo(id: string | undefined): LabInfo | undefined {
   return LAB_REGISTRY.find((l) => l.id === id);

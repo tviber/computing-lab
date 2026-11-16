@@ -40,10 +40,6 @@ colors:
   scrim-deep: "rgb(0 0 0 / 60%)"
   marker: "#fde8a8"
   paper: "#e8ddc7"
-  cpu-lamp: "#e0457b"
-  ir-op: "#fde8d8"
-  ir-reg: "#e0ecfd"
-  ir-operand: "#ddf2e4"
 elevation:
   shadow-sm: "0 4px 14px rgb(23 40 61 / 5%)"
   shadow-md: "0 16px 40px rgb(23 40 61 / 8%)"
@@ -125,27 +121,27 @@ rail 的竖向分隔线画在网格内部（`border-right`），内容仍然受 
 
 颜色只按角色使用，不按字面含义：
 
-| Token                                                                 | 用途                                           |
-| --------------------------------------------------------------------- | ---------------------------------------------- |
-| `--canvas`                                                            | 页面背景（topbar/卡片之外的区域）              |
-| `--surface`                                                           | 卡片、面板、topbar、弹层                       |
-| `--subtle`                                                            | 次级填充：hover 底、图表槽位、禁用态           |
-| `--border`                                                            | 所有描边、分隔线                               |
-| `--primary`                                                           | 正文标题、重要文字                             |
-| `--secondary`                                                         | 说明文字                                       |
-| `--muted`                                                             | 弱化提示、placeholder 级文字                   |
-| `--accent` / `--accent-soft`                                          | 主交互色及其浅底（按钮、当前态）               |
-| `--focus` / `--focus-ring`                                            | hover 边框 / `:focus-visible` 描边             |
-| `--success`/`--warning`/`--danger`                                    | 状态语义色，仅用于状态                         |
-| `--success-soft`/`--success-border`/`--danger-soft`/`--danger-border` | 状态提示条的底色与描边                         |
-| `--success-fill`/`--warning-soft`                                     | 状态徽章、图例的实底（比 -soft 深一档）        |
-| `--success-ink`/`--warning-ink`/`--danger-ink`                        | 状态浅底上的 AA 文字色                         |
-| `--accent-ink`/`--accent-line`                                        | 深一号主色文字 / accent 族浅描边               |
-| `--border-strong`                                                     | 比 `--border` 深一级的灰线、禁用底             |
-| `--code-surface`/`--code-line`/`--code-ink`/`--code-accent`           | 深色代码面板的底、描边、文字、高亮             |
-| `--error-surface`/`--error-ink`                                       | 深色错误终端面板                               |
-| `--scrim`/`--scrim-deep`                                              | 色块描边 / 色块内文字阴影                      |
-| `--marker`/`--paper`/`--cpu-lamp`/`--ir-*`                            | 领域色：高亮标记、小票纸、进位灯、指令字段底色 |
+| Token                                                                 | 用途                                    |
+| --------------------------------------------------------------------- | --------------------------------------- |
+| `--canvas`                                                            | 页面背景（topbar/卡片之外的区域）       |
+| `--surface`                                                           | 卡片、面板、topbar、弹层                |
+| `--subtle`                                                            | 次级填充：hover 底、图表槽位、禁用态    |
+| `--border`                                                            | 所有描边、分隔线                        |
+| `--primary`                                                           | 正文标题、重要文字                      |
+| `--secondary`                                                         | 说明文字                                |
+| `--muted`                                                             | 弱化提示、placeholder 级文字            |
+| `--accent` / `--accent-soft`                                          | 主交互色及其浅底（按钮、当前态）        |
+| `--focus` / `--focus-ring`                                            | hover 边框 / `:focus-visible` 描边      |
+| `--success`/`--warning`/`--danger`                                    | 状态语义色，仅用于状态                  |
+| `--success-soft`/`--success-border`/`--danger-soft`/`--danger-border` | 状态提示条的底色与描边                  |
+| `--success-fill`/`--warning-soft`                                     | 状态徽章、图例的实底（比 -soft 深一档） |
+| `--success-ink`/`--warning-ink`/`--danger-ink`                        | 状态浅底上的 AA 文字色                  |
+| `--accent-ink`/`--accent-line`                                        | 深一号主色文字 / accent 族浅描边        |
+| `--border-strong`                                                     | 比 `--border` 深一级的灰线、禁用底      |
+| `--code-surface`/`--code-line`/`--code-ink`/`--code-accent`           | 深色代码面板的底、描边、文字、高亮      |
+| `--error-surface`/`--error-ink`                                       | 深色错误终端面板                        |
+| `--scrim`/`--scrim-deep`                                              | 色块描边 / 色块内文字阴影               |
+| `--marker`/`--paper`                                                  | 领域色：高亮标记、小票纸                |
 
 `--muted` 在 canvas/surface/subtle/accent-soft 上均满足 WCAG AA 4.5:1 对比度要求。与 `--secondary` 的层级主要靠字号/字重区分。
 

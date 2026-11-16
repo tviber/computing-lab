@@ -1,54 +1,52 @@
 # 实验视觉任务
 
-CPU 是 Controller / Workspace / Preview 边界的首个试点。其他实验按修改成本迁移，
-不用为了目录对称进行重构。保持单 Vite 包，不引入通用 LessonRuntime 或新后端。
+`decoding` 采用 Controller / Workspace / Preview 分层边界（其他实验按修改成本迁移，
+不用为了目录对称进行重构）。保持单 Vite 包，不引入通用 LessonRuntime 或新后端。
 
-## redesign-cpu-ui
+## 视觉开发边界（以 decoding 为例）
 
 先读：
 
 - `src/design/tokens.css`
-- `src/features/cpu/controller/viewModel.ts`（界面契约）
-- `src/features/cpu/ui/CpuWorkspace.tsx` 及需要修改的展示组件／CSS
-- `src/features/cpu/preview/`（公开、固定的展示场景）
+- `src/features/decoding/controller/viewModel.ts`（界面契约）
+- `src/features/decoding/ui/DecodingWorkspace.tsx` 及需要修改的展示组件／CSS
+- `src/features/decoding/preview/`（公开、固定的展示场景）
 
-普通视觉任务允许修改 `cpu/ui/**`（除入口 `CpuLabPage.tsx`）和 `cpu/preview/**`。
-不得修改 `server/**`、`cpu/domain/**`、`cpu/lesson/**`、`cpu/controller/**`、
+普通视觉任务允许修改 `decoding/ui/**`（除入口 `DecodingLabPage.tsx`）和 `decoding/preview/**`。
+不得修改 `server/**`、`decoding/domain/**`、`decoding/lesson/**`、`decoding/controller/**`、
 `src/shared/api/**`、`src/shared/auth/**` 或全局 `base.css` / `app-layout.css`。
 需要改契约或教学行为时，先把任务重新界定为教学开发任务。
 
-保留现有 actions、禁用状态、锁定关卡、预测题提示、观察完成门槛和错误反馈。
-Workspace 可以持有 Tab、提示展开等视觉状态；时钟、游标、预测答题、保存和判题由
-Controller 管理。不要在 UI 新建模拟器或自行 dispatch 教学 action。
-专用图表可接收只读轨迹并做显示格式转换；禁止修改输入 model。
-`TraceRows` 必须接收完整轨迹和独立的 visibleCount，不能切片后把中间行误算为最终寄存器值。
-新增 CSS 使用 `cpu-` 命名空间和已有 tokens，不改变其他实验的共享样式。
+保留现有 actions、禁用状态、锁定关卡、概念题提示与错误反馈。
+Workspace 可以持有纯展示状态；Pyodide 执行、作答编辑、保存和判题由
+Controller 管理。不要在 UI 新建运行时或自行 dispatch 教学 action。
+新增 CSS 使用对应实验的命名空间（如 `decoding-`）和已有 tokens，不改变其他实验的共享样式。
 
 ## 本地预览
 
 运行 `bun run dev`，打开：
 
 ```text
-/__dev/labs/cpu?scenario=initial&viewport=desktop
+/__dev/labs/decoding?scenario=initial&viewport=desktop
 ```
 
 该路由仅在 Vite 开发模式注册，生产构建不含预览页面或 fixture。
 无需 API、登录、数据库或真实学生数据；`App` 在该开发路由跳过身份请求，离开后恢复认证。
-场景来自公开数据，包含初始、运行中、教学阻塞、判题失败、挑战编辑、正在保存、
-保存异常、加载异常、字节锁定和 ALU 执行。
+场景来自公开数据，涵盖初始状态、未完成填空、已解码、运行出错、各关卡形态、
+判题失败、正在保存、保存异常及加载异常等场景。
 
 切换桌面／平板／手机会改变 iframe 的真实视口宽度，触发原页面媒体查询。
 URL 可复现固定场景；非法参数回退到初始场景与桌面。
 `frame=1` 是可直接截图的完整实验页，不显示外层预览工具。
-预览 actions 只记录操作事件，不会驱动教学流程、执行计时或请求后端。
-验证真实教学交互使用 Controller 单测和原有 `CpuLabPage.test.tsx`。
+预览 actions 只记录操作事件，不会驱动教学流程、执行运行时或请求后端。
+验证真实教学交互使用 Controller 单测和原有页面集成测试。
 
 ## 验证
 
 本机命令必须串行执行，并遵守 `.codex/AGENTS.md` 的单 worker 限制：
 
 ```sh
-nice -n 10 bun run vitest run src/features/cpu --maxWorkers=1 --minWorkers=1
+nice -n 10 bun run vitest run src/features/decoding --maxWorkers=1 --minWorkers=1
 nice -n 10 bun run playwright test --config playwright.preview.config.ts --workers=1
 ```
 

@@ -2,19 +2,25 @@ import { useNavigate } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "../../shared/auth";
 import { useLabCatalog } from "../../shared/lab/labs";
+import { labMetadata, type LabId } from "../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import "./home.css";
 
-/** Public entry for the cpu lab; sends students into their class context. */
-export function CpuRedirectPage() {
+/**
+ * Public `/labs/<labId>` entry redirect shared by every lab: forwards a
+ * signed-in member to the first class where the lab is open, and blocks
+ * non-admins with a clear notice when the lab is hidden or closed to them.
+ */
+export function LabRedirectPage({ labId }: { labId: LabId }) {
   const { status, primaryMembership, role } = useAuth();
   const catalog = useLabCatalog(status === "authenticated");
   const navigate = useNavigate();
-  const entry = catalog?.get("cpu");
+  const entry = catalog?.get(labId);
   const closed = entry?.visible === false;
   // Land on the first class whose students may take the lab — the primary
   // membership itself may be a class this lab is closed to.
   const classId = entry?.visibleClassIds?.[0] ?? primaryMembership?.classId;
+  const title = labMetadata[labId].title;
 
   useEffect(() => {
     if (status === "anonymous") {
@@ -23,9 +29,9 @@ export function CpuRedirectPage() {
     }
     // Non-admins wait for the catalog so a closed lab never flashes through.
     if (classId && (role === "admin" || (catalog !== null && !closed))) {
-      void navigate({ to: "/classes/$classId/labs/cpu", params: { classId } });
+      void navigate({ to: `/classes/$classId/labs/${labId}`, params: { classId } });
     }
-  }, [status, classId, role, catalog, closed, navigate]);
+  }, [status, classId, role, catalog, closed, labId, navigate]);
 
   if (status === "authenticated" && closed && role !== "admin") {
     return (
@@ -33,7 +39,7 @@ export function CpuRedirectPage() {
         <main className="not-found" role="status">
           <p className="eyebrow">实验 / 暂未开放</p>
           <h1>这个实验暂未开放</h1>
-          <p>「冯诺依曼数据通路」暂未对你所在的班级开放，开放后再来。</p>
+          <p>「{title}」暂未对你所在的班级开放，开放后再来。</p>
         </main>
       </AppPageLayout>
     );

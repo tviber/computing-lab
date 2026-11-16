@@ -216,15 +216,6 @@ button.cell-pass:hover {
   color: var(--danger);
 }
 
-.drawer-predictions li {
-  align-items: flex-start;
-  flex-direction: column;
-}
-
-.drawer-predictions li span:first-child {
-  font-family: inherit;
-}
-
 .drawer-note {
   color: var(--muted);
   font-size: 11px;

@@ -56,7 +56,7 @@ describe("LabPageShell", () => {
     second.unmount();
 
     // Another lab has its own key and is unaffected.
-    const other = renderShell({ labId: "cpu" });
+    const other = renderShell({ labId: "ml-intro" });
     expect(other.container.querySelector(".lab-page-grid")!.className).not.toContain(
       "is-collapsed",
     );
@@ -65,7 +65,7 @@ describe("LabPageShell", () => {
   it("shows the collapsed label and forceExpand keeps the rail open", async () => {
     const user = userEvent.setup();
     const { container, rerender } = render(
-      <LabPageShell collapsedLabel="第 3 关" labId="cpu" rail={<nav>关卡列表</nav>}>
+      <LabPageShell collapsedLabel="第 3 关" labId="ml-intro" rail={<nav>关卡列表</nav>}>
         <main>工作区</main>
       </LabPageShell>,
     );
@@ -73,7 +73,12 @@ describe("LabPageShell", () => {
     expect(screen.getByText("第 3 关")).toBeInTheDocument();
 
     rerender(
-      <LabPageShell collapsedLabel="第 3 关" forceExpand labId="cpu" rail={<nav>关卡列表</nav>}>
+      <LabPageShell
+        collapsedLabel="第 3 关"
+        forceExpand
+        labId="ml-intro"
+        rail={<nav>关卡列表</nav>}
+      >
         <main>工作区</main>
       </LabPageShell>,
     );
@@ -87,6 +92,6 @@ describe("LabPageShell", () => {
     expect(forcedToggle).toBeDisabled();
 
     await user.click(forcedToggle);
-    expect(localStorage.getItem("computing-lab:lab-rail:cpu")).toBe("1");
+    expect(localStorage.getItem("computing-lab:lab-rail:ml-intro")).toBe("1");
   });
 });

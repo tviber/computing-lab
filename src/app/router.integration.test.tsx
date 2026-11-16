@@ -1,5 +1,6 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import { LAB_IDS } from "../shared/lab/labMetadata";
 import {
   adminAuthState,
   anonymousAuthState,
@@ -36,16 +37,14 @@ describe("application router integration", () => {
       const path = String(input);
       const payload = path.includes("/api/labs")
         ? {
-            labs: [
-              {
-                id: "audio-encoding",
-                stageCount: 0,
-                hidden: false,
-                openClassIds: null,
-                visible: true,
-                visibleClassIds: ["c1"],
-              },
-            ],
+            labs: LAB_IDS.map((id) => ({
+              id,
+              stageCount: 1,
+              hidden: false,
+              openClassIds: null,
+              visible: true,
+              visibleClassIds: ["c1"],
+            })),
           }
         : path.includes("/task-assignments")
           ? { assignments: [] }
@@ -58,10 +57,46 @@ describe("application router integration", () => {
     await renderAppAt("/", { auth: teacherAuthState });
 
     const cards = screen.getAllByRole("article");
-    expect(cards).toHaveLength(9);
+    expect(cards).toHaveLength(LAB_IDS.length);
     for (const card of cards) {
       expect(within(card).getByRole("link", { name: "开始实验" })).toBeInTheDocument();
     }
+  });
+
+  it("blocks closed ml-intro entry redirect and class route for non-admins", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/labs")) {
+        return new Response(
+          JSON.stringify({
+            labs: [
+              {
+                id: "ml-intro",
+                stageCount: 6,
+                hidden: true,
+                openClassIds: null,
+                visible: false,
+                visibleClassIds: [],
+              },
+            ],
+          }),
+          { status: 200, headers: { "content-type": "application/json" } },
+        );
+      }
+      return new Response(JSON.stringify({}), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      });
+    });
+
+    await renderAppAt("/labs/ml-intro", { auth: teacherAuthState });
+    expect(await screen.findByRole("heading", { name: "这个实验暂未开放" })).toBeInTheDocument();
+    expect(screen.getByText(/机器学习入门/)).toBeInTheDocument();
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    expect(
+      (await screen.findAllByRole("heading", { name: "这个实验暂未开放" })).length,
+    ).toBeGreaterThan(0);
   });
 
   it("lets teachers enter an open image-sampling lab", async () => {

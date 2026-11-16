@@ -2,7 +2,6 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { useReducer, type Dispatch } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import type { DecodingDraft } from "../../features/decoding/domain/protocol";
-import { createCpuLessonState, transitionCpuLesson } from "../../features/cpu/lesson/state";
 import {
   createDecodingLessonState,
   emptyDraft,
@@ -236,42 +235,6 @@ describe("save conflict recovery", () => {
     expect(statusForStage(exposed.state.saveStatusByStage, 2)).toBe("saved");
     expect(exposed.state.draftRevisions[2]).toBe(8);
     expect(exposed.state.drafts[2]?.code).toBe("local-2");
-  });
-
-  it("keeps the pre-conflict local draft recoverable on the cpu reducer too", () => {
-    // 同样的两个 action 直接打在 cpu 的真实 reducer 上：冲突调和存副本，
-    // 找回时恢复并标 dirty（当前关卡还要跟着换新 playback revision）。
-    let state = createCpuLessonState(7);
-    state = transitionCpuLesson(state, {
-      type: "load-project",
-      currentStage: 7,
-      passedStages: [1, 2, 3, 4, 5, 6],
-      drafts: { 7: { rows: [{ op: "LOAD", reg: 0, operand: 3 }] } },
-      draftRevisions: { 7: 2 },
-      calculatorCoreComplete: true,
-    });
-    state = transitionCpuLesson(state, { type: "mark-saving", stageIndex: 7 });
-    state = transitionCpuLesson(state, {
-      type: "resolve-save-conflict",
-      stageIndex: 7,
-      draft: { rows: [{ op: "STORE", reg: 1, operand: 4 }] },
-      revision: 5,
-    });
-    expect(state.drafts[7]?.rows).toEqual([{ op: "STORE", reg: 1, operand: 4 }]);
-    expect(state.conflictedLocalDrafts[7]?.rows).toEqual([{ op: "LOAD", reg: 0, operand: 3 }]);
-    expect(state.draftRevisions[7]).toBe(5);
-    expect(statusForStage(state.saveStatusByStage, 7)).toBe("conflict");
-
-    const playback = state.editRevision;
-    state = transitionCpuLesson(state, { type: "restore-conflict-draft", stageIndex: 7 });
-    expect(state.drafts[7]?.rows).toEqual([{ op: "LOAD", reg: 0, operand: 3 }]);
-    expect(state.conflictedLocalDrafts[7]).toBeUndefined();
-    expect(statusForStage(state.saveStatusByStage, 7)).toBe("dirty");
-    // 当前关卡的程序换了 → playback revision 递增；无副本时则是 no-op。
-    expect(state.editRevision).toBe(playback + 1);
-    const after = state;
-    state = transitionCpuLesson(state, { type: "restore-conflict-draft", stageIndex: 7 });
-    expect(state).toBe(after);
   });
 
   it("flags sync-error when the reconcile fetch fails; only an explicit retry lifts the fence", async () => {

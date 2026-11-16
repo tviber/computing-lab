@@ -14,7 +14,7 @@ export default defineConfig({
   use: { baseURL: "http://127.0.0.1:4174/", trace: "retain-on-failure" },
   webServer: {
     command: "bun run dev --host 127.0.0.1 --port 4174 --strictPort",
-    url: "http://127.0.0.1:4174/__dev/labs/cpu",
+    url: "http://127.0.0.1:4174/__dev/labs/decoding",
     env: { ...process.env, VITE_BASE_PATH: "/" },
     reuseExistingServer: false,
     timeout: 30_000,

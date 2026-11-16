@@ -9,10 +9,9 @@ import { useParams } from "@tanstack/react-router";
 import { useCallback, useReducer, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
 import { useAuth } from "../../../shared/auth";
-import { LabAccessGate, SaveIndicator } from "../../../shared/lab/LabGate";
+import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { useLabCatalog } from "../../../shared/lab/labs";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -75,8 +74,7 @@ function StageBrief({ stage, passed }: { stage: MlStageDef; passed: boolean }) {
 
 export function MlIntroLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/ml-intro" });
-  const { status, role } = useAuth();
-  const catalog = useLabCatalog(status === "authenticated");
+  const { status } = useAuth();
   const [state, dispatch] = useReducer(transitionMlLesson, undefined, () => createMlLessonState(1));
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -164,160 +162,152 @@ export function MlIntroLabPage() {
   };
 
   return (
-    <LabAccessGate
-      classId={classId}
-      closed={catalog?.get("ml-intro")?.visible === false}
-      labName={labMetadata["ml-intro"].title}
-      role={role}
-      status={status}
+    <AppPageLayout
+      className="ml-lab"
+      topbar={
+        <SaveIndicator
+          status={statusForStage(state.saveStatusByStage, state.stageIndex)}
+          unresolvedSyncConflict={syncConflictForStage(
+            state.unresolvedSyncConflicts,
+            state.stageIndex,
+          )}
+          onRetrySync={() => reconcileConflict(state.stageIndex)}
+          onRestoreLocal={
+            state.conflictedLocalDrafts[state.stageIndex] !== undefined
+              ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
+              : undefined
+          }
+          onDiscardLocal={
+            state.conflictedLocalDrafts[state.stageIndex] !== undefined
+              ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
+              : undefined
+          }
+        />
+      }
+      topbarProps={{
+        title: stage?.title ?? labMetadata["ml-intro"].title,
+      }}
     >
-      <AppPageLayout
-        className="ml-lab"
-        topbar={
-          <SaveIndicator
-            status={statusForStage(state.saveStatusByStage, state.stageIndex)}
-            unresolvedSyncConflict={syncConflictForStage(
-              state.unresolvedSyncConflicts,
-              state.stageIndex,
-            )}
-            onRetrySync={() => reconcileConflict(state.stageIndex)}
-            onRestoreLocal={
-              state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
-                : undefined
-            }
-            onDiscardLocal={
-              state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
-                : undefined
-            }
+      <LabPageShell
+        collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
+        labId="ml-intro"
+        rail={
+          <StageRail
+            label={labMetadata["ml-intro"].title}
+            onSelect={(stageIndex) => dispatch({ type: "select-stage", stageIndex })}
+            passedStages={passedStages}
+            stageIndex={state.stageIndex}
+            stages={ML_STAGES}
+            unlocked={(item) => mlStageUnlocked(passedStages, item.index)}
           />
         }
-        topbarProps={{
-          title: stage?.title ?? labMetadata["ml-intro"].title,
-        }}
       >
-        <LabPageShell
-          collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
-          labId="ml-intro"
-          rail={
-            <StageRail
-              label={labMetadata["ml-intro"].title}
-              onSelect={(stageIndex) => dispatch({ type: "select-stage", stageIndex })}
-              passedStages={passedStages}
-              stageIndex={state.stageIndex}
-              stages={ML_STAGES}
-              unlocked={(item) => mlStageUnlocked(passedStages, item.index)}
+        <main aria-label="机器学习入门实验区" className="ml-workspace">
+          {stage ? <StageBrief passed={activePassed} stage={stage} /> : null}
+
+          {state.message ? (
+            <DismissibleAlert onDismiss={() => dispatch({ type: "dismiss-message" })}>
+              {state.message}
+            </DismissibleAlert>
+          ) : null}
+
+          {(loadError ?? submitError) ? (
+            <p className="test-error" role="alert">
+              {loadError ?? submitError}
+            </p>
+          ) : null}
+
+          {!projectLoaded && !loadError ? (
+            <p className="home-loading" role="status">
+              正在载入…
+            </p>
+          ) : null}
+
+          {projectLoaded && stage?.index === 1 ? (
+            <StrategyPanel
+              draft={draftOf(state, 1) as StrategyDraft}
+              hasNextStage={hasNextStage}
+              onChange={(draft) => dispatch({ type: "update-stage1", draft })}
+              onNextStage={goNextStage}
+              onSubmit={() => void submitJudge(1, draftOf(state, 1))}
+              passed={activePassed}
+              result={activeResult}
+              stage={stage}
+              submitting={submitting}
             />
-          }
-        >
-          <main aria-label="机器学习入门实验区" className="ml-workspace">
-            {stage ? <StageBrief passed={activePassed} stage={stage} /> : null}
+          ) : null}
 
-            {state.message ? (
-              <DismissibleAlert onDismiss={() => dispatch({ type: "dismiss-message" })}>
-                {state.message}
-              </DismissibleAlert>
-            ) : null}
+          {projectLoaded && stage?.index === 2 ? (
+            <TokenizePanel
+              draft={draftOf(state, 2) as TokenizeDraft}
+              hasNextStage={hasNextStage}
+              onChange={(draft) => dispatch({ type: "update-stage2", draft })}
+              onNextStage={goNextStage}
+              onSubmit={() => void submitJudge(2, draftOf(state, 2))}
+              passed={activePassed}
+              result={activeResult}
+              stage={stage}
+              submitting={submitting}
+            />
+          ) : null}
 
-            {(loadError ?? submitError) ? (
-              <p className="test-error" role="alert">
-                {loadError ?? submitError}
-              </p>
-            ) : null}
+          {projectLoaded && stage?.index === 3 ? (
+            <ScorePanel
+              draft={draftOf(state, 3) as ScoreDraft}
+              hasNextStage={hasNextStage}
+              onChange={(draft) => dispatch({ type: "update-stage3", draft })}
+              onNextStage={goNextStage}
+              onSubmit={() => void submitJudge(3, draftOf(state, 3))}
+              passed={activePassed}
+              result={activeResult}
+              stage={stage}
+              submitting={submitting}
+            />
+          ) : null}
 
-            {!projectLoaded && !loadError ? (
-              <p className="home-loading" role="status">
-                正在载入…
-              </p>
-            ) : null}
+          {projectLoaded && stage?.index === 4 ? (
+            <TrainPanel
+              draft={draftOf(state, 4) as TrainDraft}
+              hasNextStage={hasNextStage}
+              onChange={(draft) => dispatch({ type: "update-stage4", draft })}
+              onNextStage={goNextStage}
+              onSubmit={() => void submitJudge(4, draftOf(state, 4))}
+              passed={activePassed}
+              result={activeResult}
+              stage={stage}
+              submitting={submitting}
+            />
+          ) : null}
 
-            {projectLoaded && stage?.index === 1 ? (
-              <StrategyPanel
-                draft={draftOf(state, 1) as StrategyDraft}
-                hasNextStage={hasNextStage}
-                onChange={(draft) => dispatch({ type: "update-stage1", draft })}
-                onNextStage={goNextStage}
-                onSubmit={() => void submitJudge(1, draftOf(state, 1))}
-                passed={activePassed}
-                result={activeResult}
-                stage={stage}
-                submitting={submitting}
-              />
-            ) : null}
+          {projectLoaded && stage?.index === 5 ? (
+            <EvaluatePanel
+              draft={draftOf(state, 5) as EvaluateDraft}
+              hasNextStage={hasNextStage}
+              onChange={(draft) => dispatch({ type: "update-stage5", draft })}
+              onNextStage={goNextStage}
+              onSubmit={() => void submitJudge(5, draftOf(state, 5))}
+              passed={activePassed}
+              result={activeResult}
+              stage={stage}
+              submitting={submitting}
+            />
+          ) : null}
 
-            {projectLoaded && stage?.index === 2 ? (
-              <TokenizePanel
-                draft={draftOf(state, 2) as TokenizeDraft}
-                hasNextStage={hasNextStage}
-                onChange={(draft) => dispatch({ type: "update-stage2", draft })}
-                onNextStage={goNextStage}
-                onSubmit={() => void submitJudge(2, draftOf(state, 2))}
-                passed={activePassed}
-                result={activeResult}
-                stage={stage}
-                submitting={submitting}
-              />
-            ) : null}
-
-            {projectLoaded && stage?.index === 3 ? (
-              <ScorePanel
-                draft={draftOf(state, 3) as ScoreDraft}
-                hasNextStage={hasNextStage}
-                onChange={(draft) => dispatch({ type: "update-stage3", draft })}
-                onNextStage={goNextStage}
-                onSubmit={() => void submitJudge(3, draftOf(state, 3))}
-                passed={activePassed}
-                result={activeResult}
-                stage={stage}
-                submitting={submitting}
-              />
-            ) : null}
-
-            {projectLoaded && stage?.index === 4 ? (
-              <TrainPanel
-                draft={draftOf(state, 4) as TrainDraft}
-                hasNextStage={hasNextStage}
-                onChange={(draft) => dispatch({ type: "update-stage4", draft })}
-                onNextStage={goNextStage}
-                onSubmit={() => void submitJudge(4, draftOf(state, 4))}
-                passed={activePassed}
-                result={activeResult}
-                stage={stage}
-                submitting={submitting}
-              />
-            ) : null}
-
-            {projectLoaded && stage?.index === 5 ? (
-              <EvaluatePanel
-                draft={draftOf(state, 5) as EvaluateDraft}
-                hasNextStage={hasNextStage}
-                onChange={(draft) => dispatch({ type: "update-stage5", draft })}
-                onNextStage={goNextStage}
-                onSubmit={() => void submitJudge(5, draftOf(state, 5))}
-                passed={activePassed}
-                result={activeResult}
-                stage={stage}
-                submitting={submitting}
-              />
-            ) : null}
-
-            {projectLoaded && stage?.index === 6 ? (
-              <GeneralizePanel
-                draft={draftOf(state, 6) as GeneralizeDraft}
-                hasNextStage={hasNextStage}
-                onChange={(draft) => dispatch({ type: "update-stage6", draft })}
-                onNextStage={goNextStage}
-                onSubmit={() => void submitJudge(6, draftOf(state, 6))}
-                passed={activePassed}
-                result={activeResult}
-                stage={stage}
-                submitting={submitting}
-              />
-            ) : null}
-          </main>
-        </LabPageShell>
-      </AppPageLayout>
-    </LabAccessGate>
+          {projectLoaded && stage?.index === 6 ? (
+            <GeneralizePanel
+              draft={draftOf(state, 6) as GeneralizeDraft}
+              hasNextStage={hasNextStage}
+              onChange={(draft) => dispatch({ type: "update-stage6", draft })}
+              onNextStage={goNextStage}
+              onSubmit={() => void submitJudge(6, draftOf(state, 6))}
+              passed={activePassed}
+              result={activeResult}
+              stage={stage}
+              submitting={submitting}
+            />
+          ) : null}
+        </main>
+      </LabPageShell>
+    </AppPageLayout>
   );
 }
