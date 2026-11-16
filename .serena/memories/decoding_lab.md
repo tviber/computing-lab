@@ -1,10 +1,10 @@
 # Decoding Lab (解码侦探, issue #81)
 
-Layout mirrors the cpu lab: `controller/` (`useDecodingLabController`,
+Layered structure: `controller/` (`useDecodingLabController`,
 `useDecodeExecution`, `createViewModel`, `viewModel`), `ui/` (thin
 `DecodingLabPage` + `DecodingWorkspace` + panels), `runtime/` (Pyodide
 adapter), `preview/` (`/__dev/labs/decoding`, DEV only). `ui/` is under
-the same pilot ESLint boundary as cpu's (no value imports of
+strict ESLint boundaries (no value imports of
 controller/lesson/`domain/stages`; shared hooks banned; page file exempt).
 
 ## Teaching model

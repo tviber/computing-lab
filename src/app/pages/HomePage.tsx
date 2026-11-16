@@ -3,15 +3,15 @@ import { useEffect, useState } from "react";
 import { api } from "../../shared/api/client";
 import { isStaffRole, useAuth } from "../../shared/auth";
 import { useLabCatalog } from "../../shared/lab/labs";
-import { labMetadata, type LabId } from "../../shared/lab/labMetadata";
+import {
+  LAB_IDS,
+  labMetadata,
+  type LabId,
+  type LabMetadataEntry,
+} from "../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { Icon } from "../../shared/ui/Icon";
-import { coreStages } from "../../features/calculator";
-import { CPU_CORE_STAGES } from "../../features/cpu";
-import { DECODING_CORE_STAGES } from "../../features/decoding";
-import { IS_SIM_CORE_STAGES } from "../../features/is-sim";
-import { LUNCH_STAGES } from "../../features/lunch-shift";
-import { ML_CORE_STAGES } from "../../features/ml-intro";
+import { APP_LABS, type AppLabEntry } from "../labRegistry";
 import "./home.css";
 
 type ProjectSummary = { currentStage: number };
@@ -25,29 +25,17 @@ type StudentTask = {
   finalTotal: number | null;
 };
 
-/**
- * Home-card presentation knobs that are page concerns, not lab truth:
- * whether the card shows stage progress (null = no progress block) and
- * whether it takes the featured styling. Keyed by every manifest entry so
- * a new lab must make both decisions explicitly.
- */
-const HOME_LAB_CARDS: Record<LabId, { stages: number | null; primary?: true }> = {
-  calculator: { stages: coreStages().length, primary: true },
-  cpu: { stages: CPU_CORE_STAGES.length },
-  decoding: { stages: DECODING_CORE_STAGES.length },
-  "is-sim": { stages: IS_SIM_CORE_STAGES.length },
-  "lunch-shift": { stages: LUNCH_STAGES.length },
-  "ml-intro": { stages: ML_CORE_STAGES.length },
-  "image-sampling": { stages: null },
-  "color-quantization": { stages: null },
-  "audio-encoding": { stages: null },
-};
-
-const HOME_LABS = (Object.keys(labMetadata) as LabId[]).map((id) => ({
-  id,
-  ...labMetadata[id],
-  ...HOME_LAB_CARDS[id],
-}));
+const HOME_LABS = LAB_IDS.map((id) => {
+  const meta: LabMetadataEntry = labMetadata[id];
+  const appLab: AppLabEntry = APP_LABS[id];
+  return {
+    id,
+    ...meta,
+    stages: appLab.homeProgressStages,
+    primary: appLab.primaryCard,
+    defaultHidden: meta.defaultHidden ?? false,
+  };
+});
 
 const TASK_STATUS: Record<StudentTask["status"], string> = {
   not_started: "未开始",
@@ -168,23 +156,21 @@ function ClassroomHome() {
   // Labs closed to this user (hidden, or scoped to other classes) drop off
   // non-admin surfaces; admins still see the cards (badged) so they can
   // preview and adjust visibility.
-  const entryOf = (labId: string) => catalog?.get(labId);
-  const cardVisible = (labId: string) => {
+  const entryOf = (labId: LabId) => catalog?.get(labId);
+  const cardVisible = (lab: (typeof HOME_LABS)[number]) => {
     if (isAdmin) return true;
-    const entry = entryOf(labId);
-    // The demo has no server API to enforce access, so fail closed until its
-    // registered visibility is confirmed by the catalog.
-    if (labId === "audio-encoding") return entry?.visible === true;
+    const entry = entryOf(lab.id);
+    if (lab.defaultHidden) return entry?.visible === true;
     return entry?.visible !== false;
   };
-  const adminBadge = (labId: string) => {
+  const adminBadge = (labId: LabId) => {
     if (!isAdmin) return "";
     const entry = entryOf(labId);
     if (entry?.hidden) return " · 已隐藏";
     if (entry?.openClassIds) return ` · ${entry.openClassIds.length} 个班可见`;
     return "";
   };
-  const hasVisibleLab = HOME_LABS.some((lab) => cardVisible(lab.id));
+  const hasVisibleLab = HOME_LABS.some((lab) => cardVisible(lab));
 
   useEffect(() => {
     if (!classId || isStaff || catalog === null) return;
@@ -222,8 +208,7 @@ function ClassroomHome() {
           <div className="lab-card-grid lab-catalog-grid">
             {HOME_LABS.map((lab, index) => {
               const project = projects[lab.id];
-              const canOpenWithoutClass = isAdmin && lab.id === "audio-encoding";
-              return cardVisible(lab.id) ? (
+              return cardVisible(lab) ? (
                 <article className={`lab-card${lab.primary ? " is-primary" : ""}`} key={lab.id}>
                   <div className="lab-card-topline">
                     <span className="category-label">
@@ -236,8 +221,11 @@ function ClassroomHome() {
                   {!isStaff && project && lab.stages !== null ? (
                     <StageProgress currentStage={project.currentStage} total={lab.stages} />
                   ) : null}
-                  {classId || canOpenWithoutClass ? (
-                    <Link className="button button-primary" to={lab.entryPath}>
+                  {classId ? (
+                    <Link
+                      className="button button-primary"
+                      to={`/labs/${lab.id}` as `/labs/${LabId}`}
+                    >
                       {project && project.currentStage > 1 ? "继续" : "开始实验"}
                     </Link>
                   ) : (

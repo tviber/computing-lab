@@ -11,8 +11,7 @@
 
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useAuth } from "../../../shared/auth";
-import { LabAccessGate, SaveIndicator } from "../../../shared/lab/LabGate";
-import { useLabCatalog } from "../../../shared/lab/labs";
+import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { useDecodingLabController } from "../controller/useDecodingLabController.ts";
@@ -22,8 +21,7 @@ import "./decoding.css";
 export function DecodingLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/decoding" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
-  const { status, role, session } = useAuth();
-  const catalog = useLabCatalog(status === "authenticated");
+  const { status, session } = useAuth();
   const controller = useDecodingLabController({
     classId,
     ready: status === "authenticated",
@@ -32,41 +30,33 @@ export function DecodingLabPage() {
   });
   const { model } = controller;
   return (
-    <LabAccessGate
-      classId={classId}
-      closed={catalog?.get("decoding")?.visible === false}
-      labName={labMetadata.decoding.title}
-      role={role}
-      status={status}
+    <AppPageLayout
+      className="decoding-lab"
+      topbar={
+        <SaveIndicator
+          status={model.feedback.saveStatus}
+          unresolvedSyncConflict={model.feedback.unresolvedSyncConflict}
+          onRetrySync={controller.actions.retrySyncConflict}
+          onRestoreLocal={
+            model.feedback.conflictLocalAvailable
+              ? controller.actions.restoreConflictLocal
+              : undefined
+          }
+          onDiscardLocal={
+            model.feedback.conflictLocalAvailable
+              ? controller.actions.discardConflictLocal
+              : undefined
+          }
+        />
+      }
+      topbarProps={{
+        subtitle: model.stage?.englishTitle,
+        title: model.stage
+          ? `${String(model.stage.index).padStart(2, "0")} ${model.stage.title}`
+          : labMetadata.decoding.title,
+      }}
     >
-      <AppPageLayout
-        className="decoding-lab"
-        topbar={
-          <SaveIndicator
-            status={model.feedback.saveStatus}
-            unresolvedSyncConflict={model.feedback.unresolvedSyncConflict}
-            onRetrySync={controller.actions.retrySyncConflict}
-            onRestoreLocal={
-              model.feedback.conflictLocalAvailable
-                ? controller.actions.restoreConflictLocal
-                : undefined
-            }
-            onDiscardLocal={
-              model.feedback.conflictLocalAvailable
-                ? controller.actions.discardConflictLocal
-                : undefined
-            }
-          />
-        }
-        topbarProps={{
-          subtitle: model.stage?.englishTitle,
-          title: model.stage
-            ? `${String(model.stage.index).padStart(2, "0")} ${model.stage.title}`
-            : labMetadata.decoding.title,
-        }}
-      >
-        <DecodingWorkspace {...controller} />
-      </AppPageLayout>
-    </LabAccessGate>
+      <DecodingWorkspace {...controller} />
+    </AppPageLayout>
   );
 }

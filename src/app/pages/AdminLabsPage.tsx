@@ -32,23 +32,31 @@ function sameDraft(a: LabDraft, b: LabDraft): boolean {
 export function AdminLabsPage() {
   const { status, role } = useAuth();
   const [labs, setLabs] = useState<LabVisibility[] | null>(null);
-  const [classes, setClasses] = useState<AdminClass[]>([]);
+  const [classes, setClasses] = useState<AdminClass[] | null>(null);
   const [drafts, setDrafts] = useState<Record<string, LabDraft>>({});
   const [error, setError] = useState<string | null>(null);
+  const [labsLoadError, setLabsLoadError] = useState<string | null>(null);
+  const [classesLoadError, setClassesLoadError] = useState<string | null>(null);
   const [busyLab, setBusyLab] = useState<string | null>(null);
 
   const reload = useCallback(() => {
-    void api
-      .get<{ labs: LabVisibility[] }>("/api/labs")
-      .then((payload) => setLabs(payload.labs))
-      .catch((caught) => {
-        setLabs([]);
-        setError(describeApiError(caught));
-      });
-    void api
-      .get<{ classes: AdminClass[] }>("/api/admin/classes")
-      .then((payload) => setClasses(payload.classes))
-      .catch((caught) => setError(describeApiError(caught)));
+    void api.get<{ labs: LabVisibility[] }>("/api/labs").then(
+      (payload) => {
+        setLabs(payload.labs);
+        setLabsLoadError(null);
+      },
+      (caught) => setLabsLoadError(describeApiError(caught)),
+    );
+    void api.get<{ classes: AdminClass[] }>("/api/admin/classes").then(
+      (payload) => {
+        setClasses(payload.classes);
+        setClassesLoadError(null);
+      },
+      (caught) => {
+        setClasses(null);
+        setClassesLoadError(describeApiError(caught));
+      },
+    );
   }, []);
 
   useEffect(() => {
@@ -57,7 +65,7 @@ export function AdminLabsPage() {
 
   // Drafts follow the freshly loaded server rows once both sources are in.
   useEffect(() => {
-    if (!labs) return;
+    if (!labs || classes === null) return;
     setDrafts(Object.fromEntries(labs.map((lab) => [lab.id, draftOf(lab, classes)])));
   }, [labs, classes]);
 
@@ -71,7 +79,7 @@ export function AdminLabsPage() {
   const save = useCallback(
     async (lab: LabVisibility) => {
       const draft = drafts[lab.id];
-      if (!draft) return;
+      if (!draft || classes === null) return;
       setError(null);
       setBusyLab(lab.id);
       try {
@@ -93,6 +101,8 @@ export function AdminLabsPage() {
     },
     [classes, drafts, reload],
   );
+
+  const pageError = [error, labsLoadError, classesLoadError].filter(Boolean).join(" ");
 
   if (status === "loading") {
     return (
@@ -121,9 +131,9 @@ export function AdminLabsPage() {
           <h1 id="labs-page-title">实验管理</h1>
           <p>管理实验对学生和教师的开放状态。</p>
         </section>
-        {error ? (
+        {pageError ? (
           <p className="auth-error" role="alert">
-            {error}
+            {pageError}
           </p>
         ) : null}
 
@@ -149,7 +159,8 @@ export function AdminLabsPage() {
               <tbody>
                 {labs?.map((lab) => {
                   const draft = drafts[lab.id];
-                  const dirty = draft ? !sameDraft(draft, draftOf(lab, classes)) : false;
+                  const dirty =
+                    draft && classes !== null ? !sameDraft(draft, draftOf(lab, classes)) : false;
                   return (
                     <tr key={lab.id}>
                       <td>
@@ -163,9 +174,11 @@ export function AdminLabsPage() {
                             ? "…"
                             : draft.hidden
                               ? "已隐藏"
-                              : draft.checked.size === classes.length
-                                ? "全部班级"
-                                : `${draft.checked.size} 个班`}
+                              : classes === null
+                                ? "班级数据不可用"
+                                : draft.checked.size === classes.length
+                                  ? "全部班级"
+                                  : `${draft.checked.size} 个班`}
                         </span>
                       </td>
                       <td className="admin-lab-config">
@@ -175,6 +188,7 @@ export function AdminLabsPage() {
                               <label className="admin-lab-mode-option">
                                 <input
                                   checked={!draft.hidden}
+                                  disabled={classes === null}
                                   name={`visibility-${lab.id}`}
                                   onChange={() =>
                                     patchDraft(lab.id, (d) => ({ ...d, hidden: false }))
@@ -186,6 +200,7 @@ export function AdminLabsPage() {
                               <label className="admin-lab-mode-option">
                                 <input
                                   checked={draft.hidden}
+                                  disabled={classes === null}
                                   name={`visibility-${lab.id}`}
                                   onChange={() =>
                                     patchDraft(lab.id, (d) => ({ ...d, hidden: true }))
@@ -200,10 +215,11 @@ export function AdminLabsPage() {
                                 <div className="admin-lab-class-actions">
                                   <button
                                     className="admin-lab-class-action"
+                                    disabled={classes === null}
                                     onClick={() =>
                                       patchDraft(lab.id, (d) => ({
                                         ...d,
-                                        checked: new Set(classes.map((c) => c.id)),
+                                        checked: new Set(classes?.map((c) => c.id) ?? []),
                                       }))
                                     }
                                     type="button"
@@ -212,6 +228,7 @@ export function AdminLabsPage() {
                                   </button>
                                   <button
                                     className="admin-lab-class-action"
+                                    disabled={classes === null}
                                     onClick={() =>
                                       patchDraft(lab.id, (d) => ({ ...d, checked: new Set() }))
                                     }
@@ -220,10 +237,11 @@ export function AdminLabsPage() {
                                     取消全部
                                   </button>
                                 </div>
-                                {classes.map((klass) => (
+                                {classes?.map((klass) => (
                                   <label className="admin-lab-class" key={klass.id}>
                                     <input
                                       checked={draft.checked.has(klass.id)}
+                                      disabled={classes === null}
                                       onChange={() =>
                                         patchDraft(lab.id, (d) => {
                                           const checked = new Set(d.checked);
@@ -237,7 +255,7 @@ export function AdminLabsPage() {
                                     {klass.name}
                                   </label>
                                 ))}
-                                {classes.length === 0 ? (
+                                {classes?.length === 0 ? (
                                   <span className="admin-lab-class-empty">
                                     还没有班级，先在账号管理里创建。
                                   </span>
@@ -250,7 +268,7 @@ export function AdminLabsPage() {
                       <td>
                         <button
                           className="button button-ghost admin-inline-button"
-                          disabled={!dirty || busyLab === lab.id}
+                          disabled={!dirty || classes === null || busyLab === lab.id}
                           onClick={() => void save(lab)}
                           title="保存这个实验的开放设置"
                           type="button"
@@ -263,7 +281,7 @@ export function AdminLabsPage() {
                 })}
                 {labs === null ? (
                   <tr>
-                    <td colSpan={5}>正在加载实验…</td>
+                    <td colSpan={5}>{labsLoadError ? "实验列表加载失败。" : "正在加载实验…"}</td>
                   </tr>
                 ) : labs.length === 0 ? (
                   <tr>
@@ -272,6 +290,15 @@ export function AdminLabsPage() {
                 ) : null}
               </tbody>
             </table>
+            {classes === null && labs !== null && classesLoadError ? (
+              <p className="auth-error" role="status">
+                班级列表不可用，开放范围暂时无法编辑。
+              </p>
+            ) : classes === null && labs !== null ? (
+              <p className="admin-labs-hint" role="status">
+                正在加载班级列表…
+              </p>
+            ) : null}
           </section>
         </div>
       </main>

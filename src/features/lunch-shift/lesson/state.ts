@@ -1,7 +1,7 @@
 /**
  * Lunch-shift lesson state: which stage, the per-stage draft, the last
- * judge verdict. Pure transitions — no React, no network. Mirrors the
- * is-sim reducer's save-status/conflict machinery so autosave behaves the
+ * judge verdict. Pure transitions — no React, no network. Reuses the
+ * shared save-status/conflict machinery so autosave behaves the
  * same across labs.
  */
 

@@ -128,8 +128,8 @@ export default tseslint.config(
   },
   {
     // Pilot boundary: other lab pages still own their application logic.
-    files: ["src/features/cpu/ui/**/*.{ts,tsx}", "src/features/decoding/ui/**/*.{ts,tsx}"],
-    ignores: ["src/features/cpu/ui/CpuLabPage.tsx", "src/features/decoding/ui/DecodingLabPage.tsx"],
+    files: ["src/features/decoding/ui/**/*.{ts,tsx}"],
+    ignores: ["src/features/decoding/ui/DecodingLabPage.tsx"],
     rules: {
       "no-restricted-imports": [
         "error",
@@ -189,7 +189,9 @@ export default tseslint.config(
             { group: ["**/controller/**"] },
             { group: ["**/preview/**"] },
             { group: ["**/shared/auth/**"] },
-            { group: ["**/shared/lab/**"] },
+            // labMetadata is pure catalog data shared with the server; the rest
+            // of shared/lab holds React hooks/UI and stays off-limits here.
+            { group: ["**/shared/lab/!(labMetadata*)"] },
           ],
         },
       ],

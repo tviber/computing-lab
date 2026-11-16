@@ -2,7 +2,6 @@
 
 - This is the project entry point, not a source dump. For full component ownership and cross-layer data flow, consult `docs/architecture.md`; `AGENTS.md` defines engineering constraints.
 - For route/page composition and shared client infrastructure, read `mem:frontend/core`; for API, persistence, and judging, read `mem:backend/core`. For cross-layer work, use both.
-- For the CPU lab's guided-stage teaching model (prefill/editable rows, prompt gating shared by client and judge, trace-driven phase UI), read `mem:cpu_lab`.
 - For the image labs' shared "low-bandwidth transmission" frame (mission lines, student-code-driven preview toggles, lost-feature collision feedback), read `mem:image_labs`.
 - For the decoding lab's artifact-as-submission judging (per-user seeded payloads re-derived server-side, Pyodide ack-after-load contract, BMP profile constraints), read `mem:decoding_lab`.
 - For the lunch-shift lab's AI-intake + priority judging (browser Pyodide + vendored BGE embeddings → normalized JSON, deterministic server replay, order-set difficulty ladder), read `mem:lunch_shift`.

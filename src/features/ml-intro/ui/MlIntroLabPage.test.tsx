@@ -60,6 +60,7 @@ describe("MlIntroLabPage", () => {
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
 
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
+    await screen.findByRole("group", { name: "中奖 倾向设置" });
     for (const word of STRATEGY_WORDS) {
       expect(screen.getByRole("group", { name: `${word} 倾向设置` })).toBeInTheDocument();
     }
@@ -89,6 +90,7 @@ describe("MlIntroLabPage", () => {
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
 
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
+    await screen.findByRole("group", { name: "中奖 倾向设置" });
 
     // Click discrete polarity tiers for spam and normal words.
     const tierSelections: Record<string, string> = {
@@ -157,7 +159,7 @@ describe("MlIntroLabPage", () => {
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
     fireEvent.click(
-      within(screen.getByRole("group", { name: "中奖 倾向设置" })).getByRole("button", {
+      within(await screen.findByRole("group", { name: "中奖 倾向设置" })).getByRole("button", {
         name: "+2 强垃圾",
       }),
     );
@@ -225,7 +227,7 @@ describe("MlIntroLabPage", () => {
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
     await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
 
-    const prizeGroup = screen.getByRole("group", { name: "中奖 倾向设置" });
+    const prizeGroup = await screen.findByRole("group", { name: "中奖 倾向设置" });
     expect(within(prizeGroup).getByRole("button", { name: "+1 偏垃圾" })).toHaveAttribute(
       "aria-pressed",
       "true",

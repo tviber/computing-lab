@@ -2,9 +2,8 @@ import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
-import { LabAccessGate, SaveIndicator } from "../../../shared/lab/LabGate";
+import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
-import { useLabCatalog } from "../../../shared/lab/labs";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -66,7 +65,6 @@ export function ColorQuantizationLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/color-quantization" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { status, role } = useAuth();
-  const catalog = useLabCatalog(status === "authenticated");
   const [state, dispatch] = useReducer(transitionQuantLesson, undefined, () =>
     createQuantLessonState(1),
   );
@@ -191,138 +189,130 @@ export function ColorQuantizationLabPage() {
       : undefined;
 
   return (
-    <LabAccessGate
-      classId={classId}
-      closed={catalog?.get("color-quantization")?.visible === false}
-      labName={labMetadata["color-quantization"].title}
-      role={role}
-      status={status}
+    <AppPageLayout
+      className="quant-lab"
+      topbar={
+        <SaveIndicator
+          status={statusForStage(state.saveStatusByStage, state.stageIndex)}
+          unresolvedSyncConflict={syncConflictForStage(
+            state.unresolvedSyncConflicts,
+            state.stageIndex,
+          )}
+          onRetrySync={() => reconcileConflict(state.stageIndex)}
+          onRestoreLocal={
+            state.conflictedLocalDrafts[state.stageIndex] !== undefined
+              ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
+              : undefined
+          }
+          onDiscardLocal={
+            state.conflictedLocalDrafts[state.stageIndex] !== undefined
+              ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
+              : undefined
+          }
+        />
+      }
+      topbarProps={{
+        subtitle: stage?.englishTitle,
+        title: stage?.title ?? labMetadata["color-quantization"].title,
+      }}
     >
-      <AppPageLayout
-        className="quant-lab"
-        topbar={
-          <SaveIndicator
-            status={statusForStage(state.saveStatusByStage, state.stageIndex)}
-            unresolvedSyncConflict={syncConflictForStage(
-              state.unresolvedSyncConflicts,
-              state.stageIndex,
-            )}
-            onRetrySync={() => reconcileConflict(state.stageIndex)}
-            onRestoreLocal={
-              state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
-                : undefined
-            }
-            onDiscardLocal={
-              state.conflictedLocalDrafts[state.stageIndex] !== undefined
-                ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
-                : undefined
-            }
+      <LabPageShell
+        collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
+        labId="color-quantization"
+        rail={
+          <StageRail
+            label={labMetadata["color-quantization"].title}
+            onSelect={(index) => dispatch({ type: "select-stage", stageIndex: index })}
+            passedStages={state.passedStages}
+            stageIndex={state.stageIndex}
+            stages={COLOR_QUANT_STAGES}
+            unlocked={(stage) => quantStageUnlocked(state.passedStages, stage.index)}
           />
         }
-        topbarProps={{
-          subtitle: stage?.englishTitle,
-          title: stage?.title ?? labMetadata["color-quantization"].title,
-        }}
       >
-        <LabPageShell
-          collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
-          labId="color-quantization"
-          rail={
-            <StageRail
-              label={labMetadata["color-quantization"].title}
-              onSelect={(index) => dispatch({ type: "select-stage", stageIndex: index })}
-              passedStages={state.passedStages}
-              stageIndex={state.stageIndex}
-              stages={COLOR_QUANT_STAGES}
-              unlocked={(stage) => quantStageUnlocked(state.passedStages, stage.index)}
-            />
-          }
-        >
-          <main aria-label="颜色量化实验区" className="quant-workspace">
-            {stage ? <StageBrief stage={stage} /> : null}
+        <main aria-label="颜色量化实验区" className="quant-workspace">
+          {stage ? <StageBrief stage={stage} /> : null}
 
-            {state.message ? (
-              <p className="quant-error" role="alert">
-                {state.message}
-                <button onClick={() => dispatch({ type: "dismiss-message" })} type="button">
-                  <Icon name="x" size={12} />
-                </button>
-              </p>
-            ) : null}
-            {(loadError ?? submitError) ? (
-              <p className="quant-error" role="alert">
-                {loadError ?? submitError}
-              </p>
-            ) : null}
+          {state.message ? (
+            <p className="quant-error" role="alert">
+              {state.message}
+              <button onClick={() => dispatch({ type: "dismiss-message" })} type="button">
+                <Icon name="x" size={12} />
+              </button>
+            </p>
+          ) : null}
+          {(loadError ?? submitError) ? (
+            <p className="quant-error" role="alert">
+              {loadError ?? submitError}
+            </p>
+          ) : null}
 
-            {stage ? (
-              <>
-                <QuantExplorer
-                  draft={draft}
-                  onTable={(table) => dispatch({ type: "set-table", table })}
+          {stage ? (
+            <>
+              <QuantExplorer
+                draft={draft}
+                onTable={(table) => dispatch({ type: "set-table", table })}
+                onToners={(toners) => dispatch({ type: "set-toners", toners })}
+                ruleCode={draftOf(state, 1).code}
+                shareSearch={shareSearch}
+                stage={stage}
+              />
+
+              {stage.guided ? (
+                <GuidedTonerTask
+                  code={draft.code}
+                  onCodeChange={(code) => dispatch({ type: "set-code", code })}
+                />
+              ) : null}
+
+              {!stage.guided && stage.mode === "pick" ? (
+                <ChooseTonersPanel
+                  code={draft.code}
+                  helperCode={draftOf(state, 1).code}
+                  onCodeChange={(code) => dispatch({ type: "set-code", code })}
                   onToners={(toners) => dispatch({ type: "set-toners", toners })}
-                  ruleCode={draftOf(state, 1).code}
-                  shareSearch={shareSearch}
                   stage={stage}
                 />
+              ) : null}
 
-                {stage.guided ? (
-                  <GuidedTonerTask
-                    code={draft.code}
-                    onCodeChange={(code) => dispatch({ type: "set-code", code })}
-                  />
-                ) : null}
+              {!stage.guided && stage.mode === "free" ? (
+                <FreeMapPanel
+                  code={draft.code}
+                  helperCode={draftOf(state, 1).code}
+                  onCodeChange={(code) => dispatch({ type: "set-code", code })}
+                  onTable={(table) => dispatch({ type: "set-table", table })}
+                  stage={stage}
+                  table={draft.table}
+                />
+              ) : null}
 
-                {!stage.guided && stage.mode === "pick" ? (
-                  <ChooseTonersPanel
-                    code={draft.code}
-                    helperCode={draftOf(state, 1).code}
-                    onCodeChange={(code) => dispatch({ type: "set-code", code })}
-                    onToners={(toners) => dispatch({ type: "set-toners", toners })}
-                    stage={stage}
-                  />
-                ) : null}
+              <div className="quant-submit-row">
+                <button
+                  className="button button-primary"
+                  disabled={submitting || !canSubmit}
+                  onClick={() => void onSubmit()}
+                  type="button"
+                >
+                  {submitting ? "判定中…" : "提交判定"}
+                </button>
+                <span className="quant-submit-note">
+                  {stage.mode === "pick"
+                    ? draft.toners.length
+                      ? `将以 ${draft.toners.length} 种粉（编号 ${draft.toners.join(", ")}）把整组图谱印给接收端判定。`
+                      : "先选要装哪几种粉。"
+                    : draft.table
+                      ? "将以你的映射表把整组图谱印给接收端判定。"
+                      : "先在下方运行 map_color 生成映射表。"}
+                </span>
+              </div>
 
-                {!stage.guided && stage.mode === "free" ? (
-                  <FreeMapPanel
-                    code={draft.code}
-                    helperCode={draftOf(state, 1).code}
-                    onCodeChange={(code) => dispatch({ type: "set-code", code })}
-                    onTable={(table) => dispatch({ type: "set-table", table })}
-                    stage={stage}
-                    table={draft.table}
-                  />
-                ) : null}
-
-                <div className="quant-submit-row">
-                  <button
-                    className="button button-primary"
-                    disabled={submitting || !canSubmit}
-                    onClick={() => void onSubmit()}
-                    type="button"
-                  >
-                    {submitting ? "判定中…" : "提交判定"}
-                  </button>
-                  <span className="quant-submit-note">
-                    {stage.mode === "pick"
-                      ? draft.toners.length
-                        ? `将以 ${draft.toners.length} 种粉（编号 ${draft.toners.join(", ")}）把整组图谱印给接收端判定。`
-                        : "先选要装哪几种粉。"
-                      : draft.table
-                        ? "将以你的映射表把整组图谱印给接收端判定。"
-                        : "先在下方运行 map_color 生成映射表。"}
-                  </span>
-                </div>
-
-                {state.judgeOutcome ? (
-                  <QuantResultPanel outcome={state.judgeOutcome} stage={stage} />
-                ) : null}
-              </>
-            ) : null}
-          </main>
-        </LabPageShell>
-      </AppPageLayout>
-    </LabAccessGate>
+              {state.judgeOutcome ? (
+                <QuantResultPanel outcome={state.judgeOutcome} stage={stage} />
+              ) : null}
+            </>
+          ) : null}
+        </main>
+      </LabPageShell>
+    </AppPageLayout>
   );
 }

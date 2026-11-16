@@ -21,14 +21,6 @@ const labs = [
     visible: true,
     visibleClassIds: [],
   },
-  {
-    id: "cpu",
-    stageCount: 5,
-    hidden: true,
-    openClassIds: null,
-    visible: true,
-    visibleClassIds: [],
-  },
 ];
 const users = [
   {

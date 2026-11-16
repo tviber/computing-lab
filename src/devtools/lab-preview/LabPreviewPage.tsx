@@ -37,12 +37,12 @@ export type LabPreviewScene = { id: string; label: string };
 export function LabPreviewPage<A, S extends LabPreviewScene>(props: {
   /** Fixture scenes, e.g. `{ id, label, model }[]`; the first is the default. */
   scenes: readonly S[];
-  /** Outer page heading, e.g. "CPU 视觉开发预览". */
+  /** Outer page heading, e.g. "解码器视觉开发预览". */
   title: string;
   subtitle: string;
   /** iframe accessible title — tests locate the frame through it. */
   frameTitle: string;
-  /** Page-layout class for the framed scene, e.g. "cpu-lab". */
+  /** Page-layout class for the framed scene, e.g. "decoding-lab". */
   frameClassName?: string;
   /** Extra topbar node for the framed page, e.g. a SaveIndicator. */
   frameTopbar?: (scene: S) => ReactNode;

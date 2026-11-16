@@ -304,7 +304,45 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
 
   await page.goto("admin/labs", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "实验管理" })).toBeVisible();
-  await expect(page.getByRole("row", { name: /机器学习入门\s*ml-intro\s*6/ })).toBeVisible();
+  const mlRow = page.getByRole("row", { name: /机器学习入门\s*ml-intro\s*6/ });
+  await expect(mlRow).toBeVisible();
+
+  await mlRow.getByLabel("隐藏（仅管理员可见）").check();
+  await mlRow.getByRole("button", { name: "保存" }).click();
+  await expect(mlRow.getByText("已隐藏")).toBeVisible();
+  await expect(mlRow.getByRole("button", { name: "保存" })).toBeDisabled();
+
+  await page.getByRole("button", { name: /管理员/ }).click();
+  await page.getByRole("menuitem", { name: "退出登录" }).click();
+  await page.waitForURL(/\/login$/);
+
+  await page.getByLabel("学号").fill("teacher");
+  await page.getByLabel("密码").fill("teacher-dev-password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await page.waitForURL("**/");
+
+  await page.goto("teacher/labs", { waitUntil: "networkidle" });
+  await expect(page.getByRole("row", { name: /机器学习入门/ })).toHaveCount(0);
+
+  await page.goto(`classes/${classId}/labs/ml-intro`, { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "这个实验暂未开放" })).toBeVisible();
+
+  await page.getByRole("button", { name: /教师/ }).click();
+  await page.getByRole("menuitem", { name: "退出登录" }).click();
+  await page.getByRole("link", { name: "去登录" }).click();
+  await page.waitForURL(/\/login$/);
+
+  await page.getByLabel("学号").fill("admin");
+  await page.getByLabel("密码").fill("admin-dev-password");
+  await page.getByRole("button", { name: "登录" }).click();
+  await page.waitForURL("**/");
+
+  await page.goto("admin/labs", { waitUntil: "networkidle" });
+  await expect(mlRow).toBeVisible();
+  await mlRow.getByLabel("开放").check();
+  await mlRow.getByRole("button", { name: "保存" }).click();
+  await expect(mlRow.getByText("全部班级")).toBeVisible();
+  await expect(mlRow.getByRole("button", { name: "保存" })).toBeDisabled();
 
   await page.getByRole("button", { name: /管理员/ }).click();
   await page.getByRole("menuitem", { name: "退出登录" }).click();

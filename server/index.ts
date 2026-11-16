@@ -26,18 +26,11 @@ import { sweepExpiredSessions } from "./auth/session.ts";
 import { attachDb, attachSession, jsonError, type AppVariables } from "./http/context.ts";
 import { authRoutes } from "./routes/auth.ts";
 import { adminRoutes } from "./routes/admin.ts";
-import { calculatorRoutes } from "./routes/calculator.ts";
 import { classMemberRoutes } from "./routes/classMembers.ts";
 import { dashboardRoutes } from "./routes/dashboard.ts";
+import { LAB_ROUTES } from "./routes/labRegistry.ts";
 import { taskSheetRoutes } from "./routes/taskSheets.ts";
 import { taskAssignmentRoutes } from "./routes/taskAssignments.ts";
-import { imageSamplingRoutes } from "./routes/imageSampling.ts";
-import { colorQuantizationRoutes } from "./routes/colorQuantization.ts";
-import { cpuRoutes } from "./routes/cpu.ts";
-import { decodingRoutes } from "./routes/decoding.ts";
-import { isSimRoutes } from "./routes/isSim.ts";
-import { lunchShiftRoutes } from "./routes/lunchShift.ts";
-import { mlIntroRoutes } from "./routes/mlIntro.ts";
 import { labsRoutes } from "./routes/labs.ts";
 import { teacherRoutes } from "./routes/teacher.ts";
 
@@ -89,14 +82,9 @@ export function createApp(db: DatabaseSync) {
   app.get("/api/health", (c) => c.json({ ok: true }));
   app.route("/api/auth", authRoutes());
   app.route("/api/admin", adminRoutes());
-  app.route("/api/classes/:classId/labs/calculator", calculatorRoutes());
-  app.route("/api/classes/:classId/labs/image-sampling", imageSamplingRoutes());
-  app.route("/api/classes/:classId/labs/color-quantization", colorQuantizationRoutes());
-  app.route("/api/classes/:classId/labs/cpu", cpuRoutes());
-  app.route("/api/classes/:classId/labs/decoding", decodingRoutes());
-  app.route("/api/classes/:classId/labs/is-sim", isSimRoutes());
-  app.route("/api/classes/:classId/labs/lunch-shift", lunchShiftRoutes());
-  app.route("/api/classes/:classId/labs/ml-intro", mlIntroRoutes());
+  for (const [labId, createRoutes] of Object.entries(LAB_ROUTES)) {
+    app.route(`/api/classes/:classId/labs/${labId}`, createRoutes());
+  }
   app.route("/api/labs", labsRoutes());
   app.route("/api/teacher", teacherRoutes());
   app.route("/api/classes/:classId/dashboard", dashboardRoutes());

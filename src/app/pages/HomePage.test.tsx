@@ -21,15 +21,23 @@ const adminWithoutClassAuth: AuthState = {
 describe("HomePage lab visibility", () => {
   afterEach(() => vi.restoreAllMocks());
 
-  it("does not show the audio demo card until its catalog entry is open", async () => {
+  it("hides closed or hidden labs from students while keeping open labs visible", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
       const payload = path.includes("/api/labs")
         ? {
             labs: [
               {
-                id: "audio-encoding",
-                stageCount: 0,
+                id: "calculator",
+                stageCount: 11,
+                hidden: false,
+                openClassIds: null,
+                visible: true,
+                visibleClassIds: ["c1"],
+              },
+              {
+                id: "ml-intro",
+                stageCount: 6,
                 hidden: true,
                 openClassIds: null,
                 visible: false,
@@ -49,17 +57,17 @@ describe("HomePage lab visibility", () => {
     await renderAppAt("/", { auth: studentAuth });
 
     expect(await screen.findByRole("heading", { name: "实现ALU" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "声音编码（演示）" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "机器学习入门" })).not.toBeInTheDocument();
   });
 
-  it("lets an admin open the browser-only audio demo without a class", async () => {
+  it("shows hidden labs badged for admins and requires class membership to enter", async () => {
     vi.spyOn(globalThis, "fetch").mockResolvedValue(
       new Response(
         JSON.stringify({
           labs: [
             {
-              id: "audio-encoding",
-              stageCount: 0,
+              id: "ml-intro",
+              stageCount: 6,
               hidden: true,
               openClassIds: null,
               visible: true,
@@ -73,11 +81,10 @@ describe("HomePage lab visibility", () => {
 
     await renderAppAt("/", { auth: adminWithoutClassAuth });
 
-    const card = screen.getByRole("heading", { name: "声音编码（演示）" }).closest("article");
-    expect(card).not.toBeNull();
-    expect(within(card!).getByRole("link", { name: "开始实验" })).toHaveAttribute(
-      "href",
-      "/labs/audio-encoding",
-    );
+    const card = await screen.findByRole("heading", { name: "机器学习入门" });
+    const article = card.closest("article");
+    expect(article).not.toBeNull();
+    expect(within(article!).getByText(/已隐藏/)).toBeInTheDocument();
+    expect(within(article!).getByText("请先加入班级，再开始实验。")).toBeInTheDocument();
   });
 });

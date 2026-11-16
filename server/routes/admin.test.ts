@@ -1006,21 +1006,14 @@ describe("lab visibility", () => {
     const before = (await (await request(app, "GET", "/api/labs", undefined, cookie)).json()) as {
       labs: { id: string; hidden: boolean; openClassIds: string[] | null; visible: boolean }[];
     };
-    expect(
-      before.labs.filter((lab) => lab.id !== "audio-encoding").every((lab) => lab.hidden === false),
-    ).toBe(true);
-    expect(before.labs.find((lab) => lab.id === "audio-encoding")).toMatchObject({
-      hidden: true,
-      openClassIds: null,
-      visible: true,
-    });
+    expect(before.labs.every((lab) => lab.hidden === false)).toBe(true);
     expect(before.labs.every((lab) => lab.openClassIds === null)).toBe(true);
     expect(before.labs.every((lab) => lab.visible === true)).toBe(true);
 
     const toggled = await request(
       app,
       "PUT",
-      "/api/admin/labs/cpu/visibility",
+      "/api/admin/labs/decoding/visibility",
       { hidden: true },
       cookie,
     );
@@ -1028,83 +1021,13 @@ describe("lab visibility", () => {
     const after = (await (await request(app, "GET", "/api/labs", undefined, cookie)).json()) as {
       labs: { id: string; hidden: boolean; openClassIds: string[] | null; visible: boolean }[];
     };
-    expect(after.labs.find((lab) => lab.id === "cpu")?.hidden).toBe(true);
+    expect(after.labs.find((lab) => lab.id === "decoding")?.hidden).toBe(true);
     expect(after.labs.find((lab) => lab.id === "calculator")?.hidden).toBe(false);
-    expect(after.labs.find((lab) => lab.id === "audio-encoding")?.hidden).toBe(true);
     // Admins keep `visible` even on hidden labs so they can preview them.
-    expect(after.labs.find((lab) => lab.id === "cpu")?.visible).toBe(true);
+    expect(after.labs.find((lab) => lab.id === "decoding")?.visible).toBe(true);
   });
 
-  it("keeps the audio demo closed by default and allows a class-scoped opening", async () => {
-    const { app, db } = await setup();
-    db.prepare("INSERT INTO classes (id, name, invite_code) VALUES (?, ?, ?)").run(
-      "c2",
-      "二班",
-      "CLASS27",
-    );
-    const student2Id = newId();
-    db.prepare(
-      "INSERT INTO users (id, student_no, name, password_hash, role) VALUES (?, ?, ?, ?, ?)",
-    ).run(student2Id, "20260102", "李四", await hashPassword("student-pass"), "user");
-    db.prepare("INSERT INTO class_members (id, class_id, user_id, role) VALUES (?, ?, ?, ?)").run(
-      newId(),
-      "c1",
-      memberOf(db, "20260101"),
-      "student",
-    );
-    db.prepare("INSERT INTO class_members (id, class_id, user_id, role) VALUES (?, ?, ?, ?)").run(
-      newId(),
-      "c2",
-      student2Id,
-      "student",
-    );
-    const admin = await login(app, "admin", "admin-pass");
-    const student1 = await login(app, "20260101", "student-pass");
-    const student2 = await login(app, "20260102", "student-pass");
-    const audioVisible = async (cookie: string) => {
-      const response = await request(app, "GET", "/api/labs", undefined, cookie);
-      const payload = (await response.json()) as {
-        labs: { id: string; visible: boolean }[];
-      };
-      return payload.labs.find((lab) => lab.id === "audio-encoding")?.visible;
-    };
-
-    expect(await audioVisible(student1)).toBe(false);
-    expect(await audioVisible(student2)).toBe(false);
-
-    const opened = await request(
-      app,
-      "PUT",
-      "/api/admin/labs/audio-encoding/visibility",
-      { hidden: false, openClassIds: ["c1"] },
-      admin,
-    );
-    expect(opened.status).toBe(200);
-    expect(await audioVisible(student1)).toBe(true);
-    expect(await audioVisible(student2)).toBe(false);
-
-    const hidden = await request(
-      app,
-      "PUT",
-      "/api/admin/labs/audio-encoding/visibility",
-      { hidden: true },
-      admin,
-    );
-    expect(hidden.status).toBe(200);
-    expect(await audioVisible(student1)).toBe(false);
-
-    const reopened = await request(
-      app,
-      "PUT",
-      "/api/admin/labs/audio-encoding/visibility",
-      { hidden: false },
-      admin,
-    );
-    expect(reopened.status).toBe(200);
-    expect(await audioVisible(student1)).toBe(true);
-  });
-
-  it("revokes a globally open audio demo after a student's last class membership is removed", async () => {
+  it("revokes a globally open lab after a student's last class membership is removed", async () => {
     const { app, db } = await setup();
     const studentId = memberOf(db, "20260101");
     db.prepare(
@@ -1116,25 +1039,25 @@ describe("lab visibility", () => {
     const opened = await request(
       app,
       "PUT",
-      "/api/admin/labs/audio-encoding/visibility",
+      "/api/admin/labs/decoding/visibility",
       { hidden: false, openClassIds: null },
       admin,
     );
     expect(opened.status).toBe(200);
 
-    const audioVisible = async () => {
+    const decodingVisible = async () => {
       const response = await request(app, "GET", "/api/labs", undefined, student);
       const payload = (await response.json()) as {
         labs: { id: string; visible: boolean }[];
       };
-      return payload.labs.find((lab) => lab.id === "audio-encoding")?.visible;
+      return payload.labs.find((lab) => lab.id === "decoding")?.visible;
     };
 
-    expect(await audioVisible()).toBe(true);
+    expect(await decodingVisible()).toBe(true);
     db.prepare("DELETE FROM class_members WHERE user_id = ?").run(studentId);
-    expect(await audioVisible()).toBe(false);
+    expect(await decodingVisible()).toBe(false);
     expect(
-      canAccessLab(db, "audio-encoding", {
+      canAccessLab(db, "decoding", {
         id: studentId,
         studentNo: "20260101",
         name: "张三",

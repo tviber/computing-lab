@@ -6,14 +6,14 @@ import { adminAuthState, renderAppAt } from "../../test/router-test-helpers";
 const labs = [
   {
     id: "calculator",
-    stageCount: 7,
+    stageCount: 11,
     hidden: false,
     openClassIds: null,
     visible: true,
     visibleClassIds: [],
   },
   {
-    id: "cpu",
+    id: "decoding",
     stageCount: 5,
     hidden: true,
     openClassIds: null,
@@ -23,14 +23,6 @@ const labs = [
   {
     id: "ml-intro",
     stageCount: 6,
-    hidden: false,
-    openClassIds: null,
-    visible: true,
-    visibleClassIds: ["c1", "c2"],
-  },
-  {
-    id: "audio-encoding",
-    stageCount: 0,
     hidden: false,
     openClassIds: null,
     visible: true,
@@ -104,24 +96,24 @@ describe("AdminLabsPage", () => {
 
     await renderAppAt("/admin/labs", { auth: adminAuthState });
 
-    await waitFor(() => expect(screen.getByText("冯诺依曼数据通路")).toBeInTheDocument());
-    const cpu = labRow("冯诺依曼数据通路");
-    await waitFor(() => expect(cpu.getByRole("radio", { name: /隐藏/ })).toBeChecked());
-    expect(cpu.queryByRole("checkbox")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByText("解码侦探")).toBeInTheDocument());
+    const decoding = labRow("解码侦探");
+    await waitFor(() => expect(decoding.getByRole("radio", { name: /隐藏/ })).toBeChecked());
+    expect(decoding.queryByRole("checkbox")).not.toBeInTheDocument();
 
     // Switch to 开放, clear every class → stores an empty scope.
-    await user.click(cpu.getByRole("radio", { name: "开放" }));
-    await user.click(cpu.getByRole("button", { name: "取消全部" }));
-    expect(cpu.getByRole("checkbox", { name: "一班" })).not.toBeChecked();
-    expect(cpu.getByText("0 个班")).toBeInTheDocument();
-    await user.click(cpu.getByRole("button", { name: "全选" }));
-    expect(cpu.getByRole("checkbox", { name: "一班" })).toBeChecked();
-    await user.click(cpu.getByRole("button", { name: "取消全部" }));
+    await user.click(decoding.getByRole("radio", { name: "开放" }));
+    await user.click(decoding.getByRole("button", { name: "取消全部" }));
+    expect(decoding.getByRole("checkbox", { name: "一班" })).not.toBeChecked();
+    expect(decoding.getByText("0 个班")).toBeInTheDocument();
+    await user.click(decoding.getByRole("button", { name: "全选" }));
+    expect(decoding.getByRole("checkbox", { name: "一班" })).toBeChecked();
+    await user.click(decoding.getByRole("button", { name: "取消全部" }));
 
-    await user.click(cpu.getByRole("button", { name: "保存" }));
+    await user.click(decoding.getByRole("button", { name: "保存" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/admin/labs/cpu/visibility",
+        "/api/admin/labs/decoding/visibility",
         expect.objectContaining({
           method: "PUT",
           body: JSON.stringify({ hidden: false, openClassIds: [] }),
@@ -144,29 +136,7 @@ describe("AdminLabsPage", () => {
     );
   });
 
-  it("lets an admin hide the audio demo", async () => {
-    const fetchMock = mockApi();
-    const user = userEvent.setup();
-
-    await renderAppAt("/admin/labs", { auth: adminAuthState });
-
-    const audio = labRow("声音编码（演示）");
-    await waitFor(() => expect(audio.getByRole("radio", { name: "开放" })).toBeChecked());
-    await user.click(audio.getByRole("radio", { name: /隐藏/ }));
-    await user.click(audio.getByRole("button", { name: "保存" }));
-
-    await waitFor(() =>
-      expect(fetchMock).toHaveBeenCalledWith(
-        "/api/admin/labs/audio-encoding/visibility",
-        expect.objectContaining({
-          method: "PUT",
-          body: JSON.stringify({ hidden: true, openClassIds: null }),
-        }),
-      ),
-    );
-  });
-
-  it("lists ml-intro and saves class-scoped visibility", async () => {
+  it("lists ml-intro, hides it, and saves class-scoped visibility", async () => {
     const fetchMock = mockApi();
     const user = userEvent.setup();
 
@@ -178,6 +148,19 @@ describe("AdminLabsPage", () => {
     expect(mlRow.getByText("6")).toBeInTheDocument();
     await waitFor(() => expect(mlRow.getByRole("radio", { name: "开放" })).toBeChecked());
 
+    await user.click(mlRow.getByRole("radio", { name: /隐藏/ }));
+    await user.click(mlRow.getByRole("button", { name: "保存" }));
+    await waitFor(() =>
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/admin/labs/ml-intro/visibility",
+        expect.objectContaining({
+          method: "PUT",
+          body: JSON.stringify({ hidden: true, openClassIds: null }),
+        }),
+      ),
+    );
+
+    await user.click(mlRow.getByRole("radio", { name: "开放" }));
     await user.click(mlRow.getByRole("checkbox", { name: "二班" }));
     await user.click(mlRow.getByRole("button", { name: "保存" }));
 
@@ -190,5 +173,48 @@ describe("AdminLabsPage", () => {
         }),
       ),
     );
+  });
+
+  it("keeps the lab list when the class list request fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/admin/classes")) {
+        return new Response(JSON.stringify({ error: "internal-error" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.includes("/api/labs")) return jsonResponse({ labs });
+      return jsonResponse({});
+    });
+
+    await renderAppAt("/admin/labs", { auth: adminAuthState });
+
+    expect(await screen.findByText("实现ALU")).toBeInTheDocument();
+    expect(screen.queryByText("还没有实验。")).not.toBeInTheDocument();
+    expect(screen.getByText("班级列表不可用，开放范围暂时无法编辑。")).toBeInTheDocument();
+    expect(labRow("实现ALU").getByRole("button", { name: "保存" })).toBeDisabled();
+  });
+
+  it("shows a loading status while classes are still being fetched", async () => {
+    let resolveClasses!: (response: Response) => void;
+    const classesResponse = new Promise<Response>((resolve) => {
+      resolveClasses = resolve;
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/admin/classes")) return classesResponse;
+      if (path.includes("/api/labs")) return jsonResponse({ labs });
+      return jsonResponse({});
+    });
+
+    await renderAppAt("/admin/labs", { auth: adminAuthState });
+
+    expect(await screen.findByText("实现ALU")).toBeInTheDocument();
+    expect(screen.getByText("正在加载班级列表…")).toBeInTheDocument();
+    expect(screen.queryByText("班级列表不可用，开放范围暂时无法编辑。")).not.toBeInTheDocument();
+
+    resolveClasses(jsonResponse({ classes }));
+    await waitFor(() => expect(screen.queryByText("正在加载班级列表…")).not.toBeInTheDocument());
   });
 });

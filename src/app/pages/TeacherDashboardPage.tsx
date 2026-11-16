@@ -2,19 +2,12 @@ import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router"
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, describeApiError } from "../../shared/api/client";
 import { isStaffRole, useAuth } from "../../shared/auth";
-import { CALCULATOR_STAGES } from "../../features/calculator";
-import { CPU_STAGES } from "../../features/cpu";
-import { DECODING_STAGES } from "../../features/decoding";
-import { IS_SIM_STAGES } from "../../features/is-sim";
-import { LUNCH_STAGES } from "../../features/lunch-shift";
-import { ML_STAGES } from "../../features/ml-intro";
-import { IMAGE_SAMPLING_STAGES } from "../../features/image-sampling/domain/stages";
-import { COLOR_QUANT_STAGES } from "../../features/color-quantization/domain/stages";
 import { TaskDashboard, type AssignmentSummary } from "../../features/task-sheets/ui/TaskDashboard";
 import { useLabCatalog } from "../../shared/lab/labs";
-import { labMetadata } from "../../shared/lab/labMetadata";
+import { LAB_IDS, labMetadata, type LabId } from "../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { Icon } from "../../shared/ui/Icon";
+import { APP_LABS, type AppLabEntry, type DashboardStage } from "../labRegistry";
 import "./dashboard.css";
 import "../../features/task-sheets/ui/taskSheets.css";
 
@@ -22,30 +15,21 @@ import "../../features/task-sheets/ui/taskSheets.css";
 type DashKind = "lab" | "task";
 
 type LabOption = {
-  id: string;
+  id: LabId;
   title: string;
-  stages: { index: number; englishTitle?: string; title: string }[];
+  stages: readonly DashboardStage[];
+  supportsCanvasPreview: boolean;
 };
 
-/** Browser-only demos (0 stages, no judge API) stay out of the progress matrix. */
-type DashboardLabId = Exclude<keyof typeof labMetadata, "audio-encoding">;
-
-const DASHBOARD_STAGES: Record<DashboardLabId, LabOption["stages"]> = {
-  calculator: CALCULATOR_STAGES,
-  cpu: CPU_STAGES,
-  decoding: DECODING_STAGES,
-  "is-sim": IS_SIM_STAGES,
-  "lunch-shift": LUNCH_STAGES,
-  "ml-intro": ML_STAGES,
-  "image-sampling": IMAGE_SAMPLING_STAGES,
-  "color-quantization": COLOR_QUANT_STAGES,
-};
-
-const LAB_OPTIONS: LabOption[] = (Object.keys(DASHBOARD_STAGES) as DashboardLabId[]).map((id) => ({
-  id,
-  title: labMetadata[id].title,
-  stages: DASHBOARD_STAGES[id],
-}));
+const LAB_OPTIONS: LabOption[] = LAB_IDS.map((id) => {
+  const appLab: AppLabEntry = APP_LABS[id];
+  return {
+    id,
+    title: labMetadata[id].title,
+    stages: appLab.dashboardStages,
+    supportsCanvasPreview: appLab.supportsCanvasPreview ?? false,
+  };
+});
 
 type MatrixCell = {
   stageIndex: number;
@@ -79,12 +63,6 @@ type SubmissionDetail = {
   testSummary: {
     categories?: Record<string, { passed: number; total: number }>;
     parts?: { id: string; label: string; ok: boolean; detail: string | null }[];
-    predictions?: {
-      promptId: string;
-      prompt: string;
-      selected: string;
-      correct: boolean;
-    }[];
     error?: string | null;
   };
 };
@@ -260,7 +238,7 @@ export function TeacherDashboardPage() {
       .catch((caught) => setError(describeApiError(caught)));
   };
 
-  /** Admin replay of a student's lab — own route, own page, never writes back. */
+  /** Admin replay of a student's calculator lab — own route, own page, never writes back. */
   const openPreview = (row: MatrixRow, cell?: MatrixCell) => {
     if (!classId) return;
     void navigate({
@@ -456,14 +434,13 @@ export function TeacherDashboardPage() {
                           onOpen={(() => {
                             const cell = row.cells[String(stage.index)];
                             if (!cell) return undefined;
-                            if (isAdmin && lab.id === "calculator") {
+                            if (isAdmin && lab.supportsCanvasPreview) {
                               return () => openPreview(row, cell);
                             }
-                            if (lab.id === "cpu") return () => openDetail(cell.submissionId);
                             return cell.passed ? undefined : () => openDetail(cell.submissionId);
                           })()}
                           openTitle={
-                            isAdmin && lab.id === "calculator" ? "预览学生画布" : undefined
+                            isAdmin && lab.supportsCanvasPreview ? "预览学生画布" : undefined
                           }
                         />
                       </td>
@@ -472,7 +449,7 @@ export function TeacherDashboardPage() {
                     {isAdmin ? (
                       <td>
                         <div className="matrix-row-actions">
-                          {lab.id === "calculator" ? (
+                          {lab.supportsCanvasPreview ? (
                             <button
                               className="cell-score"
                               onClick={() => openPreview(row)}
@@ -553,22 +530,6 @@ export function TeacherDashboardPage() {
                 );
               })}
             </ul>
-            {detail.testSummary.predictions && detail.testSummary.predictions.length > 0 ? (
-              <section aria-label="预测首答">
-                <h3>预测首答</h3>
-                <ul className="drawer-categories drawer-predictions">
-                  {detail.testSummary.predictions.map((prediction) => (
-                    <li
-                      className={prediction.correct ? "is-pass" : "is-fail"}
-                      key={prediction.promptId}
-                    >
-                      <span>{prediction.prompt}</span>
-                      <span>首答：{prediction.selected}</span>
-                    </li>
-                  ))}
-                </ul>
-              </section>
-            ) : null}
             <p className="drawer-note">提交时间 {timeOf(detail.submittedAt)}</p>
           </aside>
         </div>

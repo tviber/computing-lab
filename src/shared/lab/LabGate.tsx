@@ -79,14 +79,16 @@ export function LabAccessGate(props: {
   classId: string | undefined;
   /** Shown in the closed-lab notice, e.g. 「空间采样」. */
   labName: string;
+  /** True while fetching the lab catalog for a non-admin caller. */
+  checkingAccess?: boolean;
   /** The lab is not open to this user (hidden or scoped to other classes). */
   closed?: boolean;
   /** Extra guidance under the "你还没有加入班级" heading. */
   noClassHint?: string;
   children: ReactNode;
 }) {
-  const { status, role, classId, labName, closed, noClassHint, children } = props;
-  if (status === "loading") {
+  const { status, role, classId, labName, checkingAccess, closed, noClassHint, children } = props;
+  if (status === "loading" || checkingAccess) {
     return (
       <p className="home-loading" role="status">
         正在载入…

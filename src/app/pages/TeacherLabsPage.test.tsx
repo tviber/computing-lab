@@ -21,7 +21,7 @@ const payload = {
       ],
     },
     {
-      id: "cpu",
+      id: "decoding",
       stageCount: 5,
       hidden: false,
       openClassIds: ["c1"],
@@ -98,22 +98,22 @@ describe("TeacherLabsPage", () => {
 
     // A class outside the admin scope starts unchecked but stays
     // changeable — the teacher can open it to their own students anyway.
-    const cpu = labRow("冯诺依曼数据通路");
-    expect(cpu.getByText("1 个班开放")).toBeInTheDocument();
-    expect(cpu.getByRole("checkbox", { name: "一班" })).toBeChecked();
-    const outOfScope = cpu.getByRole("checkbox", { name: "二班" });
+    const decoding = labRow("解码侦探");
+    expect(decoding.getByText("1 个班开放")).toBeInTheDocument();
+    expect(decoding.getByRole("checkbox", { name: "一班" })).toBeChecked();
+    const outOfScope = decoding.getByRole("checkbox", { name: "二班" });
     expect(outOfScope).toBeEnabled();
     expect(outOfScope).not.toBeChecked();
     await user.click(outOfScope);
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/teacher/labs/cpu/classes/c2/open",
+        "/api/teacher/labs/decoding/classes/c2/open",
         expect.objectContaining({ method: "PUT", body: JSON.stringify({ open: true }) }),
       ),
     );
     // The open count reflects the teacher's switch regardless of the
     // admin scope — the row reads 2 个班开放 now.
-    await waitFor(() => expect(cpu.getByText("2 个班开放")).toBeInTheDocument());
+    await waitFor(() => expect(decoding.getByText("2 个班开放")).toBeInTheDocument());
 
     const mlRow = labRow("机器学习入门");
     expect(mlRow.getByText("ml-intro")).toBeInTheDocument();

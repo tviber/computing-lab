@@ -2,8 +2,7 @@ import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
 import { useAuth } from "../../../shared/auth";
-import { LabAccessGate, SaveIndicator } from "../../../shared/lab/LabGate";
-import { useLabCatalog } from "../../../shared/lab/labs";
+import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
@@ -28,8 +27,7 @@ export function CalculatorLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/calculator" });
   const search = useSearch({ from: "/classes/$classId/labs/calculator" });
   const navigate = useNavigate();
-  const { status, role } = useAuth();
-  const catalog = useLabCatalog(status === "authenticated");
+  const { status } = useAuth();
   // The current stage rides in the URL so a refresh reopens the same canvas
   // instead of dropping back to stage 1.
   const requestedStage = useMemo(() => {
@@ -213,55 +211,46 @@ export function CalculatorLabPage() {
   }, [classId, stageIndex, graph, state.unlockedSubmodules]);
 
   return (
-    <LabAccessGate
-      classId={classId}
-      closed={catalog?.get("calculator")?.visible === false}
-      labName={labMetadata.calculator.title}
-      noClassHint="请用老师给的邀请码加入班级后再开始实验。"
-      role={role}
-      status={status}
+    <AppPageLayout
+      className="calculator-lab"
+      topbar={
+        <div className="calculator-status">
+          <SaveIndicator
+            status={statusForStage(state.saveStatusByStage, state.stageIndex)}
+            unresolvedSyncConflict={syncConflictForStage(
+              state.unresolvedSyncConflicts,
+              state.stageIndex,
+            )}
+            onRetrySync={() => reconcileConflict(state.stageIndex)}
+            onRestoreLocal={
+              state.conflictedLocalDrafts[state.stageIndex] !== undefined ||
+              state.conflictedComponents !== null
+                ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
+                : undefined
+            }
+            onDiscardLocal={
+              state.conflictedLocalDrafts[state.stageIndex] !== undefined ||
+              state.conflictedComponents !== null
+                ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
+                : undefined
+            }
+          />
+        </div>
+      }
+      topbarProps={{
+        subtitle: stage ? <AnnotatedText text={stage.englishTitle} /> : undefined,
+        title: stage?.title ?? labMetadata.calculator.title,
+      }}
     >
-      <AppPageLayout
-        className="calculator-lab"
-        topbar={
-          <div className="calculator-status">
-            <SaveIndicator
-              status={statusForStage(state.saveStatusByStage, state.stageIndex)}
-              unresolvedSyncConflict={syncConflictForStage(
-                state.unresolvedSyncConflicts,
-                state.stageIndex,
-              )}
-              onRetrySync={() => reconcileConflict(state.stageIndex)}
-              onRestoreLocal={
-                state.conflictedLocalDrafts[state.stageIndex] !== undefined ||
-                state.conflictedComponents !== null
-                  ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex })
-                  : undefined
-              }
-              onDiscardLocal={
-                state.conflictedLocalDrafts[state.stageIndex] !== undefined ||
-                state.conflictedComponents !== null
-                  ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex })
-                  : undefined
-              }
-            />
-          </div>
-        }
-        topbarProps={{
-          subtitle: stage ? <AnnotatedText text={stage.englishTitle} /> : undefined,
-          title: stage?.title ?? labMetadata.calculator.title,
-        }}
-      >
-        <CalculatorLabWorkspace
-          coach={coach}
-          dispatch={dispatch}
-          error={loadError ?? submitError}
-          onSubmit={() => void onSubmit()}
-          projectLoaded={projectLoaded}
-          state={state}
-          submitting={submitting}
-        />
-      </AppPageLayout>
-    </LabAccessGate>
+      <CalculatorLabWorkspace
+        coach={coach}
+        dispatch={dispatch}
+        error={loadError ?? submitError}
+        onSubmit={() => void onSubmit()}
+        projectLoaded={projectLoaded}
+        state={state}
+        submitting={submitting}
+      />
+    </AppPageLayout>
   );
 }
