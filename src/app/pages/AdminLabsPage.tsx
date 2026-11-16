@@ -290,9 +290,13 @@ export function AdminLabsPage() {
                 ) : null}
               </tbody>
             </table>
-            {classes === null && labs !== null ? (
+            {classes === null && labs !== null && classesLoadError ? (
               <p className="auth-error" role="status">
                 班级列表不可用，开放范围暂时无法编辑。
+              </p>
+            ) : classes === null && labs !== null ? (
+              <p className="admin-labs-hint" role="status">
+                正在加载班级列表…
               </p>
             ) : null}
           </section>

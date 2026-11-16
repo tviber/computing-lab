@@ -195,4 +195,26 @@ describe("AdminLabsPage", () => {
     expect(screen.getByText("班级列表不可用，开放范围暂时无法编辑。")).toBeInTheDocument();
     expect(labRow("实现ALU").getByRole("button", { name: "保存" })).toBeDisabled();
   });
+
+  it("shows a loading status while classes are still being fetched", async () => {
+    let resolveClasses!: (response: Response) => void;
+    const classesResponse = new Promise<Response>((resolve) => {
+      resolveClasses = resolve;
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/admin/classes")) return classesResponse;
+      if (path.includes("/api/labs")) return jsonResponse({ labs });
+      return jsonResponse({});
+    });
+
+    await renderAppAt("/admin/labs", { auth: adminAuthState });
+
+    expect(await screen.findByText("实现ALU")).toBeInTheDocument();
+    expect(screen.getByText("正在加载班级列表…")).toBeInTheDocument();
+    expect(screen.queryByText("班级列表不可用，开放范围暂时无法编辑。")).not.toBeInTheDocument();
+
+    resolveClasses(jsonResponse({ classes }));
+    await waitFor(() => expect(screen.queryByText("正在加载班级列表…")).not.toBeInTheDocument());
+  });
 });
