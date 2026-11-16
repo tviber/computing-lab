@@ -31,7 +31,6 @@ const HOME_LABS = LAB_IDS.map((id) => {
   return {
     id,
     ...meta,
-    entryPath: `/labs/${id}` as `/labs/${LabId}`,
     stages: appLab.homeProgressStages,
     primary: appLab.primaryCard,
     defaultHidden: meta.defaultHidden ?? false,
@@ -223,7 +222,10 @@ function ClassroomHome() {
                     <StageProgress currentStage={project.currentStage} total={lab.stages} />
                   ) : null}
                   {classId ? (
-                    <Link className="button button-primary" to={lab.entryPath}>
+                    <Link
+                      className="button button-primary"
+                      to={`/labs/${lab.id}` as `/labs/${LabId}`}
+                    >
                       {project && project.currentStage > 1 ? "继续" : "开始实验"}
                     </Link>
                   ) : (

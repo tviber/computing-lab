@@ -1,7 +1,7 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import ts from "typescript";
 import { LAB_REGISTRY } from "../../server/labs.ts";
 import { LAB_IDS, labMetadata } from "../shared/lab/labMetadata.ts";
@@ -168,5 +168,24 @@ it("keeps lab metadata, frontend registry, router, and server visibility registr
     expect(reg?.stageCount).toBe(APP_LABS[id].dashboardStages.length);
     expect(router.routesByPath[`/labs/${id}`]).toBeDefined();
     expect(router.routesByPath[`/classes/$classId/labs/${id}`]).toBeDefined();
+  }
+});
+
+it("preserves lazy lab component preloading through the guarded route", () => {
+  const route = router.routesByPath["/classes/$classId/labs/decoding"];
+  const guardedComponent = route?.options.component as { preload?: () => Promise<void> };
+  const labComponent = APP_LABS.decoding.component as unknown as {
+    preload?: () => Promise<void> | undefined;
+  };
+
+  expect(labComponent.preload).toBeTypeOf("function");
+  const originalPreload = labComponent.preload;
+  const preload = vi.fn(() => new Promise<void>(() => {}));
+  labComponent.preload = preload;
+  try {
+    expect(guardedComponent.preload?.()).toBeUndefined();
+    expect(preload).toHaveBeenCalledOnce();
+  } finally {
+    labComponent.preload = originalPreload;
   }
 });

@@ -174,4 +174,25 @@ describe("AdminLabsPage", () => {
       ),
     );
   });
+
+  it("keeps the lab list when the class list request fails", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/admin/classes")) {
+        return new Response(JSON.stringify({ error: "internal-error" }), {
+          status: 500,
+          headers: { "content-type": "application/json" },
+        });
+      }
+      if (path.includes("/api/labs")) return jsonResponse({ labs });
+      return jsonResponse({});
+    });
+
+    await renderAppAt("/admin/labs", { auth: adminAuthState });
+
+    expect(await screen.findByText("实现ALU")).toBeInTheDocument();
+    expect(screen.queryByText("还没有实验。")).not.toBeInTheDocument();
+    expect(screen.getByText("班级列表不可用，开放范围暂时无法编辑。")).toBeInTheDocument();
+    expect(labRow("实现ALU").getByRole("button", { name: "保存" })).toBeDisabled();
+  });
 });

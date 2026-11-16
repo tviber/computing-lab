@@ -117,6 +117,17 @@ const teacherLabsRoute = createRoute({
 });
 
 function createLabRoutePair<TId extends LabId>(id: TId) {
+  const labComponent = APP_LABS[id].component as {
+    (props: object): React.ReactNode;
+    preload?: () => Promise<void> | undefined;
+  };
+  const guardedComponent = Object.assign(() => <GuardedLabRoute labId={id} />, {
+    preload: (): Promise<void> | undefined => {
+      // Start the lab chunk early without delaying the gate's catalog request.
+      void labComponent.preload?.();
+      return undefined;
+    },
+  });
   const entryRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: `/labs/${id}`,
@@ -127,7 +138,7 @@ function createLabRoutePair<TId extends LabId>(id: TId) {
     getParentRoute: () => rootRoute,
     path: `/classes/$classId/labs/${id}`,
     validateSearch: passThroughSearch,
-    component: () => <GuardedLabRoute labId={id} />,
+    component: guardedComponent,
     errorComponent: LabErrorPage,
   });
   return [entryRoute, labRoute] as const;
