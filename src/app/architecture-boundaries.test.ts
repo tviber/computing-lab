@@ -1,4 +1,5 @@
 import { existsSync, readdirSync, readFileSync } from "node:fs";
+import { stripTypeScriptTypes } from "node:module";
 import { dirname, isAbsolute, join, relative, resolve, sep } from "node:path";
 import { fileURLToPath } from "node:url";
 import { describe, expect, it, vi } from "vitest";
@@ -56,21 +57,23 @@ function dependencySpecifiers(source: ts.SourceFile, runtimeOnly: boolean): stri
       node.moduleSpecifier &&
       ts.isStringLiteral(node.moduleSpecifier)
     ) {
-      const clause = ts.isImportDeclaration(node) ? node.importClause : undefined;
-      if (runtimeOnly) {
-        if (clause?.isTypeOnly || (ts.isExportDeclaration(node) && node.isTypeOnly)) return;
-        const bindings =
-          clause && !clause.name && clause.namedBindings && ts.isNamedImports(clause.namedBindings)
-            ? clause.namedBindings
-            : ts.isExportDeclaration(node) &&
-                node.exportClause &&
-                ts.isNamedExports(node.exportClause)
-              ? node.exportClause
-              : undefined;
-        if (bindings?.elements.length && bindings.elements.every((element) => element.isTypeOnly))
-          return;
-      }
+      // Node erases whole type-only declarations, but inline type specifiers
+      // leave an empty import/export that still loads the target module.
+      if (
+        runtimeOnly &&
+        ((ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
+          (ts.isExportDeclaration(node) && node.isTypeOnly))
+      )
+        return;
       specifiers.push(node.moduleSpecifier.text);
+    }
+    if (
+      !runtimeOnly &&
+      ts.isImportTypeNode(node) &&
+      ts.isLiteralTypeNode(node.argument) &&
+      ts.isStringLiteral(node.argument.literal)
+    ) {
+      specifiers.push(node.argument.literal.text);
     }
     if (
       ts.isCallExpression(node) &&
@@ -121,7 +124,11 @@ describe("architecture boundaries", () => {
       true,
     );
     const runtime = ["./barrel", "./side-effect", "./mixed", "./dynamic", "./required"];
-    expect(dependencySpecifiers(source, true)).toEqual(runtime);
+    expect(dependencySpecifiers(source, true)).toEqual([
+      "./inline-type-import",
+      "./inline-type-export",
+      ...runtime,
+    ]);
     expect(dependencySpecifiers(source, false)).toEqual([
       "./type-import",
       "./inline-type-import",
@@ -129,6 +136,42 @@ describe("architecture boundaries", () => {
       "./inline-type-export",
       ...runtime,
     ]);
+  });
+
+  it.each([
+    ['import type { T } from "./target.ts";', []],
+    ['export type { T } from "./target.ts";', []],
+    ['export type * from "./target.ts";', []],
+    ['import { type T } from "./target.ts";', ["./target.ts"]],
+    ['export { type T } from "./target.ts";', ["./target.ts"]],
+    ['import {} from "./target.ts";', ["./target.ts"]],
+    ['export {} from "./target.ts";', ["./target.ts"]],
+  ])("preserves the runtime edges retained by Node type stripping: %s", (code, expected) => {
+    const source = ts.createSourceFile("probe.ts", code, ts.ScriptTarget.Latest, true);
+    const erased = ts.createSourceFile(
+      "probe.js",
+      stripTypeScriptTypes(code),
+      ts.ScriptTarget.Latest,
+      true,
+    );
+    expect(dependencySpecifiers(erased, true)).toEqual(expected);
+    expect(dependencySpecifiers(source, true)).toEqual(expected);
+  });
+
+  it.each([
+    'type X = import("../../image-sampling/domain/downsample.ts").Resolution;',
+    'type X = typeof import("../../image-sampling/domain/downsample.ts");',
+    'type X = Array<import("../../image-sampling/domain/downsample.ts").Resolution>;',
+  ])("includes import types in cross-feature contracts but not runtime edges: %s", (code) => {
+    const source = ts.createSourceFile("probe.ts", code, ts.ScriptTarget.Latest, true);
+    const specifier = "../../image-sampling/domain/downsample.ts";
+    expect(dependencySpecifiers(source, false)).toEqual([specifier]);
+    expect(dependencySpecifiers(source, true)).toEqual([]);
+    const featureRoot = join(featuresRoot, "calculator");
+    const target = resolveImport(join(featureRoot, "domain/probe.ts"), specifier);
+    expect(target).not.toBeNull();
+    expect(isWithin(target!, featuresRoot)).toBe(true);
+    expect(isWithin(target!, featureRoot)).toBe(false);
   });
 
   it("keeps shared infrastructure independent of app and features", () => {
@@ -196,7 +239,7 @@ describe("architecture boundaries", () => {
   });
 });
 
-/** Resolve runtime edges, including re-exports and dynamic imports; ignore type-only contracts. */
+/** Resolve runtime edges; only whole type-only declarations and import types are erased. */
 function runtimeDependencies(entry: string, seen = new Set<string>()): Set<string> {
   if (seen.has(entry)) return seen;
   seen.add(entry);
