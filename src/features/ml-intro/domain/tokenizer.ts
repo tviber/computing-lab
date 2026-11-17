@@ -123,7 +123,7 @@ function tagSegments(
         text: seg.raw,
         status: "oov",
         vocabIndex: null,
-        note: "这个词不在训练词表中，程序不会为它记录特征或计算得分。",
+        note: "训练词表里没有这个词，所以这个词不参与计算。",
       });
       continue;
     }

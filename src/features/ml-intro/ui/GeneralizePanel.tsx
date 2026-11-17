@@ -15,7 +15,7 @@ const SAMPLE_PRESETS = [
   { label: "300 条", count: 300 },
   { label: "600 条（中等规模）", count: 600 },
   { label: "1,000 条", count: 1000 },
-  { label: "1,400 条（全量公开训练）", count: 1400 },
+  { label: "1,400 条（全部训练短信）", count: 1400 },
 ];
 
 const PROBE_QUICK_CASES = [
@@ -175,13 +175,13 @@ export function GeneralizePanel({
           <div className="ml-stat-box">
             <span>训练集准确率 / 损失</span>
             <strong className="ml-mono">
-              {pct(lastEpoch.trainAcc)} · Loss {lastEpoch.trainLoss.toFixed(3)}
+              {pct(lastEpoch.trainAcc)} · 损失 {lastEpoch.trainLoss.toFixed(3)}
             </strong>
           </div>
           <div className={`ml-stat-box ${vm.accuracy >= 0.95 ? "is-ok" : "is-warn"}`}>
             <span>验证集准确率 / 损失</span>
             <strong className="ml-mono">
-              {pct(vm.accuracy)} · Loss {vm.loss.toFixed(3)}
+              {pct(vm.accuracy)} · 损失 {vm.loss.toFixed(3)}
             </strong>
           </div>
           <div className={`ml-stat-box ${vm.recall >= 0.78 ? "is-ok" : "is-warn"}`}>
@@ -191,8 +191,9 @@ export function GeneralizePanel({
             </strong>
           </div>
           <div className={`ml-stat-box ${vm.oovRate > 0.4 ? "is-warn" : "is-ok"}`}>
-            <span>验证集未见词比例（两组准确率相差 {pct(accGap)}）</span>
+            <span>验证短信中不在词表里的词占比</span>
             <strong className="ml-mono">{pct(vm.oovRate)}</strong>
+            <small className="ml-muted-note">训练准确率 − 验证准确率：{pct(accGap)}</small>
           </div>
         </div>
 
@@ -222,7 +223,12 @@ export function GeneralizePanel({
             },
             { id: "val-loss", label: "验证损失", value: vm.loss, display: vm.loss.toFixed(4) },
             { id: "recall", label: "验证查全率", value: vm.recall, display: pct(vm.recall) },
-            { id: "oov", label: "验证未见词比例", value: vm.oovRate, display: pct(vm.oovRate) },
+            {
+              id: "oov",
+              label: "验证短信中不在词表里的词占比",
+              value: vm.oovRate,
+              display: pct(vm.oovRate),
+            },
           ]}
         />
         <LossChartSvg history={baseRun.epochsHistory} />

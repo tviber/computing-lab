@@ -114,7 +114,7 @@ export function TrainPanel({
         </div>
         <div className="ml-micro-metrics">
           <div className="ml-stat-box">
-            <span>交叉熵损失 Loss</span>
+            <span>交叉熵损失</span>
             <strong className="ml-mono">{stepDemo.loss.toFixed(3)}</strong>
             <small>
               {stepDemo.loss > 1.2

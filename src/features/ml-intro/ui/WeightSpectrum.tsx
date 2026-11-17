@@ -99,7 +99,7 @@ export function WeightSpectrum({
       {activeWord && examples.length > 0 ? (
         <div className="ml-word-examples">
           <p className="ml-subhead">
-            训练集中包含「<strong>{activeWord}</strong>」的真实语料例句：
+            训练集中包含「<strong>{activeWord}</strong>」的短信：
           </p>
           <ul>
             {examples.map((ex, i) => (

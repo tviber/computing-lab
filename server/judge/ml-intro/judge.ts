@@ -135,7 +135,7 @@ export function judgeMlIntroSubmission(
       parts,
       detail: passed
         ? "你的规则分对了全部示例短信。你可以进入第 2 关，看看程序怎样把文字变成数字。"
-        : "请调整 10 个词的倾向规则并完成概念题。",
+        : "请调整这 10 个词的分值，并答对概念题。",
     };
   } else if (stageIndex === 2) {
     const draft = sanitizeTokenizeDraft(rawDraft);
@@ -153,19 +153,19 @@ export function judgeMlIntroSubmission(
     const parts: MlPartSummary[] = [
       {
         id: "tokens",
-        label: "切词与特征归类",
+        label: "词和标点的处理方式",
         ok: tokOk,
         detail: tokOk
-          ? `${tokCorrect} / ${tokTotal} 个片段归类正确`
-          : `已对 ${tokCorrect} / ${tokTotal} 个片段，请再检查重复词、标点和 OOV`,
+          ? `${tokCorrect} / ${tokTotal} 个全部答对`
+          : `答对了 ${tokCorrect} / ${tokTotal} 个。请再看看重复的词、标点和词表里没有的词。`,
       },
       conceptCheck.part,
     ];
     testSummary = {
       parts,
       detail: passed
-        ? "片段归类和概念题全部答对了。你可以进入第 3 关。"
-        : "特征归类或概念题尚未全部通过。",
+        ? "练习和概念题全部答对了。你可以进入第 3 关。"
+        : "还有题目没有答对。请再检查词和标点的处理方式，以及概念题。",
     };
   } else if (stageIndex === 3) {
     const draft = sanitizeScoreDraft(rawDraft);
@@ -267,9 +267,9 @@ export function judgeMlIntroSubmission(
     const parts: MlPartSummary[] = [
       {
         id: "accuracy",
-        label: "准确率超越基线 (≥ 95.0%)",
+        label: "准确率（≥ 95.0%）",
         ok: accOk,
-        detail: `准确率 ${pct(m.accuracy)}（全猜正常基线 ${pct(run.baselineAcc)}）`,
+        detail: `准确率 ${pct(m.accuracy)}（全部判为正常时为 ${pct(run.baselineAcc)}）`,
       },
       {
         id: "precision",
@@ -324,7 +324,7 @@ export function judgeMlIntroSubmission(
         id: "val-loss",
         label: "验证损失（≤ 0.14）",
         ok: valLossOk,
-        detail: `训练样本 ${draft.sampleSize} 条，验证损失 ${run.finalMetrics.loss.toFixed(3)}，验证准确率 ${pct(run.finalMetrics.accuracy)}，验证 OOV ${pct(run.finalMetrics.oovRate)}`,
+        detail: `训练短信 ${draft.sampleSize} 条，验证损失 ${run.finalMetrics.loss.toFixed(3)}，验证准确率 ${pct(run.finalMetrics.accuracy)}，验证短信中不在词表里的词占 ${pct(run.finalMetrics.oovRate)}`,
       },
       {
         id: "hidden-blind-exam",
@@ -332,7 +332,7 @@ export function judgeMlIntroSubmission(
         ok: hiddenAllOk,
         detail: hiddenAllOk
           ? "测试通过。模型在新短信上的准确率、查准率和查全率均达到要求。测试集不提供详细指标。"
-          : "测试未通过。模型在新短信上的准确率、查准率或查全率尚未达到要求。请检查公开验证集中的未见词、损失和误判短信，再调整参数。测试集不提供详细指标。",
+          : "测试未通过。模型在新短信上的准确率、查准率或查全率尚未达到要求。请查看验证集的损失、误判的短信，以及哪些词不在词表里，再调整参数。测试集不提供详细指标。",
       },
       conceptCheck.part,
     ];
@@ -347,7 +347,7 @@ export function judgeMlIntroSubmission(
         ? `模型通过了 300 条新短信的测试。训练样本量为 ${draft.sampleSize} 条，验证损失为 ${run.finalMetrics.loss.toFixed(3)}。`
         : valLossOk
           ? `验证损失已达到要求（${run.finalMetrics.loss.toFixed(3)}），但模型尚未通过测试集检查。请根据公开验证集的误判和指标调整参数。`
-          : `验证损失 ${run.finalMetrics.loss.toFixed(3)} 尚未达到要求，未见词比例为 ${pct(run.finalMetrics.oovRate)}。你可以增加训练样本，并比较不同学习率的结果。`,
+          : `验证损失 ${run.finalMetrics.loss.toFixed(3)} 尚未达到要求，验证短信中有 ${pct(run.finalMetrics.oovRate)} 的词不在词表里。你可以增加训练样本，并比较不同学习率的结果。`,
     };
   }
 
