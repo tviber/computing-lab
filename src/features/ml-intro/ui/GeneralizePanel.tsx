@@ -4,6 +4,7 @@ import type { GeneralizeDraft, MlTestSummary } from "../domain/protocol.ts";
 import type { MlStageDef } from "../domain/stages.ts";
 import { inspectMessageWithModel } from "../domain/tokenizer.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
+import { ExperimentComparison } from "./ExperimentComparison.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { LossChartSvg } from "./LossChartSvg.tsx";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
@@ -100,6 +101,9 @@ export function GeneralizePanel({
             </button>
           ))}
         </div>
+        <p className="ml-data-guide">
+          做对比时先固定学习率、轮数和阈值，只改变训练样本量；记录结果后，再试着调整另一个参数。
+        </p>
 
         <div className="ml-controls-grid is-four">
           <div className="ml-control-card">
@@ -192,6 +196,35 @@ export function GeneralizePanel({
           </div>
         </div>
 
+        <ExperimentComparison
+          parameters={[
+            {
+              id: "samples",
+              label: "训练样本量",
+              value: draft.sampleSize,
+              display: `${draft.sampleSize.toLocaleString("en-US")} 条`,
+            },
+            { id: "eta", label: "学习率", value: draft.eta, display: String(draft.eta) },
+            { id: "epochs", label: "训练轮数", value: draft.epochs, display: `${draft.epochs} 轮` },
+            {
+              id: "threshold",
+              label: "分类阈值",
+              value: draft.threshold,
+              display: draft.threshold.toFixed(2),
+            },
+          ]}
+          metrics={[
+            {
+              id: "train-accuracy",
+              label: "训练准确率（阈值 0.50）",
+              value: lastEpoch.trainAcc,
+              display: pct(lastEpoch.trainAcc),
+            },
+            { id: "val-loss", label: "验证损失", value: vm.loss, display: vm.loss.toFixed(4) },
+            { id: "recall", label: "验证查全率", value: vm.recall, display: pct(vm.recall) },
+            { id: "oov", label: "验证未见词比例", value: vm.oovRate, display: pct(vm.oovRate) },
+          ]}
+        />
         <LossChartSvg history={baseRun.epochsHistory} />
       </section>
 

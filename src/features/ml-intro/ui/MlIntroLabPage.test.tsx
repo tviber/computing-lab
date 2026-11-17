@@ -69,6 +69,67 @@ describe("MlIntroLabPage", () => {
     expect(screen.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled();
   });
 
+  it("shows concrete precision and recall fractions for the current validation results", async () => {
+    stubMlFetch(
+      makeProject({
+        currentStage: 5,
+        passedStages: [1, 2, 3, 4],
+        drafts: { 5: { threshold: 0.4, eta: 0.1, epochs: 12, activeBucket: "fp", concepts: {} } },
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "检查模型分错了什么" });
+
+    expect(screen.getByText(/正确拦截 \d+ ÷ 全部拦截 \d+ 条/)).toBeInTheDocument();
+    expect(screen.getByText(/正确拦截 \d+ ÷ 全部垃圾短信 \d+ 条/)).toBeInTheDocument();
+  });
+
+  it("explains the data splits and distinguishes replay from model training", async () => {
+    stubMlFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+        drafts: { 4: { eta: 0.1, epochs: 12, inspectEpoch: 12, showBgd: false, concepts: {} } },
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+
+    expect(screen.getByText(/训练集的 1,400 条短信用于更新权重/)).toBeInTheDocument();
+    expect(screen.getByText(/SGD 每条后更新一次，共 1,400 次；BGD/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/回放第/), { target: { value: "0" } });
+    expect(screen.getByText(/第 0 轮是训练前的权重/)).toBeInTheDocument();
+    expect(screen.getByText(/下面只回放已有结果，不改变最终提交的模型/)).toBeInTheDocument();
+  });
+
+  it("moves mobile learners to the selected explanation and back to the same message", async () => {
+    stubMlFetch(makeProject({ currentStage: 5, passedStages: [1, 2, 3, 4] }), () => json({}));
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({ matches: true })),
+    );
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "检查模型分错了什么" });
+    const details = screen.getByRole("region", { name: "所选短信的评分依据" });
+    const scrollDetails = vi.fn();
+    details.scrollIntoView = scrollDetails;
+    expect(scrollDetails).not.toHaveBeenCalled();
+    const messages = document.querySelectorAll<HTMLButtonElement>(".ml-case-btn");
+    expect(messages.length).toBeGreaterThan(1);
+    const selected = messages[1];
+    selected.scrollIntoView = vi.fn();
+    fireEvent.click(selected);
+    await waitFor(() => expect(scrollDetails).toHaveBeenCalled());
+    expect(details).toHaveFocus();
+    expect(selected).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "返回短信列表", hidden: true }));
+    expect(selected).toHaveFocus();
+  });
+
   it("completes stage 1 weights + concepts, passes judge, and unlocks stage 2", async () => {
     const passResult: MlJudgeResult = {
       passed: true,
