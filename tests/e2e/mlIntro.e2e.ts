@@ -2,10 +2,10 @@ import { expect, test, type Page } from "@playwright/test";
 import { ML_STAGES, TOKENIZE_PUZZLE_ITEMS } from "../../src/features/ml-intro/domain/stages.ts";
 
 const CHOICE_LABEL: Record<string, string> = {
-  kept: "入表 (x=1)",
-  duplicate: "重复忽略",
-  filtered: "标点过滤",
-  oov: "新词 OOV",
+  kept: "记为 1",
+  duplicate: "重复了，不再计数",
+  filtered: "标点，不计入",
+  oov: "词表中没有",
 };
 
 function collectFailures(page: Page): string[] {
@@ -43,6 +43,28 @@ async function expectMessagePanelsToFit(page: Page) {
         .map((element) => element.className);
     });
     expect(overflowing, `message panels overflow at ${width}px`).toEqual([]);
+  }
+  if (originalViewport) await page.setViewportSize(originalViewport);
+}
+
+async function expectTokenChoicesToFit(page: Page) {
+  const originalViewport = page.viewportSize();
+  for (const width of [1440, 1024, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflowing = await page.locator(".ml-puzzle-list").evaluate((list) => {
+      const bounds = list.getBoundingClientRect();
+      return Array.from(list.querySelectorAll<HTMLElement>(".ml-puzzle-row, .ml-pill-choice"))
+        .filter((element) => {
+          const itemBounds = element.getBoundingClientRect();
+          return (
+            itemBounds.left < bounds.left - 1 ||
+            itemBounds.right > bounds.right + 1 ||
+            element.scrollWidth > element.clientWidth + 1
+          );
+        })
+        .map((element) => element.textContent?.trim());
+    });
+    expect(overflowing, `token choices overflow at ${width}px`).toEqual([]);
   }
   if (originalViewport) await page.setViewportSize(originalViewport);
 }
@@ -147,9 +169,10 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await expect(page.getByRole("heading", { name: "把短信变成数字", exact: true })).toBeVisible();
 
   // Stage 2: Tokenize + concepts
+  await expectTokenChoicesToFit(page);
   let freeSeen = 0;
   for (const item of TOKENIZE_PUZZLE_ITEMS) {
-    const label = `片段 ${item.text} 的归类`;
+    const label = `片段 ${item.text} 的处理方式`;
     const group =
       item.text === "免费"
         ? page.getByRole("group", { name: label }).nth(freeSeen++)
@@ -276,7 +299,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   // Stage 6: Full training sample preset + sealed blind exam
   await page.getByRole("button", { name: "150 条（小样本）", exact: true }).click();
   await page.getByRole("button", { name: "记录当前结果作对照" }).click();
-  await page.getByRole("button", { name: "1,400 条（全量公开训练）" }).click();
+  await page.getByRole("button", { name: "1,400 条（全部训练短信）" }).click();
   await expect(
     page.getByRole("status").filter({ hasText: "本次只改变了：训练样本量" }),
   ).toBeVisible();

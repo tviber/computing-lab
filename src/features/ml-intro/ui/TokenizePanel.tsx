@@ -10,20 +10,9 @@ import {
 import { analyzeTokens, type RawTokenStatus } from "../domain/tokenizer.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
+import { TOKEN_STATUS_LABELS } from "./tokenStatusLabels.ts";
 
-const STATUS_META: Record<RawTokenStatus, { label: string; desc: string }> = {
-  kept: { label: "入表 x=1", desc: "词表内首次出现" },
-  duplicate: { label: "重复(已计1)", desc: "同句再出现不累加" },
-  filtered: { label: "标点过滤", desc: "标点符号丢弃" },
-  oov: { label: "新词 OOV", desc: "词表从未见过" },
-};
-
-const CHOICE_BTNS: { id: RawTokenStatus; label: string }[] = [
-  { id: "kept", label: "入表 (x=1)" },
-  { id: "duplicate", label: "重复忽略" },
-  { id: "filtered", label: "标点过滤" },
-  { id: "oov", label: "新词 OOV" },
-];
+const STATUS_CHOICES: RawTokenStatus[] = ["kept", "duplicate", "filtered", "oov"];
 
 export function TokenizePanel({
   stage,
@@ -109,7 +98,7 @@ export function TokenizePanel({
         </div>
 
         <label className="ml-field-label" htmlFor="ml-stage1-input">
-          请修改短信，程序会重新切词并查找词表：
+          修改下面的短信，看看哪些词在词表里：
         </label>
         <input
           className="ml-text-input"
@@ -133,7 +122,7 @@ export function TokenizePanel({
           {tokens.map((tok, idx) => (
             <span className={`ml-tok is-${tok.status}`} key={`${tok.text}-${idx}`} title={tok.note}>
               <span className="ml-tok-text">{tok.text}</span>
-              <span className="ml-tok-tag">{STATUS_META[tok.status].label}</span>
+              <span className="ml-tok-tag">{TOKEN_STATUS_LABELS[tok.status]}</span>
             </span>
           ))}
         </div>
@@ -141,13 +130,13 @@ export function TokenizePanel({
         <div className="ml-bow-summary">
           <div>
             <span className="ml-subhead">
-              这条短信命中了词表中的 <strong className="ml-mono">{keptWords.length}</strong>{" "}
-              个词（词表共 {fullTrainVocab.size} 个）：
+              这条短信中，有 <strong className="ml-mono">{keptWords.length}</strong>{" "}
+              个不同的词在词表里（词表共 {fullTrainVocab.size} 个词）：
             </span>
             <p className="ml-mono ml-vector-preview">
               {keptWords.length > 0
                 ? `{ ${keptWords.map((w) => `"${w}": 1`).join(", ")} }`
-                : "这条短信没有命中词表中的词，因此向量全为 0。"}
+                : "没有需要记为 1 的词，所有位置都记为 0。"}
             </p>
           </div>
           <div className="ml-order-compare">
@@ -166,13 +155,13 @@ export function TokenizePanel({
 
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>动手任务：给测验句的每个片段归类</h3>
+          <h3>练一练：程序会怎样处理下面的词和标点？</h3>
           <span className="ml-badge-neutral">
             已选择 {classifiedCount} / {TOKENIZE_PUZZLE_ITEMS.length}
           </span>
         </div>
         <p className="ml-muted-note">
-          请判断程序会怎样处理下面的每个片段。你可以参考上方的切词结果。
+          给下面的词和标点各选一种处理方式。你可以参考上方的切词结果。
         </p>
         <blockquote className="ml-quote ml-mono">{TOKENIZE_PUZZLE_SENTENCE}</blockquote>
 
@@ -188,25 +177,25 @@ export function TokenizePanel({
                 <div
                   className="ml-puzzle-choices"
                   role="group"
-                  aria-label={`片段 ${item.text} 的归类`}
+                  aria-label={`片段 ${item.text} 的处理方式`}
                 >
-                  {CHOICE_BTNS.map((btn) => (
+                  {STATUS_CHOICES.map((status) => (
                     <button
-                      aria-pressed={chosen === btn.id}
-                      className={`ml-pill-choice${chosen === btn.id ? " is-selected" : ""}`}
-                      key={btn.id}
+                      aria-pressed={chosen === status}
+                      className={`ml-pill-choice${chosen === status ? " is-selected" : ""}`}
+                      key={status}
                       onClick={() =>
                         onChange({
                           ...draft,
                           classifications: {
                             ...draft.classifications,
-                            [item.id]: btn.id,
+                            [item.id]: status,
                           },
                         })
                       }
                       type="button"
                     >
-                      {btn.label}
+                      {TOKEN_STATUS_LABELS[status]}
                     </button>
                   ))}
                 </div>
@@ -237,7 +226,7 @@ export function TokenizePanel({
           {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!readyToSubmit ? (
-          <span className="ml-muted-note">完成 7 个片段归类并答对全部概念题后即可提交</span>
+          <span className="ml-muted-note">完成下面的 7 个选择，并答对全部概念题后即可提交</span>
         ) : null}
       </div>
 

@@ -64,7 +64,7 @@ function SigmoidCurveSvg({
             <i className="ml-leg-swatch is-val" /> σ(z) 曲线
           </span>
           <span className="ml-leg-item">
-            <i className="ml-leg-dot is-bias" /> 无词基准 b
+            <i className="ml-leg-dot is-bias" /> 只看偏置 b 时
           </span>
           <span className="ml-leg-item">
             <i className="ml-leg-dot is-msg" /> 当前短信
@@ -141,7 +141,7 @@ function SigmoidCurveSvg({
           stroke="var(--surface)"
           strokeWidth="1.5"
         >
-          <title>{`无词基准：z = b = ${bias.toFixed(1)}, σ(b) = ${(emptyProb * 100).toFixed(1)}%`}</title>
+          <title>{`所有词都不在词表中时：z = b = ${bias.toFixed(1)}, σ(b) = ${(emptyProb * 100).toFixed(1)}%`}</title>
         </circle>
 
         <circle
@@ -156,7 +156,7 @@ function SigmoidCurveSvg({
         </circle>
       </svg>
       <p className="ml-muted-note">
-        无已知词基准 z=b=<strong>{bias >= 0 ? `+${bias.toFixed(1)}` : bias.toFixed(1)}</strong> 对应{" "}
+        只看偏置时，z=b=<strong>{bias >= 0 ? `+${bias.toFixed(1)}` : bias.toFixed(1)}</strong> 对应{" "}
         <strong>{(emptyProb * 100).toFixed(1)}%</strong>；选中「{selectedTag}」z=
         <strong>{selectedZ >= 0 ? `+${selectedZ.toFixed(2)}` : selectedZ.toFixed(2)}</strong> →{" "}
         <strong>{(selectedProb * 100).toFixed(1)}%</strong>
@@ -236,7 +236,7 @@ export function ScorePanel({
 
           <div className="ml-slider-row is-bias">
             <label htmlFor="ml-bias-slider">
-              <strong>基准偏置 b</strong>
+              <strong>偏置 b</strong>
               <small>
                 没有已知词时的垃圾概率：{(evalSummary.emptyProbability * 100).toFixed(1)}%
               </small>

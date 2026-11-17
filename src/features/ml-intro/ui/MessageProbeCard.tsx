@@ -1,11 +1,5 @@
-import type { MessageInspection, RawTokenStatus } from "../domain/tokenizer.ts";
-
-const STATUS_LABEL: Record<RawTokenStatus, string> = {
-  kept: "入表 x=1",
-  duplicate: "重复(已计1)",
-  oov: "新词 OOV",
-  filtered: "标点过滤",
-};
+import type { MessageInspection } from "../domain/tokenizer.ts";
+import { TOKEN_STATUS_LABELS } from "./tokenStatusLabels.ts";
 
 function stableSigmoid(z: number): number {
   if (z >= 35) return 1;
@@ -73,7 +67,7 @@ export function MessageProbeCard({
         {inspection.tokens.map((tok, i) => (
           <span className={`ml-tok is-${tok.status}`} key={`${tok.text}-${i}`} title={tok.note}>
             <span className="ml-tok-text">{tok.text}</span>
-            <span className="ml-tok-tag">{STATUS_LABEL[tok.status]}</span>
+            <span className="ml-tok-tag">{TOKEN_STATUS_LABELS[tok.status]}</span>
           </span>
         ))}
       </div>
@@ -81,8 +75,8 @@ export function MessageProbeCard({
       <div className="ml-probe-grid">
         <div className="ml-waterfall">
           <p className="ml-subhead">
-            线性打分过程（总分 z = <strong className="ml-mono">{inspection.rawZ.toFixed(2)}</strong>
-            ）
+            这些词的分数怎样相加（总分 z ={" "}
+            <strong className="ml-mono">{inspection.rawZ.toFixed(2)}</strong>）
           </p>
           <ul className="ml-waterfall-list">
             {inspection.terms.map((term, idx) => {
@@ -107,12 +101,12 @@ export function MessageProbeCard({
             })}
           </ul>
           {inspection.terms.length === 1 ? (
-            <p className="ml-muted-note">这条短信没有命中词表中的词，模型只根据偏置 b 计算概率。</p>
+            <p className="ml-muted-note">没有词参与加分或减分，模型只根据偏置 b 计算概率。</p>
           ) : null}
         </div>
 
         <div className="ml-sigmoid-box">
-          <p className="ml-subhead">Sigmoid 概率映射（阈值 τ = {safeThreshold.toFixed(2)}）</p>
+          <p className="ml-subhead">把总分换成概率（分类阈值 τ = {safeThreshold.toFixed(2)}）</p>
           <svg aria-label="Sigmoid 概率曲线" className="ml-svg-chart" viewBox={`0 0 ${W} ${H}`}>
             <line
               stroke="var(--border)"
