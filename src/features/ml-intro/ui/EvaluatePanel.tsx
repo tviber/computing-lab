@@ -66,7 +66,7 @@ export function EvaluatePanel({
     <div className="ml-stage-stack">
       <section className="ml-panel ml-trap-banner">
         <div className="ml-trap-col">
-          <p className="eyebrow">对照组 · 懒惰模型</p>
+          <p className="eyebrow">对照：始终预测正常</p>
           <h4>一律猜「正常短信（0）」</h4>
           <p className="ml-muted-note">
             在 300 条验证集里有 258 条正常短信、42 条垃圾短信。如果一个模型永远输出 0：
@@ -76,17 +76,17 @@ export function EvaluatePanel({
               准确率 Accuracy：<strong className="ml-mono">{pct(baseRun.baselineAcc)}</strong>
             </span>
             <span>
-              垃圾 Recall：<strong className="ml-mono is-bad">0.0%（一条都没抓到）</strong>
+              查全率 Recall：<strong className="ml-mono is-bad">0.0%（没有拦截垃圾短信）</strong>
             </span>
           </div>
         </div>
 
         <div className="ml-trap-col">
-          <p className="eyebrow">实验组 · 你的分类器</p>
+          <p className="eyebrow">你的分类器</p>
           <h4>阈值 τ = {draft.threshold.toFixed(2)}（p ≥ τ 判垃圾）</h4>
           <div className="ml-metric-pills">
             <div className={`ml-stat-box ${accOk ? "is-ok" : "is-warn"}`}>
-              <span>Accuracy（目标 ≥ 95%）</span>
+              <span>准确率（目标 ≥ 95%）</span>
               <strong className="ml-mono">{pct(m.accuracy)}</strong>
             </div>
             <div className={`ml-stat-box ${precOk ? "is-ok" : "is-warn"}`}>
@@ -98,7 +98,7 @@ export function EvaluatePanel({
               <strong className="ml-mono">{pct(m.recall)}</strong>
             </div>
             <div className="ml-stat-box">
-              <span>F1 调和分数</span>
+              <span>F1 分数</span>
               <strong className="ml-mono">{pct(m.f1)}</strong>
             </div>
           </div>
@@ -107,7 +107,7 @@ export function EvaluatePanel({
 
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>拦截门槛与训练超参调节</h3>
+          <h3>调整分类阈值和训练参数</h3>
           <button
             className="button button-ghost"
             onClick={() => onChange({ ...draft, eta: 0.1, epochs: 12, threshold: 0.4 })}
@@ -120,7 +120,7 @@ export function EvaluatePanel({
         <div className="ml-controls-grid is-three">
           <div className="ml-control-card">
             <div className="ml-control-head">
-              <label htmlFor="ml-thresh-slider">判决阈值 τ</label>
+              <label htmlFor="ml-thresh-slider">分类阈值 τ</label>
               <strong className="ml-mono">{draft.threshold.toFixed(2)}</strong>
             </div>
             <input
@@ -133,7 +133,7 @@ export function EvaluatePanel({
               value={draft.threshold}
             />
             <p className="ml-muted-note">
-              τ 越高越谨慎（FP 少但 FN 漏网多）；τ 越低越激进（FN 少但容易误杀好人）。
+              提高阈值后，模型会少拦截一些短信；降低阈值后，模型会多拦截一些。请观察误报和漏报的数量。
             </p>
           </div>
 
@@ -151,12 +151,14 @@ export function EvaluatePanel({
               type="range"
               value={Math.min(0.6, Math.max(0.02, draft.eta))}
             />
-            <p className="ml-muted-note">可微调模型底层训练步长，观察概率分布变化。</p>
+            <p className="ml-muted-note">
+              你改变学习率后，模型会重新训练，短信的预测概率也可能改变。
+            </p>
           </div>
 
           <div className="ml-control-card">
             <div className="ml-control-head">
-              <label htmlFor="ml-s4-epochs">训练轮数 Epochs</label>
+              <label htmlFor="ml-s4-epochs">训练轮数</label>
               <strong className="ml-mono">{draft.epochs} 轮</strong>
             </div>
             <input
@@ -168,7 +170,7 @@ export function EvaluatePanel({
               type="range"
               value={Math.min(20, Math.max(4, draft.epochs))}
             />
-            <p className="ml-muted-note">轮数足够后特征分界更明显，便于切出高分阈值带。</p>
+            <p className="ml-muted-note">你可以比较不同轮数的验证结果，再选择分类阈值。</p>
           </div>
         </div>
       </section>
@@ -204,7 +206,9 @@ export function EvaluatePanel({
         >
           {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
-        {!allConceptsDone ? <span className="ml-muted-note">请先答对全部概念题再提交</span> : null}
+        {!allConceptsDone ? (
+          <span className="ml-muted-note">请先答对概念题，再提交检查。</span>
+        ) : null}
       </div>
 
       <JudgeVerdictCard

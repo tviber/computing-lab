@@ -59,12 +59,12 @@ describe("MlIntroLabPage", () => {
 
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
 
-    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
     await screen.findByRole("group", { name: "中奖 倾向设置" });
     for (const word of STRATEGY_WORDS) {
       expect(screen.getByRole("group", { name: `${word} 倾向设置` })).toBeInTheDocument();
     }
-    expect(screen.getByText(/点积拆解（10 维向量 × 你的策略分）/)).toBeInTheDocument();
+    expect(screen.getByText(/这条短信的总分怎么算/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交第 1 关判定" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled();
   });
@@ -89,7 +89,7 @@ describe("MlIntroLabPage", () => {
     const fetchSpy = stubMlFetch(makeProject(), () => json(passResult));
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
 
-    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
     await screen.findByRole("group", { name: "中奖 倾向设置" });
 
     // Click discrete polarity tiers for spam and normal words.
@@ -156,7 +156,7 @@ describe("MlIntroLabPage", () => {
 
     stubMlFetch(makeProject(), () => json(failResult));
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
 
     fireEvent.click(
       within(await screen.findByRole("group", { name: "中奖 倾向设置" })).getByRole("button", {
@@ -194,9 +194,9 @@ describe("MlIntroLabPage", () => {
     stubMlFetch(project, () => json({}));
 
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "别被高分假象骗了" });
+    await screen.findByRole("heading", { name: "检查模型分错了什么" });
 
-    for (const bucketLabel of [/FN · 漏网之鱼/, /FP · 误杀好人/, /TP · 正确拦截/]) {
+    for (const bucketLabel of [/FN · 漏掉垃圾短信/, /FP · 误拦正常短信/, /TP · 正确拦截/]) {
       fireEvent.click(screen.getByRole("button", { name: bucketLabel }));
       const caseButtons = document.querySelectorAll(".ml-case-btn");
       if (caseButtons.length === 0) continue;
@@ -225,7 +225,7 @@ describe("MlIntroLabPage", () => {
     const fetchSpy = stubMlFetch(project, () => json({}));
 
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "直觉策略：给 10 个词打分" });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
 
     const prizeGroup = await screen.findByRole("group", { name: "中奖 倾向设置" });
     expect(within(prizeGroup).getByRole("button", { name: "+1 偏垃圾" })).toHaveAttribute(
@@ -262,9 +262,9 @@ describe("MlIntroLabPage", () => {
     stubMlFetch(project, () => json({}));
 
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "给词打分与概率" });
+    await screen.findByRole("heading", { name: "把分数换成概率" });
 
     expect(screen.getByLabelText("Sigmoid 曲线与当前模型定位")).toBeInTheDocument();
-    expect(screen.getByText(/全生词\/无触发基准概率：59\.9%/)).toBeInTheDocument();
+    expect(screen.getByText(/没有已知词时的垃圾概率：59\.9%/)).toBeInTheDocument();
   });
 });

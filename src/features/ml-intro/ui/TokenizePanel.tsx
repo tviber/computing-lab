@@ -84,8 +84,8 @@ export function TokenizePanel({
     <div className="ml-stage-stack">
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>短信特征 X 光机（点选例句或自己写一句）</h3>
-          <span className="ml-badge-neutral">训练词表总维数 {fullTrainVocab.size}</span>
+          <h3>看看程序怎样把短信变成数字</h3>
+          <span className="ml-badge-neutral">词表含 {fullTrainVocab.size} 个词</span>
         </div>
 
         <div className="ml-preset-row">
@@ -109,7 +109,7 @@ export function TokenizePanel({
         </div>
 
         <label className="ml-field-label" htmlFor="ml-stage1-input">
-          实验文本（修改文字会实时重新切词并检查词表）：
+          请修改短信，程序会重新切词并查找词表：
         </label>
         <input
           className="ml-text-input"
@@ -141,24 +141,24 @@ export function TokenizePanel({
         <div className="ml-bow-summary">
           <div>
             <span className="ml-subhead">
-              生成的 0/1 词袋活跃特征（共点亮{" "}
-              <strong className="ml-mono">{keptWords.length}</strong> / {fullTrainVocab.size} 维）：
+              这条短信命中了词表中的 <strong className="ml-mono">{keptWords.length}</strong>{" "}
+              个词（词表共 {fullTrainVocab.size} 个）：
             </span>
             <p className="ml-mono ml-vector-preview">
               {keptWords.length > 0
                 ? `{ ${keptWords.map((w) => `"${w}": 1`).join(", ")} }`
-                : "没有任何已知词进入词表（全 0 稀疏向量）"}
+                : "这条短信没有命中词表中的词，因此向量全为 0。"}
             </p>
           </div>
           <div className="ml-order-compare">
-            <p className="ml-subhead">词序盲区对照实验</p>
+            <p className="ml-subhead">交换词序后，向量会变吗？</p>
             <p className="ml-muted-note">
-              「朋友请我免费喝奶茶」 → 活跃特征：{" "}
+              「朋友请我免费喝奶茶」 → 记为 1 的词：{" "}
               <code className="ml-mono">{`[${orderPairA.join(", ")}]`}</code>
             </p>
             <p className="ml-muted-note">
-              「免费请我朋友喝奶茶」 → 活跃特征：{" "}
-              <code className="ml-mono">{`[${orderPairB.join(", ")}]`}</code>（100% 相同）
+              「免费请我朋友喝奶茶」 → 记为 1 的词：{" "}
+              <code className="ml-mono">{`[${orderPairB.join(", ")}]`}</code>（与上句相同）
             </p>
           </div>
         </div>
@@ -172,7 +172,7 @@ export function TokenizePanel({
           </span>
         </div>
         <p className="ml-muted-note">
-          请判断下面这句短信里的每个切词片段在「仅使用训练集词表的 0/1 词袋模型」中会被怎样处理：
+          请判断程序会怎样处理下面的每个片段。你可以参考上方的切词结果。
         </p>
         <blockquote className="ml-quote ml-mono">{TOKENIZE_PUZZLE_SENTENCE}</blockquote>
 

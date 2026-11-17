@@ -5,6 +5,7 @@ import { isStaffRole, useAuth } from "../../shared/auth";
 import { useLabCatalog } from "../../shared/lab/labs";
 import {
   LAB_IDS,
+  LAB_CATEGORY_LABELS,
   labMetadata,
   type LabId,
   type LabMetadataEntry,
@@ -208,13 +209,7 @@ function ClassroomHome() {
                   <article className={`lab-card${lab.primary ? " is-primary" : ""}`} key={lab.id}>
                     <div className="lab-card-topline">
                       <span className="lab-card-index">{String(index + 1).padStart(2, "0")}</span>
-                      <span className="category-label">
-                        {lab.category === "computer-architecture"
-                          ? "计算机组成"
-                          : lab.category === "data-encoding"
-                            ? "数据与编码"
-                            : "信息系统"}
-                      </span>
+                      <span className="category-label">{LAB_CATEGORY_LABELS[lab.category]}</span>
                     </div>
                     <h3>{lab.title}</h3>
                     <p>{lab.description}</p>

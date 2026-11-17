@@ -20,6 +20,33 @@ function collectFailures(page: Page): string[] {
   return failures;
 }
 
+async function expectMessagePanelsToFit(page: Page) {
+  const originalViewport = page.viewportSize();
+  for (const width of [1440, 1024, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflowing = await page.locator(".ml-case-grid").evaluate((grid) => {
+      const gridBounds = grid.getBoundingClientRect();
+      return Array.from(
+        grid.querySelectorAll<HTMLElement>(
+          ".ml-case-btn, .ml-case-text, .ml-probe-card, .ml-probe-text, .ml-waterfall-row, .ml-svg-chart",
+        ),
+      )
+        .filter((element) => {
+          const bounds = element.getBoundingClientRect();
+          return (
+            bounds.left < gridBounds.left - 1 ||
+            bounds.right > gridBounds.right + 1 ||
+            bounds.right > window.innerWidth + 1 ||
+            element.scrollWidth > element.clientWidth + 1
+          );
+        })
+        .map((element) => element.className);
+    });
+    expect(overflowing, `message panels overflow at ${width}px`).toEqual([]);
+  }
+  if (originalViewport) await page.setViewportSize(originalViewport);
+}
+
 test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6 blind exam", async ({
   page,
   request,
@@ -63,7 +90,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
 
   await page.goto("labs/ml-intro", { waitUntil: "networkidle" });
   await expect(page.getByRole("main", { name: "机器学习入门实验区" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "直觉策略：给 10 个词打分" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled();
 
   // Stage 1: Set weights via numeric box + slider, verify autosave + reload restore, then pass
@@ -87,7 +114,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await expect(page.getByText("已保存")).toBeVisible();
 
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "直觉策略：给 10 个词打分" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
   await expect(prizeStrongSpam).toHaveAttribute("aria-pressed", "true");
 
   const s1Tiers: Record<string, string> = {
@@ -117,7 +144,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   expect((await s1RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "把短信变成数字" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "把短信变成数字", exact: true })).toBeVisible();
 
   // Stage 2: Tokenize + concepts
   let freeSeen = 0;
@@ -141,7 +168,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   expect((await s2RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "给词打分与概率" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "把分数换成概率", exact: true })).toBeVisible();
 
   // Stage 3: Edit manual weights on 6 calibration messages, wait for PUT /draft, reload, then judge
   const draftSavePromise = page.waitForResponse((res) => {
@@ -162,7 +189,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await expect(page.getByText("已保存")).toBeVisible();
 
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "给词打分与概率" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "把分数换成概率", exact: true })).toBeVisible();
   await expect(page.locator("#ml-w-免费")).toHaveValue("2.2");
 
   await page.locator("#ml-bias-slider").fill("-1");
@@ -192,10 +219,10 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   expect((await s3RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "让机器自己改错" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "让模型调整权重", exact: true })).toBeVisible();
 
   // Stage 4: Steady learning rate preset + concepts
-  await page.getByRole("button", { name: "稳健 η = 0.1" }).click();
+  await page.getByRole("button", { name: "适中 η = 0.1" }).click();
   for (const prompt of ML_STAGES[3].prompts) {
     await page
       .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })
@@ -208,7 +235,9 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   expect((await s4RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "别被高分假象骗了" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "检查模型分错了什么", exact: true }),
+  ).toBeVisible();
 
   // Stage 5: Restore balanced threshold + verify UI explanation parity + concepts
   await page.getByRole("button", { name: "恢复推荐初值" }).click();
@@ -217,6 +246,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   const listProb = (await firstCaseBtn.locator(".ml-case-prob").textContent())?.trim() ?? "";
   expect(listProb).toMatch(/^\d+\.\d%$/);
   await expect(page.getByText(new RegExp(`模型判定：.*（${listProb}）`))).toBeVisible();
+  await expectMessagePanelsToFit(page);
 
   for (const prompt of ML_STAGES[4].prompts) {
     await page
@@ -230,7 +260,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   expect((await s5RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "数据规模与未知大考" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "用新短信检验模型", exact: true })).toBeVisible();
 
   // Stage 6: Full training sample preset + sealed blind exam
   await page.getByRole("button", { name: "1,400 条（全量公开训练）" }).click();
@@ -242,7 +272,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   const s6RespPromise = page.waitForResponse(
     (res) => res.request().method() === "POST" && res.url().endsWith("/labs/ml-intro/judge"),
   );
-  await page.getByRole("button", { name: "提交并挑战 300 条隐藏测试集" }).click();
+  await page.getByRole("button", { name: "提交到测试集检查" }).click();
   const s6Resp = await s6RespPromise;
   expect(s6Resp.status()).toBe(200);
   const s6BodyText = await s6Resp.text();
@@ -250,7 +280,7 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   expect(s6BodyText).not.toContain("瑞金北村小学");
 
   await expect(page.getByText("通过本关判定")).toBeVisible();
-  await expect(page.getByText("300 条隐藏测试集结业盲测", { exact: true })).toBeVisible();
+  await expect(page.getByText("300 条未公开短信测试", { exact: true })).toBeVisible();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });
@@ -367,7 +397,7 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
   const studentRow = page.getByRole("row", { name: new RegExp(studentNo) });
   await studentRow.getByRole("button", { name: `${judgeBody.score}/${judgeBody.total}` }).click();
   await expect(page.getByRole("dialog", { name: "提交详情" })).toBeVisible();
-  await expect(page.getByText("6 条 10 词短信分类")).toBeVisible();
+  await expect(page.getByText("6 条示例短信分类")).toBeVisible();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });

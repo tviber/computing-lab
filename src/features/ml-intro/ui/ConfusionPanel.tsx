@@ -14,10 +14,10 @@ const BUCKET_META: {
   meaning: string;
   tone: "ok" | "warn" | "bad" | "neutral";
 }[] = [
-  { id: "tp", title: "TP · 正确拦截", meaning: "真垃圾 → 判为垃圾", tone: "ok" },
-  { id: "fn", title: "FN · 漏网之鱼", meaning: "真垃圾 → 误放成正常", tone: "warn" },
-  { id: "fp", title: "FP · 误杀好人", meaning: "真正常 → 误判为垃圾", tone: "bad" },
-  { id: "tn", title: "TN · 正常放行", meaning: "真正常 → 判为正常", tone: "neutral" },
+  { id: "tp", title: "TP · 正确拦截", meaning: "垃圾短信 → 判为垃圾", tone: "ok" },
+  { id: "fn", title: "FN · 漏掉垃圾短信", meaning: "垃圾短信 → 判为正常", tone: "warn" },
+  { id: "fp", title: "FP · 误拦正常短信", meaning: "正常短信 → 判为垃圾", tone: "bad" },
+  { id: "tn", title: "TN · 正常放行", meaning: "正常短信 → 判为正常", tone: "neutral" },
 ];
 
 /**
@@ -106,7 +106,7 @@ export function ConfusionPanel({
 
         <div className="ml-panel">
           <div className="ml-chart-head">
-            <h3>阈值 τ 如何拉扯 Precision 与 Recall</h3>
+            <h3>分类阈值怎样影响查准率和查全率</h3>
             <div className="ml-legend">
               <span className="ml-leg-item">
                 <i className="ml-leg-swatch is-train" /> 查准率 P
@@ -175,10 +175,10 @@ export function ConfusionPanel({
               />
             ))}
             <text fill="var(--muted)" fontSize="9" x={PAD_L} y={H - 8}>
-              τ=0.05（宁错杀不漏网）
+              τ=0.05（拦截较多）
             </text>
             <text fill="var(--muted)" fontSize="9" textAnchor="end" x={W - PAD_R} y={H - 8}>
-              τ=0.95（宁漏网不误杀）
+              τ=0.95（拦截较少）
             </text>
           </svg>
         </div>
@@ -189,7 +189,7 @@ export function ConfusionPanel({
           <h3>
             {BUCKET_META.find((b) => b.id === activeBucket)?.title}（共 {bucketItems.length} 条）
           </h3>
-          <span className="ml-muted-note">点击任意一条，看模型到底是受哪几个词影响做出判决的</span>
+          <span className="ml-muted-note">你可以点选一条短信，查看哪些词影响了模型的判断。</span>
         </div>
         {bucketItems.length === 0 ? (
           <p className="ml-muted-note">当前阈值下这一格数量为 0。</p>
@@ -215,7 +215,7 @@ export function ConfusionPanel({
               <MessageProbeCard
                 inspection={inspection}
                 threshold={threshold}
-                title="误判 / 命中原因拆解"
+                title="模型的评分依据"
                 trueLabel={activeMsg.label}
               />
             ) : null}

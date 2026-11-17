@@ -223,22 +223,22 @@ export function ScorePanel({
       <div className="ml-score-layout">
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>调节偏置 b 与连续词权：体验 Sigmoid 概率变化</h3>
+            <h3>调整权重和偏置，观察预测概率</h3>
             <button className="button button-ghost" onClick={resetToBlacklistStarter} type="button">
               恢复起点预设
             </button>
           </div>
           <p className="ml-muted-note">
-            当前起点已填好垃圾黑名单但故意把偏置设成了 <strong>b = +0.4</strong>
-            ，导致日常词与全生词短信都误超 50%。请先拉低偏置 <strong>b</strong>，再给「同学 / 明天 /
-            一起」加负权救回正常短信！
+            起始模型只给广告常用词设置了正权重，偏置是 <strong>b = +0.4</strong>。
+            因此，即使短信里没有已知词，模型估计的垃圾概率也超过 50%。你可以先调低
+            <strong>偏置 b</strong>，再给「同学」「明天」「一起」设置负权重，检查正常短信能否分对。
           </p>
 
           <div className="ml-slider-row is-bias">
             <label htmlFor="ml-bias-slider">
               <strong>基准偏置 b</strong>
               <small>
-                全生词/无触发基准概率：{(evalSummary.emptyProbability * 100).toFixed(1)}%
+                没有已知词时的垃圾概率：{(evalSummary.emptyProbability * 100).toFixed(1)}%
               </small>
             </label>
             <input
@@ -290,7 +290,7 @@ export function ScorePanel({
 
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>6 条分诊短信实时概率（点卡片联动曲线）</h3>
+            <h3>模型怎样判断这 6 条短信</h3>
             <span
               className={`ml-pill ${evalSummary.correctCount === SCORE_CALIBRATION_SMS.length ? "is-success" : "is-warn"}`}
             >
@@ -323,7 +323,11 @@ export function ScorePanel({
                       </span>
                       <span className={`ml-mono ml-triage-prob ${ev.correct ? "is-ok" : "is-bad"}`}>
                         p = {(ev.probability * 100).toFixed(1)}% ·{" "}
-                        {ev.correct ? "判对了" : ev.pred === 1 ? "误杀成垃圾" : "漏放成正常"}
+                        {ev.correct
+                          ? "判对了"
+                          : ev.pred === 1
+                            ? "误拦了正常短信"
+                            : "漏掉了垃圾短信"}
                       </span>
                     </div>
                     <p className="ml-triage-text">{msg.text}</p>
@@ -363,7 +367,7 @@ export function ScorePanel({
           {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!allConceptsDone ? (
-          <span className="ml-muted-note">请先答对下方全部概念题再提交</span>
+          <span className="ml-muted-note">请先完成上方的概念题，再提交检查。</span>
         ) : null}
       </div>
 

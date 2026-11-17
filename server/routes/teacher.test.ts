@@ -449,8 +449,8 @@ describe("teacher lab routes", () => {
       passed: false,
       testSummary: {
         parts: [
-          { id: "strategy-sms", label: "6 条 10 词短信分类", ok: false },
-          { id: "strategy-balance", label: "正负线索词策略分布", ok: false },
+          { id: "strategy-sms", label: "6 条示例短信分类", ok: false },
+          { id: "strategy-balance", label: "正分词和负分词的数量", ok: false },
           { id: "concepts", label: "概念检查", ok: false },
         ],
       },

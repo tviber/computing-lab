@@ -10,7 +10,7 @@ export function WeightSpectrum({
   topSpam,
   topHam,
   trainCount,
-  heading = "模型学到的核心词权重",
+  heading = "哪些词的权重较大",
 }: {
   topSpam: readonly WordWeightEntry[];
   topHam: readonly WordWeightEntry[];
@@ -42,12 +42,12 @@ export function WeightSpectrum({
 
       {topSpam.length === 0 && topHam.length === 0 ? (
         <p className="ml-muted-note">
-          第 0 轮所有词权都是 0.00，拖动轮次或调大学习率即可看到词权分化。
+          训练还没有开始，各个词的权重都是 0。你可以拖动回放滑块，查看后续轮次。
         </p>
       ) : (
         <div className="ml-spectrum-cols">
           <div>
-            <p className="ml-col-title is-danger">高正权重 · 垃圾线索（+w）</p>
+            <p className="ml-col-title is-danger">正权重较大的词（提高垃圾概率）</p>
             <ul className="ml-weight-list">
               {topSpam.map((item) => (
                 <li key={`spam-${item.word}`}>
@@ -71,7 +71,7 @@ export function WeightSpectrum({
           </div>
 
           <div>
-            <p className="ml-col-title is-success">高负权重 · 正常线索（−w）</p>
+            <p className="ml-col-title is-success">负权重较大的词（降低垃圾概率）</p>
             <ul className="ml-weight-list">
               {topHam.map((item) => (
                 <li key={`ham-${item.word}`}>
