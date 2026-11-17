@@ -247,6 +247,17 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   expect(listProb).toMatch(/^\d+\.\d%$/);
   await expect(page.getByText(new RegExp(`模型判定：.*（${listProb}）`))).toBeVisible();
   await expectMessagePanelsToFit(page);
+  const originalViewport = page.viewportSize();
+  await page.setViewportSize({ width: 390, height: 900 });
+  await page.getByRole("button", { name: /FN · 漏掉垃圾短信/ }).click();
+  const selectedFalseNegative = page.locator(".ml-case-btn").first();
+  await selectedFalseNegative.click();
+  await expect(page.getByRole("region", { name: "所选短信的评分依据" })).toBeInViewport();
+  await expect(page.getByText("模型的评分依据", { exact: true })).toBeInViewport();
+  await page.getByRole("button", { name: "返回短信列表" }).click();
+  await expect(selectedFalseNegative).toBeFocused();
+  await expect(selectedFalseNegative).toBeInViewport();
+  if (originalViewport) await page.setViewportSize(originalViewport);
 
   for (const prompt of ML_STAGES[4].prompts) {
     await page
@@ -263,7 +274,15 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await expect(page.getByRole("heading", { name: "用新短信检验模型", exact: true })).toBeVisible();
 
   // Stage 6: Full training sample preset + sealed blind exam
+  await page.getByRole("button", { name: "150 条（小样本）", exact: true }).click();
+  await page.getByRole("button", { name: "记录当前结果作对照" }).click();
   await page.getByRole("button", { name: "1,400 条（全量公开训练）" }).click();
+  await expect(
+    page.getByRole("status").filter({ hasText: "本次只改变了：训练样本量" }),
+  ).toBeVisible();
+  const sampleComparison = page.getByRole("table", { name: "已记录与当前的公开实验结果" });
+  await expect(sampleComparison.getByRole("row", { name: /训练样本量/ })).toContainText("150 条");
+  await expect(sampleComparison.getByRole("row", { name: /训练样本量/ })).toContainText("1,400 条");
   for (const prompt of ML_STAGES[5].prompts) {
     await page
       .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })

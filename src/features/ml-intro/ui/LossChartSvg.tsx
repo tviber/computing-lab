@@ -206,10 +206,10 @@ function IntraEpochSvg({
   return (
     <div className="ml-chart-box">
       <div className="ml-chart-head">
-        <h4>前 3 轮中，每次更新后的损失</h4>
+        <h4>前 3 轮的验证损失（每轮采样 10 次）</h4>
         <div className="ml-legend">
           <span className="ml-leg-item">
-            <i className="ml-leg-swatch is-train" /> SGD 更新记录
+            <i className="ml-leg-swatch is-train" /> SGD 验证损失采样
           </span>
           {bgdPts.length > 0 ? (
             <span className="ml-leg-item">
@@ -218,7 +218,7 @@ function IntraEpochSvg({
           ) : null}
         </div>
       </div>
-      <svg aria-label="前 3 轮 SGD 锯齿细节图" className="ml-svg-chart" viewBox={`0 0 ${W} ${H}`}>
+      <svg aria-label="前 3 轮验证损失采样曲线" className="ml-svg-chart" viewBox={`0 0 ${W} ${H}`}>
         {[1, 2, 3].map((ep) =>
           ep <= maxEpF ? (
             <g key={ep}>

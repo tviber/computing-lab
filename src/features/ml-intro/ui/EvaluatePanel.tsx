@@ -92,10 +92,20 @@ export function EvaluatePanel({
             <div className={`ml-stat-box ${precOk ? "is-ok" : "is-warn"}`}>
               <span>Precision 查准率（目标 ≥ 90%）</span>
               <strong className="ml-mono">{pct(m.precision)}</strong>
+              <small>
+                {m.tp + m.fp > 0
+                  ? `正确拦截 ${m.tp} ÷ 全部拦截 ${m.tp + m.fp} 条`
+                  : "当前没有拦截短信，查准率暂记为 0%。"}
+              </small>
             </div>
             <div className={`ml-stat-box ${recOk ? "is-ok" : "is-warn"}`}>
               <span>Recall 查全率（目标 ≥ 80%）</span>
               <strong className="ml-mono">{pct(m.recall)}</strong>
+              <small>
+                {m.tp + m.fn > 0
+                  ? `正确拦截 ${m.tp} ÷ 全部垃圾短信 ${m.tp + m.fn} 条`
+                  : "当前没有垃圾短信，查全率暂记为 0%。"}
+              </small>
             </div>
             <div className="ml-stat-box">
               <span>F1 分数</span>

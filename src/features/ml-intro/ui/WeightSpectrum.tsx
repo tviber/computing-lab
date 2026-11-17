@@ -42,7 +42,7 @@ export function WeightSpectrum({
 
       {topSpam.length === 0 && topHam.length === 0 ? (
         <p className="ml-muted-note">
-          训练还没有开始，各个词的权重都是 0。你可以拖动回放滑块，查看后续轮次。
+          第 0 轮是训练前的权重，各个词都是 0。拖动回放滑块可以查看已经计算好的后续轮次。
         </p>
       ) : (
         <div className="ml-spectrum-cols">

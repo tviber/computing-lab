@@ -8,6 +8,7 @@ import {
 import type { MlTestSummary, TrainDraft } from "../domain/protocol.ts";
 import { TRAIN_MAX_TRAIN_LOSS, TRAIN_MAX_VAL_LOSS, type MlStageDef } from "../domain/stages.ts";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
+import { ExperimentComparison } from "./ExperimentComparison.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { LossChartSvg } from "./LossChartSvg.tsx";
 import { WeightSpectrum } from "./WeightSpectrum.tsx";
@@ -151,6 +152,10 @@ export function TrainPanel({
           <h3>用 1,400 条短信训练模型（词表含 {run.vocabSize} 个词）</h3>
           <span className={`ml-pill is-regime-${regime.id}`}>{regime.label}</span>
         </div>
+        <p className="ml-data-guide">
+          训练集的 {MAX_SAMPLE_SIZE.toLocaleString("en-US")} 条短信用于更新权重；300
+          条验证短信用于比较结果，不参与更新；第 6 关再用独立的 300 条测试短信做最后检查。
+        </p>
 
         <div className="ml-preset-row">
           {ETA_PRESETS.map((p) => (
@@ -222,6 +227,10 @@ export function TrainPanel({
               />
               <span>同时显示全批量梯度下降（BGD）的曲线</span>
             </label>
+            <p className="ml-muted-note ml-update-guide">
+              每轮都读取全部 1,400 条训练短信：SGD 每条后更新一次，共 1,400 次；BGD
+              汇总后更新一次。图表按数据遍历轮数比较，不代表相同的更新次数或运行时间。
+            </p>
           </div>
         </div>
 
@@ -242,6 +251,9 @@ export function TrainPanel({
           </div>
         </div>
 
+        <p className="ml-muted-note">
+          修改训练参数后，程序会自动重新训练。下面只回放已有结果，不改变最终提交的模型。
+        </p>
         <div className="ml-scrubber-row">
           <label htmlFor="ml-epoch-scrubber">
             回放第 <strong className="ml-mono">{snapshot.epoch}</strong> 轮结束时，各个词的权重：
@@ -264,6 +276,26 @@ export function TrainPanel({
           intraTrace={run.intraEpochTrace}
           onSelectEpoch={(ep) => onChange({ ...draft, inspectEpoch: ep })}
           showBgd={draft.showBgd}
+        />
+        <ExperimentComparison
+          parameters={[
+            { id: "eta", label: "学习率", value: draft.eta, display: String(draft.eta) },
+            { id: "epochs", label: "训练轮数", value: draft.epochs, display: `${draft.epochs} 轮` },
+          ]}
+          metrics={[
+            {
+              id: "train-loss",
+              label: "最终训练损失",
+              value: finalEpoch.trainLoss,
+              display: finalEpoch.trainLoss.toFixed(4),
+            },
+            {
+              id: "val-loss",
+              label: "最终验证损失",
+              value: finalEpoch.valLoss,
+              display: finalEpoch.valLoss.toFixed(4),
+            },
+          ]}
         />
       </section>
 

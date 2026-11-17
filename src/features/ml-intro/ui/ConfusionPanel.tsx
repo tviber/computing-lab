@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useId, useRef, useState } from "react";
 import type {
   ClassificationMetrics,
   MessagePrediction,
@@ -44,6 +44,9 @@ export function ConfusionPanel({
   onSelectThreshold: (threshold: number) => void;
 }) {
   const [selectedMsgId, setSelectedMsgId] = useState<number | null>(null);
+  const detailsId = useId();
+  const detailsRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLUListElement>(null);
 
   const counts = {
     tp: metrics.tp,
@@ -65,6 +68,16 @@ export function ConfusionPanel({
         model.wordToIndex,
       )
     : null;
+
+  const selectMessage = (id: number) => {
+    setSelectedMsgId(id);
+    if (window.matchMedia?.("(max-width: 960px)").matches) {
+      requestAnimationFrame(() => {
+        detailsRef.current?.scrollIntoView({ block: "start" });
+        detailsRef.current?.focus({ preventScroll: true });
+      });
+    }
+  };
 
   // Threshold curve SVG coordinates
   const W = 400;
@@ -195,12 +208,14 @@ export function ConfusionPanel({
           <p className="ml-muted-note">当前阈值下这一格数量为 0。</p>
         ) : (
           <div className="ml-case-grid">
-            <ul className="ml-case-list">
+            <ul className="ml-case-list" ref={listRef}>
               {bucketItems.slice(0, 12).map((item) => (
                 <li key={item.id}>
                   <button
+                    aria-controls={detailsId}
+                    aria-pressed={activeMsg?.id === item.id}
                     className={`ml-case-btn${activeMsg?.id === item.id ? " is-active" : ""}`}
-                    onClick={() => setSelectedMsgId(item.id)}
+                    onClick={() => selectMessage(item.id)}
                     type="button"
                   >
                     <span className="ml-mono ml-case-prob">
@@ -212,12 +227,36 @@ export function ConfusionPanel({
               ))}
             </ul>
             {activeMsg && inspection ? (
-              <MessageProbeCard
-                inspection={inspection}
-                threshold={threshold}
-                title="模型的评分依据"
-                trueLabel={activeMsg.label}
-              />
+              <div
+                id={detailsId}
+                className="ml-case-details"
+                ref={detailsRef}
+                tabIndex={-1}
+                role="region"
+                aria-label="所选短信的评分依据"
+              >
+                <button
+                  className="button button-ghost ml-case-return"
+                  onClick={() => {
+                    const selected =
+                      listRef.current?.querySelector<HTMLButtonElement>('[aria-pressed="true"]');
+                    selected?.scrollIntoView({ block: "center" });
+                    selected?.focus({ preventScroll: true });
+                  }}
+                  type="button"
+                >
+                  返回短信列表
+                </button>
+                <p className="ml-muted-note">
+                  找出影响最大的两个词，再预测：提高分类阈值后，这条短信的分类会改变吗？调整阈值验证你的判断。
+                </p>
+                <MessageProbeCard
+                  inspection={inspection}
+                  threshold={threshold}
+                  title="模型的评分依据"
+                  trueLabel={activeMsg.label}
+                />
+              </div>
             ) : null}
           </div>
         )}
