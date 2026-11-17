@@ -66,15 +66,29 @@ export const GATE_LABEL: Record<GateKind, string> = {
   buffer: "BUF",
 };
 
+function isGateKind(value: unknown): value is GateKind {
+  return typeof value === "string" && Object.hasOwn(GATE_INPUT_PORTS, value);
+}
+
+function isNodeKind(value: unknown): value is NodeKind {
+  return (
+    value === "input" ||
+    value === "output" ||
+    value === "const" ||
+    value === "component" ||
+    isGateKind(value)
+  );
+}
+
 export function gateInputPorts(node: CircuitNode): string[] {
   if (node.kind === "output") return ["in"];
-  if (node.kind in GATE_INPUT_PORTS) return GATE_INPUT_PORTS[node.kind as GateKind];
+  if (isGateKind(node.kind)) return GATE_INPUT_PORTS[node.kind];
   return [];
 }
 
 export function gateOutputPorts(node: CircuitNode): string[] {
   if (node.kind === "input" || node.kind === "const") return ["out"];
-  if (node.kind in GATE_OUTPUT_PORTS) return GATE_OUTPUT_PORTS[node.kind as GateKind];
+  if (isGateKind(node.kind)) return GATE_OUTPUT_PORTS[node.kind];
   return [];
 }
 
@@ -82,10 +96,17 @@ export function emptyGraph(): CircuitGraph {
   return { nodes: [], edges: [] };
 }
 
-export function isGraph(value: unknown): value is CircuitGraph {
-  if (!value || typeof value !== "object") return false;
-  const graph = value as CircuitGraph;
-  return Array.isArray(graph.nodes) && Array.isArray(graph.edges);
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/** Only the container is checked here; individual entries remain untrusted. */
+export function isGraph(value: unknown): value is { nodes: unknown[]; edges: unknown[] } {
+  return isRecord(value) && Array.isArray(value.nodes) && Array.isArray(value.edges);
+}
+
+function isPortRef(value: unknown): value is PortRef {
+  return isRecord(value) && typeof value.node === "string" && typeof value.port === "string";
 }
 
 /** Port tables are closed for every kind except `component` (catalog-defined). */
@@ -97,25 +118,30 @@ function portExists(node: CircuitNode | undefined, ref: PortRef, direction: "in"
 
 export function sanitizeGraph(value: unknown): CircuitGraph {
   if (!isGraph(value)) return emptyGraph();
-  const nodes = value.nodes
-    .filter(
-      (n): n is CircuitNode =>
-        !!n &&
-        typeof n === "object" &&
-        typeof (n as CircuitNode).id === "string" &&
-        typeof (n as CircuitNode).kind === "string" &&
-        Number.isFinite((n as CircuitNode).x) &&
-        Number.isFinite((n as CircuitNode).y),
-    )
-    .map((n) => ({
-      id: n.id,
-      kind: n.kind,
-      name: typeof n.name === "string" ? n.name : undefined,
-      value: n.value === 1 ? (1 as Bit) : n.value === 0 ? (0 as Bit) : undefined,
-      collapsed: n.collapsed === true ? true : undefined,
-      x: Math.round(n.x),
-      y: Math.round(n.y),
-    }));
+  const nodes = value.nodes.flatMap((n): CircuitNode[] => {
+    if (
+      !isRecord(n) ||
+      typeof n.id !== "string" ||
+      !isNodeKind(n.kind) ||
+      typeof n.x !== "number" ||
+      typeof n.y !== "number" ||
+      !Number.isFinite(n.x) ||
+      !Number.isFinite(n.y)
+    ) {
+      return [];
+    }
+    return [
+      {
+        id: n.id,
+        kind: n.kind,
+        name: typeof n.name === "string" ? n.name : undefined,
+        value: n.value === 1 ? 1 : n.value === 0 ? 0 : undefined,
+        collapsed: n.collapsed === true ? true : undefined,
+        x: Math.round(n.x),
+        y: Math.round(n.y),
+      },
+    ];
+  });
   const nodesById = new Map(nodes.map((n) => [n.id, n]));
   const edges: CircuitEdge[] = [];
   // One driver per input port, same rule the wiring reducer enforces: when a
@@ -125,19 +151,17 @@ export function sanitizeGraph(value: unknown): CircuitGraph {
   const driven = new Set<string>();
   for (const raw of value.edges) {
     if (
-      !raw ||
-      typeof raw !== "object" ||
-      typeof (raw as CircuitEdge).id !== "string" ||
-      !(raw as CircuitEdge).from ||
-      !(raw as CircuitEdge).to
+      !isRecord(raw) ||
+      typeof raw.id !== "string" ||
+      !isPortRef(raw.from) ||
+      !isPortRef(raw.to)
     ) {
       continue;
     }
-    const edge = raw as CircuitEdge;
-    const fromNode = nodesById.get(edge.from.node);
-    const toNode = nodesById.get(edge.to.node);
-    const toPort = { node: edge.to.node, port: String(edge.to.port) };
-    const fromPort = { node: edge.from.node, port: String(edge.from.port) };
+    const fromNode = nodesById.get(raw.from.node);
+    const toNode = nodesById.get(raw.to.node);
+    const toPort = { node: raw.to.node, port: raw.to.port };
+    const fromPort = { node: raw.from.node, port: raw.from.port };
     if (!fromNode || !toNode) continue;
     if (!portExists(fromNode, fromPort, "out") || !portExists(toNode, toPort, "in")) continue;
     const toKey = `${toPort.node}#${toPort.port}`;
@@ -148,7 +172,7 @@ export function sanitizeGraph(value: unknown): CircuitGraph {
       if (index >= 0) edges.splice(index, 1);
     }
     driven.add(toKey);
-    edges.push({ id: edge.id, from: fromPort, to: toPort });
+    edges.push({ id: raw.id, from: fromPort, to: toPort });
   }
   return { nodes, edges };
 }

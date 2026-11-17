@@ -83,7 +83,7 @@ export function cellRegion(
 
 /**
  * Clamp a user-provided resolution into the legal domain. Returns null when
- * the value is not a pair of finite integers — callers decide the error.
+ * the value is not a pair of finite numbers; valid values are rounded and clamped.
  */
 export function sanitizeResolution(raw: unknown): Resolution | null {
   if (!raw || typeof raw !== "object") return null;

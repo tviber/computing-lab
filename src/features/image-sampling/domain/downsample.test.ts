@@ -50,6 +50,33 @@ describe("downsample (majority coverage)", () => {
     }
     expect(seen.size).toBe(64 * 64);
   });
+
+  it("covers each source pixel exactly once across rectangular and non-divisor grids", () => {
+    for (const [width, height] of [
+      [2, 2],
+      [7, 11],
+      [11, 7],
+      [13, 13],
+      [64, 64],
+    ]) {
+      for (let w = 2; w <= Math.min(width, 8); w += 1) {
+        for (let h = 2; h <= Math.min(height, 8); h += 1) {
+          const visits = new Uint16Array(width * height);
+          for (let cy = 0; cy < h; cy += 1) {
+            for (let cx = 0; cx < w; cx += 1) {
+              const { x0, y0, x1, y1 } = cellBounds(width, height, w, h, cx, cy);
+              expect(x1).toBeGreaterThan(x0);
+              expect(y1).toBeGreaterThan(y0);
+              for (let y = y0; y < y1; y += 1) {
+                for (let x = x0; x < x1; x += 1) visits[y * width + x] += 1;
+              }
+            }
+          }
+          expect(visits.every((count) => count === 1)).toBe(true);
+        }
+      }
+    }
+  });
 });
 
 describe("sanitizeResolution", () => {
@@ -61,5 +88,29 @@ describe("sanitizeResolution", () => {
     expect(sanitizeResolution(null)).toBeNull();
     expect(sanitizeResolution({ width: "x" })).toBeNull();
     expect(sanitizeResolution({ width: 0 })).toBeNull();
+  });
+
+  it.each([NaN, Infinity, -Infinity, "8", null, undefined, true, {}, []])(
+    "rejects invalid dimensions in either position: %j",
+    (dimension) => {
+      expect(sanitizeResolution({ width: dimension, height: 8 })).toBeNull();
+      expect(sanitizeResolution({ width: 8, height: dimension })).toBeNull();
+    },
+  );
+
+  it("produces bounded integers and is idempotent across finite boundary values", () => {
+    const values = [-Number.MAX_VALUE, -1, 0, 1.5, 2, 2.49, 2.5, 63.5, 64, 65, Number.MAX_VALUE];
+    for (const width of values) {
+      for (const height of values) {
+        const result = sanitizeResolution({ width, height });
+        expect(result).not.toBeNull();
+        for (const value of Object.values(result!)) {
+          expect(Number.isInteger(value)).toBe(true);
+          expect(value).toBeGreaterThanOrEqual(2);
+          expect(value).toBeLessThanOrEqual(64);
+        }
+        expect(sanitizeResolution(result)).toEqual(result);
+      }
+    }
   });
 });

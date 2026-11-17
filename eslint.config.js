@@ -1,7 +1,15 @@
 import js from "@eslint/js";
 import eslintPluginPrettier from "eslint-plugin-prettier/recommended";
 import globals from "globals";
+import { builtinModules } from "node:module";
 import tseslint from "typescript-eslint";
+
+const pureInfrastructureImports = {
+  // Only saveStatus is a runtime dependency; infrastructure contracts stay type-only.
+  regex:
+    "(?:^|/)shared/(?:api|auth|layout)(?:/|$)|(?:^|/)shared/lab(?:$|/(?!saveStatus(?:\\.ts)?$))",
+  allowTypeImports: true,
+};
 
 export default tseslint.config(
   {
@@ -43,29 +51,72 @@ export default tseslint.config(
     },
   },
   {
+    files: ["src/features/**/domain/**/*.{ts,tsx}", "src/features/**/lesson/**/*.{ts,tsx}"],
+    linterOptions: {
+      noInlineConfig: true,
+    },
+    rules: {
+      "max-lines": ["error", { max: 800 }],
+      "@typescript-eslint/consistent-type-assertions": [
+        "error",
+        { assertionStyle: "as", objectLiteralTypeAssertions: "never" },
+      ],
+      "no-restricted-syntax": [
+        "error",
+        {
+          selector:
+            "TSAsExpression[expression.type='TSAsExpression'][expression.typeAnnotation.type='TSUnknownKeyword']",
+          message:
+            "Validate unknown data instead of bypassing the contract with a double assertion.",
+        },
+        {
+          selector: "ImportExpression",
+          message:
+            "Pure domain/lesson modules use static imports so their dependencies stay checkable.",
+        },
+      ],
+    },
+  },
+  {
     files: ["src/features/**/domain/**/*.{ts,tsx}"],
     rules: {
+      "no-restricted-globals": [
+        "error",
+        {
+          globals: [
+            "window",
+            "document",
+            "navigator",
+            "fetch",
+            "localStorage",
+            "sessionStorage",
+            "crypto",
+            "performance",
+            "Date",
+            "setTimeout",
+            "setInterval",
+          ],
+          checkGlobalObject: true,
+        },
+      ],
+      "no-restricted-properties": [
+        "error",
+        { object: "Math", property: "random", message: "Pass a seeded RNG into domain code." },
+      ],
       "no-restricted-imports": [
         "error",
         {
-          paths: ["react", "react-dom"],
+          paths: ["react", "react-dom", "@tanstack/react-router", ...builtinModules],
           patterns: [
+            { group: ["node:*"] },
+            { group: ["react/**", "react-dom/**", "@tanstack/react-router/**"] },
+            { group: ["**/server", "**/server/**", "**/preview", "**/preview/**"] },
             { group: ["**/ui/**"] },
             { group: ["**/app/**"] },
             { group: ["**/features/**"] },
             { group: ["**/controller/**"] },
             { group: ["**/lesson/**"] },
-            {
-              // saveStatus is a pure module lessons may call; the rest of
-              // shared/lab is hooks/UI and stays type-only from here.
-              group: [
-                "**/shared/api/**",
-                "**/shared/auth/**",
-                "**/shared/lab/!(saveStatus*)",
-                "**/shared/lab/*/**",
-              ],
-              allowTypeImports: true,
-            },
+            pureInfrastructureImports,
           ],
         },
       ],
@@ -88,26 +139,32 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          paths: ["react", "react-dom", "@tanstack/react-router"],
+          paths: ["react", "react-dom", "@tanstack/react-router", ...builtinModules],
           patterns: [
+            { group: ["node:*"] },
+            { group: ["react/**", "react-dom/**", "@tanstack/react-router/**"] },
+            { group: ["**/server", "**/server/**", "**/preview", "**/preview/**"] },
             { group: ["**/app/**"] },
             { group: ["**/ui/**"] },
             { group: ["**/controller/**"] },
-            {
-              // saveStatus is a pure module lessons may call; the rest of
-              // shared/lab is hooks/UI and stays type-only from here.
-              group: [
-                "**/shared/api/**",
-                "**/shared/auth/**",
-                "**/shared/lab/!(saveStatus*)",
-                "**/shared/lab/*/**",
-              ],
-              allowTypeImports: true,
-            },
+            pureInfrastructureImports,
           ],
         },
       ],
     },
+  },
+  {
+    // Existing reducer debt has a fixed ceiling; new pure modules use 800.
+    files: ["src/features/calculator/lesson/state.ts"],
+    rules: { "max-lines": ["error", { max: 1318 }] },
+  },
+  {
+    // Curated data tables, not handwritten calculation/control flow.
+    files: [
+      "src/features/ml-intro/domain/cnLexicon.ts",
+      "src/features/ml-intro/domain/corpusData.ts",
+    ],
+    rules: { "max-lines": "off" },
   },
   {
     files: ["src/features/**/controller/**/*.{ts,tsx}"],
@@ -191,7 +248,7 @@ export default tseslint.config(
             { group: ["**/shared/auth/**"] },
             // labMetadata is pure catalog data shared with the server; the rest
             // of shared/lab holds React hooks/UI and stays off-limits here.
-            { group: ["**/shared/lab/!(labMetadata*)"] },
+            { regex: "(?:^|/)shared/lab(?:$|/(?!labMetadata(?:\\.ts)?$))" },
           ],
         },
       ],
