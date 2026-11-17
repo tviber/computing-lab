@@ -85,21 +85,21 @@ export function classifyEtaRegime(eta: number): EtaRegime {
   if (eta < 0.015) {
     return {
       id: "slow",
-      label: "步子太小",
-      summary: "学习率太小，权重每次只挪微末一点点，轮次有限时还走不到损失谷底。",
+      label: "较小的学习率",
+      summary: "模型每次调整的幅度较小。在相同轮数下，损失可能下降得较慢。",
     };
   }
   if (eta <= 0.6) {
     return {
       id: "steady",
-      label: "稳健收敛",
-      summary: "步长适中，训练与验证损失快速同步下探，正负词权分化清晰。",
+      label: "中等学习率",
+      summary: "你可以先用这个范围训练，再比较训练损失和验证损失是否一起下降。",
     };
   }
   return {
     id: "volatile",
-    label: "步子过大",
-    summary: "单条样本就把权重甩过头，损失在谷底附近来回反弹，验证表现反而退化。",
+    label: "较大的学习率",
+    summary: "模型每次调整的幅度较大，损失可能反复波动。请检查验证结果是否改善。",
   };
 }
 

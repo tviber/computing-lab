@@ -11,7 +11,15 @@
  * Entry order is the display order on the homepage, admin/teacher lab lists,
  * and class dashboard picker.
  */
-export type LabCategory = "computer-architecture" | "data-encoding" | "information-systems";
+export type LabCategory =
+  "computer-architecture" | "data-encoding" | "information-systems" | "artificial-intelligence";
+
+export const LAB_CATEGORY_LABELS: Record<LabCategory, string> = {
+  "computer-architecture": "计算机组成",
+  "data-encoding": "数据与编码",
+  "information-systems": "信息系统",
+  "artificial-intelligence": "人工智能",
+};
 
 export type LabMetadataEntry = {
   title: string;
@@ -42,8 +50,8 @@ export const labMetadata = {
   "ml-intro": {
     title: "机器学习入门",
     description:
-      "从 10 个词的直觉策略打分起步，再一路走进切词向量、S 曲线概率与梯度下降，用真实语料看懂分类器是怎么炼成的。",
-    category: "information-systems",
+      "你来训练一个垃圾短信分类器：先给词语打分，再让模型从短信中学习，最后检查它会误拦哪些消息、漏掉哪些广告。",
+    category: "artificial-intelligence",
   },
   "image-sampling": {
     title: "空间采样",

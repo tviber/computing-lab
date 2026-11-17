@@ -21,7 +21,7 @@ export function MessageProbeCard({
   inspection,
   threshold = 0.5,
   trueLabel,
-  title = "单条短信得分拆解",
+  title = "这条短信的评分依据",
 }: {
   inspection: MessageInspection;
   threshold?: number;
@@ -107,7 +107,7 @@ export function MessageProbeCard({
             })}
           </ul>
           {inspection.terms.length === 1 ? (
-            <p className="ml-muted-note">没有已知词命中词表，仅剩偏置 b 生效。</p>
+            <p className="ml-muted-note">这条短信没有命中词表中的词，模型只根据偏置 b 计算概率。</p>
           ) : null}
         </div>
 

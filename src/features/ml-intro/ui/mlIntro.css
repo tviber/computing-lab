@@ -210,6 +210,8 @@
 
 .ml-tok {
   display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
   flex-direction: column;
   align-items: center;
   gap: 2px;
@@ -223,6 +225,7 @@
   font-family: var(--font-mono);
   font-size: 13px;
   font-weight: 600;
+  overflow-wrap: anywhere;
 }
 
 .ml-tok-tag {
@@ -462,6 +465,11 @@
   margin: 4px 0 0;
   font-size: 14px;
   font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.ml-probe-head > div {
+  min-width: 0;
 }
 
 .ml-probe-badges {
@@ -495,9 +503,7 @@
 }
 
 .ml-waterfall-word {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: anywhere;
 }
 
 .ml-waterfall-bar-wrap {
@@ -903,15 +909,20 @@
 
 .ml-case-grid {
   display: grid;
-  grid-template-columns: 1fr 1.35fr;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1.35fr);
   gap: var(--space-3);
   align-items: start;
+}
+
+.ml-case-grid .ml-probe-grid {
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .ml-case-list {
   list-style: none;
   margin: 0;
   padding: 0;
+  min-width: 0;
   display: flex;
   flex-direction: column;
   gap: 6px;
@@ -919,6 +930,7 @@
 
 .ml-case-btn {
   width: 100%;
+  min-width: 0;
   text-align: left;
   display: flex;
   align-items: baseline;
@@ -943,9 +955,10 @@
 }
 
 .ml-case-text {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  flex: 1;
+  min-width: 0;
+  white-space: normal;
+  overflow-wrap: anywhere;
 }
 
 /* ---- Concept Checklist ---- */

@@ -10,8 +10,8 @@ import { MessageProbeCard } from "./MessageProbeCard.tsx";
 import { WeightSpectrum } from "./WeightSpectrum.tsx";
 
 const SAMPLE_PRESETS = [
-  { label: "150 条（过拟合重灾区）", count: 150 },
-  { label: "300 条（小样本）", count: 300 },
+  { label: "150 条（小样本）", count: 150 },
+  { label: "300 条", count: 300 },
   { label: "600 条（中等规模）", count: 600 },
   { label: "1,000 条", count: 1000 },
   { label: "1,400 条（全量公开训练）", count: 1400 },
@@ -84,7 +84,7 @@ export function GeneralizePanel({
     <div className="ml-stage-stack">
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>训练数据规模与泛化实验室</h3>
+          <h3>训练样本量怎样影响结果</h3>
           <span className="ml-badge-neutral">当前词表收录 {baseRun.vocabSize} 词</span>
         </div>
 
@@ -136,7 +136,7 @@ export function GeneralizePanel({
 
           <div className="ml-control-card">
             <div className="ml-control-head">
-              <label htmlFor="ml-s5-epochs">训练轮数 Epochs</label>
+              <label htmlFor="ml-s5-epochs">训练轮数</label>
               <strong className="ml-mono">{draft.epochs} 轮</strong>
             </div>
             <input
@@ -152,7 +152,7 @@ export function GeneralizePanel({
 
           <div className="ml-control-card">
             <div className="ml-control-head">
-              <label htmlFor="ml-s5-thresh">判决阈值 τ</label>
+              <label htmlFor="ml-s5-thresh">分类阈值 τ</label>
               <strong className="ml-mono">{draft.threshold.toFixed(2)}</strong>
             </div>
             <input
@@ -181,13 +181,13 @@ export function GeneralizePanel({
             </strong>
           </div>
           <div className={`ml-stat-box ${vm.recall >= 0.78 ? "is-ok" : "is-warn"}`}>
-            <span>验证集 Precision / Recall</span>
+            <span>验证集查准率 / 查全率</span>
             <strong className="ml-mono">
               P {pct(vm.precision)} · R {pct(vm.recall)}
             </strong>
           </div>
           <div className={`ml-stat-box ${vm.oovRate > 0.4 ? "is-warn" : "is-ok"}`}>
-            <span>验证未见词率 OOV（泛化差距 {pct(accGap)}）</span>
+            <span>验证集未见词比例（两组准确率相差 {pct(accGap)}）</span>
             <strong className="ml-mono">{pct(vm.oovRate)}</strong>
           </div>
         </div>
@@ -196,7 +196,7 @@ export function GeneralizePanel({
       </section>
 
       <WeightSpectrum
-        heading={`样本量 ${draft.sampleSize} 条时学出的 Top 词权（留意是否混入小样本偶发噪声）`}
+        heading={`用 ${draft.sampleSize} 条短信训练后，哪些词的权重较大`}
         topHam={lastEpoch.topHam}
         topSpam={lastEpoch.topSpam}
         trainCount={baseRun.trainCount}
@@ -204,8 +204,8 @@ export function GeneralizePanel({
 
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>对抗试句台：自己写一句短信攻破模型</h3>
-          <span className="ml-muted-note">试试用新词或混合正常词来绕过模型</span>
+          <h3>写一条新短信，试试模型能否分对</h3>
+          <span className="ml-muted-note">你可以试试新词，或在正常消息中加入广告常用词</span>
         </div>
         <div className="ml-preset-row">
           {PROBE_QUICK_CASES.map((text, idx) => (
@@ -224,14 +224,14 @@ export function GeneralizePanel({
           className="ml-text-input"
           maxLength={240}
           onChange={(e) => onChange({ ...draft, probeText: e.target.value })}
-          placeholder="输入一句自己构造的短信，看看当前模型会给多少概率…"
+          placeholder="输入一条短信，查看模型的预测和评分依据…"
           type="text"
           value={draft.probeText}
         />
         <MessageProbeCard
           inspection={probeInspection}
           threshold={draft.threshold}
-          title="实时上线试测结果"
+          title="模型如何判断你写的短信"
         />
       </section>
 
@@ -253,12 +253,12 @@ export function GeneralizePanel({
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "盲测评分中…" : "提交并挑战 300 条隐藏测试集"}
+          {submitting ? "正在测试…" : "提交到测试集检查"}
         </button>
         <span className="ml-muted-note">
           {!allConceptsDone
-            ? "请先答对全部概念题再挑战盲测"
-            : "盲测仅给出是否通过的最终结论，不返回隐藏集明细分数，请依据公开验证集调参"}
+            ? "请先答对概念题，再提交测试。"
+            : "服务器只返回测试是否通过。请根据上方验证集的结果调整参数。"}
         </span>
       </div>
 

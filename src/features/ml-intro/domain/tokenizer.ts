@@ -114,7 +114,7 @@ function tagSegments(
         text: seg.raw,
         status: "filtered",
         vocabIndex: null,
-        note: "标点或符号，切词预处理阶段过滤",
+        note: "程序会忽略这个标点或符号。",
       });
       continue;
     }
@@ -123,7 +123,7 @@ function tagSegments(
         text: seg.raw,
         status: "oov",
         vocabIndex: null,
-        note: "训练词表从未见过的新词 (OOV)，没有对应特征位",
+        note: "这个词不在训练词表中，程序不会为它记录特征或计算得分。",
       });
       continue;
     }
@@ -133,7 +133,7 @@ function tagSegments(
         text: seg.raw,
         status: "duplicate",
         vocabIndex: idx,
-        note: "同一条短信里再次出现，0/1 词袋只记为出现过(1)",
+        note: "这个词在本条短信中已经出现过，对应位置仍记为 1，不会累加。",
       });
       continue;
     }
@@ -142,7 +142,7 @@ function tagSegments(
       text: seg.raw,
       status: "kept",
       vocabIndex: idx,
-      note: "在训练词表中首次出现，点亮对应维度 x_i = 1",
+      note: "这个词在词表中，也是它在本条短信中第一次出现。程序把对应位置记为 1。",
     });
   }
 

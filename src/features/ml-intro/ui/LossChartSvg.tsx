@@ -62,7 +62,7 @@ export function LossChartSvg({
     <div className="ml-charts-grid">
       <div className="ml-chart-box">
         <div className="ml-chart-head">
-          <h4>训练损失 vs 验证损失（按轮次）</h4>
+          <h4>每轮训练后的损失</h4>
           <div className="ml-legend">
             <span className="ml-leg-item">
               <i className="ml-leg-swatch is-train" /> 训练损失
@@ -111,7 +111,7 @@ export function LossChartSvg({
             y2={yOfLoss(BLIND_GUESS_LOSS)}
           />
           <text fill="var(--warn)" fontSize="9" x={PAD_L + 4} y={yOfLoss(BLIND_GUESS_LOSS) - 4}>
-            盲猜基线 ln2 ≈ 0.693
+            p=0.5 时 ln2 ≈ 0.693
           </text>
           {bgdPts.length > 0 ? (
             <polyline
@@ -206,10 +206,10 @@ function IntraEpochSvg({
   return (
     <div className="ml-chart-box">
       <div className="ml-chart-head">
-        <h4>放大看前 3 轮：单条样本引起的 SGD 锯齿抖动</h4>
+        <h4>前 3 轮中，每次更新后的损失</h4>
         <div className="ml-legend">
           <span className="ml-leg-item">
-            <i className="ml-leg-swatch is-train" /> 真实 SGD 轨迹
+            <i className="ml-leg-swatch is-train" /> SGD 更新记录
           </span>
           {bgdPts.length > 0 ? (
             <span className="ml-leg-item">

@@ -13,10 +13,10 @@ import { LossChartSvg } from "./LossChartSvg.tsx";
 import { WeightSpectrum } from "./WeightSpectrum.tsx";
 
 const ETA_PRESETS = [
-  { label: "极小 η = 0.002", eta: 0.002, epochs: 12 },
-  { label: "稳健 η = 0.1", eta: 0.1, epochs: 12 },
-  { label: "偏激进 η = 0.8", eta: 0.8, epochs: 12 },
-  { label: "过大震荡 η = 5.0", eta: 5.0, epochs: 12 },
+  { label: "较小 η = 0.002", eta: 0.002, epochs: 12 },
+  { label: "适中 η = 0.1", eta: 0.1, epochs: 12 },
+  { label: "较大 η = 0.8", eta: 0.8, epochs: 12 },
+  { label: "更大 η = 5.0", eta: 5.0, epochs: 12 },
 ];
 
 export function TrainPanel({
@@ -75,7 +75,7 @@ export function TrainPanel({
     <div className="ml-stage-stack">
       <section className="ml-panel ml-step-micro">
         <div className="ml-panel-head">
-          <h3>单条改错显微镜：一次更新是怎么推算 Δw 的</h3>
+          <h3>模型怎样调整一次权重</h3>
           <span className="ml-mono ml-muted-note">公式：w ← w − η · (p − y)</span>
         </div>
         <div className="ml-micro-controls">
@@ -86,7 +86,7 @@ export function TrainPanel({
               onClick={() => setStepTrueY(1)}
               type="button"
             >
-              真实是垃圾 (y = 1)
+              垃圾短信（y = 1）
             </button>
             <button
               aria-pressed={stepTrueY === 0}
@@ -94,12 +94,12 @@ export function TrainPanel({
               onClick={() => setStepTrueY(0)}
               type="button"
             >
-              真实是正常 (y = 0)
+              正常短信（y = 0）
             </button>
           </div>
           <label className="ml-inline-slider">
             <span>
-              模型当前猜的概率 p = <strong className="ml-mono">{stepPredP.toFixed(2)}</strong>
+              模型预测的垃圾概率 p = <strong className="ml-mono">{stepPredP.toFixed(2)}</strong>
             </span>
             <input
               max={0.98}
@@ -115,7 +115,11 @@ export function TrainPanel({
           <div className="ml-stat-box">
             <span>交叉熵损失 Loss</span>
             <strong className="ml-mono">{stepDemo.loss.toFixed(3)}</strong>
-            <small>{stepDemo.loss > 1.2 ? "猜得很离谱，惩罚极重" : "偏差较小，惩罚轻微"}</small>
+            <small>
+              {stepDemo.loss > 1.2
+                ? "模型对真实标签的预测概率较低"
+                : "损失越低，预测越接近真实标签"}
+            </small>
           </div>
           <div className="ml-stat-box">
             <span>误差信号 (p − y)</span>
@@ -133,10 +137,10 @@ export function TrainPanel({
             </strong>
             <small>
               {stepDemo.direction === "up"
-                ? "本句出现过的词权向上抬"
+                ? "模型会增加本条短信中各个词的权重"
                 : stepDemo.direction === "down"
-                  ? "本句出现过的词权向下压"
-                  : "已完全猜中，几乎不改"}
+                  ? "模型会减少本条短信中各个词的权重"
+                  : "预测值等于标签，权重不变"}
             </small>
           </div>
         </div>
@@ -144,7 +148,7 @@ export function TrainPanel({
 
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>梯度下降控制台（1,400 条真实短信训练 · {run.vocabSize} 维词表）</h3>
+          <h3>用 1,400 条短信训练模型（词表含 {run.vocabSize} 个词）</h3>
           <span className={`ml-pill is-regime-${regime.id}`}>{regime.label}</span>
         </div>
 
@@ -191,7 +195,7 @@ export function TrainPanel({
 
           <div className="ml-control-card">
             <div className="ml-control-head">
-              <label htmlFor="ml-epochs-slider">训练总轮数 Epochs</label>
+              <label htmlFor="ml-epochs-slider">训练轮数</label>
               <strong className="ml-mono">{draft.epochs} 轮</strong>
             </div>
             <input
@@ -216,7 +220,7 @@ export function TrainPanel({
                 onChange={(e) => onChange({ ...draft, showBgd: e.target.checked })}
                 type="checkbox"
               />
-              <span>叠加全批量 BGD 曲线（对比收敛速度）</span>
+              <span>同时显示全批量梯度下降（BGD）的曲线</span>
             </label>
           </div>
         </div>
@@ -231,16 +235,16 @@ export function TrainPanel({
             <strong className="ml-mono">{finalEpoch.valLoss.toFixed(4)}</strong>
           </div>
           <div className="ml-stat-box">
-            <span>当前回放：Epoch {snapshot.epoch}</span>
+            <span>当前查看：第 {snapshot.epoch} 轮</span>
             <strong className="ml-mono">
-              Val Loss {snapshot.valLoss.toFixed(3)} · bias {snapshot.bias.toFixed(2)}
+              验证损失 {snapshot.valLoss.toFixed(3)} · 偏置 {snapshot.bias.toFixed(2)}
             </strong>
           </div>
         </div>
 
         <div className="ml-scrubber-row">
           <label htmlFor="ml-epoch-scrubber">
-            回放第 <strong className="ml-mono">{snapshot.epoch}</strong> 轮结束时的词权分化：
+            回放第 <strong className="ml-mono">{snapshot.epoch}</strong> 轮结束时，各个词的权重：
           </label>
           <input
             id="ml-epoch-scrubber"
@@ -264,7 +268,7 @@ export function TrainPanel({
       </section>
 
       <WeightSpectrum
-        heading={`第 ${snapshot.epoch} 轮学到的正负高权词`}
+        heading={`第 ${snapshot.epoch} 轮权重较大的词`}
         topHam={snapshot.topHam}
         topSpam={snapshot.topSpam}
         trainCount={run.trainCount}
@@ -291,7 +295,7 @@ export function TrainPanel({
           {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!allConceptsDone ? (
-          <span className="ml-muted-note">请先答对下方全部概念题再提交</span>
+          <span className="ml-muted-note">请先完成上方的概念题，再提交检查。</span>
         ) : null}
       </div>
 

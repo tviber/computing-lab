@@ -88,15 +88,15 @@ export function StrategyPanel({
       <div className="ml-score-layout">
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>10 词策略面板：点击设定每个词的倾向</h3>
+            <h3>你会给这些词打几分？</h3>
             <button className="button button-ghost" onClick={resetWeights} type="button">
               全部清零
             </button>
           </div>
           <p className="ml-muted-note">
-            只需判断倾向不用算小数：<strong>正分</strong>提高垃圾风险，<strong>负分</strong>
-            保护正常日常，<strong>0</strong> 代表与判断无关；规则：净风险分{" "}
-            <strong className="ml-mono">w · x ≥ +1</strong> 判为垃圾。
+            你认为一个词更常见于垃圾短信，就给它<strong>正分</strong>；更常见于正常短信，就给它
+            <strong>负分</strong>；难以区分就设为 <strong>0</strong>。程序只把出现过的词的分值相加，
+            总分 <strong className="ml-mono">w · x ≥ +1</strong> 时拦截短信。
           </p>
 
           <div className="ml-strategy-list">
@@ -133,7 +133,7 @@ export function StrategyPanel({
 
         <section className="ml-panel">
           <div className="ml-panel-head">
-            <h3>6 条 10 词短信实时判分（点击拆解点积）</h3>
+            <h3>你的规则能分对这 6 条短信吗？</h3>
             <span
               className={`ml-pill ${evalResult.correctCount === evalResult.totalCount ? "is-success" : "is-warn"}`}
             >
@@ -170,7 +170,7 @@ export function StrategyPanel({
                       </span>
                       <span className={`ml-mono ml-triage-prob ${item.ok ? "is-ok" : "is-bad"}`}>
                         风险分 {fmtSigned(item.score)}（{ruleText}） ·{" "}
-                        {item.ok ? "判对了" : item.pred === 1 ? "误杀成垃圾" : "漏放成正常"}
+                        {item.ok ? "判对了" : item.pred === 1 ? "误拦了正常短信" : "漏掉了垃圾短信"}
                       </span>
                     </div>
                     <p className="ml-triage-text">{item.message.text}</p>
@@ -200,7 +200,7 @@ export function StrategyPanel({
 
       <section className="ml-panel">
         <div className="ml-panel-head">
-          <h3>点积拆解（10 维向量 × 你的策略分）：{selectedEval.message.tag}</h3>
+          <h3>这条短信的总分怎么算：{selectedEval.message.tag}</h3>
           <span className={`ml-pill ${selectedEval.pred === 1 ? "is-danger" : "is-success"}`}>
             风险分 w·x = {fmtSigned(selectedEval.score)} →{" "}
             {selectedEval.pred === 1
@@ -268,9 +268,9 @@ export function StrategyPanel({
             <strong>{fmtSigned(selectedEval.score)}</strong>
           </p>
           <p className="ml-muted-note">
-            规则游戏说明：本关只比较人工加减出的<strong>净风险分</strong>（规定 w·x ≥ +
-            {STRATEGY_SCORE_SPAM_THRESHOLD} 才判垃圾，还不涉及真实概率）；第 3 关才会引入偏置 b 与
-            Sigmoid 函数，把总分连续转换为 0%~100% 概率。
+            这里的<strong>总分</strong>来自你设定的权重，并不是概率。程序按 +
+            {STRATEGY_SCORE_SPAM_THRESHOLD} 的门槛分类。第 3 关会介绍偏置 b 和 Sigmoid，
+            看看模型怎样把总分转换为预测概率。
           </p>
         </div>
       </section>
@@ -296,7 +296,7 @@ export function StrategyPanel({
           {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
         </button>
         {!allConceptsDone ? (
-          <span className="ml-muted-note">请先答对下方全部概念题再提交</span>
+          <span className="ml-muted-note">请先完成上方的概念题，再提交检查。</span>
         ) : null}
       </div>
 

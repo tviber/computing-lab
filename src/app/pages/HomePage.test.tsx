@@ -84,6 +84,8 @@ describe("HomePage lab visibility", () => {
     const card = await screen.findByRole("heading", { name: "机器学习入门" });
     const article = card.closest("article");
     expect(article).not.toBeNull();
+    expect(within(article!).getByText("人工智能")).toBeInTheDocument();
+    expect(within(article!).queryByText("信息系统")).not.toBeInTheDocument();
     expect(within(article!).getByText(/已隐藏/)).toBeInTheDocument();
     expect(within(article!).getByText("请先加入班级，再开始实验。")).toBeInTheDocument();
   });

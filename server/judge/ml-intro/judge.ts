@@ -115,7 +115,7 @@ export function judgeMlIntroSubmission(
     const parts: MlPartSummary[] = [
       {
         id: "strategy-sms",
-        label: "6 条 10 词短信分类",
+        label: "6 条示例短信分类",
         ok: smsOk,
         detail: smsOk
           ? `${evalRes.correctCount} / ${evalRes.totalCount} 条全部分对`
@@ -123,18 +123,18 @@ export function judgeMlIntroSubmission(
       },
       {
         id: "strategy-balance",
-        label: "正负线索词策略分布",
+        label: "正分词和负分词的数量",
         ok: diversityOk,
         detail: diversityOk
-          ? `已设置 ${evalRes.positiveWordCount} 个正相关词、${evalRes.negativeWordCount} 个负相关词`
-          : `至少需设定 2 个正相关词和 2 个负相关词（当前正 ${evalRes.positiveWordCount} / 负 ${evalRes.negativeWordCount}），兼顾抓广告与防误杀`,
+          ? `你设置了 ${evalRes.positiveWordCount} 个正分词、${evalRes.negativeWordCount} 个负分词`
+          : `请至少设置 2 个正分词和 2 个负分词（当前正分 ${evalRes.positiveWordCount} 个、负分 ${evalRes.negativeWordCount} 个）`,
       },
       conceptCheck.part,
     ];
     testSummary = {
       parts,
       detail: passed
-        ? "10 词点积风险策略全部命中，解锁第 2 关探索真实切词与词袋。"
+        ? "你的规则分对了全部示例短信。你可以进入第 2 关，看看程序怎样把文字变成数字。"
         : "请调整 10 个词的倾向规则并完成概念题。",
     };
   } else if (stageIndex === 2) {
@@ -164,7 +164,7 @@ export function judgeMlIntroSubmission(
     testSummary = {
       parts,
       detail: passed
-        ? "文本特征抽取与词袋规则全对，解锁第 3 关。"
+        ? "片段归类和概念题全部答对了。你可以进入第 3 关。"
         : "特征归类或概念题尚未全部通过。",
     };
   } else if (stageIndex === 3) {
@@ -183,7 +183,7 @@ export function judgeMlIntroSubmission(
     const parts: MlPartSummary[] = [
       {
         id: "calibration",
-        label: "6 条分诊短信分类",
+        label: "6 条示例短信分类",
         ok: smsOk,
         detail: smsOk
           ? "6 / 6 条全部分对"
@@ -191,7 +191,7 @@ export function judgeMlIntroSubmission(
       },
       {
         id: "prior",
-        label: "无特征短信先验基线",
+        label: "没有已知词时的预测",
         ok: priorOk,
         detail: priorOk
           ? `偏置 b = ${draft.bias.toFixed(1)}（空消息概率 ${pct(evalRes.emptyProbability)} < 50%）`
@@ -202,8 +202,8 @@ export function judgeMlIntroSubmission(
     testSummary = {
       parts,
       detail: passed
-        ? "正负词权与偏置搭配成功，接下来看机器如何自动学会这些权重。"
-        : "请调整权重和偏置让 6 条短信与空消息基线都达标。",
+        ? "模型分对了全部示例短信。下一关，你可以让模型自己学习权重。"
+        : "请调整权重和偏置，检查 6 条短信的分类，以及没有已知词时的预测概率。",
     };
   } else if (stageIndex === 4) {
     const draft = sanitizeTrainDraft(rawDraft);
@@ -224,15 +224,15 @@ export function judgeMlIntroSubmission(
     const parts: MlPartSummary[] = [
       {
         id: "train-loss",
-        label: "训练损失收敛 (≤ 0.08)",
+        label: "训练损失（≤ 0.08）",
         ok: trOk,
         detail: `当前训练损失 ${finalEpoch.trainLoss.toFixed(4)}`,
       },
       {
         id: "val-loss",
-        label: "验证损失收敛 (≤ 0.12)",
+        label: "验证损失（≤ 0.12）",
         ok: valOk,
-        detail: `当前验证损失 ${finalEpoch.valLoss.toFixed(4)}（盲猜基线 0.6931）`,
+        detail: `当前验证损失 ${finalEpoch.valLoss.toFixed(4)}（每条都预测 50% 时为 0.6931）`,
       },
       conceptCheck.part,
     ];
@@ -244,8 +244,8 @@ export function judgeMlIntroSubmission(
         baselineAcc: run.baselineAcc,
       },
       detail: passed
-        ? `η=${draft.eta}、${draft.epochs} 轮训练收敛良好（验证损失 ${finalEpoch.valLoss.toFixed(3)}）。`
-        : `当前训练/验证损失尚未压到目标线（η=${draft.eta}，${draft.epochs} 轮）。`,
+        ? `模型训练了 ${draft.epochs} 轮，学习率为 ${draft.eta}，两项损失已达到要求（验证损失 ${finalEpoch.valLoss.toFixed(3)}）。`
+        : `训练损失或验证损失尚未达到要求。请比较其他学习率和轮数（当前 η=${draft.eta}，${draft.epochs} 轮）。`,
     };
   } else if (stageIndex === 5) {
     const draft = sanitizeEvaluateDraft(rawDraft);
@@ -275,13 +275,13 @@ export function judgeMlIntroSubmission(
         id: "precision",
         label: "查准率 Precision (≥ 90.0%)",
         ok: precOk,
-        detail: `${pct(m.precision)}（真垃圾 ${m.tp}，误杀正常 ${m.fp}）`,
+        detail: `${pct(m.precision)}（正确拦截 ${m.tp} 条，误拦正常短信 ${m.fp} 条）`,
       },
       {
         id: "recall",
         label: "查全率 Recall (≥ 80.0%)",
         ok: recOk,
-        detail: `${pct(m.recall)}（抓到 ${m.tp}，漏网 ${m.fn}）`,
+        detail: `${pct(m.recall)}（正确拦截 ${m.tp} 条，漏报 ${m.fn} 条）`,
       },
       conceptCheck.part,
     ];
@@ -292,7 +292,7 @@ export function judgeMlIntroSubmission(
         baselineAcc: run.baselineAcc,
       },
       detail: passed
-        ? `验证集达到 Accuracy ${pct(m.accuracy)}、Precision ${pct(m.precision)}、Recall ${pct(m.recall)}。`
+        ? `模型在验证集上的准确率为 ${pct(m.accuracy)}，查准率为 ${pct(m.precision)}，查全率为 ${pct(m.recall)}，已达到要求。`
         : `阈值 τ=${draft.threshold.toFixed(2)} 下指标未全部达标（Precision 需 ≥90%，Recall 需 ≥80%）。`,
     };
   } else {
@@ -322,17 +322,17 @@ export function judgeMlIntroSubmission(
     const parts: MlPartSummary[] = [
       {
         id: "val-loss",
-        label: "公开验证损失稳定 (≤ 0.14)",
+        label: "验证损失（≤ 0.14）",
         ok: valLossOk,
         detail: `训练样本 ${draft.sampleSize} 条，验证损失 ${run.finalMetrics.loss.toFixed(3)}，验证准确率 ${pct(run.finalMetrics.accuracy)}，验证 OOV ${pct(run.finalMetrics.oovRate)}`,
       },
       {
         id: "hidden-blind-exam",
-        label: "300 条隐藏测试集结业盲测",
+        label: "300 条未公开短信测试",
         ok: hiddenAllOk,
         detail: hiddenAllOk
-          ? "盲测通过：模型在未见短信上同时满足准确率、Precision 与 Recall 结业要求（明细指标封存保护）。"
-          : "盲测未达标：当前模型在未见短信上的准确率、Precision 或 Recall 尚有短板；请回到公开验证集观察 OOV、损失与错误样本继续改进（盲测明细指标不公开，以免被当作第二份验证集反复调参）。",
+          ? "测试通过。模型在新短信上的准确率、查准率和查全率均达到要求。测试集不提供详细指标。"
+          : "测试未通过。模型在新短信上的准确率、查准率或查全率尚未达到要求。请检查公开验证集中的未见词、损失和误判短信，再调整参数。测试集不提供详细指标。",
       },
       conceptCheck.part,
     ];
@@ -344,10 +344,10 @@ export function judgeMlIntroSubmission(
         baselineAcc: valBaseline,
       },
       detail: passed
-        ? `验证损失 ${run.finalMetrics.loss.toFixed(3)}（样本量=${draft.sampleSize}），已通过 300 条隐藏测试集结业盲测。`
+        ? `模型通过了 300 条新短信的测试。训练样本量为 ${draft.sampleSize} 条，验证损失为 ${run.finalMetrics.loss.toFixed(3)}。`
         : valLossOk
-          ? `公开验证损失已稳定（${run.finalMetrics.loss.toFixed(3)}），但 300 条隐藏盲测尚未同时达标；请利用公开验证集排查过拟合或阈值取舍。`
-          : `公开验证损失 ${run.finalMetrics.loss.toFixed(3)} 过高（OOV ${pct(run.finalMetrics.oovRate)}），请增大训练样本并检查学习率后再试。`,
+          ? `验证损失已达到要求（${run.finalMetrics.loss.toFixed(3)}），但模型尚未通过测试集检查。请根据公开验证集的误判和指标调整参数。`
+          : `验证损失 ${run.finalMetrics.loss.toFixed(3)} 尚未达到要求，未见词比例为 ${pct(run.finalMetrics.oovRate)}。你可以增加训练样本，并比较不同学习率的结果。`,
     };
   }
 
