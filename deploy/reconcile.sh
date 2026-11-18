@@ -7,7 +7,6 @@ umask 027
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DEPLOY_CONFIG="${DEPLOY_CONFIG:-/etc/computing-lab/deploy.env}"
-INHERITED_GIT_SSH_COMMAND_SET="${GIT_SSH_COMMAND+x}"
 REQUESTED_TEST_MODE="${DEPLOY_TEST_MODE:-0}"
 if [[ -f "$DEPLOY_CONFIG" ]]; then
   /usr/bin/python3 - "$DEPLOY_CONFIG" "$REQUESTED_TEST_MODE" <<'PY'
@@ -40,22 +39,19 @@ fi
 DEPLOY_TEST_MODE="$REQUESTED_TEST_MODE"
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/srv/computing-lab}"
-GITEE_REMOTE="${GITEE_REMOTE:-}"
-GITEE_REF="${GITEE_REF:-main}"
-GITEE_SSH_HOST="${GITEE_SSH_HOST:-}"
-GITEE_SSH_CONFIG="${GITEE_SSH_CONFIG:-/etc/computing-lab/gitee_ssh_config}"
-GITEE_SSH_KEY="${GITEE_SSH_KEY:-/etc/computing-lab/keys/gitee-readonly}"
-GITEE_KNOWN_HOSTS="${GITEE_KNOWN_HOSTS:-/etc/computing-lab/known_hosts}"
-SSH_BIN="${SSH_BIN:-/usr/bin/ssh}"
+SOURCE_KIND="${SOURCE_KIND:-codeload}"
+SOURCE_REPO="${SOURCE_REPO:-tviber/computing-lab}"
+SOURCE_REF="${SOURCE_REF:-main}"
+ARCHIVE_BASE_URLS="${ARCHIVE_BASE_URLS:-https://codeload.github.com}"
+GITHUB_API_BASE="${GITHUB_API_BASE:-https://api.github.com}"
+GITHUB_TOKEN_FILE="${GITHUB_TOKEN_FILE:-/etc/computing-lab/github.token}"
+CURL_BIN="${CURL_BIN:-/usr/bin/curl}"
 BUN_BIN="${BUN_BIN:-}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 FLOCK_BIN="${FLOCK_BIN:-flock}"
 KEEP_RELEASES="${KEEP_RELEASES:-3}"
 VITE_BASE_PATH="${VITE_BASE_PATH:-/}"
 BUILD_PATH='/usr/bin:/bin'
-SOURCE_REF_PREFIX='refs/computing-lab/releases/'
-
-SOURCE_REPO="$DEPLOY_ROOT/source.git"
 RELEASES_DIR="$DEPLOY_ROOT/releases"
 STATE_DIR="$DEPLOY_ROOT/state"
 WORK_DIR="$DEPLOY_ROOT/work"
@@ -67,6 +63,14 @@ TX_FILE="$STATE_DIR/transaction"
 HOLD_FILE="$STATE_DIR/hold"
 CURRENT_MARKER="$STATE_DIR/current.sha"
 PREVIOUS_MARKER="$STATE_DIR/previous.sha"
+TARGET_FILE="$STATE_DIR/target.sha"
+TARGET_FAILED_FILE="$STATE_DIR/target.failed"
+API_ETAG_FILE="$STATE_DIR/github-main.etag"
+API_SHA_FILE="$STATE_DIR/github-main.sha"
+ARCHIVE_SHA256=''
+TARGET_FROM_WEBHOOK=0
+ARCHIVE_FILE=''
+UNPACK_DIR=''
 
 LOCK_FD=''
 LOCK_HELD=0
@@ -163,75 +167,6 @@ if stat.S_IMODE(parent.st_mode) & 0o022:
 PY
 }
 
-parse_gitee_remote() {
-  local user host path
-  if [[ "$GITEE_REMOTE" =~ ^([^@/:[:space:]]+)@([A-Za-z0-9._-]+):([^[:space:]]+)$ ]]; then
-    user="${BASH_REMATCH[1]}"
-    host="${BASH_REMATCH[2]}"
-    path="${BASH_REMATCH[3]}"
-  elif [[ "$GITEE_REMOTE" =~ ^ssh://([^@/:[:space:]]+)@([A-Za-z0-9._-]+)/([^[:space:]]+)$ ]]; then
-    user="${BASH_REMATCH[1]}"
-    host="${BASH_REMATCH[2]}"
-    path="${BASH_REMATCH[3]}"
-  else
-    die 'GITEE_REMOTE must use git@host:path or ssh://git@host/path syntax'
-  fi
-  [[ "$user" == git && -n "$path" ]] || die 'GITEE_REMOTE must use the read-only git user'
-  [[ "$host" == "$GITEE_SSH_HOST" ]] || die 'GITEE_REMOTE host must equal GITEE_SSH_HOST'
-}
-
-validate_ssh_transport() {
-  [[ "$INHERITED_GIT_SSH_COMMAND_SET" != x && "${GIT_SSH_COMMAND+x}" != x ]] \
-    || die 'GIT_SSH_COMMAND must not be inherited or set in deploy config'
-  [[ "$GITEE_SSH_HOST" =~ ^[A-Za-z0-9._-]+$ ]] || die 'GITEE_SSH_HOST is unsafe'
-  [[ "$SSH_BIN" == /* && -x "$SSH_BIN" && ! -L "$SSH_BIN" ]] \
-    || die 'SSH_BIN must be an absolute, executable, non-symlink regular file'
-  parse_gitee_remote
-  validate_trusted_file "$GITEE_SSH_CONFIG" GITEE_SSH_CONFIG config root
-  validate_trusted_file "$GITEE_SSH_KEY" GITEE_SSH_KEY key self
-  validate_trusted_file "$GITEE_KNOWN_HOSTS" GITEE_KNOWN_HOSTS known_hosts root
-  validate_trusted_file "$SSH_BIN" SSH_BIN binary root
-
-  local effective
-  effective="$(LC_ALL=C "$SSH_BIN" -G -F "$GITEE_SSH_CONFIG" \
-    -i "$GITEE_SSH_KEY" \
-    -o BatchMode=yes \
-    -o StrictHostKeyChecking=yes \
-    -o IdentitiesOnly=yes \
-    -o UserKnownHostsFile="$GITEE_KNOWN_HOSTS" \
-    -o GlobalKnownHostsFile=/dev/null \
-    -o IdentityAgent=none \
-    -o ControlMaster=no \
-    -o ControlPath=none \
-    "git@$GITEE_SSH_HOST")" || die 'SSH configuration cannot be parsed'
-  grep -Fxq 'batchmode yes' <<<"$effective" || die 'SSH BatchMode is not enabled'
-  grep -Eq '^stricthostkeychecking (true|yes)$' <<<"$effective" \
-    || die 'SSH strict host-key checking is not enabled'
-  grep -Fxq 'identitiesonly yes' <<<"$effective" || die 'SSH agent identities are not restricted'
-  grep -Fxq "identityfile $GITEE_SSH_KEY" <<<"$effective" || die 'SSH identity file is not the configured key'
-  grep -Fxq "userknownhostsfile $GITEE_KNOWN_HOSTS" <<<"$effective" || die 'SSH known_hosts is not pinned'
-  grep -Fxq 'globalknownhostsfile /dev/null' <<<"$effective" || die 'SSH global known_hosts fallback is enabled'
-  grep -Fxq 'identityagent none' <<<"$effective" || die 'SSH agent use is not disabled'
-  if grep -q '^controlpath ' <<<"$effective"; then
-    grep -Fxq 'controlpath none' <<<"$effective" || die 'SSH connection sharing is not disabled'
-  fi
-  grep -Eq '^controlmaster (false|no)$' <<<"$effective" || die 'SSH ControlMaster is not disabled'
-
-  printf -v GIT_SSH_COMMAND '%q ' "$SSH_BIN" \
-    -F "$GITEE_SSH_CONFIG" \
-    -i "$GITEE_SSH_KEY" \
-    -o BatchMode=yes \
-    -o StrictHostKeyChecking=yes \
-    -o IdentitiesOnly=yes \
-    -o UserKnownHostsFile="$GITEE_KNOWN_HOSTS" \
-    -o GlobalKnownHostsFile=/dev/null \
-    -o IdentityAgent=none \
-    -o ControlMaster=no \
-    -o ControlPath=none
-  GIT_SSH_COMMAND="${GIT_SSH_COMMAND% }"
-  export GIT_SSH_COMMAND
-}
-
 validate_base() {
   local value="$1"
   [[ "$value" == "/" || "$value" =~ ^/[A-Za-z0-9._-]+(/[A-Za-z0-9._-]+)*/?$ ]] \
@@ -241,7 +176,7 @@ validate_base() {
 validate_config() {
   [[ "$DEPLOY_ROOT" == /* && "$DEPLOY_ROOT" != "/" && "$DEPLOY_ROOT" != */..* ]] \
     || die 'DEPLOY_ROOT must be an absolute non-root path'
-  [[ "$GITEE_REF" == main ]] || die 'GITEE_REF must be main for production reconciliation'
+  [[ "$SOURCE_KIND" == codeload && "$SOURCE_REPO" == tviber/computing-lab && "$SOURCE_REF" == main ]] || die 'source must be tviber/computing-lab main via codeload'
   [[ "$VITE_BASE_PATH" == "/" ]] || die 'production reconciler requires VITE_BASE_PATH=/'
   [[ "$DEPLOY_TEST_MODE" == 0 || "$DEPLOY_TEST_MODE" == 1 ]] || die 'DEPLOY_TEST_MODE must be 0 or 1'
   [[ "$DEPLOY_CONFIG" == /* && -f "$DEPLOY_CONFIG" && ! -L "$DEPLOY_CONFIG" ]] \
@@ -250,9 +185,8 @@ validate_config() {
     || die 'PYTHON_BIN must be an absolute executable non-symlink path'
   [[ "$FLOCK_BIN" == /* && -x "$FLOCK_BIN" && ! -L "$FLOCK_BIN" ]] \
     || die 'FLOCK_BIN must be an absolute executable non-symlink path'
-  git check-ref-format --branch "$GITEE_REF" >/dev/null \
-    || die 'GITEE_REF failed git check-ref-format'
-  [[ -n "$GITEE_REMOTE" ]] || die 'GITEE_REMOTE is required'
+  [[ "$GITHUB_API_BASE" == https://* ]] || die 'GITHUB_API_BASE must use HTTPS'
+  [[ "$CURL_BIN" == /* && -x "$CURL_BIN" && ! -L "$CURL_BIN" ]] || die 'CURL_BIN must be an absolute executable'
   [[ -n "$BUN_BIN" && "$BUN_BIN" == /* && -x "$BUN_BIN" && ! -L "$BUN_BIN" ]] \
     || die 'BUN_BIN must be an absolute, executable, non-symlink path'
   [[ "$KEEP_RELEASES" =~ ^[1-9][0-9]*$ ]] || die 'KEEP_RELEASES must be positive'
@@ -263,7 +197,7 @@ validate_config() {
   validate_trusted_file "$DEPLOY_CONFIG" DEPLOY_CONFIG config root
   validate_trusted_file "$PYTHON_BIN" PYTHON_BIN binary root
   validate_trusted_file "$FLOCK_BIN" FLOCK_BIN binary root
-  validate_ssh_transport
+  validate_trusted_file "$CURL_BIN" CURL_BIN binary root
 }
 
 ensure_root_safety() {
@@ -349,9 +283,23 @@ validate_lock_path() {
 
 on_exit() {
   local status=$?
+  if [[ "$status" != 0 && -n "$TARGET_SHA" && -f "$TARGET_FILE" && "$(<"$TARGET_FILE")" == "$TARGET_SHA" ]]; then
+    local attempts=0
+    [[ -f "$TARGET_FAILED_FILE" ]] && attempts="$(awk -F= -v sha="$TARGET_SHA" '$1==sha {print $2}' "$TARGET_FAILED_FILE")"
+    [[ "$attempts" =~ ^[0-9]+$ ]] || attempts=0
+    attempts=$((attempts + 1))
+    if (( attempts >= 2 )); then
+      atomic_write "$TARGET_FAILED_FILE" "$TARGET_SHA"
+      log "target $TARGET_SHA failed twice; automatic retries stopped"
+    else
+      atomic_write "$TARGET_FAILED_FILE" "$TARGET_SHA=$attempts"
+    fi
+  fi
   if [[ -n "$STAGING_DIR" && -d "$STAGING_DIR" ]]; then
     rm -rf "$STAGING_DIR"
   fi
+  [[ -z "$ARCHIVE_FILE" ]] || rm -f "$ARCHIVE_FILE"
+  [[ -z "$UNPACK_DIR" ]] || rm -rf "$UNPACK_DIR"
   release_lock
   exit "$status"
 }
@@ -481,7 +429,6 @@ import sys
 path, expected_sha, expected_base = sys.argv[1:]
 expected = {
     "SOURCE_SHA": expected_sha,
-    "GITEE_REF": "main",
     "VITE_BASE_PATH": expected_base,
     "BUN_VERSION": "1.2.17",
     "SMOKE": "pass",
@@ -489,24 +436,38 @@ expected = {
 values = {}
 with open(path, encoding="utf-8") as handle:
     lines = [line.rstrip("\n") for line in handle]
-if len(lines) != 7:
-    raise SystemExit(1)
 for line in lines:
     key, separator, value = line.partition("=")
-    if not separator or key in values or key not in set(expected) | {"LOCKFILE_SHA256", "DIST_MANIFEST_SHA256"}:
+    if not separator or key in values:
         raise SystemExit(1)
     values[key] = value
 for key, value in expected.items():
     if values.get(key) != value:
         raise SystemExit(1)
+if values.get("SOURCE_KIND") is None:
+    if values.get("GITEE_REF") != "main":
+        raise SystemExit(1)
+else:
+    if values.get("SOURCE_KIND") != "codeload" or values.get("SOURCE_REF") != "main":
+        raise SystemExit(1)
+    if values.get("SOURCE_REPO") != "tviber/computing-lab":
+        raise SystemExit(1)
+    if len(values.get("ARCHIVE_SHA256", "")) != 64 or any(c not in "0123456789abcdef" for c in values["ARCHIVE_SHA256"]):
+        raise SystemExit(1)
+allowed = set(expected) | {"LOCKFILE_SHA256", "DIST_MANIFEST_SHA256", "GITEE_REF"}
+allowed |= {"SOURCE_KIND", "SOURCE_REF", "ARCHIVE_SHA256", "SOURCE_REPO"}
+if set(values) - allowed:
+    raise SystemExit(1)
 PY
   expected="$(meta_value "$meta" LOCKFILE_SHA256)"; [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || return 1
   expected="$(meta_value "$meta" DIST_MANIFEST_SHA256)"; [[ "$expected" =~ ^[0-9a-f]{64}$ ]] || return 1
   validate_static_tree "$dist" >/dev/null 2>&1 || return 1
   [[ "$(dist_manifest_digest "$dist")" == "$(meta_value "$meta" DIST_MANIFEST_SHA256)" ]] || return 1
-  [[ -d "$SOURCE_REPO/objects" ]] || return 1
-  git --git-dir="$SOURCE_REPO" cat-file -e "$sha^{commit}" 2>/dev/null || return 1
-  [[ "$(git --git-dir="$SOURCE_REPO" show "$sha:bun.lock" | sha256_stdin)" == "$(meta_value "$meta" LOCKFILE_SHA256)" ]] || return 1
+  if [[ -d "$DEPLOY_ROOT/source.git/objects" ]] && git --git-dir="$DEPLOY_ROOT/source.git" cat-file -e "$sha^{commit}" 2>/dev/null; then
+    [[ "$(git --git-dir="$DEPLOY_ROOT/source.git" show "$sha:bun.lock" | sha256_stdin)" == "$(meta_value "$meta" LOCKFILE_SHA256)" ]] || return 1
+  else
+    log "source object unavailable for $sha; skipped lockfile cross-check"
+  fi
 }
 
 protected_release() {
@@ -589,69 +550,98 @@ test_fail_phase() {
   kill -KILL "$$"
 }
 
-read_remote_sha() {
-  local output line sha ref extra
-  output="$(git ls-remote --exit-code "$GITEE_REMOTE" "refs/heads/main")" \
-    || die 'Gitee main ref cannot be read'
-  local lines=()
-  while IFS= read -r line; do [[ -n "$line" ]] && lines+=("$line"); done <<<"$output"
-  [[ "${#lines[@]}" == 1 ]] || die 'Gitee main ref returned unexpected output'
-  read -r sha ref extra <<<"${lines[0]}"
-  is_sha "$sha" || die 'Gitee main did not return a full lowercase SHA'
-  [[ "$ref" == refs/heads/main ]] || die 'Gitee returned an unexpected ref'
-  [[ -z "$extra" ]] || die 'Gitee main returned extra fields'
+validate_target_file() {
+  [[ -e "$TARGET_FILE" || -L "$TARGET_FILE" ]] || return 0
+  "$PYTHON_BIN" - "$TARGET_FILE" "$DEPLOY_TEST_MODE" <<'PY'
+import os, stat, sys
+p, test = sys.argv[1:]
+i = os.lstat(p)
+if stat.S_ISLNK(i.st_mode) or not stat.S_ISREG(i.st_mode): raise SystemExit("state/target.sha must be a regular non-symlink file")
+if test != "1" and (i.st_uid, i.st_gid) != (os.geteuid(), os.getegid()): raise SystemExit("state/target.sha must be owned by computing-lab")
+if stat.S_IMODE(i.st_mode) & 0o022: raise SystemExit("state/target.sha has unsafe permissions")
+PY
+}
+
+api_main_sha() {
+  local headers="$WORK_DIR/api.headers" body="$WORK_DIR/api.json" code token
+  mkdir -p "$WORK_DIR"
+  local args=(--fail --silent --show-error --proto '=https' --tlsv1.2 -m 30 -D "$headers" -o "$body" -w '%{http_code}')
+  if [[ -f "$API_ETAG_FILE" ]]; then args+=(-H "If-None-Match: $(<"$API_ETAG_FILE")"); fi
+  if [[ -f "$GITHUB_TOKEN_FILE" ]]; then
+    validate_trusted_file "$GITHUB_TOKEN_FILE" GITHUB_TOKEN_FILE token root
+    token="$(<"$GITHUB_TOKEN_FILE")"
+    args+=(-H "Authorization: Bearer $token")
+  fi
+  code="$("$CURL_BIN" "${args[@]}" "$GITHUB_API_BASE/repos/$SOURCE_REPO/commits/main" 2>/dev/null)" || code=000
+  if [[ "$code" == 304 ]]; then
+    [[ -f "$API_SHA_FILE" ]] && cat "$API_SHA_FILE" || return 1
+    return
+  fi
+  [[ "$code" == 200 ]] || return 1
+  local sha etag
+  sha="$("$PYTHON_BIN" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("sha", ""))' "$body" 2>/dev/null)" || return 1
+  is_sha "$sha" || return 1
+  etag="$(awk 'BEGIN{IGNORECASE=1} /^ETag:/{sub(/\r$/, ""); sub(/^[^:]*:[[:space:]]*/, ""); print; exit}' "$headers")"
+  [[ -z "$etag" ]] || { atomic_write "$API_ETAG_FILE" "$etag"; atomic_write "$API_SHA_FILE" "$sha"; }
   printf '%s' "$sha"
 }
 
-ensure_source_repo() {
-  if [[ -L "$SOURCE_REPO" || ( -e "$SOURCE_REPO" && ! -d "$SOURCE_REPO" ) ]]; then
-    die 'source cache is unsafe'
+resolve_target_sha() {
+  validate_target_file
+  if [[ -e "$TARGET_FILE" ]]; then
+    TARGET_FROM_WEBHOOK=1
+    TARGET_SHA="$(<"$TARGET_FILE")"
+    is_sha "$TARGET_SHA" || die 'state/target.sha must contain a full lowercase SHA'
+    return
   fi
-  if [[ ! -e "$SOURCE_REPO" ]]; then
-    git init --bare "$SOURCE_REPO" >/dev/null
-  fi
-  [[ ! -L "$SOURCE_REPO" && -d "$SOURCE_REPO/objects" ]] || die 'source cache is unsafe'
-  if git --git-dir="$SOURCE_REPO" remote get-url origin >/dev/null 2>&1; then
-    git --git-dir="$SOURCE_REPO" remote set-url origin "$GITEE_REMOTE"
-  else
-    git --git-dir="$SOURCE_REPO" remote add origin "$GITEE_REMOTE"
-  fi
+  TARGET_FROM_WEBHOOK=0
+  TARGET_SHA="$(api_main_sha 2>/dev/null || true)"
+  if ! is_sha "$TARGET_SHA"; then TARGET_SHA=''; log 'GitHub API unavailable and no webhook target; reconcile is a no-op'; return 1; fi
 }
 
-source_ref() { printf '%s%s' "$SOURCE_REF_PREFIX" "$1"; }
-
-retain_source_ref() {
-  local sha="$1"
-  is_sha "$sha" || die 'cannot retain invalid source SHA'
-  git --git-dir="$SOURCE_REPO" update-ref "$(source_ref "$sha")" "$sha"
-}
-
-retain_existing_source_refs() {
-  local path sha
-  for path in "$RELEASES_DIR"/*; do
-    [[ -d "$path" && ! -L "$path" ]] || continue
-    sha="${path##*/}"
-    is_sha "$sha" || continue
-    git --git-dir="$SOURCE_REPO" cat-file -e "$sha^{commit}" 2>/dev/null || continue
-    retain_source_ref "$sha"
+fetch_archive() {
+  local sha="$1" destination="$2" base
+  local -a bases
+  IFS=' ' read -r -a bases <<<"$ARCHIVE_BASE_URLS"
+  for base in "${bases[@]}"; do
+    [[ "$base" == https://* ]] || continue
+    if "$CURL_BIN" --fail --proto '=https' --tlsv1.2 --retry 3 --retry-delay 5 -m 600 -o "$destination" "$base/$SOURCE_REPO/tar.gz/$sha"; then
+      [[ -s "$destination" ]] || continue
+      (( $(stat -c %s "$destination") <= 268435456 )) || die 'source archive exceeds 256MB limit'
+      ARCHIVE_SHA256="$(sha256_file "$destination")"
+      log "downloaded archive sha256=$ARCHIVE_SHA256"
+      return 0
+    fi
   done
+  die "all codeload archive bases failed for $sha"
 }
 
-drop_source_ref() {
-  local sha="$1"
-  is_sha "$sha" || return 0
-  git --git-dir="$SOURCE_REPO" update-ref -d "$(source_ref "$sha")" "$sha" 2>/dev/null || true
+extract_archive() {
+  local archive="$1" destination="$2" sha="$3"
+  tar -tzf "$archive" >/dev/null || die 'source archive listing failed'
+  "$PYTHON_BIN" - "$archive" "$sha" <<'PY'
+import pathlib, subprocess, sys, tarfile
+path, sha = sys.argv[1:]
+with tarfile.open(path, "r:gz") as archive:
+    members = archive.getmembers()
+    roots = set()
+    for member in members:
+        name = pathlib.PurePosixPath(member.name)
+        if name.is_absolute() or ".." in name.parts or member.isdev(): raise SystemExit("unsafe source archive member")
+        roots.add(name.parts[0] if name.parts else "")
+    if roots != {"computing-lab-" + sha}: raise SystemExit("archive top-level directory does not match target SHA")
+PY
+  tar -xzf "$archive" -C "$destination" --no-same-owner --no-same-permissions
+  [[ -d "$destination/computing-lab-$sha" && ! -L "$destination/computing-lab-$sha" ]] || die 'archive top-level directory mismatch'
 }
 
 build_candidate() {
-  local sha="$1" source build_home lock_digest manifest
+  local sha="$1" source="$2" build_home lock_digest manifest
   STAGING_DIR="$WORK_DIR/$sha.$$.$RANDOM"
-  source="$STAGING_DIR/source"
   build_home="$STAGING_DIR/home"
   [[ ! -e "$STAGING_DIR" && ! -L "$STAGING_DIR" ]] || die 'staging path already exists'
   mkdir "$STAGING_DIR"
-  mkdir "$source" "$build_home"
-  git --git-dir="$SOURCE_REPO" archive "$sha" | tar -x -C "$source"
+  mkdir "$build_home"
   [[ -f "$source/package.json" && -f "$source/bun.lock" ]] || die 'exact source lacks package manifests'
   lock_digest="$(sha256_file "$source/bun.lock")"
   log "installing frozen dependencies for $sha"
@@ -674,7 +664,10 @@ build_candidate() {
   manifest="$(dist_manifest_digest "$STAGING_DIR/release/dist")"
   cat >"$STAGING_DIR/release/release.env" <<EOF
 SOURCE_SHA=$sha
-GITEE_REF=main
+SOURCE_KIND=codeload
+SOURCE_REF=main
+ARCHIVE_SHA256=$ARCHIVE_SHA256
+SOURCE_REPO=tviber/computing-lab
 VITE_BASE_PATH=$VITE_BASE_PATH
 BUN_VERSION=1.2.17
 LOCKFILE_SHA256=$lock_digest
@@ -701,7 +694,6 @@ publish_candidate() {
     RELEASE_CREATED=1
   fi
   validate_release "$sha" || die 'candidate release failed strict validation'
-  [[ "$(read_remote_sha)" == "$sha" ]] || die 'Gitee main moved before pointer transaction'
   write_transaction publish prepared "$old_current" "$old_previous" "$sha" "$old_current"
   atomic_link "$RELEASES_DIR/$sha" "$CURRENT_LINK"
   test_fail_phase after-current
@@ -714,19 +706,6 @@ publish_candidate() {
   test_fail_phase after-markers
   clear_transaction
   log "published $sha"
-}
-
-cleanup_source_refs() {
-  local current previous ref sha
-  current="$(read_link_sha "$CURRENT_LINK")"
-  previous="$(read_link_sha "$PREVIOUS_LINK")"
-  while IFS= read -r ref; do
-    [[ -n "$ref" ]] || continue
-    sha="${ref##*/}"
-    is_sha "$sha" || { git --git-dir="$SOURCE_REPO" update-ref -d "$ref" || true; continue; }
-    [[ "$sha" == "$current" || "$sha" == "$previous" || -d "$RELEASES_DIR/$sha" ]] && continue
-    drop_source_ref "$sha"
-  done < <(git --git-dir="$SOURCE_REPO" for-each-ref --format='%(refname)' "$SOURCE_REF_PREFIX")
 }
 
 cleanup_releases() {
@@ -744,13 +723,11 @@ cleanup_releases() {
     fi
     kept=$((kept + 1))
     if (( kept > KEEP_RELEASES )); then
-      drop_source_ref "$sha"
       rm -rf "$path"
       fsync_path "$RELEASES_DIR"
       log "removed old release $sha"
     fi
   done
-  cleanup_source_refs
 }
 
 reconcile() {
@@ -758,13 +735,12 @@ reconcile() {
   "$BUN_BIN" --version | grep -Fxq '1.2.17' || die 'BUN_BIN version must be exactly 1.2.17'
   init_layout
   acquire_lock
-  ensure_source_repo
-  retain_existing_source_refs
   recover_transaction
   validate_active_releases
   validate_markers
   [[ -e "$HOLD_FILE" ]] && { log 'hold is active; reconcile is a strict no-op'; return 0; }
-  TARGET_SHA="$(read_remote_sha)"
+  if ! resolve_target_sha; then return 0; fi
+  [[ ! -f "$TARGET_FAILED_FILE" || "$(cut -d= -f1 "$TARGET_FAILED_FILE")" != "$TARGET_SHA" || "$(cut -d= -f2 "$TARGET_FAILED_FILE")" != "$TARGET_SHA" ]] || { log "target $TARGET_SHA is marked failed; no-op"; return 0; }
   local current
   current="$(read_link_sha "$CURRENT_LINK")"
   if [[ "$current" == "$TARGET_SHA" ]]; then
@@ -772,15 +748,26 @@ reconcile() {
     log "target $TARGET_SHA already current; strict no-op"
     return 0
   fi
-  log "fetching exact target $TARGET_SHA"
-  git --git-dir="$SOURCE_REPO" fetch --no-tags --prune origin "$TARGET_SHA" >/dev/null
-  git --git-dir="$SOURCE_REPO" cat-file -e "$TARGET_SHA^{commit}" \
-    || die 'fetched target is not a commit'
-  retain_source_ref "$TARGET_SHA"
-  [[ "$(read_remote_sha)" == "$TARGET_SHA" ]] || die 'Gitee main moved before build'
-  build_candidate "$TARGET_SHA"
-  [[ "$(read_remote_sha)" == "$TARGET_SHA" ]] || die 'Gitee main moved during build; stale release refused'
+  local archive="$WORK_DIR/$TARGET_SHA.$$.tar.gz" unpack="$WORK_DIR/$TARGET_SHA.$$.unpack"
+  ARCHIVE_FILE="$archive"
+  UNPACK_DIR="$unpack"
+  fetch_archive "$TARGET_SHA" "$archive"
+  mkdir "$unpack"
+  extract_archive "$archive" "$unpack" "$TARGET_SHA"
+  local source="$unpack/computing-lab-$TARGET_SHA"
+  if [[ "$TARGET_FROM_WEBHOOK" == 0 ]]; then
+    [[ "$(api_main_sha 2>/dev/null || true)" == "$TARGET_SHA" ]] || die 'GitHub main moved before build'
+  fi
+  build_candidate "$TARGET_SHA" "$source"
+  if [[ "$TARGET_FROM_WEBHOOK" == 0 ]]; then
+    [[ "$(api_main_sha 2>/dev/null || true)" == "$TARGET_SHA" ]] || die 'GitHub main moved during build; stale release refused'
+  fi
   publish_candidate "$TARGET_SHA"
+  remove_file "$TARGET_FILE"
+  remove_file "$TARGET_FAILED_FILE"
+  rm -rf "$archive" "$unpack"
+  ARCHIVE_FILE=''
+  UNPACK_DIR=''
   rm -rf "$STAGING_DIR"
   STAGING_DIR=''
   cleanup_releases
@@ -790,8 +777,6 @@ rollback() {
   validate_config
   init_layout
   acquire_lock
-  ensure_source_repo
-  retain_existing_source_refs
   recover_transaction
   validate_active_releases
   validate_markers
@@ -824,8 +809,10 @@ status_command() {
   previous="$(read_link_sha "$PREVIOUS_LINK")"
   marker="$(read_marker "$CURRENT_MARKER")"
   hold='no'; [[ -e "$HOLD_FILE" ]] && hold='yes'
-  printf 'current=%s\nprevious=%s\nhold=%s\nmarker=%s\ntransaction=%s\n' \
-    "${current:-none}" "${previous:-none}" "$hold" "${marker:-none}" "$( [[ -e "$TX_FILE" ]] && echo present || echo none )"
+  local target=none
+  [[ -f "$TARGET_FILE" ]] && target="$(<"$TARGET_FILE")"
+  printf 'current=%s\nprevious=%s\nhold=%s\nmarker=%s\ntransaction=%s\ntarget=%s\n' \
+    "${current:-none}" "${previous:-none}" "$hold" "${marker:-none}" "$( [[ -e "$TX_FILE" ]] && echo present || echo none )" "$target"
   validate_lock_path
   exec {LOCK_FD}>>"$LOCK_FILE"
   if "$FLOCK_BIN" -n "$LOCK_FD"; then
@@ -837,9 +824,9 @@ status_command() {
   exec {LOCK_FD}>&-
 }
 
-hold_command() { validate_config; init_layout; acquire_lock; ensure_source_repo; retain_existing_source_refs; recover_transaction; validate_active_releases; validate_markers; atomic_write "$HOLD_FILE" "manual hold $(date -u +%Y-%m-%dT%H:%M:%SZ)"; log 'hold enabled'; }
-resume_command() { validate_config; init_layout; acquire_lock; ensure_source_repo; retain_existing_source_refs; recover_transaction; validate_active_releases; validate_markers; remove_file "$HOLD_FILE"; log 'hold cleared; run reconcile to deploy'; }
-cleanup_command() { validate_config; init_layout; acquire_lock; ensure_source_repo; retain_existing_source_refs; recover_transaction; validate_active_releases; validate_markers; cleanup_releases; }
+hold_command() { validate_config; init_layout; acquire_lock; recover_transaction; validate_active_releases; validate_markers; atomic_write "$HOLD_FILE" "manual hold $(date -u +%Y-%m-%dT%H:%M:%SZ)"; log 'hold enabled'; }
+resume_command() { validate_config; init_layout; acquire_lock; recover_transaction; validate_active_releases; validate_markers; remove_file "$HOLD_FILE"; log 'hold cleared; run reconcile to deploy'; }
+cleanup_command() { validate_config; init_layout; acquire_lock; recover_transaction; validate_active_releases; validate_markers; cleanup_releases; }
 
 command="${1:-}"
 case "$command" in

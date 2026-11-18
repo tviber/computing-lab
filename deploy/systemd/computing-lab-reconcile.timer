@@ -1,5 +1,5 @@
 [Unit]
-Description=Poll qualified Computing Lab Gitee main
+Description=Reconcile Computing Lab GitHub deployment target
 
 [Timer]
 OnBootSec=3min
