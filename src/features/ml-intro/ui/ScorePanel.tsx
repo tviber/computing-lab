@@ -7,6 +7,7 @@ import {
   MIN_MANUAL_BIAS,
   MIN_MANUAL_WEIGHT,
   sigmoid,
+  type ManualEvalItem,
 } from "../domain/logreg.ts";
 import type { MlTestSummary, ScoreDraft } from "../domain/protocol.ts";
 import { SCORE_CALIBRATION_SMS, SCORE_WORDS, type MlStageDef } from "../domain/stages.ts";
@@ -16,24 +17,35 @@ import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
 
+type SigmoidPlotItem = {
+  item: ManualEvalItem;
+  tag: string;
+};
+
 function SigmoidCurveSvg({
   bias,
   emptyProb,
+  items,
+  selectedId,
   selectedZ,
   selectedProb,
   selectedTag,
+  onSelectMsg,
 }: {
   bias: number;
   emptyProb: number;
+  items: readonly SigmoidPlotItem[];
+  selectedId: string;
   selectedZ: number;
   selectedProb: number;
   selectedTag: string;
+  onSelectMsg: (id: string) => void;
 }) {
   const W = 440;
-  const H = 165;
+  const H = 175;
   const PAD_L = 40;
   const PAD_R = 16;
-  const PAD_T = 14;
+  const PAD_T = 16;
   const PAD_B = 24;
   const zMin = -6;
   const zMax = 6;
@@ -55,22 +67,54 @@ function SigmoidCurveSvg({
   const mx = xOfZ(selectedZ);
   const my = yOfP(selectedProb);
 
+  // Stagger points that share nearly identical (x, y) coordinates so overlapping
+  // spam/ham messages remain individually visible and clickable.
+  const placed = items.map((entry, idx) => {
+    const cx = xOfZ(entry.item.rawZ);
+    const cy = yOfP(entry.item.probability);
+    let slot = 0;
+    let groupCount = 0;
+    for (let j = 0; j < items.length; j++) {
+      const ox = xOfZ(items[j].item.rawZ);
+      const oy = yOfP(items[j].item.probability);
+      if (Math.hypot(cx - ox, cy - oy) < 9) {
+        if (j < idx) slot++;
+        groupCount++;
+      }
+    }
+    const offsetY = groupCount > 1 ? (slot - (groupCount - 1) / 2) * 8 : 0;
+    return { ...entry, cx, cy: Math.max(PAD_T + 4, Math.min(H - PAD_B - 4, cy + offsetY)) };
+  });
+
+  const sortedPlaced = [...placed].sort((a, b) => {
+    if (a.item.id === selectedId) return 1;
+    if (b.item.id === selectedId) return -1;
+    return 0;
+  });
+
   return (
     <div className="ml-sigmoid-box">
       <div className="ml-chart-head">
-        <h4>实时 Sigmoid S 曲线：z = w · x + b → p = σ(z)</h4>
+        <h4>6 条短信在 Sigmoid 曲线上的位置（点圆点可切换）</h4>
         <div className="ml-legend">
           <span className="ml-leg-item">
-            <i className="ml-leg-swatch is-val" /> σ(z) 曲线
+            <i className="ml-leg-swatch is-val" /> 概率曲线
           </span>
           <span className="ml-leg-item">
-            <i className="ml-leg-dot is-bias" /> 只看偏置 b 时
+            <i className="ml-leg-dot is-spam-dot" /> 真实垃圾
           </span>
           <span className="ml-leg-item">
-            <i className="ml-leg-dot is-msg" /> 当前短信
+            <i className="ml-leg-dot is-ham-dot" /> 真实正常
+          </span>
+          <span className="ml-leg-item">
+            <i className="ml-leg-dot is-bias" /> 只看偏置 b
           </span>
         </div>
       </div>
+      <p className="ml-muted-note">
+        目标：把红点往 50% 红线上方（右侧）推，把绿点往 50% 红线下方（左侧）拉。调偏置 b
+        会让所有点一起左右平移。
+      </p>
       <svg
         aria-label="Sigmoid 曲线与当前模型定位"
         className="ml-svg-chart"
@@ -124,7 +168,7 @@ function SigmoidCurveSvg({
         />
 
         <line
-          stroke={selectedProb >= 0.5 ? "var(--danger)" : "var(--success)"}
+          stroke="var(--accent)"
           strokeDasharray="2.5 2.5"
           strokeWidth="1"
           x1={mx}
@@ -133,27 +177,54 @@ function SigmoidCurveSvg({
           y2={H - PAD_B}
         />
 
-        <circle
-          cx={bx}
-          cy={by}
-          fill={emptyProb >= 0.5 ? "var(--danger)" : "var(--success)"}
-          r="5"
-          stroke="var(--surface)"
-          strokeWidth="1.5"
-        >
-          <title>{`所有词都不在词表中时：z = b = ${bias.toFixed(1)}, σ(b) = ${(emptyProb * 100).toFixed(1)}%`}</title>
-        </circle>
-
-        <circle
-          cx={mx}
-          cy={my}
-          fill="var(--accent)"
-          r="5.5"
-          stroke="var(--surface)"
+        {/* Bias-only baseline diamond */}
+        <polygon
+          fill="var(--surface)"
+          points={`${bx},${by - 5.5} ${bx + 5.5},${by} ${bx},${by + 5.5} ${bx - 5.5},${by}`}
+          stroke="var(--primary)"
           strokeWidth="1.8"
         >
-          <title>{`${selectedTag}：z = ${selectedZ.toFixed(2)}, p = ${(selectedProb * 100).toFixed(1)}%`}</title>
-        </circle>
+          <title>{`所有词都不在词表中时：z = b = ${bias.toFixed(1)}, σ(b) = ${(emptyProb * 100).toFixed(1)}%`}</title>
+        </polygon>
+
+        {sortedPlaced.map(({ item, tag, cx, cy }) => {
+          const isSelected = item.id === selectedId;
+          const fill = item.label === 1 ? "var(--danger)" : "var(--success)";
+          return (
+            <g key={item.id} onClick={() => onSelectMsg(item.id)} style={{ cursor: "pointer" }}>
+              {isSelected ? (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  fill="none"
+                  r="8.5"
+                  stroke="var(--accent)"
+                  strokeWidth="2"
+                />
+              ) : !item.correct ? (
+                <circle
+                  cx={cx}
+                  cy={cy}
+                  fill="none"
+                  r="7"
+                  stroke="var(--warning)"
+                  strokeDasharray="2 2"
+                  strokeWidth="1.4"
+                />
+              ) : null}
+              <circle
+                cx={cx}
+                cy={cy}
+                fill={fill}
+                r={isSelected ? "5.2" : "4.5"}
+                stroke="var(--surface)"
+                strokeWidth="1.5"
+              >
+                <title>{`${tag}（真实：${item.label === 1 ? "垃圾" : "正常"}）：z = ${item.rawZ.toFixed(2)}, p = ${(item.probability * 100).toFixed(1)}% · ${item.correct ? "判对了" : "分错了"}`}</title>
+              </circle>
+            </g>
+          );
+        })}
       </svg>
       <p className="ml-muted-note">
         只看偏置时，z=b=<strong>{bias >= 0 ? `+${bias.toFixed(1)}` : bias.toFixed(1)}</strong> 对应{" "}
@@ -301,6 +372,12 @@ export function ScorePanel({
           <SigmoidCurveSvg
             bias={draft.bias}
             emptyProb={evalSummary.emptyProbability}
+            items={evalSummary.items.map((item, idx) => ({
+              item,
+              tag: SCORE_CALIBRATION_SMS[idx]?.tag ?? item.id,
+            }))}
+            onSelectMsg={(selectedMsgId) => onChange({ ...draft, selectedMsgId })}
+            selectedId={selectedSms.id}
             selectedProb={inspection.probability}
             selectedTag={selectedSms.tag}
             selectedZ={inspection.rawZ}

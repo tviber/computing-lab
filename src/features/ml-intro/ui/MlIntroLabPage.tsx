@@ -5,10 +5,10 @@
  * against a server-side held-out test set.
  */
 
-import { useParams } from "@tanstack/react-router";
+import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useReducer, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
-import { useAuth } from "../../../shared/auth";
+import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { StageRail } from "../../../shared/lab/StageRail";
@@ -35,6 +35,7 @@ import { ML_STAGES, mlStageUnlocked, type MlStageDef } from "../domain/stages.ts
 import {
   createMlLessonState,
   draftOf,
+  isStageUnlocked,
   stageOf,
   summaryForStage,
   transitionMlLesson,
@@ -72,10 +73,30 @@ function StageBrief({ stage, passed }: { stage: MlStageDef; passed: boolean }) {
   );
 }
 
+function parseClassroomSearch(raw: unknown): { classroom: boolean; stage: number | null } {
+  if (!raw || typeof raw !== "object") return { classroom: false, stage: null };
+  const record = raw as Record<string, unknown>;
+  const classroom = record.classroom === 1 || record.classroom === "1" || record.classroom === true;
+  const rawStage = record.stage;
+  const parsedStage =
+    typeof rawStage === "number" || (typeof rawStage === "string" && rawStage.trim() !== "")
+      ? Number(rawStage)
+      : NaN;
+  const stage =
+    Number.isInteger(parsedStage) && parsedStage >= 1 && parsedStage <= ML_STAGES.length
+      ? parsedStage
+      : null;
+  return { classroom, stage };
+}
+
 export function MlIntroLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/ml-intro" });
-  const { status } = useAuth();
-  const [state, dispatch] = useReducer(transitionMlLesson, undefined, () => createMlLessonState(1));
+  const rawSearch = useSearch({ strict: false });
+  const initialSearch = parseClassroomSearch(rawSearch);
+  const { status, role } = useAuth();
+  const [state, dispatch] = useReducer(transitionMlLesson, undefined, () =>
+    createMlLessonState(initialSearch.stage, initialSearch.classroom),
+  );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [judgedStage, setJudgedStage] = useState<number | null>(null);
@@ -134,6 +155,12 @@ export function MlIntroLabPage() {
   const submitJudge = useCallback(
     async (stageIndex: number, draft: MlDraft) => {
       if (!classId) return;
+      if (!mlStageUnlocked(state.passedStages, stageIndex)) {
+        setSubmitError(
+          "当前处于「课堂自由跳关」预览状态，可完整互动体验；如需正式提交过关记录，请先通过前面的关卡。",
+        );
+        return;
+      }
       setSubmitting(true);
       setSubmitError(null);
       try {
@@ -149,16 +176,21 @@ export function MlIntroLabPage() {
         setSubmitting(false);
       }
     },
-    [classId],
+    [classId, state.passedStages],
   );
 
   const passedStages = state.passedStages;
   const activeIndex = stage?.index ?? 1;
   const activePassed = passedStages.includes(activeIndex);
+  const formalUnlocked = mlStageUnlocked(passedStages, activeIndex);
   const activeResult = summaryForStage(state, activeIndex, judgedStage);
   const hasNextStage = activeIndex < ML_STAGES.length;
+  const selectStage = (stageIndex: number) => {
+    setSubmitError(null);
+    dispatch({ type: "select-stage", stageIndex });
+  };
   const goNextStage = () => {
-    if (hasNextStage) dispatch({ type: "select-stage", stageIndex: activeIndex + 1 });
+    if (hasNextStage) selectStage(activeIndex + 1);
   };
 
   return (
@@ -192,18 +224,49 @@ export function MlIntroLabPage() {
         collapsedLabel={stage ? `第 ${stage.index} 关` : undefined}
         labId="ml-intro"
         rail={
-          <StageRail
-            label={labMetadata["ml-intro"].title}
-            onSelect={(stageIndex) => dispatch({ type: "select-stage", stageIndex })}
-            passedStages={passedStages}
-            stageIndex={state.stageIndex}
-            stages={ML_STAGES}
-            unlocked={(item) => mlStageUnlocked(passedStages, item.index)}
-          />
+          <div className="ml-rail-stack">
+            <StageRail
+              label={labMetadata["ml-intro"].title}
+              onSelect={selectStage}
+              passedStages={passedStages}
+              stageIndex={state.stageIndex}
+              stages={ML_STAGES}
+              unlocked={(item) => isStageUnlocked(state, item.index)}
+            />
+            <div className="ml-classroom-toggle-card">
+              <button
+                aria-pressed={state.classroomMode}
+                className={`button ${state.classroomMode ? "button-primary" : "button-ghost"} ml-classroom-btn`}
+                onClick={() => {
+                  setSubmitError(null);
+                  dispatch({ type: "set-classroom-mode", enabled: !state.classroomMode });
+                }}
+                type="button"
+              >
+                {state.classroomMode
+                  ? "课堂自由跳关：已开启"
+                  : isStaffRole(role)
+                    ? "教师演示：自由切关"
+                    : "课堂模式：先看后面关卡"}
+              </button>
+              <p className="ml-muted-note">
+                {state.classroomMode
+                  ? "可任意切换全部关卡演示与跟练；正式过关判定仍需按顺序完成前序关卡。"
+                  : "上课时还没做完前面关卡？可开启自由跳关直接跟上课堂进度。"}
+              </p>
+            </div>
+          </div>
         }
       >
         <main aria-label="机器学习入门实验区" className="ml-workspace">
           {stage ? <StageBrief passed={activePassed} stage={stage} /> : null}
+
+          {state.classroomMode && !formalUnlocked ? (
+            <p className="ml-note-box ml-classroom-banner" role="note">
+              当前为「课堂自由跳关」预览模式：第 {activeIndex}{" "}
+              关的训练、画图与交互均可完整使用；如需提交正式过关记录，请先通过前面的关卡。
+            </p>
+          ) : null}
 
           {state.message ? (
             <DismissibleAlert onDismiss={() => dispatch({ type: "dismiss-message" })}>

@@ -244,7 +244,52 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await page.getByRole("button", { name: /进入下一关/ }).click();
   await expect(page.getByRole("heading", { name: "让模型调整权重", exact: true })).toBeVisible();
 
-  // Stage 4: Steady learning rate preset + concepts
+  // Stage 4: Training before/after comparison first, role visuals, appendix toggle, collapsible advanced 1D slice
+  const beforeAfter = page.getByLabel("训练前后验证短信表现对比");
+  await expect(beforeAfter).toBeVisible();
+  await expect(beforeAfter.getByText(/训练前（全 0 权重各猜 50%）/)).toBeVisible();
+  await expect(beforeAfter.getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/)).toBeVisible();
+  await expect(beforeAfter.getByText(/按训练集垃圾占比/)).toBeVisible();
+  await expect(beforeAfter.getByText(/BCE Loss 0\.6931 →/)).toBeVisible();
+  await expect(page.getByText(/损失（Loss）= 猜错扣分表/)).toBeVisible();
+  await expect(page.getByLabel("预测概率与猜错扣分曲线")).toBeVisible();
+  const appendixToggle = page.getByRole("button", { name: /数学推导/ });
+  await expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
+  await appendixToggle.click();
+  await expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
+
+  const advancedToggle = page.getByRole("button", { name: /进阶探索：单维权重切片图/ });
+  await expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+  await advancedToggle.click();
+  await expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+
+  const slicePanel = page.getByRole("region", { name: "单维权重与损失切片探索" });
+  await slicePanel.getByRole("button", { name: /往右试推一格/ }).click();
+  await slicePanel.getByRole("button", { name: /← 往左试推一格/ }).click();
+  await expect(slicePanel.getByText(/没有回到原位/)).toBeVisible();
+
+  const stage4Viewport = page.viewportSize();
+  for (const width of [1440, 1024, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const baselineOverflow = await beforeAfter.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return box.right > window.innerWidth + 1 || el.scrollWidth > el.clientWidth + 1;
+    });
+    expect(baselineOverflow, `Stage 4 baseline strip overflows at ${width}px`).toBe(false);
+    const overflow = await slicePanel.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return (
+        box.right > window.innerWidth + 1 ||
+        el.scrollWidth > el.clientWidth + 1 ||
+        Array.from(el.querySelectorAll<HTMLElement>(".ml-svg-chart, .ml-trail-chips")).some(
+          (child) => child.getBoundingClientRect().right > window.innerWidth + 1,
+        )
+      );
+    });
+    expect(overflow, `Stage 4 slice panel overflows at ${width}px`).toBe(false);
+  }
+  if (stage4Viewport) await page.setViewportSize(stage4Viewport);
+
   await page.getByRole("button", { name: "适中 η = 0.1" }).click();
   for (const prompt of ML_STAGES[3].prompts) {
     await page
@@ -323,6 +368,9 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
 
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await expect(page.getByText("300 条未公开短信测试", { exact: true })).toBeVisible();
+
+  await page.goto("labs/ml-intro?classroom=1&stage=1", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });

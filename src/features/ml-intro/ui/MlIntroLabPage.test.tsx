@@ -315,7 +315,7 @@ describe("MlIntroLabPage", () => {
     await screen.findByText("已保存");
   });
 
-  it("renders Stage 3 Sigmoid curve and prefilled positive-bias blacklist starter", async () => {
+  it("renders Stage 3 Sigmoid curve with all 6 calibration messages and prefilled blacklist starter", async () => {
     const project = makeProject({
       currentStage: 3,
       passedStages: [1, 2],
@@ -325,7 +325,167 @@ describe("MlIntroLabPage", () => {
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
     await screen.findByRole("heading", { name: "把分数换成概率" });
 
-    expect(screen.getByLabelText("Sigmoid 曲线与当前模型定位")).toBeInTheDocument();
+    const chart = screen.getByLabelText("Sigmoid 曲线与当前模型定位");
+    expect(chart).toBeInTheDocument();
+    // 1 bias diamond + 6 message circles
+    expect(chart.querySelectorAll("circle").length).toBeGreaterThanOrEqual(6);
     expect(screen.getByText(/没有已知词时的垃圾概率：59\.9%/)).toBeInTheDocument();
+
+    // Clicking another SMS dot on the Sigmoid curve updates the selected message breakdown.
+    const hamDotTitle = within(chart as unknown as HTMLElement).getByText(/含「免费」的正常短信/);
+    fireEvent.click(hamDotTitle.closest("g")!);
+    expect(screen.getByText(/当前选中的短信拆解：含「免费」的正常短信/)).toBeInTheDocument();
+  });
+
+  it("renders Stage 4 role-focused visuals, single math appendix toggle, and plain-language 1D slice", async () => {
+    stubMlFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+        drafts: { 4: { eta: 0.1, epochs: 12, inspectEpoch: 12, showBgd: false, concepts: {} } },
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+
+    // Role cards & single-step penalty curve are immediately visible while math appendix starts collapsed.
+    const beforeAfter = screen.getByLabelText("训练前后验证短信表现对比");
+    expect(beforeAfter).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/训练前（全 0 权重各猜 50%）/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/分对 42 \/ 300 条（14\.0%）/)).toBeInTheDocument();
+    expect(
+      within(beforeAfter).getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/),
+    ).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/分对 258 \/ 300 条（86\.0%）/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/按训练集垃圾占比/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/准确率：已超过 86\.0% 多数类基线/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/BCE Loss 0\.6931 →/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/优于训练集固定先验基线/)).toBeInTheDocument();
+    expect(screen.getByText(/损失（Loss）= 猜错扣分表/)).toBeInTheDocument();
+    expect(screen.getByText(/斜率 \/ 梯度 = 调参指南针/)).toBeInTheDocument();
+    expect(screen.getByLabelText("预测概率与猜错扣分曲线")).toBeInTheDocument();
+    expect(screen.getByText(/这次会怎么推权重？/)).toBeInTheDocument();
+
+    const appendixToggle = screen.getByRole("button", { name: /查看背后的数学推导/ });
+    expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/合并两种标签的猜对概率/)).not.toBeInTheDocument();
+
+    fireEvent.click(appendixToggle);
+    expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/合并两种标签的猜对概率/)).toBeInTheDocument();
+    expect(screen.getByText(/上下约去 p/)).toBeInTheDocument();
+    expect(screen.getByText(/SGD（每次读 1 条就更新）/)).toBeInTheDocument();
+    expect(screen.getByText(/整批平均损失 L 的梯度（BGD）/)).toBeInTheDocument();
+
+    // Advanced 1D weight-loss slice explorer starts collapsed by default.
+    const advancedToggle = screen.getByRole("button", { name: /展开进阶探索：单维权重切片图/ });
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("region", { name: "单维权重与损失切片探索" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+
+    // 1D slice explorer shows real-SMS classification impact and asymmetric stepped jumps.
+    const slicePanel = screen.getByRole("region", { name: "单维权重与损失切片探索" });
+    expect(within(slicePanel).getByText(/含「免费」样本：14 条/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/按 50% 门槛判对/)).toBeInTheDocument();
+
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /往右试推一格/ }));
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /← 往左试推一格/ }));
+    expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/坡度（偏导）不同/)).toBeInTheDocument();
+
+    // Overshoot bounce demo preset + two gradient descent steps.
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "示例：步子太大跨过头" }));
+    expect(within(slicePanel).getByText(/含「好」样本：111 条/)).toBeInTheDocument();
+    const stepBtn = within(slicePanel).getByRole("button", { name: /顺坡走一步/ });
+    fireEvent.click(stepBtn);
+    fireEvent.click(stepBtn);
+    expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
+
+    // Switching context mode to trained model checks proximity honestly rather than unconditionally claiming valley.
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "当前训练模型权重" }));
+    expect(within(slicePanel).getByText(/当前模型为「好」学到的权重/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/误拦正常/)).toBeInTheDocument();
+
+    // Build a multi-step trajectory in trained mode, then change training eta: stale trail must reset.
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /顺坡走一步/ }));
+    expect(within(slicePanel).getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
+
+    // Under-trained eta = 0.002 warns that learned weight has not reached w* and resets stale model trail.
+    fireEvent.click(screen.getByRole("button", { name: "较小 η = 0.002" }));
+    await waitFor(() => expect(within(slicePanel).getByText(/仍有差距/)).toBeInTheDocument());
+    expect(
+      within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
+    ).not.toBeInTheDocument();
+
+    // Step again, then verify keyboard slider adjustment updates position and clears trail.
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /顺坡走一步/ }));
+    expect(within(slicePanel).getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
+    const handle = within(slicePanel).getByRole("slider", { name: /拖动调整词「好」的权重/ });
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(
+      within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps explicit stage=1 when opening ?classroom=1&stage=1 on an advanced project", async () => {
+    stubMlFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro?classroom=1&stage=1", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    expect(screen.getByText(/课堂自由跳关：已开启/)).toBeInTheDocument();
+  });
+
+  it("opens server currentStage when ?classroom=1 omits the stage query parameter", async () => {
+    stubMlFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro?classroom=1", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+  });
+
+  it("allows teacher or classroom free-navigation mode across stages while guarding formal judge submission", async () => {
+    const fetchSpy = stubMlFetch(makeProject({ currentStage: 1, passedStages: [] }), () =>
+      json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+    expect(screen.getByRole("button", { name: /让模型调整权重/ })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "教师演示：自由切关" }));
+    const stage4Btn = screen.getByRole("button", { name: /让模型调整权重/ });
+    expect(stage4Btn).toBeEnabled();
+    fireEvent.click(stage4Btn);
+
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+    expect(screen.getByText(/当前为「课堂自由跳关」预览模式/)).toBeInTheDocument();
+
+    // Answer Stage 4 concepts and attempt formal submit while Stage 1-3 remain unpassed.
+    for (const prompt of ML_STAGES[3].prompts) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+      );
+    }
+    fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+    expect(screen.getByText(/如需正式提交过关记录，请先通过前面的关卡/)).toBeInTheDocument();
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(false);
   });
 });

@@ -1363,6 +1363,17 @@
 }
 
 .ml-leg-dot.is-bias {
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+.ml-leg-dot.is-spam-dot {
+  background: var(--danger);
+}
+
+.ml-leg-dot.is-ham-dot {
   background: var(--success);
 }
 
@@ -1424,11 +1435,361 @@
   margin: 0;
 }
 
+/* ---- Stage 4 Penalty Visual, Role Cards, Appendix & 1D Weight-Loss Slice Explorer ---- */
+
+.ml-penalty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+.ml-nudge-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.ml-nudge-val {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.ml-nudge-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.ml-nudge-meter {
+  height: 10px;
+}
+
+.ml-role-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.ml-role-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--secondary);
+}
+
+.ml-appendix-bar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.ml-appendix-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+
+.ml-derivation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.ml-formula-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ml-formula-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ml-toggle-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.ml-formula-conclusion {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+
+.ml-derivation-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.ml-derivation-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--secondary);
+}
+
+.ml-math-line {
+  display: block;
+  margin-top: 3px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-mini);
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.ml-slice-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.ml-slice-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ml-slice-eta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.ml-chip-sm {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.ml-slice-sub {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.ml-leg-swatch.is-tangent {
+  background: var(--warning);
+}
+
+.ml-slice-svg {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.ml-slice-svg.is-dragging {
+  cursor: grabbing;
+}
+
+.ml-slice-handle {
+  cursor: grab;
+}
+
+.ml-slice-handle:focus-visible {
+  stroke: var(--accent-ink);
+  stroke-width: 3;
+}
+
+.ml-slice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ml-slice-insight {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.ml-slice-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.ml-trail-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ml-trail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  font-size: 11.5px;
+  color: var(--primary);
+}
+
+.ml-trail-chip small {
+  color: var(--muted);
+}
+
+/* ---- Classroom Mode Toggle & Stage 4 Before/After + Advanced Drawer ---- */
+
+.ml-rail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ml-classroom-toggle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 16px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.ml-classroom-btn {
+  width: 100%;
+  justify-content: center;
+  font-size: 12.5px;
+}
+
+.ml-classroom-banner {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.ml-before-after {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+
+.ml-before-after-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ml-before-after-head h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.ml-before-after-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ml-baseline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.ml-baseline-grid .ml-stat-box {
+  min-width: 0;
+  background: var(--surface);
+}
+
+.ml-spotlight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ml-spotlight-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+
+.ml-spotlight-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--primary);
+}
+
+.ml-spotlight-prob {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ml-advanced-box .ml-panel-head p {
+  margin-top: 4px;
+}
+
 @media (max-width: 960px) {
   .ml-case-return {
     display: inline-flex;
   }
 
+  .ml-classroom-toggle-card {
+    padding-right: 0;
+  }
+
+  .ml-spotlight-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .ml-penalty-grid,
+  .ml-appendix-grid,
+  .ml-derivation-grid,
+  .ml-baseline-grid,
   .ml-bow-summary,
   .ml-score-layout,
   .ml-probe-grid,

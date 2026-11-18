@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { rethresholdPredictions, trainLogisticRegression } from "../domain/logreg.ts";
 import type { GeneralizeDraft, MlTestSummary } from "../domain/protocol.ts";
 import type { MlStageDef } from "../domain/stages.ts";
@@ -47,15 +47,23 @@ export function GeneralizePanel({
   onSubmit: () => void;
   onNextStage: () => void;
 }) {
+  const deferredSampleSize = useDeferredValue(draft.sampleSize);
+  const deferredEta = useDeferredValue(draft.eta);
+  const deferredEpochs = useDeferredValue(draft.epochs);
+  const isStale =
+    deferredSampleSize !== draft.sampleSize ||
+    deferredEta !== draft.eta ||
+    deferredEpochs !== draft.epochs;
+
   const baseRun = useMemo(
     () =>
       trainLogisticRegression({
-        trainCount: draft.sampleSize,
-        eta: draft.eta,
-        epochs: draft.epochs,
+        trainCount: deferredSampleSize,
+        eta: deferredEta,
+        epochs: deferredEpochs,
         threshold: 0.5,
       }),
-    [draft.sampleSize, draft.eta, draft.epochs],
+    [deferredSampleSize, deferredEta, deferredEpochs],
   );
 
   const reEval = useMemo(
@@ -86,7 +94,14 @@ export function GeneralizePanel({
       <section className="ml-panel">
         <div className="ml-panel-head">
           <h3>训练样本量怎样影响结果</h3>
-          <span className="ml-badge-neutral">当前词表收录 {baseRun.vocabSize} 词</span>
+          <div className="ml-preset-row">
+            {isStale ? (
+              <span className="ml-pill is-warn" role="status">
+                正在按新参数重新计算…
+              </span>
+            ) : null}
+            <span className="ml-badge-neutral">当前词表收录 {baseRun.vocabSize} 词</span>
+          </div>
         </div>
 
         <div className="ml-preset-row">
@@ -202,11 +217,16 @@ export function GeneralizePanel({
             {
               id: "samples",
               label: "训练样本量",
-              value: draft.sampleSize,
-              display: `${draft.sampleSize.toLocaleString("en-US")} 条`,
+              value: baseRun.trainCount,
+              display: `${baseRun.trainCount.toLocaleString("en-US")} 条`,
             },
-            { id: "eta", label: "学习率", value: draft.eta, display: String(draft.eta) },
-            { id: "epochs", label: "训练轮数", value: draft.epochs, display: `${draft.epochs} 轮` },
+            { id: "eta", label: "学习率", value: baseRun.eta, display: String(baseRun.eta) },
+            {
+              id: "epochs",
+              label: "训练轮数",
+              value: baseRun.epochs,
+              display: `${baseRun.epochs} 轮`,
+            },
             {
               id: "threshold",
               label: "分类阈值",
@@ -235,7 +255,7 @@ export function GeneralizePanel({
       </section>
 
       <WeightSpectrum
-        heading={`用 ${draft.sampleSize} 条短信训练后，哪些词的权重较大`}
+        heading={`用 ${baseRun.trainCount} 条短信训练后，哪些词的权重较大`}
         topHam={lastEpoch.topHam}
         topSpam={lastEpoch.topSpam}
         trainCount={baseRun.trainCount}
@@ -288,16 +308,18 @@ export function GeneralizePanel({
       <div className="ml-submit-bar">
         <button
           className="button button-primary"
-          disabled={submitting || !allConceptsDone}
+          disabled={submitting || isStale || !allConceptsDone}
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "正在测试…" : "提交到测试集检查"}
+          {submitting ? "正在测试…" : isStale ? "正在重新计算…" : "提交到测试集检查"}
         </button>
         <span className="ml-muted-note">
-          {!allConceptsDone
-            ? "请先答对概念题，再提交测试。"
-            : "服务器只返回测试是否通过。请根据上方验证集的结果调整参数。"}
+          {isStale
+            ? "正在按新参数重新计算模型，完成后即可提交测试。"
+            : !allConceptsDone
+              ? "请先答对概念题，再提交测试。"
+              : "服务器只返回测试是否通过。请根据上方验证集的结果调整参数。"}
         </span>
       </div>
 
