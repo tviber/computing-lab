@@ -248,7 +248,8 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   const beforeAfter = page.getByLabel("训练前后验证短信表现对比");
   await expect(beforeAfter).toBeVisible();
   await expect(beforeAfter.getByText(/训练前（全 0 权重各猜 50%）/)).toBeVisible();
-  await expect(beforeAfter.getByText(/多数类基线（不学词 · 一律猜正常）/)).toBeVisible();
+  await expect(beforeAfter.getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/)).toBeVisible();
+  await expect(beforeAfter.getByText(/按训练集垃圾占比/)).toBeVisible();
   await expect(beforeAfter.getByText(/BCE Loss 0\.6931 →/)).toBeVisible();
   await expect(page.getByText(/损失（Loss）= 猜错扣分表/)).toBeVisible();
   await expect(page.getByLabel("预测概率与猜错扣分曲线")).toBeVisible();

@@ -398,4 +398,29 @@ describe("ml-intro domain engine", () => {
     expect(freeEval.fnCount).toBe(0);
     expect(freeEval.meanProb).toBeCloseTo(sigmoid(2.0), 6);
   });
+
+  it("estimates trainSpamRate strictly from the training split without peeking at validation labels", () => {
+    const trainMessages = [
+      { id: 1, label: 1 as const, text: "a", tokens: ["a"] },
+      { id: 2, label: 1 as const, text: "a", tokens: ["a"] },
+      { id: 3, label: 0 as const, text: "b", tokens: ["b"] },
+      { id: 4, label: 0 as const, text: "b", tokens: ["b"] },
+    ];
+    const valMessages = [
+      { id: 10, label: 1 as const, text: "a", tokens: ["a"] },
+      { id: 11, label: 0 as const, text: "b", tokens: ["b"] },
+      { id: 12, label: 0 as const, text: "b", tokens: ["b"] },
+      { id: 13, label: 0 as const, text: "b", tokens: ["b"] },
+      { id: 14, label: 0 as const, text: "b", tokens: ["b"] },
+    ];
+    const customRun = trainLogisticRegression({
+      eta: 0.1,
+      epochs: 2,
+      trainMessages,
+      valMessages,
+      trainCount: 4,
+    });
+    expect(customRun.trainSpamRate).toBeCloseTo(0.5, 6);
+    expect(customRun.baselineAcc).toBeCloseTo(0.8, 6);
+  });
 });

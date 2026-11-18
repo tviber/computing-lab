@@ -1,6 +1,7 @@
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { useState } from "react";
 import { afterEach, describe, expect, it, vi } from "vitest";
+import * as logreg from "../domain/logreg.ts";
 import type { TrainDraft } from "../domain/protocol.ts";
 import { ML_STAGES } from "../domain/stages.ts";
 import { TrainPanel } from "./TrainPanel.tsx";
@@ -31,6 +32,7 @@ describe("TrainPanel deferred parameter consistency", () => {
   afterEach(() => {
     deferredControl.holdPrevious = false;
     lastSettled.clear();
+    vi.restoreAllMocks();
   });
 
   it("shows recalculating badge, disables submit, and binds ExperimentComparison to run params while deferred", () => {
@@ -81,5 +83,50 @@ describe("TrainPanel deferred parameter consistency", () => {
     rerender(<Harness />);
     expect(screen.queryByText(/正在按新参数重新计算/)).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交第 4 关判定" })).toBeEnabled();
+  });
+
+  it("reports accuracy and BCE baseline comparisons independently when accuracy beats 86% but BCE exceeds prior loss", () => {
+    const stage = ML_STAGES[3];
+    const realRun = logreg.trainLogisticRegression({
+      trainCount: logreg.MAX_SAMPLE_SIZE,
+      eta: 0.1,
+      epochs: 12,
+      threshold: 0.5,
+      includeTrace: true,
+      includeBgd: false,
+    });
+    const lastIdx = realRun.epochsHistory.length - 1;
+    const tweakedHistory = realRun.epochsHistory.map((ep, idx) =>
+      idx === lastIdx
+        ? {
+            ...ep,
+            valLoss: 0.55,
+            valMetrics: { ...ep.valMetrics, tp: 40, tn: 230, fp: 28, fn: 2, accuracy: 0.9 },
+          }
+        : ep,
+    );
+    vi.spyOn(logreg, "trainLogisticRegression").mockReturnValueOnce({
+      ...realRun,
+      epochsHistory: tweakedHistory,
+    });
+
+    render(
+      <TrainPanel
+        draft={{ eta: 0.1, epochs: 12, inspectEpoch: 12, showBgd: false, concepts: {} }}
+        hasNextStage
+        onChange={() => {}}
+        onNextStage={() => {}}
+        onSubmit={() => {}}
+        passed={false}
+        result={null}
+        stage={stage}
+        submitting={false}
+      />,
+    );
+
+    const beforeAfter = screen.getByLabelText("训练前后验证短信表现对比");
+    expect(within(beforeAfter).getByText(/分对 270 \/ 300 条（90\.0%）/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/准确率：已超过 86\.0% 多数类基线/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/高于训练集固定先验基线/)).toBeInTheDocument();
   });
 });

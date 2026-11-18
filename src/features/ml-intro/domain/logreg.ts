@@ -187,6 +187,7 @@ export type TrainingRun = {
   seed: number;
   vocabSize: number;
   baselineAcc: number;
+  trainSpamRate: number;
   epochsHistory: EpochSnapshot[];
   intraEpochTrace: IntraEpochPoint[];
   bgdHistory: BgdEpochPoint[];
@@ -640,6 +641,12 @@ export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
     weightsByWord.set(vocab[i], weights[i]);
   }
 
+  let trainSpamCount = 0;
+  for (let i = 0; i < trainVecs.length; i++) {
+    if (trainVecs[i].label === 1) trainSpamCount++;
+  }
+  const trainSpamRate = trainVecs.length > 0 ? trainSpamCount / trainVecs.length : 0;
+
   return {
     trainCount,
     eta,
@@ -648,6 +655,7 @@ export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
     seed,
     vocabSize: vocab.length,
     baselineAcc: alwaysZeroBaseline(valMessages),
+    trainSpamRate,
     epochsHistory,
     intraEpochTrace,
     bgdHistory,

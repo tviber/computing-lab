@@ -355,10 +355,14 @@ describe("MlIntroLabPage", () => {
     expect(beforeAfter).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/训练前（全 0 权重各猜 50%）/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/分对 42 \/ 300 条（14\.0%）/)).toBeInTheDocument();
-    expect(within(beforeAfter).getByText(/多数类基线（不学词 · 一律猜正常）/)).toBeInTheDocument();
+    expect(
+      within(beforeAfter).getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/),
+    ).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/分对 258 \/ 300 条（86\.0%）/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/按训练集垃圾占比/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/准确率：已超过 86\.0% 多数类基线/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/BCE Loss 0\.6931 →/)).toBeInTheDocument();
-    expect(within(beforeAfter).getByText(/已超越多数类基线/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/优于训练集固定先验基线/)).toBeInTheDocument();
     expect(screen.getByText(/损失（Loss）= 猜错扣分表/)).toBeInTheDocument();
     expect(screen.getByText(/斜率 \/ 梯度 = 调参指南针/)).toBeInTheDocument();
     expect(screen.getByLabelText("预测概率与猜错扣分曲线")).toBeInTheDocument();

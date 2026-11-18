@@ -2,7 +2,9 @@ import { useDeferredValue, useId, useMemo, useState } from "react";
 import {
   binaryLogLoss,
   BLIND_GUESS_LOSS,
+  clamp,
   classifyEtaRegime,
+  EPS,
   MAX_SAMPLE_SIZE,
   singleUpdateDemo,
   trainLogisticRegression,
@@ -91,7 +93,8 @@ export function TrainPanel({
   const valTotal = finalEpoch.valMetrics.total;
   const epoch0Acc = valTotal > 0 ? epoch0Correct / valTotal : 0;
   const majorityCorrect = Math.round(run.baselineAcc * valTotal);
-  const priorSpamRate = Math.max(1e-6, Math.min(1 - 1e-6, 1 - run.baselineAcc));
+  // Estimate the constant prior spam probability strictly from the training split to avoid leaking validation labels.
+  const priorSpamRate = clamp(run.trainSpamRate, EPS, 1 - EPS);
   const priorBceLoss =
     valTotal > 0
       ? run.valPredictions.reduce(
@@ -99,8 +102,8 @@ export function TrainPanel({
           0,
         ) / valTotal
       : BLIND_GUESS_LOSS;
-  const beatsMajority =
-    finalEpoch.valMetrics.accuracy > run.baselineAcc && finalEpoch.valLoss < priorBceLoss;
+  const beatsAccBaseline = finalEpoch.valMetrics.accuracy > run.baselineAcc;
+  const beatsBceBaseline = finalEpoch.valLoss < priorBceLoss;
   const spotlightMsgs = useMemo(
     () =>
       SPOTLIGHT_VAL_IDS.map((id) => run.valPredictions.find((item) => item.id === id)).filter(
@@ -230,15 +233,18 @@ export function TrainPanel({
               </small>
             </div>
             <div className="ml-stat-box">
-              <span>多数类基线（不学词 · 一律猜正常）</span>
+              <span>多数类 / 先验基线（不学词 · 按训练集估计）</span>
               <strong className="ml-mono">
                 分对 {majorityCorrect} / {valTotal} 条（{(run.baselineAcc * 100).toFixed(1)}%）
               </strong>
               <small className="ml-mono">
-                按固定比例猜 BCE Loss {priorBceLoss.toFixed(4)}（查出垃圾 0%）
+                按训练集垃圾占比 {(run.trainSpamRate * 100).toFixed(1)}% 固定猜：BCE Loss{" "}
+                {priorBceLoss.toFixed(4)}（查垃圾 0%）
               </small>
             </div>
-            <div className={`ml-stat-box ${beatsMajority ? "is-ok" : "is-warn"}`}>
+            <div
+              className={`ml-stat-box ${beatsAccBaseline && beatsBceBaseline ? "is-ok" : "is-warn"}`}
+            >
               <span>
                 训练后（第 {finalEpoch.epoch} 轮 · η = {run.eta}）
               </span>
@@ -248,8 +254,12 @@ export function TrainPanel({
                 %）
               </strong>
               <small className="ml-mono">
+                准确率：{beatsAccBaseline ? "已超过" : "未超过"}{" "}
+                {(run.baselineAcc * 100).toFixed(1)}% 多数类基线
+              </small>
+              <small className="ml-mono">
                 BCE Loss {epoch0Loss.toFixed(4)} → {finalEpoch.valLoss.toFixed(4)}（
-                {beatsMajority ? "已超越多数类基线" : "暂未超过多数类基线"}）
+                {beatsBceBaseline ? "优于" : "高于"}训练集固定先验基线 {priorBceLoss.toFixed(4)}）
               </small>
             </div>
           </div>
