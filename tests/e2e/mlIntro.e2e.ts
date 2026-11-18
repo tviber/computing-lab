@@ -244,7 +244,36 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await page.getByRole("button", { name: /进入下一关/ }).click();
   await expect(page.getByRole("heading", { name: "让模型调整权重", exact: true })).toBeVisible();
 
-  // Stage 4: Steady learning rate preset + concepts
+  // Stage 4: Role-focused visuals, single appendix toggle, 1D slice explorer, steady preset + concepts
+  await expect(page.getByText(/损失（Loss）= 猜错扣分表/)).toBeVisible();
+  await expect(page.getByLabel("预测概率与猜错扣分曲线")).toBeVisible();
+  const appendixToggle = page.getByRole("button", { name: /数学推导/ });
+  await expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
+  await appendixToggle.click();
+  await expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
+
+  const slicePanel = page.getByRole("region", { name: "单维权重与损失切片探索" });
+  await slicePanel.getByRole("button", { name: /往右试推一格/ }).click();
+  await slicePanel.getByRole("button", { name: /← 往左试推一格/ }).click();
+  await expect(slicePanel.getByText(/没有回到原位/)).toBeVisible();
+
+  const stage4Viewport = page.viewportSize();
+  for (const width of [1440, 1024, 390]) {
+    await page.setViewportSize({ width, height: 900 });
+    const overflow = await slicePanel.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return (
+        box.right > window.innerWidth + 1 ||
+        el.scrollWidth > el.clientWidth + 1 ||
+        Array.from(el.querySelectorAll<HTMLElement>(".ml-svg-chart, .ml-trail-chips")).some(
+          (child) => child.getBoundingClientRect().right > window.innerWidth + 1,
+        )
+      );
+    });
+    expect(overflow, `Stage 4 slice panel overflows at ${width}px`).toBe(false);
+  }
+  if (stage4Viewport) await page.setViewportSize(stage4Viewport);
+
   await page.getByRole("button", { name: "适中 η = 0.1" }).click();
   for (const prompt of ML_STAGES[3].prompts) {
     await page

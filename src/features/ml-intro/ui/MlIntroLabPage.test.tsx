@@ -315,7 +315,7 @@ describe("MlIntroLabPage", () => {
     await screen.findByText("已保存");
   });
 
-  it("renders Stage 3 Sigmoid curve and prefilled positive-bias blacklist starter", async () => {
+  it("renders Stage 3 Sigmoid curve with all 6 calibration messages and prefilled blacklist starter", async () => {
     const project = makeProject({
       currentStage: 3,
       passedStages: [1, 2],
@@ -325,7 +325,74 @@ describe("MlIntroLabPage", () => {
     await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
     await screen.findByRole("heading", { name: "把分数换成概率" });
 
-    expect(screen.getByLabelText("Sigmoid 曲线与当前模型定位")).toBeInTheDocument();
+    const chart = screen.getByLabelText("Sigmoid 曲线与当前模型定位");
+    expect(chart).toBeInTheDocument();
+    // 1 bias diamond + 6 message circles
+    expect(chart.querySelectorAll("circle").length).toBeGreaterThanOrEqual(6);
     expect(screen.getByText(/没有已知词时的垃圾概率：59\.9%/)).toBeInTheDocument();
+
+    // Clicking another SMS dot on the Sigmoid curve updates the selected message breakdown.
+    const hamDotTitle = within(chart as unknown as HTMLElement).getByText(/含「免费」的正常短信/);
+    fireEvent.click(hamDotTitle.closest("g")!);
+    expect(screen.getByText(/当前选中的短信拆解：含「免费」的正常短信/)).toBeInTheDocument();
+  });
+
+  it("renders Stage 4 role-focused visuals, single math appendix toggle, and plain-language 1D slice", async () => {
+    stubMlFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+        drafts: { 4: { eta: 0.1, epochs: 12, inspectEpoch: 12, showBgd: false, concepts: {} } },
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+
+    // Role cards & single-step penalty curve are immediately visible while math appendix starts collapsed.
+    expect(screen.getByText(/损失（Loss）= 猜错扣分表/)).toBeInTheDocument();
+    expect(screen.getByText(/斜率 \/ 梯度 = 调参指南针/)).toBeInTheDocument();
+    expect(screen.getByLabelText("预测概率与猜错扣分曲线")).toBeInTheDocument();
+    expect(screen.getByText(/这次会怎么推权重？/)).toBeInTheDocument();
+
+    const appendixToggle = screen.getByRole("button", { name: /查看背后的数学推导/ });
+    expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText(/合并两种标签的猜对概率/)).not.toBeInTheDocument();
+
+    fireEvent.click(appendixToggle);
+    expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText(/合并两种标签的猜对概率/)).toBeInTheDocument();
+    expect(screen.getByText(/上下约去 p\(1 − p\)/)).toBeInTheDocument();
+
+    // 1D slice explorer shows real-SMS classification impact and asymmetric stepped jumps.
+    const slicePanel = screen.getByRole("region", { name: "单维权重与损失切片探索" });
+    expect(within(slicePanel).getByText(/含「免费」样本：14 条/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/按 50% 门槛判对/)).toBeInTheDocument();
+
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /往右试推一格/ }));
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /← 往左试推一格/ }));
+    expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/坡度（偏导）不同/)).toBeInTheDocument();
+
+    // Overshoot bounce demo preset + two gradient descent steps.
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "示例：步子太大跨过头" }));
+    expect(within(slicePanel).getByText(/含「好」样本：111 条/)).toBeInTheDocument();
+    const stepBtn = within(slicePanel).getByRole("button", { name: /顺坡走一步/ });
+    fireEvent.click(stepBtn);
+    fireEvent.click(stepBtn);
+    expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
+
+    // Switching context mode to trained model shows real classification counts & learned weight.
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "当前训练模型权重" }));
+    expect(within(slicePanel).getByText(/训练后的模型为「好」学到的权重/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/误拦正常/)).toBeInTheDocument();
+
+    // Keyboard slider adjustment updates position and clears trail.
+    const handle = within(slicePanel).getByRole("slider", { name: /拖动调整词「好」的权重/ });
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(
+      within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
+    ).not.toBeInTheDocument();
   });
 });

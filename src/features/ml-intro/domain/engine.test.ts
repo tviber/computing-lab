@@ -13,6 +13,13 @@ import {
   trainLogisticRegression,
 } from "./logreg.ts";
 import {
+  buildWordSliceDataset,
+  evaluateSliceAt,
+  sampleLossSliceCurve,
+  SLICE_WORD_OPTIONS,
+  stepSliceWeight,
+} from "./lossSlice.ts";
+import {
   SCORE_CALIBRATION_SMS,
   TOKENIZE_PUZZLE_ITEMS,
   TOKENIZE_PUZZLE_SENTENCE,
@@ -338,5 +345,57 @@ describe("ml-intro domain engine", () => {
     expect(inspection.rawZ).toBeCloseTo(1.7, 5);
     expect(inspection.probability).toBeCloseTo(sigmoid(1.7), 6);
     expect(inspection.pred).toBe(1);
+  });
+
+  it("computes 1D weight-loss slices with convex bowls and asymmetric gradient steps", () => {
+    const corpus = getPublicCorpus();
+    const run = trainLogisticRegression({ trainCount: 1400, eta: 0.1, epochs: 12 });
+
+    for (const opt of SLICE_WORD_OPTIONS) {
+      const zeroDs = buildWordSliceDataset(opt.word, corpus.train, null);
+      expect(zeroDs.posCount).toBeGreaterThan(0);
+      expect(zeroDs.negCount).toBeGreaterThan(0);
+
+      const zeroCurve = sampleLossSliceCurve(zeroDs.samples);
+      const expectedOptW = Math.log(zeroDs.posCount / zeroDs.negCount);
+      expect(zeroCurve.minPoint.w).toBeCloseTo(expectedOptW, 0);
+
+      const trainedDs = buildWordSliceDataset(opt.word, corpus.train, run.finalModel);
+      expect(trainedDs.totalCount).toBe(zeroDs.totalCount);
+      const trainedCurve = sampleLossSliceCurve(trainedDs.samples);
+      expect(trainedCurve.maxLoss).toBeGreaterThan(trainedCurve.minLoss);
+    }
+
+    // Verify asymmetric return: stepping right (+eta|grad|) from pos1=1.5 then left (-eta|grad|)
+    // lands on a different coordinate because partial derivatives differ at the two points.
+    const freeDs = buildWordSliceDataset("免费", corpus.train, null);
+    const stepRight = stepSliceWeight(freeDs.samples, 1.5, 2.0, "right");
+    expect(stepRight.to.w).toBeGreaterThan(1.5);
+    const stepBackLeft = stepSliceWeight(freeDs.samples, stepRight.to.w, 2.0, "left");
+    expect(stepBackLeft.to.w).not.toBeCloseTo(1.5, 2);
+    expect(stepRight.from.grad).not.toBeCloseTo(stepRight.to.grad, 2);
+
+    // At the analytical minimum, gradient is ~0 and descent step vanishes.
+    const optW = Math.log(freeDs.posCount / freeDs.negCount);
+    const atMin = stepSliceWeight(freeDs.samples, optW, 2.0, "descent");
+    expect(atMin.isAtMinimum).toBe(true);
+    expect(Math.abs(atMin.actualDelta)).toBeLessThan(1e-3);
+
+    // Large eta on "好" overshoots the valley and bounces asymmetrically.
+    const haoDs = buildWordSliceDataset("好", corpus.train, null);
+    const jump1 = stepSliceWeight(haoDs.samples, 2.0, 6.5, "descent");
+    expect(jump1.to.w).toBeLessThan(0);
+    const jump2 = stepSliceWeight(haoDs.samples, jump1.to.w, 6.5, "descent");
+    expect(jump2.to.w).toBeGreaterThan(0);
+    expect(jump2.to.w).not.toBeCloseTo(2.0, 2);
+    expect(evaluateSliceAt(haoDs.samples, jump2.to.w).loss).toBeLessThan(jump1.from.loss);
+
+    // Slice eval reports real classification impact and mean predicted spam probability.
+    const freeEval = evaluateSliceAt(freeDs.samples, 2.0);
+    expect(freeEval.totalCount).toBe(14);
+    expect(freeEval.correctCount).toBe(8);
+    expect(freeEval.fpCount).toBe(6);
+    expect(freeEval.fnCount).toBe(0);
+    expect(freeEval.meanProb).toBeCloseTo(sigmoid(2.0), 6);
   });
 });

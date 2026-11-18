@@ -11,6 +11,9 @@ import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { ExperimentComparison } from "./ExperimentComparison.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { LossChartSvg } from "./LossChartSvg.tsx";
+import { LossDerivationCard } from "./LossDerivationCard.tsx";
+import { SingleStepPenaltyVisual } from "./SingleStepPenaltyVisual.tsx";
+import { WeightLossSliceExplorer } from "./WeightLossSliceExplorer.tsx";
 import { WeightSpectrum } from "./WeightSpectrum.tsx";
 
 const ETA_PRESETS = [
@@ -114,16 +117,16 @@ export function TrainPanel({
         </div>
         <div className="ml-micro-metrics">
           <div className="ml-stat-box">
-            <span>交叉熵损失</span>
+            <span>猜错扣分（Loss）</span>
             <strong className="ml-mono">{stepDemo.loss.toFixed(3)}</strong>
             <small>
               {stepDemo.loss > 1.2
                 ? "模型对真实标签的预测概率较低"
-                : "损失越低，预测越接近真实标签"}
+                : "扣分越低，预测越接近真实标签"}
             </small>
           </div>
           <div className="ml-stat-box">
-            <span>误差信号 (p − y)</span>
+            <span>偏差信号 (p − y)</span>
             <strong className="ml-mono">
               {stepDemo.errorSignal >= 0 ? "+" : ""}
               {stepDemo.errorSignal.toFixed(2)}
@@ -145,7 +148,17 @@ export function TrainPanel({
             </small>
           </div>
         </div>
+        <SingleStepPenaltyVisual
+          deltaW={stepDemo.deltaW}
+          eta={draft.eta}
+          loss={stepDemo.loss}
+          predP={stepPredP}
+          trueY={stepTrueY}
+        />
+        <LossDerivationCard />
       </section>
+
+      <WeightLossSliceExplorer trainedModel={run.finalModel} />
 
       <section className="ml-panel">
         <div className="ml-panel-head">
