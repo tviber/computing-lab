@@ -244,13 +244,19 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await page.getByRole("button", { name: /进入下一关/ }).click();
   await expect(page.getByRole("heading", { name: "让模型调整权重", exact: true })).toBeVisible();
 
-  // Stage 4: Role-focused visuals, single appendix toggle, 1D slice explorer, steady preset + concepts
+  // Stage 4: Training before/after comparison first, role visuals, appendix toggle, collapsible advanced 1D slice
+  await expect(page.getByText(/训练前后效果对比/)).toBeVisible();
   await expect(page.getByText(/损失（Loss）= 猜错扣分表/)).toBeVisible();
   await expect(page.getByLabel("预测概率与猜错扣分曲线")).toBeVisible();
   const appendixToggle = page.getByRole("button", { name: /数学推导/ });
   await expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
   await appendixToggle.click();
   await expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
+
+  const advancedToggle = page.getByRole("button", { name: /进阶探索：单维权重切片图/ });
+  await expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+  await advancedToggle.click();
+  await expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
 
   const slicePanel = page.getByRole("region", { name: "单维权重与损失切片探索" });
   await slicePanel.getByRole("button", { name: /往右试推一格/ }).click();

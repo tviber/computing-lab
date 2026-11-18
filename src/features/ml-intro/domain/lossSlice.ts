@@ -235,7 +235,7 @@ export function sampleLossSliceCurve(
 
 /**
  * Computes one discrete update of size |eta * dL/dw_j| from `currentW`.
- * - "descent": follows -eta * grad (always downhill)
+ * - "descent": steps along the instantaneous negative gradient -eta * grad
  * - "left": moves left by eta * |grad|
  * - "right": moves right by eta * |grad|
  */

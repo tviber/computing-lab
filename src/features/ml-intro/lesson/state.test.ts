@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { createMlLessonState, draftOf, sanitizeMlDraft, transitionMlLesson } from "./state.ts";
+import {
+  createMlLessonState,
+  draftOf,
+  isStageUnlocked,
+  sanitizeMlDraft,
+  transitionMlLesson,
+} from "./state.ts";
 import { mlStageUnlocked, nextMlStage } from "../domain/stages.ts";
 
 describe("ml-intro lesson state", () => {
@@ -87,5 +93,16 @@ describe("ml-intro lesson state", () => {
 
     state = transitionMlLesson(state, { type: "select-stage", stageIndex: 2 });
     expect(state.stageIndex).toBe(1);
+
+    // Classroom mode allows navigating across all stages without altering formal passedStages,
+    // and turning it off returns to the highest formally reachable stage.
+    state = transitionMlLesson(state, { type: "set-classroom-mode", enabled: true });
+    expect(isStageUnlocked(state, 4)).toBe(true);
+    state = transitionMlLesson(state, { type: "select-stage", stageIndex: 4 });
+    expect(state.stageIndex).toBe(4);
+
+    state = transitionMlLesson(state, { type: "set-classroom-mode", enabled: false });
+    expect(state.stageIndex).toBe(1);
+    expect(isStageUnlocked(state, 4)).toBe(false);
   });
 });

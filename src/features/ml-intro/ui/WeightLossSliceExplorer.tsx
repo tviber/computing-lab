@@ -372,7 +372,9 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
       <p className="ml-muted-note">
         {wordMeta.note}
         {contextMode === "trained" && learnedW !== undefined
-          ? ` 训练后的模型为「${selectedWord}」学到的权重是 ${fmtSigned(learnedW)}，刚好落在这条曲线的谷底 w* ≈ ${fmtSigned(curve.minPoint.w, 2)} 附近。`
+          ? Math.abs(learnedW - curve.minPoint.w) <= 0.35
+            ? ` 当前模型为「${selectedWord}」学到的权重是 ${fmtSigned(learnedW)}，已经靠近这条曲线的最低谷 w* ≈ ${fmtSigned(curve.minPoint.w, 2)}。`
+            : ` 当前模型为「${selectedWord}」学到的权重是 ${fmtSigned(learnedW)}，与当前曲线最低谷 w* ≈ ${fmtSigned(curve.minPoint.w, 2)} 仍有差距（可能上方学习率/轮数尚未收敛或波动较大）。`
           : ` 在起点全 0 时，曲线最低点位于 w* ≈ ${fmtSigned(curve.minPoint.w, 2)}。`}
       </p>
 
@@ -498,6 +500,33 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
           >
             最低谷 w*≈{curve.minPoint.w.toFixed(2)}
           </text>
+
+          {contextMode === "trained" &&
+          learnedW !== undefined &&
+          learnedW >= SLICE_MIN_W &&
+          learnedW <= SLICE_MAX_W ? (
+            <g>
+              <line
+                stroke="var(--primary)"
+                strokeDasharray="2 2"
+                strokeOpacity="0.6"
+                strokeWidth="1.1"
+                x1={xOfW(learnedW)}
+                x2={xOfW(learnedW)}
+                y1={PAD_T + 8}
+                y2={H - PAD_B}
+              />
+              <text
+                fill="var(--primary)"
+                fontSize="8.5"
+                textAnchor="middle"
+                x={Math.max(PAD_L + 32, Math.min(W - PAD_R - 32, xOfW(learnedW)))}
+                y={H - PAD_B - 4}
+              >
+                模型 w={learnedW.toFixed(2)}
+              </text>
+            </g>
+          ) : null}
 
           <polyline fill="none" points={curvePts} stroke="var(--accent)" strokeWidth="2.4" />
 

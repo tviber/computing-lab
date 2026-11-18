@@ -1666,9 +1666,113 @@
   color: var(--muted);
 }
 
+/* ---- Classroom Mode Toggle & Stage 4 Before/After + Advanced Drawer ---- */
+
+.ml-rail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ml-classroom-toggle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 16px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.ml-classroom-btn {
+  width: 100%;
+  justify-content: center;
+  font-size: 12.5px;
+}
+
+.ml-classroom-banner {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.ml-before-after {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+
+.ml-before-after-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.ml-before-after-head h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.ml-before-after-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.ml-spotlight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.ml-spotlight-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+
+.ml-spotlight-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--primary);
+}
+
+.ml-spotlight-prob {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.ml-advanced-box .ml-panel-head p {
+  margin-top: 4px;
+}
+
 @media (max-width: 960px) {
   .ml-case-return {
     display: inline-flex;
+  }
+
+  .ml-classroom-toggle-card {
+    padding-right: 0;
+  }
+
+  .ml-spotlight-row {
+    grid-template-columns: 1fr;
+    align-items: start;
   }
 
   .ml-penalty-grid,

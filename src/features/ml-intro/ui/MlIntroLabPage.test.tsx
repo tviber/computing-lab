@@ -351,6 +351,8 @@ describe("MlIntroLabPage", () => {
     await screen.findByRole("heading", { name: "让模型调整权重" });
 
     // Role cards & single-step penalty curve are immediately visible while math appendix starts collapsed.
+    expect(screen.getByText(/训练前后效果对比/)).toBeInTheDocument();
+    expect(screen.getByText(/训练前（全 0 权重各猜 50%）：分对 42 \/ 300 条/)).toBeInTheDocument();
     expect(screen.getByText(/损失（Loss）= 猜错扣分表/)).toBeInTheDocument();
     expect(screen.getByText(/斜率 \/ 梯度 = 调参指南针/)).toBeInTheDocument();
     expect(screen.getByLabelText("预测概率与猜错扣分曲线")).toBeInTheDocument();
@@ -364,6 +366,16 @@ describe("MlIntroLabPage", () => {
     expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText(/合并两种标签的猜对概率/)).toBeInTheDocument();
     expect(screen.getByText(/上下约去 p\(1 − p\)/)).toBeInTheDocument();
+
+    // Advanced 1D weight-loss slice explorer starts collapsed by default.
+    const advancedToggle = screen.getByRole("button", { name: /展开进阶探索：单维权重切片图/ });
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("region", { name: "单维权重与损失切片探索" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
 
     // 1D slice explorer shows real-SMS classification impact and asymmetric stepped jumps.
     const slicePanel = screen.getByRole("region", { name: "单维权重与损失切片探索" });
@@ -383,10 +395,14 @@ describe("MlIntroLabPage", () => {
     fireEvent.click(stepBtn);
     expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
 
-    // Switching context mode to trained model shows real classification counts & learned weight.
+    // Switching context mode to trained model checks proximity honestly rather than unconditionally claiming valley.
     fireEvent.click(within(slicePanel).getByRole("button", { name: "当前训练模型权重" }));
-    expect(within(slicePanel).getByText(/训练后的模型为「好」学到的权重/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/当前模型为「好」学到的权重/)).toBeInTheDocument();
     expect(within(slicePanel).getByText(/误拦正常/)).toBeInTheDocument();
+
+    // Under-trained eta = 0.002 warns that learned weight has not reached w*.
+    fireEvent.click(screen.getByRole("button", { name: "较小 η = 0.002" }));
+    await waitFor(() => expect(within(slicePanel).getByText(/仍有差距/)).toBeInTheDocument());
 
     // Keyboard slider adjustment updates position and clears trail.
     const handle = within(slicePanel).getByRole("slider", { name: /拖动调整词「好」的权重/ });
@@ -394,5 +410,34 @@ describe("MlIntroLabPage", () => {
     expect(
       within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
     ).not.toBeInTheDocument();
+  });
+
+  it("allows teacher or classroom free-navigation mode across stages while guarding formal judge submission", async () => {
+    const fetchSpy = stubMlFetch(makeProject({ currentStage: 1, passedStages: [] }), () =>
+      json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+    expect(screen.getByRole("button", { name: /让模型调整权重/ })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "教师演示：自由切关" }));
+    const stage4Btn = screen.getByRole("button", { name: /让模型调整权重/ });
+    expect(stage4Btn).toBeEnabled();
+    fireEvent.click(stage4Btn);
+
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+    expect(screen.getByText(/当前为「课堂自由跳关」预览模式/)).toBeInTheDocument();
+
+    // Answer Stage 4 concepts and attempt formal submit while Stage 1-3 remain unpassed.
+    for (const prompt of ML_STAGES[3].prompts) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+      );
+    }
+    fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+    expect(screen.getByText(/如需正式提交过关记录，请先通过前面的关卡/)).toBeInTheDocument();
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(false);
   });
 });

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import {
   MAX_SAMPLE_SIZE,
   rethresholdPredictions,
@@ -39,15 +39,18 @@ export function EvaluatePanel({
   onSubmit: () => void;
   onNextStage: () => void;
 }) {
+  const deferredEta = useDeferredValue(draft.eta);
+  const deferredEpochs = useDeferredValue(draft.epochs);
+
   const baseRun = useMemo(
     () =>
       trainLogisticRegression({
         trainCount: MAX_SAMPLE_SIZE,
-        eta: draft.eta,
-        epochs: draft.epochs,
+        eta: deferredEta,
+        epochs: deferredEpochs,
         threshold: 0.5,
       }),
-    [draft.eta, draft.epochs],
+    [deferredEta, deferredEpochs],
   );
 
   const reEval = useMemo(

@@ -329,6 +329,7 @@ export type MlLessonState = {
   stageIndex: number;
   currentStage: number;
   passedStages: number[];
+  classroomMode: boolean;
   drafts: Record<number, MlDraft>;
   conflictedLocalDrafts: Record<number, MlDraft>;
   draftRevisions: Record<number, number>;
@@ -349,6 +350,7 @@ export type MlLessonAction =
       runSummaries?: MlProjectExtras["runSummaries"];
     }
   | { type: "select-stage"; stageIndex: number }
+  | { type: "set-classroom-mode"; enabled: boolean }
   | { type: "update-stage1"; draft: StrategyDraft }
   | { type: "update-stage2"; draft: TokenizeDraft }
   | { type: "update-stage3"; draft: ScoreDraft }
@@ -384,12 +386,13 @@ const SUMMARY_KEYS: Record<number, keyof MlProjectExtras["runSummaries"]> = {
   6: "s6",
 };
 
-export function createMlLessonState(initialStage = 1): MlLessonState {
+export function createMlLessonState(initialStage = 1, classroomMode = false): MlLessonState {
   const stageIndex = getMlStage(initialStage) ? initialStage : 1;
   return {
     stageIndex,
     currentStage: 1,
     passedStages: [],
+    classroomMode,
     drafts: {
       1: defaultStrategyDraft(),
       2: defaultTokenizeDraft(),
@@ -413,7 +416,10 @@ export function stageOf(state: MlLessonState): MlStageDef | undefined {
 }
 
 export function isStageUnlocked(state: MlLessonState, stageIndex: number): boolean {
-  return mlStageUnlocked(state.passedStages, stageIndex);
+  return (
+    Boolean(getMlStage(stageIndex)) &&
+    (state.classroomMode || mlStageUnlocked(state.passedStages, stageIndex))
+  );
 }
 
 export function draftOf(state: MlLessonState, stageIndex: number): MlDraft {
@@ -460,11 +466,15 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
         const s = Number(key);
         if (getMlStage(s)) drafts[s] = sanitizeMlDraft(s, draft);
       }
-      const candidate = mlStageUnlocked(action.passedStages, action.currentStage)
-        ? action.currentStage
-        : mlStageUnlocked(action.passedStages, state.stageIndex)
+      const candidate = state.classroomMode
+        ? getMlStage(state.stageIndex) && state.stageIndex !== 1
           ? state.stageIndex
-          : 1;
+          : action.currentStage
+        : mlStageUnlocked(action.passedStages, action.currentStage)
+          ? action.currentStage
+          : mlStageUnlocked(action.passedStages, state.stageIndex)
+            ? state.stageIndex
+            : 1;
       const stageIndex = getMlStage(candidate) ? candidate : ML_STAGES.length;
       return {
         ...state,
@@ -484,6 +494,16 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
     case "select-stage":
       if (!isStageUnlocked(state, action.stageIndex)) return state;
       return { ...state, stageIndex: action.stageIndex, judgeOutcome: null };
+
+    case "set-classroom-mode": {
+      if (action.enabled === state.classroomMode) return state;
+      if (action.enabled || mlStageUnlocked(state.passedStages, state.stageIndex)) {
+        return { ...state, classroomMode: action.enabled };
+      }
+      const fallback = nextMlStage(state.passedStages);
+      const stageIndex = getMlStage(fallback) ? fallback : ML_STAGES.length;
+      return { ...state, classroomMode: false, stageIndex, judgeOutcome: null };
+    }
 
     case "update-stage1":
       return state.stageIndex === 1 ? withDraft(state, 1, action.draft) : state;

@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useDeferredValue, useMemo } from "react";
 import { rethresholdPredictions, trainLogisticRegression } from "../domain/logreg.ts";
 import type { GeneralizeDraft, MlTestSummary } from "../domain/protocol.ts";
 import type { MlStageDef } from "../domain/stages.ts";
@@ -47,15 +47,19 @@ export function GeneralizePanel({
   onSubmit: () => void;
   onNextStage: () => void;
 }) {
+  const deferredSampleSize = useDeferredValue(draft.sampleSize);
+  const deferredEta = useDeferredValue(draft.eta);
+  const deferredEpochs = useDeferredValue(draft.epochs);
+
   const baseRun = useMemo(
     () =>
       trainLogisticRegression({
-        trainCount: draft.sampleSize,
-        eta: draft.eta,
-        epochs: draft.epochs,
+        trainCount: deferredSampleSize,
+        eta: deferredEta,
+        epochs: deferredEpochs,
         threshold: 0.5,
       }),
-    [draft.sampleSize, draft.eta, draft.epochs],
+    [deferredSampleSize, deferredEta, deferredEpochs],
   );
 
   const reEval = useMemo(

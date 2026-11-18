@@ -424,12 +424,46 @@ export type TrainingOptions = {
   topWordsCount?: number;
 };
 
+type PreparedPublicSplit = {
+  vocab: string[];
+  vocabSet: Set<string>;
+  wordToIndex: Map<string, number>;
+  docFreq: Int32Array;
+  trainVecs: VectorizedMessage[];
+  valVecs: VectorizedMessage[];
+};
+
+const publicSplitCache = new Map<number, PreparedPublicSplit>();
+
+function getPreparedPublicSplit(trainCount: number): PreparedPublicSplit {
+  const cached = publicSplitCache.get(trainCount);
+  if (cached) return cached;
+  const pub = getPublicCorpus();
+  const trainSlice = pub.train.slice(0, trainCount);
+  const { vocab, vocabSet, wordToIndex, docFreq } = buildVocabFromTrain(trainSlice);
+  const prepared: PreparedPublicSplit = {
+    vocab,
+    vocabSet,
+    wordToIndex,
+    docFreq,
+    trainVecs: vectorizeMessages(trainSlice, wordToIndex),
+    valVecs: vectorizeMessages(pub.val, wordToIndex),
+  };
+  if (publicSplitCache.size >= 32) {
+    const oldest = publicSplitCache.keys().next().value;
+    if (oldest !== undefined) publicSplitCache.delete(oldest);
+  }
+  publicSplitCache.set(trainCount, prepared);
+  return prepared;
+}
+
 /**
  * Deterministic Bag-of-Words logistic regression trainer using seeded
  * per-epoch shuffled SGD (with optional real intra-epoch SGD checkpoints
  * and full-batch BGD epoch reference).
  */
 export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
+  const usesCustomCorpus = Boolean(options.trainMessages || options.valMessages);
   const pub = getPublicCorpus();
   const fullTrain = options.trainMessages ?? pub.train;
   const valMessages = options.valMessages ?? pub.val;
@@ -446,10 +480,31 @@ export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
   const shuffleEpochs = options.shuffleEpochs ?? true;
   const topWordsCount = options.topWordsCount ?? 10;
 
-  const trainSlice = fullTrain.slice(0, trainCount);
-  const { vocab, vocabSet, wordToIndex, docFreq } = buildVocabFromTrain(trainSlice);
-  const trainVecs = vectorizeMessages(trainSlice, wordToIndex);
-  const valVecs = vectorizeMessages(valMessages, wordToIndex);
+  let vocab: string[];
+  let vocabSet: Set<string>;
+  let wordToIndex: Map<string, number>;
+  let docFreq: Int32Array;
+  let trainVecs: VectorizedMessage[];
+  let valVecs: VectorizedMessage[];
+
+  if (!usesCustomCorpus) {
+    const prepared = getPreparedPublicSplit(trainCount);
+    vocab = prepared.vocab;
+    vocabSet = prepared.vocabSet;
+    wordToIndex = prepared.wordToIndex;
+    docFreq = prepared.docFreq;
+    trainVecs = prepared.trainVecs;
+    valVecs = prepared.valVecs;
+  } else {
+    const trainSlice = fullTrain.slice(0, trainCount);
+    const built = buildVocabFromTrain(trainSlice);
+    vocab = built.vocab;
+    vocabSet = built.vocabSet;
+    wordToIndex = built.wordToIndex;
+    docFreq = built.docFreq;
+    trainVecs = vectorizeMessages(trainSlice, wordToIndex);
+    valVecs = vectorizeMessages(valMessages, wordToIndex);
+  }
 
   const weights = new Float64Array(vocab.length);
   let bias = 0;
