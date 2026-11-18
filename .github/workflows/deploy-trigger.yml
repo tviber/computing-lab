@@ -27,7 +27,7 @@ jobs:
     steps:
       - name: Sign and send deployment webhook
         env:
-          DEPLOY_HOOK_URL: ${{ vars.DEPLOY_HOOK_URL }}
+          DEPLOY_HOOK_URL: ${{ vars.DEPLOY_HOOK_URL || secrets.DEPLOY_HOOK_URL }}
           SECRET: ${{ secrets.DEPLOY_HOOK_SECRET }}
           WORKFLOW_SHA: ${{ github.event.workflow_run.head_sha }}
           WORKFLOW_BRANCH: ${{ github.event.workflow_run.head_branch }}
