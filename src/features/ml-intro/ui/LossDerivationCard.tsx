@@ -58,15 +58,25 @@ export function LossDerivationCard() {
             <p className="ml-subhead">1. 为什么扣分公式长成交叉熵？（极大似然 → 最小化 Loss）</p>
             <ol className="ml-derivation-steps">
               <li>
-                合并两种标签的猜对概率：
+                合并两种标签的猜对概率，先写出<strong>第 i 条短信</strong>的似然与单样本扣分：
                 <code className="ml-mono ml-math-line">
-                  P(y | x) = p<sup>y</sup> · (1 − p)<sup>1−y</sup>
+                  P(y<sub>i</sub> | x<sub>i</sub>) = p<sub>i</sub>
+                  <sup>
+                    y<sub>i</sub>
+                  </sup>{" "}
+                  · (1 − p<sub>i</sub>)
+                  <sup>
+                    1−y<sub>i</sub>
+                  </sup>{" "}
+                  ， ℓ<sub>i</sub> = −ln P(y<sub>i</sub> | x<sub>i</sub>) = −[ y<sub>i</sub> ln(p
+                  <sub>i</sub>) + (1 − y<sub>i</sub>) ln(1 − p<sub>i</sub>) ]
                 </code>
               </li>
               <li>
-                极大似然（希望所有样本同时猜对的联合概率最大）：
+                极大似然（希望所有 N 条短信同时猜对的联合概率最大）：
                 <code className="ml-mono ml-math-line">
-                  max ∏<sub>i=1..N</sub> p<sub>i</sub>
+                  max ∏<sub>i=1..N</sub> P(y<sub>i</sub> | x<sub>i</sub>) = max ∏<sub>i=1..N</sub> p
+                  <sub>i</sub>
                   <sup>
                     y<sub>i</sub>
                   </sup>{" "}
@@ -77,36 +87,51 @@ export function LossDerivationCard() {
                 </code>
               </li>
               <li>
-                取对数让连乘变求和，再取负号与均值变成“最小化损失”：
+                取对数让连乘变求和，再取负号与均值，得到<strong>整个训练集的平均损失 L</strong>：
                 <code className="ml-mono ml-math-line">
-                  min L = −(1/N) ∑<sub>i=1..N</sub> [ y<sub>i</sub> ln(p<sub>i</sub>) + (1 − y
-                  <sub>i</sub>) ln(1 − p<sub>i</sub>) ]
+                  min L = (1/N) ∑<sub>i=1..N</sub> ℓ<sub>i</sub> = −(1/N) ∑<sub>i=1..N</sub> [ y
+                  <sub>i</sub> ln(p<sub>i</sub>) + (1 − y<sub>i</sub>) ln(1 − p<sub>i</sub>) ]
                 </code>
               </li>
             </ol>
           </div>
 
           <div className="ml-derivation-body">
-            <p className="ml-subhead">2. 为什么每次改动量刚好是 −η·(p − y)·xⱼ？（链式求导）</p>
+            <p className="ml-subhead">
+              2. 为什么每次改动量刚好是 −η·(p − y)·xⱼ？（先看单样本，再看整批平均）
+            </p>
             <ol className="ml-derivation-steps">
               <li>
-                拆三层求导（z = w·x + b，p = σ(z)）：
+                先对<strong>单样本损失 ℓᵢ</strong> 拆三层求导（z<sub>i</sub> = w·x<sub>i</sub> +
+                b，p
+                <sub>i</sub> = σ(z<sub>i</sub>)）：
                 <code className="ml-mono ml-math-line">
-                  ∂L / ∂w<sub>j</sub> = (∂L / ∂p) · (∂p / ∂z) · (∂z / ∂w<sub>j</sub>)
+                  ∂ℓ<sub>i</sub> / ∂w<sub>j</sub> = (∂ℓ<sub>i</sub> / ∂p<sub>i</sub>) · (∂p
+                  <sub>i</sub> / ∂z<sub>i</sub>) · (∂z<sub>i</sub> / ∂w<sub>j</sub>)
                 </code>
               </li>
               <li>
-                交叉熵导数与 Sigmoid 导数：
+                单样本交叉熵导数与 Sigmoid 导数：
                 <code className="ml-mono ml-math-line">
-                  ∂L / ∂p = (p − y) / [p(1 − p)] ， ∂p / ∂z = p(1 − p)
+                  ∂ℓ<sub>i</sub> / ∂p<sub>i</sub> = (p<sub>i</sub> − y<sub>i</sub>) / [p
+                  <sub>i</sub>(1 − p<sub>i</sub>)] ， ∂p<sub>i</sub> / ∂z<sub>i</sub> = p
+                  <sub>i</sub>(1 − p<sub>i</sub>)
                 </code>
               </li>
               <li>
-                上下约去 p(1 − p)，再乘 ∂z/∂w<sub>j</sub> = x<sub>j</sub>（0/1 词袋中出现为
-                1，未出现为 0）：
+                上下约去 p<sub>i</sub>(1 − p<sub>i</sub>)，再乘 ∂z<sub>i</sub>/∂w<sub>j</sub> = x
+                <sub>ij</sub>，得到 <strong>SGD（每次读 1 条就更新）</strong> 的单步公式：
                 <code className="ml-mono ml-math-line">
-                  ∂L / ∂w<sub>j</sub> = (p − y) · x<sub>j</sub> ⇒ w<sub>j</sub> ← w<sub>j</sub> − η
-                  · (p − y) · x<sub>j</sub>
+                  ∂ℓ<sub>i</sub> / ∂w<sub>j</sub> = (p<sub>i</sub> − y<sub>i</sub>) · x<sub>ij</sub>{" "}
+                  ⇒ w<sub>j</sub> ← w<sub>j</sub> − η · (p<sub>i</sub> − y<sub>i</sub>) · x
+                  <sub>ij</sub>
+                </code>
+              </li>
+              <li>
+                对全部 N 条训练短信求平均，就是 <strong>整批平均损失 L 的梯度（BGD）</strong>：
+                <code className="ml-mono ml-math-line">
+                  ∂L / ∂w<sub>j</sub> = (1/N) ∑<sub>i=1..N</sub> (∂ℓ<sub>i</sub> / ∂w<sub>j</sub>) =
+                  (1/N) ∑<sub>i=1..N</sub> (p<sub>i</sub> − y<sub>i</sub>) · x<sub>ij</sub>
                 </code>
               </li>
             </ol>

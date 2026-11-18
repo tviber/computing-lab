@@ -245,7 +245,11 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   await expect(page.getByRole("heading", { name: "让模型调整权重", exact: true })).toBeVisible();
 
   // Stage 4: Training before/after comparison first, role visuals, appendix toggle, collapsible advanced 1D slice
-  await expect(page.getByText(/训练前后效果对比/)).toBeVisible();
+  const beforeAfter = page.getByLabel("训练前后验证短信表现对比");
+  await expect(beforeAfter).toBeVisible();
+  await expect(beforeAfter.getByText(/训练前（全 0 权重各猜 50%）/)).toBeVisible();
+  await expect(beforeAfter.getByText(/多数类基线（不学词 · 一律猜正常）/)).toBeVisible();
+  await expect(beforeAfter.getByText(/BCE Loss 0\.6931 →/)).toBeVisible();
   await expect(page.getByText(/损失（Loss）= 猜错扣分表/)).toBeVisible();
   await expect(page.getByLabel("预测概率与猜错扣分曲线")).toBeVisible();
   const appendixToggle = page.getByRole("button", { name: /数学推导/ });
@@ -266,6 +270,11 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
   const stage4Viewport = page.viewportSize();
   for (const width of [1440, 1024, 390]) {
     await page.setViewportSize({ width, height: 900 });
+    const baselineOverflow = await beforeAfter.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      return box.right > window.innerWidth + 1 || el.scrollWidth > el.clientWidth + 1;
+    });
+    expect(baselineOverflow, `Stage 4 baseline strip overflows at ${width}px`).toBe(false);
     const overflow = await slicePanel.evaluate((el) => {
       const box = el.getBoundingClientRect();
       return (
@@ -358,6 +367,9 @@ test("walks through all 6 stages of ml-intro with persistence and sealed Stage 6
 
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await expect(page.getByText("300 条未公开短信测试", { exact: true })).toBeVisible();
+
+  await page.goto("labs/ml-intro?classroom=1&stage=1", { waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });

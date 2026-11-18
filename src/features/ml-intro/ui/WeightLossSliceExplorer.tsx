@@ -24,6 +24,13 @@ type TrailPoint = SliceEval & {
 
 type ContextMode = "zero" | "trained";
 
+type ContextScopedState<T> = {
+  word: string;
+  contextMode: ContextMode;
+  trainedModel: TrainedModel | null;
+  value: T;
+};
+
 const ETA_QUICK_PRESETS = [
   { label: "稳步 η = 0.8", eta: 0.8 },
   { label: "适中 η = 2.0", eta: 2.0 },
@@ -85,15 +92,16 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
   const [contextMode, setContextMode] = useState<ContextMode>("zero");
   const [sliceEta, setSliceEta] = useState<number>(2.0);
   const [currentW, setCurrentW] = useState<number>(DEFAULT_START_W);
-  const [trail, setTrail] = useState<TrailPoint[] | null>(null);
+  const [trailState, setTrailState] = useState<ContextScopedState<TrailPoint[]> | null>(null);
   const [dragging, setDragging] = useState(false);
-  const [statusHint, setStatusHint] = useState<string | null>(null);
+  const [hintState, setHintState] = useState<ContextScopedState<string> | null>(null);
   const svgRef = useRef<SVGSVGElement>(null);
 
+  const activeContextModel = contextMode === "trained" ? trainedModel : null;
+
   const dataset = useMemo(
-    () =>
-      buildWordSliceDataset(selectedWord, train, contextMode === "trained" ? trainedModel : null),
-    [selectedWord, train, contextMode, trainedModel],
+    () => buildWordSliceDataset(selectedWord, train, activeContextModel),
+    [selectedWord, train, activeContextModel],
   );
 
   const curve = useMemo(() => sampleLossSliceCurve(dataset.samples), [dataset.samples]);
@@ -114,10 +122,51 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
     [dataset.samples, currentW, sliceEta],
   );
 
+  const matchesCurrentContext = <T,>(
+    entry: ContextScopedState<T> | null,
+  ): entry is ContextScopedState<T> =>
+    Boolean(
+      entry &&
+      entry.word === selectedWord &&
+      entry.contextMode === contextMode &&
+      entry.trainedModel === activeContextModel,
+    );
+
+  // Drop stale trajectory points automatically if the backing model or slice word changed.
   const activeTrail: TrailPoint[] = useMemo(() => {
-    if (trail && trail.length > 0) return trail;
+    if (
+      trailState &&
+      trailState.word === selectedWord &&
+      trailState.contextMode === contextMode &&
+      trailState.trainedModel === activeContextModel &&
+      trailState.value.length > 0
+    ) {
+      return trailState.value;
+    }
     return [{ ...currentEval, deltaW: null, action: "init" }];
-  }, [trail, currentEval]);
+  }, [trailState, selectedWord, contextMode, activeContextModel, currentEval]);
+
+  const statusHint = matchesCurrentContext(hintState) ? hintState.value : null;
+
+  const setScopedTrail = (
+    points: TrailPoint[],
+    word = selectedWord,
+    mode = contextMode,
+    model = activeContextModel,
+  ) => {
+    setTrailState({ word, contextMode: mode, trainedModel: model, value: points });
+  };
+
+  const setScopedHint = (
+    text: string | null,
+    word = selectedWord,
+    mode = contextMode,
+    model = activeContextModel,
+  ) => {
+    setHintState(
+      text === null ? null : { word, contextMode: mode, trainedModel: model, value: text },
+    );
+  };
 
   const wordMeta =
     SLICE_WORD_OPTIONS.find((item) => item.word === selectedWord) ?? SLICE_WORD_OPTIONS[0];
@@ -125,16 +174,13 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
   const actualSpamRate = dataset.totalCount > 0 ? dataset.posCount / dataset.totalCount : 0;
 
   const resetPoint = (nextW = DEFAULT_START_W, nextWord = selectedWord, nextMode = contextMode) => {
-    const nextDataset = buildWordSliceDataset(
-      nextWord,
-      train,
-      nextMode === "trained" ? trainedModel : null,
-    );
+    const nextModel = nextMode === "trained" ? trainedModel : null;
+    const nextDataset = buildWordSliceDataset(nextWord, train, nextModel);
     const safeW = clampSliceW(nextW);
     const ev = evaluateSliceAt(nextDataset.samples, safeW);
     setCurrentW(safeW);
-    setTrail([{ ...ev, deltaW: null, action: "init" }]);
-    setStatusHint(null);
+    setScopedTrail([{ ...ev, deltaW: null, action: "init" }], nextWord, nextMode, nextModel);
+    setScopedHint(null);
   };
 
   const handleSelectWord = (word: string) => {
@@ -150,13 +196,13 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
   const triggerStep = (direction: SliceStepDirection) => {
     const outcome = stepSliceWeight(dataset.samples, currentW, sliceEta, direction);
     if (outcome.isAtMinimum) {
-      setStatusHint(
+      setScopedHint(
         "当前位置已经到谷底，坡度几乎为 0，单靠自动步长推不动了。请直接拖动曲线上的圆点放到斜坡上再试。",
       );
       return;
     }
     if (Math.abs(outcome.actualDelta) < 1e-5 && outcome.clamped) {
-      setStatusHint("已到达横轴展示边界，无法继续向该方向移动。");
+      setScopedHint("已到达横轴展示边界，无法继续向该方向移动。");
       return;
     }
     const base = activeTrail;
@@ -166,8 +212,8 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
       action: direction,
     };
     setCurrentW(outcome.to.w);
-    setTrail([...base.slice(-6), nextPoint]);
-    setStatusHint(outcome.clamped ? "步子太大，落点已贴到坐标轴边界。" : null);
+    setScopedTrail([...base.slice(-6), nextPoint]);
+    setScopedHint(outcome.clamped ? "步子太大，落点已贴到坐标轴边界。" : null);
   };
 
   const triggerFiveSteps = () => {
@@ -184,8 +230,8 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
       });
     }
     setCurrentW(wCursor);
-    setTrail(nextPoints.slice(-7));
-    setStatusHint(
+    setScopedTrail(nextPoints.slice(-7));
+    setScopedHint(
       nextPoints.length === activeTrail.length
         ? "已在谷底附近，坡度接近 0，不需要继续移动。"
         : "已连续顺坡走了几步，观察每步跨度怎样随坡度变化。",
@@ -202,9 +248,12 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
     setContextMode("zero");
     setSliceEta(eta);
     setCurrentW(startW);
-    setTrail([{ ...ev, deltaW: null, action: "init" }]);
-    setStatusHint(
+    setScopedTrail([{ ...ev, deltaW: null, action: "init" }], word, "zero", null);
+    setScopedHint(
       "已切换到「好」+ η = 6.5：连续点两次「顺坡走一步」，观察点跨过谷底后弹回为什么回不到原点。",
+      word,
+      "zero",
+      null,
     );
   };
 
@@ -237,8 +286,8 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
     const nextW = wFromClientX(clientX);
     const ev = evaluateSliceAt(dataset.samples, nextW);
     setCurrentW(nextW);
-    setTrail([{ ...ev, deltaW: null, action: "init" }]);
-    setStatusHint(null);
+    setScopedTrail([{ ...ev, deltaW: null, action: "init" }]);
+    setScopedHint(null);
   };
 
   const handleSvgPointerDown = (e: PointerEvent<SVGSVGElement>) => {
@@ -268,8 +317,8 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
     const nextW = clampSliceW(currentW + (e.key === "ArrowRight" ? step : -step));
     const ev = evaluateSliceAt(dataset.samples, nextW);
     setCurrentW(nextW);
-    setTrail([{ ...ev, deltaW: null, action: "init" }]);
-    setStatusHint(null);
+    setScopedTrail([{ ...ev, deltaW: null, action: "init" }]);
+    setScopedHint(null);
   };
 
   const curvePts = curve.points
@@ -742,9 +791,9 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
       ) : null}
 
       {activeTrail.length > 1 ? (
-        <div className="ml-slice-trail" aria-label="跳跃历史轨迹">
+        <div className="ml-slice-trail">
           <span className="ml-field-label">跳跃轨迹：</span>
-          <ol className="ml-trail-chips">
+          <ol aria-label="跳跃历史轨迹" className="ml-trail-chips">
             {activeTrail.map((pt, idx) => (
               <li className="ml-trail-chip" key={`${idx}-${pt.w}`}>
                 <span className="ml-mono">

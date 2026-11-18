@@ -327,6 +327,7 @@ export function sanitizeMlDraft(stageIndex: number, raw: unknown): MlDraft {
 
 export type MlLessonState = {
   stageIndex: number;
+  pinnedStage: number | null;
   currentStage: number;
   passedStages: number[];
   classroomMode: boolean;
@@ -386,10 +387,15 @@ const SUMMARY_KEYS: Record<number, keyof MlProjectExtras["runSummaries"]> = {
   6: "s6",
 };
 
-export function createMlLessonState(initialStage = 1, classroomMode = false): MlLessonState {
-  const stageIndex = getMlStage(initialStage) ? initialStage : 1;
+export function createMlLessonState(
+  initialStage: number | null = null,
+  classroomMode = false,
+): MlLessonState {
+  const pinnedStage = initialStage !== null && getMlStage(initialStage) ? initialStage : null;
+  const stageIndex = pinnedStage ?? 1;
   return {
     stageIndex,
+    pinnedStage,
     currentStage: 1,
     passedStages: [],
     classroomMode,
@@ -467,8 +473,8 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
         if (getMlStage(s)) drafts[s] = sanitizeMlDraft(s, draft);
       }
       const candidate = state.classroomMode
-        ? getMlStage(state.stageIndex) && state.stageIndex !== 1
-          ? state.stageIndex
+        ? state.pinnedStage !== null
+          ? state.pinnedStage
           : action.currentStage
         : mlStageUnlocked(action.passedStages, action.currentStage)
           ? action.currentStage
@@ -493,16 +499,31 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
 
     case "select-stage":
       if (!isStageUnlocked(state, action.stageIndex)) return state;
-      return { ...state, stageIndex: action.stageIndex, judgeOutcome: null };
+      return {
+        ...state,
+        stageIndex: action.stageIndex,
+        pinnedStage: state.classroomMode ? action.stageIndex : state.pinnedStage,
+        judgeOutcome: null,
+      };
 
     case "set-classroom-mode": {
       if (action.enabled === state.classroomMode) return state;
       if (action.enabled || mlStageUnlocked(state.passedStages, state.stageIndex)) {
-        return { ...state, classroomMode: action.enabled };
+        return {
+          ...state,
+          classroomMode: action.enabled,
+          pinnedStage: null,
+        };
       }
       const fallback = nextMlStage(state.passedStages);
       const stageIndex = getMlStage(fallback) ? fallback : ML_STAGES.length;
-      return { ...state, classroomMode: false, stageIndex, judgeOutcome: null };
+      return {
+        ...state,
+        classroomMode: false,
+        pinnedStage: null,
+        stageIndex,
+        judgeOutcome: null,
+      };
     }
 
     case "update-stage1":

@@ -105,4 +105,26 @@ describe("ml-intro lesson state", () => {
     expect(state.stageIndex).toBe(1);
     expect(isStageUnlocked(state, 4)).toBe(false);
   });
+
+  it("preserves explicit stage=1 in classroom URL across load-project while defaulting omitted stage to server progress", () => {
+    const serverProject = {
+      type: "load-project" as const,
+      currentStage: 4,
+      passedStages: [1, 2, 3],
+      drafts: {},
+    };
+
+    const pinnedFirstStage = transitionMlLesson(createMlLessonState(1, true), serverProject);
+    expect(pinnedFirstStage.stageIndex).toBe(1);
+
+    const omittedStage = transitionMlLesson(createMlLessonState(null, true), serverProject);
+    expect(omittedStage.stageIndex).toBe(4);
+
+    const navigatedToSecond = transitionMlLesson(omittedStage, {
+      type: "select-stage",
+      stageIndex: 2,
+    });
+    const afterConflictReload = transitionMlLesson(navigatedToSecond, serverProject);
+    expect(afterConflictReload.stageIndex).toBe(2);
+  });
 });

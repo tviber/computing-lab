@@ -1,5 +1,7 @@
 import { useDeferredValue, useId, useMemo, useState } from "react";
 import {
+  binaryLogLoss,
+  BLIND_GUESS_LOSS,
   classifyEtaRegime,
   MAX_SAMPLE_SIZE,
   singleUpdateDemo,
@@ -54,6 +56,10 @@ export function TrainPanel({
   const deferredEta = useDeferredValue(draft.eta);
   const deferredEpochs = useDeferredValue(draft.epochs);
   const deferredShowBgd = useDeferredValue(draft.showBgd);
+  const isStale =
+    deferredEta !== draft.eta ||
+    deferredEpochs !== draft.epochs ||
+    deferredShowBgd !== draft.showBgd;
 
   const stepDemo = useMemo(
     () => singleUpdateDemo(stepPredP, stepTrueY, draft.eta),
@@ -80,8 +86,21 @@ export function TrainPanel({
   const regime = classifyEtaRegime(draft.eta);
 
   const epoch0Correct = epoch0 ? epoch0.valMetrics.tp + epoch0.valMetrics.tn : 0;
+  const epoch0Loss = epoch0 ? epoch0.valLoss : BLIND_GUESS_LOSS;
   const finalCorrect = finalEpoch.valMetrics.tp + finalEpoch.valMetrics.tn;
   const valTotal = finalEpoch.valMetrics.total;
+  const epoch0Acc = valTotal > 0 ? epoch0Correct / valTotal : 0;
+  const majorityCorrect = Math.round(run.baselineAcc * valTotal);
+  const priorSpamRate = Math.max(1e-6, Math.min(1 - 1e-6, 1 - run.baselineAcc));
+  const priorBceLoss =
+    valTotal > 0
+      ? run.valPredictions.reduce(
+          (sum, item) => sum + binaryLogLoss(item.label, priorSpamRate),
+          0,
+        ) / valTotal
+      : BLIND_GUESS_LOSS;
+  const beatsMajority =
+    finalEpoch.valMetrics.accuracy > run.baselineAcc && finalEpoch.valLoss < priorBceLoss;
   const spotlightMsgs = useMemo(
     () =>
       SPOTLIGHT_VAL_IDS.map((id) => run.valPredictions.find((item) => item.id === id)).filter(
@@ -100,7 +119,14 @@ export function TrainPanel({
       <section className="ml-panel">
         <div className="ml-panel-head">
           <h3>用 1,400 条短信自动训练模型（词表含 {run.vocabSize} 个词）</h3>
-          <span className={`ml-pill is-regime-${regime.id}`}>{regime.label}</span>
+          <div className="ml-preset-row">
+            {isStale ? (
+              <span className="ml-pill is-warn" role="status">
+                正在按新参数重新计算…
+              </span>
+            ) : null}
+            <span className={`ml-pill is-regime-${regime.id}`}>{regime.label}</span>
+          </div>
         </div>
         <p className="ml-data-guide">
           第 3 关手调 8 个词就很费劲，这里有 {run.vocabSize} 个词。训练集的{" "}
@@ -188,16 +214,43 @@ export function TrainPanel({
         <div className="ml-before-after" aria-label="训练前后验证短信表现对比">
           <div className="ml-before-after-head">
             <h4>训练前后效果对比（300 条没参与训练的验证短信）</h4>
-            <div className="ml-before-after-kpis">
-              <span className="ml-badge-neutral">
-                训练前（全 0 权重各猜 50%）：分对 {epoch0Correct} / {valTotal} 条
+            <span className="ml-muted-note">
+              正常短信占 {(run.baselineAcc * 100).toFixed(1)}%：别只看 14%
+              变高，还要看是否超过「全猜正常」基线
+            </span>
+          </div>
+          <div className="ml-baseline-grid">
+            <div className="ml-stat-box">
+              <span>训练前（全 0 权重各猜 50%）</span>
+              <strong className="ml-mono">
+                分对 {epoch0Correct} / {valTotal} 条（{(epoch0Acc * 100).toFixed(1)}%）
+              </strong>
+              <small className="ml-mono">
+                BCE Loss {epoch0Loss.toFixed(4)}（p=0.5 按 p≥0.5 全判垃圾）
+              </small>
+            </div>
+            <div className="ml-stat-box">
+              <span>多数类基线（不学词 · 一律猜正常）</span>
+              <strong className="ml-mono">
+                分对 {majorityCorrect} / {valTotal} 条（{(run.baselineAcc * 100).toFixed(1)}%）
+              </strong>
+              <small className="ml-mono">
+                按固定比例猜 BCE Loss {priorBceLoss.toFixed(4)}（查出垃圾 0%）
+              </small>
+            </div>
+            <div className={`ml-stat-box ${beatsMajority ? "is-ok" : "is-warn"}`}>
+              <span>
+                训练后（第 {finalEpoch.epoch} 轮 · η = {run.eta}）
               </span>
-              <span
-                className={`ml-pill ${finalEpoch.valMetrics.accuracy >= 0.9 ? "is-success" : "is-warn"}`}
-              >
-                训练后（第 {finalEpoch.epoch} 轮）：分对 {finalCorrect} / {valTotal} 条（
-                {(finalEpoch.valMetrics.accuracy * 100).toFixed(1)}%）
-              </span>
+              <strong className="ml-mono">
+                分对 {finalCorrect} / {valTotal} 条（
+                {(finalEpoch.valMetrics.accuracy * 100).toFixed(1)}
+                %）
+              </strong>
+              <small className="ml-mono">
+                BCE Loss {epoch0Loss.toFixed(4)} → {finalEpoch.valLoss.toFixed(4)}（
+                {beatsMajority ? "已超越多数类基线" : "暂未超过多数类基线"}）
+              </small>
             </div>
           </div>
           {spotlightMsgs.length > 0 ? (
@@ -266,8 +319,8 @@ export function TrainPanel({
         />
         <ExperimentComparison
           parameters={[
-            { id: "eta", label: "学习率", value: draft.eta, display: String(draft.eta) },
-            { id: "epochs", label: "训练轮数", value: draft.epochs, display: `${draft.epochs} 轮` },
+            { id: "eta", label: "学习率", value: run.eta, display: String(run.eta) },
+            { id: "epochs", label: "训练轮数", value: run.epochs, display: `${run.epochs} 轮` },
           ]}
           metrics={[
             {
@@ -379,7 +432,7 @@ export function TrainPanel({
           <div>
             <h3>进阶探索模式：切开单一维度看「权重 vs 扣分」怎样滑动（选读）</h3>
             <p className="ml-muted-note">
-              已经看懂上方训练过程后，可以点开这里，亲自拖动单个词的权重，观察坡度（梯度）与步幅变化。
+              可选拓展（不影响本关过关判定）：看懂上方训练结果和单步更新后，可按兴趣点开手动试推权重切片。
             </p>
           </div>
           <button
@@ -413,13 +466,15 @@ export function TrainPanel({
       <div className="ml-submit-bar">
         <button
           className="button button-primary"
-          disabled={submitting || !allConceptsDone}
+          disabled={submitting || isStale || !allConceptsDone}
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
+          {submitting ? "判题中…" : isStale ? "正在重新计算…" : `提交第 ${stage.index} 关判定`}
         </button>
-        {!allConceptsDone ? (
+        {isStale ? (
+          <span className="ml-muted-note">正在按新参数重新计算模型，完成后即可提交。</span>
+        ) : !allConceptsDone ? (
           <span className="ml-muted-note">请先完成上方的概念题，再提交检查。</span>
         ) : null}
       </div>

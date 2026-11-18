@@ -77,7 +77,11 @@ function parseClassroomSearch(raw: unknown): { classroom: boolean; stage: number
   if (!raw || typeof raw !== "object") return { classroom: false, stage: null };
   const record = raw as Record<string, unknown>;
   const classroom = record.classroom === 1 || record.classroom === "1" || record.classroom === true;
-  const parsedStage = Number(record.stage);
+  const rawStage = record.stage;
+  const parsedStage =
+    typeof rawStage === "number" || (typeof rawStage === "string" && rawStage.trim() !== "")
+      ? Number(rawStage)
+      : NaN;
   const stage =
     Number.isInteger(parsedStage) && parsedStage >= 1 && parsedStage <= ML_STAGES.length
       ? parsedStage
@@ -91,7 +95,7 @@ export function MlIntroLabPage() {
   const initialSearch = parseClassroomSearch(rawSearch);
   const { status, role } = useAuth();
   const [state, dispatch] = useReducer(transitionMlLesson, undefined, () =>
-    createMlLessonState(initialSearch.stage ?? 1, initialSearch.classroom),
+    createMlLessonState(initialSearch.stage, initialSearch.classroom),
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);

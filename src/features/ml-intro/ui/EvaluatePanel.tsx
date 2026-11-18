@@ -41,6 +41,7 @@ export function EvaluatePanel({
 }) {
   const deferredEta = useDeferredValue(draft.eta);
   const deferredEpochs = useDeferredValue(draft.epochs);
+  const isStale = deferredEta !== draft.eta || deferredEpochs !== draft.epochs;
 
   const baseRun = useMemo(
     () =>
@@ -121,13 +122,20 @@ export function EvaluatePanel({
       <section className="ml-panel">
         <div className="ml-panel-head">
           <h3>调整分类阈值和训练参数</h3>
-          <button
-            className="button button-ghost"
-            onClick={() => onChange({ ...draft, eta: 0.1, epochs: 12, threshold: 0.4 })}
-            type="button"
-          >
-            恢复推荐初值
-          </button>
+          <div className="ml-preset-row">
+            {isStale ? (
+              <span className="ml-pill is-warn" role="status">
+                正在按新参数重新计算…
+              </span>
+            ) : null}
+            <button
+              className="button button-ghost"
+              onClick={() => onChange({ ...draft, eta: 0.1, epochs: 12, threshold: 0.4 })}
+              type="button"
+            >
+              恢复推荐初值
+            </button>
+          </div>
         </div>
 
         <div className="ml-controls-grid is-three">
@@ -213,13 +221,15 @@ export function EvaluatePanel({
       <div className="ml-submit-bar">
         <button
           className="button button-primary"
-          disabled={submitting || !allConceptsDone}
+          disabled={submitting || isStale || !allConceptsDone}
           onClick={onSubmit}
           type="button"
         >
-          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
+          {submitting ? "判题中…" : isStale ? "正在重新计算…" : `提交第 ${stage.index} 关判定`}
         </button>
-        {!allConceptsDone ? (
+        {isStale ? (
+          <span className="ml-muted-note">正在按新参数重新计算模型，完成后即可提交。</span>
+        ) : !allConceptsDone ? (
           <span className="ml-muted-note">请先答对概念题，再提交检查。</span>
         ) : null}
       </div>
