@@ -12,10 +12,11 @@ import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/use
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { Icon } from "../../../shared/ui/Icon";
 import type { QuantJudgeResult, QuantSubmission } from "../domain/protocol.ts";
-import { COLOR_QUANT_STAGES, quantStageUnlocked, type QuantStageDef } from "../domain/stages.ts";
+import { COLOR_QUANT_STAGES, type QuantStageDef } from "../domain/stages.ts";
 import {
   createQuantLessonState,
   draftOf,
+  isStageUnlocked,
   stageOf,
   transitionQuantLesson,
   type QuantLessonAction,
@@ -65,8 +66,9 @@ export function ColorQuantizationLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/color-quantization" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { status, role } = useAuth();
+  const isStaff = isStaffRole(role);
   const [state, dispatch] = useReducer(transitionQuantLesson, undefined, () =>
-    createQuantLessonState(1),
+    createQuantLessonState(1, isStaff),
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -79,25 +81,26 @@ export function ColorQuantizationLabPage() {
   // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    StageDraft,
-    Record<never, never>,
-    QuantLessonAction
-  >({
-    classId,
-    labId: "color-quantization",
-    ready: status === "authenticated",
-    toAction: (project) => ({
-      type: "load-project",
-      currentStage: project.currentStage,
-      passedStages: project.passedStages,
-      draftRevisions: project.draftRevisions,
-      drafts: Object.fromEntries(
-        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-      ),
-    }),
-    dispatch,
-  });
+  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
+    useLabProject<StageDraft, Record<never, never>, QuantLessonAction>({
+      classId,
+      labId: "color-quantization",
+      ready: status === "authenticated",
+      staff: isStaff,
+      onResetSuccess: () => setSubmitError(null),
+      toAction: (project, meta) => ({
+        type: "load-project",
+        currentStage: project.currentStage,
+        passedStages: project.passedStages,
+        draftRevisions: project.draftRevisions,
+        drafts: Object.fromEntries(
+          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+        ),
+        freeNavigation: project.staffFreeNavigation ?? isStaff,
+        isReset: meta?.isReset,
+      }),
+      dispatch,
+    });
 
   // Apply a shared scenario (?stage=&toners=/&table=) once — but only after
   // the project loads, or unlocked stages would look locked at mount.
@@ -133,10 +136,14 @@ export function ColorQuantizationLabPage() {
     labId: "color-quantization",
     // While the (new class's) project is loading the flags on screen still
     // belong to the previous context — nothing may schedule writes for it.
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -226,9 +233,10 @@ export function ColorQuantizationLabPage() {
             passedStages={state.passedStages}
             stageIndex={state.stageIndex}
             stages={COLOR_QUANT_STAGES}
-            unlocked={(stage) => quantStageUnlocked(state.passedStages, stage.index)}
+            unlocked={(item) => isStageUnlocked(state, item.index)}
           />
         }
+        staffControls={staffControls}
       >
         <main aria-label="颜色量化实验区" className="quant-workspace">
           {stage ? <StageBrief stage={stage} /> : null}

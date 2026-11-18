@@ -25,7 +25,6 @@ import type {
   MlDraft,
   MlJudgeResult,
   MlProjectExtras,
-  MlProjectPayload,
   ScoreDraft,
   StrategyDraft,
   TokenizeDraft,
@@ -94,8 +93,13 @@ export function MlIntroLabPage() {
   const rawSearch = useSearch({ strict: false });
   const initialSearch = parseClassroomSearch(rawSearch);
   const { status, role } = useAuth();
+  const isStaff = isStaffRole(role);
   const [state, dispatch] = useReducer(transitionMlLesson, undefined, () =>
-    createMlLessonState(initialSearch.stage, initialSearch.classroom),
+    createMlLessonState(
+      isStaff || initialSearch.classroom ? initialSearch.stage : null,
+      initialSearch.classroom,
+      isStaff,
+    ),
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -103,26 +107,30 @@ export function MlIntroLabPage() {
 
   const stage = stageOf(state);
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    MlDraft,
-    MlProjectExtras,
-    MlLessonAction
-  >({
-    classId,
-    labId: "ml-intro",
-    ready: status === "authenticated",
-    toAction: (project: MlProjectPayload) => ({
-      type: "load-project",
-      currentStage: project.currentStage,
-      passedStages: project.passedStages,
-      draftRevisions: project.draftRevisions,
-      drafts: Object.fromEntries(
-        Object.entries(project.drafts ?? {}).map(([k, v]) => [Number(k), v]),
-      ),
-      runSummaries: project.runSummaries,
-    }),
-    dispatch,
-  });
+  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
+    useLabProject<MlDraft, MlProjectExtras, MlLessonAction>({
+      classId,
+      labId: "ml-intro",
+      ready: status === "authenticated",
+      staff: isStaff,
+      onResetSuccess: () => {
+        setSubmitError(null);
+        setJudgedStage(null);
+      },
+      toAction: (project, meta) => ({
+        type: "load-project",
+        currentStage: project.currentStage,
+        passedStages: project.passedStages,
+        draftRevisions: project.draftRevisions,
+        drafts: Object.fromEntries(
+          Object.entries(project.drafts ?? {}).map(([k, v]) => [Number(k), v]),
+        ),
+        runSummaries: project.runSummaries,
+        staffMode: project.staffFreeNavigation ?? isStaff,
+        isReset: meta?.isReset,
+      }),
+      dispatch,
+    });
 
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
@@ -141,10 +149,14 @@ export function MlIntroLabPage() {
   useAutosaveDraft<MlDraft>({
     classId,
     labId: "ml-intro",
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -155,7 +167,7 @@ export function MlIntroLabPage() {
   const submitJudge = useCallback(
     async (stageIndex: number, draft: MlDraft) => {
       if (!classId) return;
-      if (!mlStageUnlocked(state.passedStages, stageIndex)) {
+      if (!isStaff && !mlStageUnlocked(state.passedStages, stageIndex)) {
         setSubmitError(
           "当前处于「课堂自由跳关」预览状态，可完整互动体验；如需正式提交过关记录，请先通过前面的关卡。",
         );
@@ -176,7 +188,7 @@ export function MlIntroLabPage() {
         setSubmitting(false);
       }
     },
-    [classId, state.passedStages],
+    [classId, isStaff, state.passedStages],
   );
 
   const passedStages = state.passedStages;
@@ -233,35 +245,34 @@ export function MlIntroLabPage() {
               stages={ML_STAGES}
               unlocked={(item) => isStageUnlocked(state, item.index)}
             />
-            <div className="ml-classroom-toggle-card">
-              <button
-                aria-pressed={state.classroomMode}
-                className={`button ${state.classroomMode ? "button-primary" : "button-ghost"} ml-classroom-btn`}
-                onClick={() => {
-                  setSubmitError(null);
-                  dispatch({ type: "set-classroom-mode", enabled: !state.classroomMode });
-                }}
-                type="button"
-              >
-                {state.classroomMode
-                  ? "课堂自由跳关：已开启"
-                  : isStaffRole(role)
-                    ? "教师演示：自由切关"
-                    : "课堂模式：先看后面关卡"}
-              </button>
-              <p className="ml-muted-note">
-                {state.classroomMode
-                  ? "可任意切换全部关卡演示与跟练；正式过关判定仍需按顺序完成前序关卡。"
-                  : "上课时还没做完前面关卡？可开启自由跳关直接跟上课堂进度。"}
-              </p>
-            </div>
+            {!isStaff ? (
+              <div className="ml-classroom-toggle-card">
+                <button
+                  aria-pressed={state.classroomMode}
+                  className={`button ${state.classroomMode ? "button-primary" : "button-ghost"} ml-classroom-btn`}
+                  onClick={() => {
+                    setSubmitError(null);
+                    dispatch({ type: "set-classroom-mode", enabled: !state.classroomMode });
+                  }}
+                  type="button"
+                >
+                  {state.classroomMode ? "课堂自由跳关：已开启" : "课堂模式：先看后面关卡"}
+                </button>
+                <p className="ml-muted-note">
+                  {state.classroomMode
+                    ? "可任意切换全部关卡演示与跟练；正式过关判定仍需按顺序完成前序关卡。"
+                    : "上课时还没做完前面关卡？可开启自由跳关直接跟上课堂进度。"}
+                </p>
+              </div>
+            ) : null}
           </div>
         }
+        staffControls={staffControls}
       >
         <main aria-label="机器学习入门实验区" className="ml-workspace">
           {stage ? <StageBrief passed={activePassed} stage={stage} /> : null}
 
-          {state.classroomMode && !formalUnlocked ? (
+          {!isStaff && state.classroomMode && !formalUnlocked ? (
             <p className="ml-note-box ml-classroom-banner" role="note">
               当前为「课堂自由跳关」预览模式：第 {activeIndex}{" "}
               关的训练、画图与交互均可完整使用；如需提交正式过关记录，请先通过前面的关卡。

@@ -34,10 +34,12 @@ export function judgeImageSubmission(
   stageIndex: number,
   rawResolution: unknown,
   rawCode?: unknown,
+  options?: { bypassLock?: boolean },
 ): SamplingJudgeResult | LabJudgeError {
   const gated = gateStage(
     getSamplingStage(stageIndex),
     (stage) => stage.index <= 1 || project.passedStages.includes(stage.index - 1),
+    options,
   );
   if ("error" in gated) return gated;
   const stage = gated.stage;

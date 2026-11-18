@@ -123,9 +123,10 @@ export function getOrCreateProject<TDraft = unknown>(
 export function gateStage<TStage>(
   stage: TStage | undefined,
   unlocked: (stage: TStage) => boolean,
+  options?: { bypassLock?: boolean },
 ): { stage: TStage } | LabJudgeError {
   if (!stage) return { error: "unknown-stage", status: 400 };
-  if (!unlocked(stage)) return { error: "stage-locked", status: 409 };
+  if (!options?.bypassLock && !unlocked(stage)) return { error: "stage-locked", status: 409 };
   return { stage };
 }
 
@@ -311,4 +312,33 @@ export function advanceStage<TDraft>(
     project.id,
   );
   return { currentStage, passedStages };
+}
+
+/**
+ * Resets the caller's own lab project row and clears its submission history so
+ * teachers and admins can cleanly replay or demo the lab from stage 1 without
+ * disturbing any other user's data.
+ */
+export function resetLabProject<TDraft = unknown>(
+  db: DatabaseSync,
+  projectId: string,
+): ProjectRow<TDraft> {
+  return withTransaction(db, () => {
+    db.prepare("DELETE FROM submissions WHERE project_id = ?").run(projectId);
+    db.prepare("DELETE FROM cpu_guided_first_answers WHERE project_id = ?").run(projectId);
+    db.prepare(
+      `UPDATE student_projects
+       SET current_stage = 1,
+           passed_stages = '[]',
+           unlocked_submodules = '[]',
+           draft_graph = '{}',
+           draft_revisions = '{}',
+           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+       WHERE id = ?`,
+    ).run(projectId);
+    const row = db
+      .prepare("SELECT * FROM student_projects WHERE id = ?")
+      .get(projectId) as RawProject;
+    return toProject<TDraft>(row);
+  });
 }

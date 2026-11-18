@@ -13,15 +13,24 @@ type Params = {
   classId: string | undefined;
   labId: string;
   ready: boolean;
-  toAction: (project: Payload) => { type: string; project: Payload };
-  dispatch: (action: { type: string; project: Payload }) => void;
+  staff?: boolean;
+  onResetSuccess?: () => void;
+  toAction: (
+    project: Payload,
+    meta?: { isReset?: boolean },
+  ) => { type: string; project: Payload; isReset?: boolean };
+  dispatch: (action: { type: string; project: Payload; isReset?: boolean }) => void;
 };
 
 const base = (over: Partial<Params> = {}): Params => ({
   classId: "class-1",
   labId: "lab",
   ready: true,
-  toAction: (project) => ({ type: "load", project }),
+  toAction: (project, meta) => ({
+    type: "load",
+    project,
+    ...(meta?.isReset ? { isReset: true } : null),
+  }),
   dispatch: vi.fn(),
   ...over,
 });
@@ -199,5 +208,78 @@ describe("useLabProject", () => {
     calls[1].done.resolve(new Response(JSON.stringify({ error: "not-a-member" }), { status: 403 }));
     await flush();
     expect(result.current.loadError).toBe("你不在这个班级里。");
+  });
+
+  it("exposes staffControls only when staff=true and resets via POST /reset", async () => {
+    const dispatch = vi.fn();
+    const onResetSuccess = vi.fn();
+    const { result, rerender } = renderHook((p: Params) => useLabProject(p), {
+      initialProps: base({ dispatch, staff: false, onResetSuccess }),
+    });
+    expect(result.current.staffControls).toBeUndefined();
+    calls[0].done.resolve(payload("lab"));
+    await flush();
+
+    rerender(base({ dispatch, staff: true, onResetSuccess }));
+    expect(result.current.staffControls?.freeNavigation).toBe(true);
+    expect(result.current.saveGeneration).toBe(0);
+
+    let resetPromise!: Promise<boolean>;
+    await act(async () => {
+      resetPromise = result.current.resetProject();
+    });
+    expect(result.current.resetting).toBe(true);
+    expect(calls[1].url).toBe("/api/classes/class-1/labs/lab/reset");
+
+    calls[1].done.resolve(
+      new Response(
+        JSON.stringify({ labId: "lab", currentStage: 1, passedStages: [], drafts: {} }),
+        {
+          status: 200,
+          headers: { "content-type": "application/json" },
+        },
+      ),
+    );
+    let ok = false;
+    await act(async () => {
+      ok = await resetPromise;
+    });
+    expect(ok).toBe(true);
+    expect(result.current.resetting).toBe(false);
+    expect(result.current.saveGeneration).toBe(1);
+    expect(onResetSuccess).toHaveBeenCalledTimes(1);
+    expect(dispatch).toHaveBeenLastCalledWith({
+      type: "load",
+      project: expect.objectContaining({ currentStage: 1, passedStages: [] }),
+      isReset: true,
+    });
+  });
+
+  it("surfaces reset errors and leaves saveGeneration untouched when POST /reset fails", async () => {
+    const dispatch = vi.fn();
+    const onResetSuccess = vi.fn();
+    const { result } = renderHook((p: Params) => useLabProject(p), {
+      initialProps: base({ dispatch, staff: true, onResetSuccess }),
+    });
+    calls[0].done.resolve(payload("lab"));
+    await flush();
+
+    let resetPromise!: Promise<boolean>;
+    await act(async () => {
+      resetPromise = result.current.resetProject();
+    });
+    calls[1].done.resolve(
+      new Response(JSON.stringify({ error: "teacher-required" }), { status: 403 }),
+    );
+    let ok = true;
+    await act(async () => {
+      ok = await resetPromise;
+    });
+    expect(ok).toBe(false);
+
+    expect(result.current.resetting).toBe(false);
+    expect(result.current.resetError).toBeTruthy();
+    expect(result.current.saveGeneration).toBe(0);
+    expect(onResetSuccess).not.toHaveBeenCalled();
   });
 });

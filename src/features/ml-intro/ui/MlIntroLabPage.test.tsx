@@ -1,6 +1,11 @@
 import { fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { renderAppAt, teacherAuthState } from "../../../test/router-test-helpers.tsx";
+import {
+  adminAuthState,
+  renderAppAt,
+  studentAuthState,
+  teacherAuthState,
+} from "../../../test/router-test-helpers.tsx";
 import type { MlJudgeResult, MlProjectPayload } from "../domain/protocol.ts";
 import { ML_STAGES } from "../domain/stages.ts";
 import { STRATEGY_WORDS } from "../domain/strategy.ts";
@@ -54,10 +59,10 @@ describe("MlIntroLabPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("renders stage 1 10-word strategy workspace with stage 2 locked", async () => {
+  it("renders stage 1 10-word strategy workspace with stage 2 locked for students", async () => {
     stubMlFetch(makeProject(), () => json({}));
 
-    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: studentAuthState });
 
     await screen.findByRole("heading", { name: "给 10 个词打分" });
     await screen.findByRole("group", { name: "中奖 倾向设置" });
@@ -67,6 +72,7 @@ describe("MlIntroLabPage", () => {
     expect(screen.getByText(/这条短信的总分怎么算/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交第 1 关判定" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /把短信变成数字/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "重置我的进度" })).not.toBeInTheDocument();
   });
 
   it("shows concrete precision and recall fractions for the current validation results", async () => {
@@ -216,7 +222,7 @@ describe("MlIntroLabPage", () => {
     };
 
     stubMlFetch(makeProject(), () => json(failResult));
-    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: studentAuthState });
     await screen.findByRole("heading", { name: "给 10 个词打分" });
 
     fireEvent.click(
@@ -442,7 +448,7 @@ describe("MlIntroLabPage", () => {
       () => json({}),
     );
 
-    await renderAppAt("/classes/c1/labs/ml-intro?classroom=1&stage=1", { auth: teacherAuthState });
+    await renderAppAt("/classes/c1/labs/ml-intro?classroom=1&stage=1", { auth: studentAuthState });
     await screen.findByRole("heading", { name: "给 10 个词打分" });
     expect(screen.getByText(/课堂自由跳关：已开启/)).toBeInTheDocument();
   });
@@ -456,21 +462,21 @@ describe("MlIntroLabPage", () => {
       () => json({}),
     );
 
-    await renderAppAt("/classes/c1/labs/ml-intro?classroom=1", { auth: teacherAuthState });
+    await renderAppAt("/classes/c1/labs/ml-intro?classroom=1", { auth: studentAuthState });
     await screen.findByRole("heading", { name: "让模型调整权重" });
   });
 
-  it("allows teacher or classroom free-navigation mode across stages while guarding formal judge submission", async () => {
+  it("allows student classroom free-navigation preview across stages while guarding formal judge submission", async () => {
     const fetchSpy = stubMlFetch(makeProject({ currentStage: 1, passedStages: [] }), () =>
       json({}),
     );
 
-    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: studentAuthState });
     await screen.findByRole("heading", { name: "给 10 个词打分" });
 
     expect(screen.getByRole("button", { name: /让模型调整权重/ })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "教师演示：自由切关" }));
+    fireEvent.click(screen.getByRole("button", { name: "课堂模式：先看后面关卡" }));
     const stage4Btn = screen.getByRole("button", { name: /让模型调整权重/ });
     expect(stage4Btn).toBeEnabled();
     fireEvent.click(stage4Btn);
@@ -487,5 +493,77 @@ describe("MlIntroLabPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
     expect(screen.getByText(/如需正式提交过关记录，请先通过前面的关卡/)).toBeInTheDocument();
     expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(false);
+  });
+
+  it("grants teacher and admin immediate free navigation across stages without classroom toggle", async () => {
+    for (const auth of [teacherAuthState, adminAuthState]) {
+      const fetchSpy = stubMlFetch(makeProject({ currentStage: 1, passedStages: [] }), () =>
+        json({
+          passed: true,
+          score: 5,
+          total: 5,
+          testSummary: { parts: [], detail: "ok" },
+          submissionId: "sub-4",
+          currentStage: 5,
+          passedStages: [4],
+        }),
+      );
+
+      const rendered = await renderAppAt("/classes/c1/labs/ml-intro", { auth });
+      await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+      expect(screen.getByText("教师视角 · 自由切关")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "重置我的进度" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "课堂模式：先看后面关卡" })).toBeNull();
+
+      const stage4Btn = screen.getByRole("button", { name: /让模型调整权重/ });
+      expect(stage4Btn).toBeEnabled();
+      fireEvent.click(stage4Btn);
+
+      await screen.findByRole("heading", { name: "让模型调整权重" });
+      for (const prompt of ML_STAGES[3].prompts) {
+        fireEvent.click(
+          await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+        );
+      }
+      fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+      await waitFor(() =>
+        expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(true),
+      );
+      rendered.unmount();
+    }
+  });
+
+  it("prompts for confirmation and resets staff own progress via POST /reset", async () => {
+    const confirmMock = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmMock);
+    let resetCalls = 0;
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/reset") && init?.method === "POST") {
+        resetCalls += 1;
+        return json(makeProject({ currentStage: 1, passedStages: [], drafts: {} }));
+      }
+      if (url.includes("/project")) {
+        return json(makeProject({ currentStage: 4, passedStages: [1, 2, 3] }));
+      }
+      if (url.includes("/api/labs")) {
+        return json({ labs: [{ id: "ml-intro", visible: true }] });
+      }
+      return json({});
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+
+    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(resetCalls).toBe(0);
+
+    confirmMock.mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    expect(resetCalls).toBe(1);
   });
 });

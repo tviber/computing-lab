@@ -17,6 +17,7 @@ import {
 } from "../http/context.ts";
 import {
   getOrCreateProject,
+  resetLabProject,
   type DraftSaveResult,
   type LabJudgeError,
   type ProjectRow,
@@ -26,14 +27,22 @@ import { canAccessLab } from "../labs.ts";
 type LabContext = Context<{ Variables: AppVariables }>;
 type LabAuth = { user: SessionUser; membership: Membership };
 
+function isStaffUser(user: SessionUser): boolean {
+  return user.role === "teacher" || user.role === "admin";
+}
+
 type LabSpec<TDraft, TOutcome> = {
   labId: string;
   stageCount: number;
   /** The draft body may carry `components` — then `expectedComponentsRevision`
    *  is required and CAS'd alongside the stage revision (calculator). */
   usesComponents?: boolean;
-  /** Extra top-level fields merged into the GET /project payload. */
-  projectExtras?: (db: DatabaseSync, project: ProjectRow<TDraft>) => Record<string, unknown>;
+  /** Extra top-level fields merged into the GET /project and POST /reset payloads. */
+  projectExtras?: (
+    db: DatabaseSync,
+    project: ProjectRow<TDraft>,
+    options: { staff: boolean },
+  ) => Record<string, unknown>;
   saveDraft: (
     db: DatabaseSync,
     project: ProjectRow<TDraft>,
@@ -47,6 +56,7 @@ type LabSpec<TDraft, TOutcome> = {
     project: ProjectRow<TDraft>,
     stageIndex: number,
     body: Record<string, unknown>,
+    options: { staff: boolean },
   ) => TOutcome | LabJudgeError;
 };
 
@@ -69,6 +79,21 @@ export function labRoutes<TDraft, TOutcome extends object>(
   const projectOf = (db: DatabaseSync, auth: LabAuth) =>
     getOrCreateProject<TDraft>(db, auth.user.id, auth.membership.classId, spec.labId);
 
+  const projectPayload = (db: DatabaseSync, auth: LabAuth, project: ProjectRow<TDraft>) => {
+    const staff = isStaffUser(auth.user);
+    return {
+      labId: project.labId,
+      currentStage: project.currentStage,
+      passedStages: project.passedStages,
+      drafts: project.drafts,
+      // Per-stage revision of the latest applied write — the client seeds its
+      // expectedRevision from this so its next save is a compare-and-swap.
+      draftRevisions: project.draftRevisions,
+      staffFreeNavigation: staff,
+      ...(spec.projectExtras?.(db, project, { staff }) ?? {}),
+    };
+  };
+
   const stageIndexOf = (body: unknown): number | null => {
     const stageIndex = Number((body as { stageIndex?: unknown } | null)?.stageIndex);
     return Number.isInteger(stageIndex) && stageIndex >= 1 && stageIndex <= spec.stageCount
@@ -79,17 +104,17 @@ export function labRoutes<TDraft, TOutcome extends object>(
   app.get("/project", (c) => {
     const auth = requireAccess(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const project = projectOf(c.get("db"), auth);
-    return c.json({
-      labId: project.labId,
-      currentStage: project.currentStage,
-      passedStages: project.passedStages,
-      drafts: project.drafts,
-      // Per-stage revision of the latest applied write — the client seeds its
-      // expectedRevision from this so its next save is a compare-and-swap.
-      draftRevisions: project.draftRevisions,
-      ...(spec.projectExtras?.(c.get("db"), project) ?? {}),
-    });
+    const db = c.get("db");
+    return c.json(projectPayload(db, auth, projectOf(db, auth)));
+  });
+
+  app.post("/reset", (c) => {
+    const auth = requireAccess(c);
+    if ("error" in auth) return jsonError(c, auth.status, auth.error);
+    if (!isStaffUser(auth.user)) return jsonError(c, 403, "teacher-required");
+    const db = c.get("db");
+    const reset = resetLabProject<TDraft>(db, projectOf(db, auth).id);
+    return c.json(projectPayload(db, auth, reset));
   });
 
   app.put("/draft", async (c) => {
@@ -155,6 +180,9 @@ export function labRoutes<TDraft, TOutcome extends object>(
       projectOf(db, auth),
       stageIndex,
       body as Record<string, unknown>,
+      {
+        staff: isStaffUser(auth.user),
+      },
     );
     if ("error" in outcome) {
       return jsonError(c, (outcome as LabJudgeError).status, (outcome as LabJudgeError).error);

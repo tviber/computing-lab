@@ -88,9 +88,12 @@ export function judgeMlIntroSubmission(
   project: ProjectRow<unknown>,
   stageIndex: number,
   rawDraft: unknown,
+  options?: { bypassLock?: boolean },
 ): MlJudgeResult | LabJudgeError {
-  const gated = gateStage(getMlStage(stageIndex), (item) =>
-    mlStageUnlocked(project.passedStages, item.index),
+  const gated = gateStage(
+    getMlStage(stageIndex),
+    (item) => mlStageUnlocked(project.passedStages, item.index),
+    options,
   );
   if ("error" in gated) return gated;
   const { stage } = gated;

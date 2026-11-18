@@ -8,7 +8,7 @@
 import { useParams } from "@tanstack/react-router";
 import { Fragment, useCallback, useEffect, useReducer, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
-import { useAuth } from "../../../shared/auth";
+import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { StageLink } from "../../../shared/lab/StageRail";
@@ -31,10 +31,11 @@ import type {
   TrainingDraft,
 } from "../domain/protocol.ts";
 import { INTAKE_SCENARIO } from "../domain/scenarios.ts";
-import { LUNCH_STAGES, lunchStageUnlocked, type LunchStageDef } from "../domain/stages.ts";
+import { LUNCH_STAGES, type LunchStageDef } from "../domain/stages.ts";
 import {
   createLunchLessonState,
   draftOf,
+  isStageUnlocked,
   stageOf,
   transitionLunchLesson,
   type LunchLessonAction,
@@ -68,9 +69,10 @@ function StageBrief({ stage, passed }: { stage: LunchStageDef; passed: boolean }
 
 export function LunchShiftLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/lunch-shift" });
-  const { status } = useAuth();
+  const { status, role } = useAuth();
+  const isStaff = isStaffRole(role);
   const [state, dispatch] = useReducer(transitionLunchLesson, undefined, () =>
-    createLunchLessonState(1),
+    createLunchLessonState(1, isStaff),
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -80,28 +82,32 @@ export function LunchShiftLabPage() {
 
   const stage = stageOf(state);
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    LunchDraft,
-    LunchProjectExtras,
-    LunchLessonAction
-  >({
-    classId,
-    labId: "lunch-shift",
-    ready: status === "authenticated",
-    toAction: (project: LunchProjectPayload) => ({
-      type: "load-project",
-      currentStage: project.currentStage,
-      passedStages: project.passedStages,
-      draftRevisions: project.draftRevisions,
-      drafts: Object.fromEntries(
-        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-      ),
-      runSummaries: project.runSummaries,
-      training: project.training,
-      aiOrders: project.aiOrders,
-    }),
-    dispatch,
-  });
+  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
+    useLabProject<LunchDraft, LunchProjectExtras, LunchLessonAction>({
+      classId,
+      labId: "lunch-shift",
+      ready: status === "authenticated",
+      staff: isStaff,
+      onResetSuccess: () => {
+        setSubmitError(null);
+        setJudgedStage(null);
+      },
+      toAction: (project: LunchProjectPayload, meta) => ({
+        type: "load-project",
+        currentStage: project.currentStage,
+        passedStages: project.passedStages,
+        draftRevisions: project.draftRevisions,
+        drafts: Object.fromEntries(
+          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+        ),
+        runSummaries: project.runSummaries,
+        training: project.training,
+        aiOrders: project.aiOrders,
+        freeNavigation: project.staffFreeNavigation ?? isStaff,
+        isReset: meta?.isReset,
+      }),
+      dispatch,
+    });
 
   // Warm the Python worker while the student is still on 订单旅程.
   useEffect(() => {
@@ -125,10 +131,14 @@ export function LunchShiftLabPage() {
   useAutosaveDraft<LunchDraft>({
     classId,
     labId: "lunch-shift",
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -140,10 +150,11 @@ export function LunchShiftLabPage() {
   useAutosaveDraft<LunchDraft>({
     classId,
     labId: "lunch-shift",
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, 5) : "idle",
+    saveStatus: projectLoaded && !resetting ? statusForStage(state.saveStatusByStage, 5) : "idle",
     stageIndex: 5,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -223,7 +234,7 @@ export function LunchShiftLabPage() {
                       onSelect={() => dispatch({ type: "select-stage", stageIndex: stage.index })}
                       passed={passedStages.includes(stage.index)}
                       title={stage.title}
-                      unlocked={lunchStageUnlocked(passedStages, stage.index)}
+                      unlocked={isStageUnlocked(state, stage.index)}
                     />
                   </li>
                   {stage.index === 3 ? (
@@ -236,7 +247,7 @@ export function LunchShiftLabPage() {
                           optional
                           passed={passedStages.includes(5)}
                           title="补偿超时单"
-                          unlocked={lunchStageUnlocked(passedStages, 5)}
+                          unlocked={isStageUnlocked(state, 5)}
                         />
                       </details>
                     </li>
@@ -246,6 +257,7 @@ export function LunchShiftLabPage() {
             </ol>
           </aside>
         }
+        staffControls={staffControls}
       >
         <main aria-label="设计餐馆系统实验区" className="lunch-workspace">
           {stage ? <StageBrief stage={stage} passed={passedStages.includes(stage.index)} /> : null}

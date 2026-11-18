@@ -45,10 +45,12 @@ export function judgeQuantSubmission(
   stageIndex: number,
   rawSubmission: unknown,
   rawCode?: unknown,
+  options?: { bypassLock?: boolean },
 ): QuantJudgeResult | LabJudgeError {
   const gated = gateStage(
     getQuantStage(stageIndex),
     (stage) => stage.index <= 1 || project.passedStages.includes(stage.index - 1),
+    options,
   );
   if ("error" in gated) return gated;
   const stage = gated.stage;

@@ -16,13 +16,14 @@ export function colorQuantizationRoutes() {
       saveStageDraft(db, project, stageIndex, sanitizeDraft(body.draft ?? {}), {
         expectedRevision,
       }),
-    judge: (db, project, stageIndex, body) =>
+    judge: (db, project, stageIndex, body, { staff }) =>
       judgeQuantSubmission(
         db,
         project,
         stageIndex,
         { toners: body.toners, table: body.table },
         body.code,
+        { bypassLock: staff },
       ),
   });
 }

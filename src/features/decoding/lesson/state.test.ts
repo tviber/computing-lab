@@ -186,4 +186,31 @@ describe("stage table", () => {
     expect(nextDecodingStage([1, 2, 3, 5])).toBe(4);
     expect(nextDecodingStage([1, 2, 3, 4, 5, 6])).toBe(7);
   });
+
+  it("unlocks all stages under freeNavigation and clears drafts + transient state on isReset", () => {
+    const staffLoaded = transitionDecodingLesson(createDecodingLessonState(1), {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: { 1: { code: "", fills: { "1": "ord(c)" }, conceptAnswers: {}, verdicts: [] } },
+      payloads: {},
+      freeNavigation: true,
+    });
+    const jumped = transitionDecodingLesson(staffLoaded, { type: "select-stage", stageIndex: 6 });
+    expect(jumped.stageIndex).toBe(6);
+
+    const afterReset = transitionDecodingLesson(jumped, {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: {},
+      payloads: {},
+      freeNavigation: true,
+      isReset: true,
+    });
+    expect(afterReset.stageIndex).toBe(1);
+    expect(afterReset.freeNavigation).toBe(true);
+    expect(draftOf(afterReset, 1).fills).toEqual({});
+    expect(afterReset.judgeOutcome).toBeNull();
+  });
 });

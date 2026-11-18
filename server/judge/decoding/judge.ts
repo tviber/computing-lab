@@ -101,9 +101,12 @@ export function judgeDecodingSubmission(
   project: ProjectRow<DecodingDraft>,
   stageIndex: number,
   body: { artifact?: unknown; code?: unknown; conceptAnswers?: Record<string, number> },
+  options?: { bypassLock?: boolean },
 ): DecodingJudgeResult | LabJudgeError {
-  const gated = gateStage(getDecodingStage(stageIndex), (stage) =>
-    decodingStageUnlocked(project.passedStages, stage.index),
+  const gated = gateStage(
+    getDecodingStage(stageIndex),
+    (stage) => decodingStageUnlocked(project.passedStages, stage.index),
+    options,
   );
   if ("error" in gated) return gated;
   const stage = gated.stage;

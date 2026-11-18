@@ -110,6 +110,8 @@ export function useAutosaveDraft<TDraft>(options: {
   holdSend?: (stageIndex: number, draft: TDraft) => boolean;
   /** Extra inputs (e.g. unlocked components) whose change re-arms the timer. */
   deps?: unknown[];
+  /** Incrementing this token cancels pending saves and resets revision tracking (e.g. staff lab reset). */
+  resetVersion?: number;
   onSaving: (stageIndex: number) => void;
   onSaved: (
     stageIndex: number,
@@ -123,7 +125,7 @@ export function useAutosaveDraft<TDraft>(options: {
    *  conflicted stage's draft. */
   onConflict?: (stageIndex: number) => void;
 }): void {
-  const { classId, labId, saveStatus, stageIndex, deps = [] } = options;
+  const { classId, labId, saveStatus, stageIndex, deps = [], resetVersion = 0 } = options;
   const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
   const latestArm = useRef(new Map<number, number>());
   const queuedArm = useRef(new Map<number, number>());
@@ -461,5 +463,5 @@ export function useAutosaveDraft<TDraft>(options: {
       fenced.clear();
       armDraft.current.clear();
     };
-  }, [classId]);
+  }, [classId, resetVersion]);
 }

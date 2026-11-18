@@ -20,7 +20,7 @@ export function calculatorRoutes() {
         expectedRevision,
         expectedComponentsRevision,
       ),
-    judge: (db, project, stageIndex, body) =>
-      judgeSubmission(db, project, stageIndex, body.graph, body.components),
+    judge: (db, project, stageIndex, body, { staff }) =>
+      judgeSubmission(db, project, stageIndex, body.graph, body.components, { bypassLock: staff }),
   });
 }

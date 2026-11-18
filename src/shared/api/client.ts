@@ -24,6 +24,8 @@ export type LabProjectPayload<TDraft> = {
   /** Server-assigned revision of the latest applied write per stage — the
    *  client's next PUT sends it back as `expectedRevision` (compare-and-swap). */
   draftRevisions?: Record<string, number>;
+  /** True when the signed-in caller has teacher/admin free-navigation rights. */
+  staffFreeNavigation?: boolean;
 };
 
 /** Autosave lifecycle flags shared by every lab's lesson state. "conflict"

@@ -126,12 +126,15 @@ export function judgeSubmission(
   stageIndex: number,
   rawGraph: unknown,
   rawComponents?: unknown,
+  options?: { bypassLock?: boolean },
 ): CalculatorJudgeResult | LabJudgeError {
   // Core stages are always judgeable in any order; optional stages declare
   // their own local prerequisite, with legacy challenges defaulting to all
-  // core stages.
-  const gated = gateStage(getStage(stageIndex), (stage) =>
-    stagePrerequisites(stage).every((index) => project.passedStages.includes(index)),
+  // core stages (bypassed in staff demo/exploration mode).
+  const gated = gateStage(
+    getStage(stageIndex),
+    (stage) => stagePrerequisites(stage).every((index) => project.passedStages.includes(index)),
+    options,
   );
   if ("error" in gated) return gated;
   const stage = gated.stage;

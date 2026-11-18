@@ -86,9 +86,12 @@ export function judgeLunchShiftSubmission(
   project: ProjectRow<unknown>,
   stageIndex: number,
   rawDraft: unknown,
+  options?: { bypassLock?: boolean },
 ): LunchJudgeResult | LabJudgeError {
-  const gated = gateStage(getLunchStage(stageIndex), (stage) =>
-    lunchStageUnlocked(project.passedStages, stage.index),
+  const gated = gateStage(
+    getLunchStage(stageIndex),
+    (stage) => lunchStageUnlocked(project.passedStages, stage.index),
+    options,
   );
   if ("error" in gated) return gated;
 
@@ -316,8 +319,9 @@ export function judgeLunchShiftSubmission(
     }
   });
 
-  // A passing stage-3 run unlocks stage 4 mid-session — ship its order
+  // A passing stage-3 run unlocks stage 4 mid-session (and staff always keep access) — ship its order
   // wording with the result so the page needs no reload (ids+text only).
-  result.aiOrders = lunchStageUnlocked(result.passedStages, 4) ? FINAL_PUBLIC_ORDERS : null;
+  result.aiOrders =
+    options?.bypassLock || lunchStageUnlocked(result.passedStages, 4) ? FINAL_PUBLIC_ORDERS : null;
   return result;
 }

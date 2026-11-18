@@ -13,13 +13,14 @@ export function imageSamplingRoutes() {
       saveStageDraft(db, project, stageIndex, sanitizeDraft(body.draft ?? {}), {
         expectedRevision,
       }),
-    judge: (db, project, stageIndex, body) =>
+    judge: (db, project, stageIndex, body, { staff }) =>
       judgeImageSubmission(
         db,
         project,
         stageIndex,
         { width: body.width, height: body.height },
         body.code,
+        { bypassLock: staff },
       ),
   });
 }

@@ -4,6 +4,7 @@
  * as display-ready data plus the user-intent actions.
  */
 
+import type { LabStaffControlsProps } from "../../../shared/lab/LabPageShell";
 import type { PixelHover, PixelMatrix } from "../domain/bmp.ts";
 import type {
   DecoderChoice,
@@ -129,4 +130,5 @@ export type DecodingLabActions = {
 export type DecodingWorkspaceProps = {
   model: DecodingLabViewModel;
   actions: DecodingLabActions;
+  staffControls?: LabStaffControlsProps;
 };

@@ -95,4 +95,31 @@ describe("judge-result", () => {
     const back = transitionLunchLesson(away, { type: "select-stage", stageIndex: 3 });
     expect(back.runSummaries.queue).toEqual(summary);
   });
+
+  it("unlocks core + stage 5 under freeNavigation and resets to stage 1 on isReset", () => {
+    let staff = transitionLunchLesson(createLunchLessonState(1), {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: { 2: { confirmCode: "return True", results: [] } },
+      aiOrders: [{ id: "F01", request: "牛肉面" }],
+      freeNavigation: true,
+    });
+    staff = transitionLunchLesson(staff, { type: "select-stage", stageIndex: 5 });
+    expect(staff.stageIndex).toBe(5);
+
+    const reset = transitionLunchLesson(staff, {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: {},
+      aiOrders: [{ id: "F01", request: "牛肉面" }],
+      freeNavigation: true,
+      isReset: true,
+    });
+    expect(reset.stageIndex).toBe(1);
+    expect(reset.freeNavigation).toBe(true);
+    expect(draftOf(reset, 2)).toEqual({ confirmCode: "", results: null });
+    expect(reset.judgeOutcome).toBeNull();
+  });
 });

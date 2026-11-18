@@ -17,7 +17,7 @@ import {
   type CalculatorLessonAction,
   type CalculatorLessonState,
 } from "../lesson/state";
-import { LabPageShell } from "../../../shared/lab/LabPageShell";
+import { LabPageShell, type LabStaffControlsProps } from "../../../shared/lab/LabPageShell";
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { BusReadout } from "./BusReadout";
 import { CircuitCanvas } from "./CircuitCanvas";
@@ -39,6 +39,8 @@ export type CalculatorLabWorkspaceProps = {
   /** Omit to hide the submit action (a preview never judges). */
   onSubmit?: () => void;
   submitting?: boolean;
+  freeNavigation?: boolean;
+  staffControls?: LabStaffControlsProps;
   /**
    * Snapshot inspection: render this graph read-only instead of the live
    * draft — palette, actions, and editing help stay hidden so the frozen
@@ -55,6 +57,8 @@ export function CalculatorLabWorkspace({
   error,
   onSubmit,
   submitting = false,
+  freeNavigation = false,
+  staffControls,
   inspect = null,
 }: CalculatorLabWorkspaceProps) {
   const [editingComponentName, setEditingComponentName] = useState<string | null>(null);
@@ -96,18 +100,22 @@ export function CalculatorLabWorkspace({
         rail={
           <StageRail
             coachHighlight={coach?.focusesOn("my-components") && stage?.id === "full-adder"}
+            freeNavigation={freeNavigation}
             passedStages={state.passedStages}
             onPlaceComponent={(name) =>
               dispatch({ type: "add-node", kind: "component", name, x: 320, y: 80 })
             }
             onEditCustomComponent={setEditingComponentName}
             onDeleteCustomComponent={(name) => dispatch({ type: "delete-custom-component", name })}
-            onSelectStage={(index) => dispatch({ type: "select-stage", stageIndex: index })}
+            onSelectStage={(index) =>
+              dispatch({ type: "select-stage", stageIndex: index, force: freeNavigation })
+            }
             stageIndex={state.stageIndex}
             unlockedSubmodules={state.unlockedSubmodules}
           />
         }
         railWidth={232}
+        staffControls={inspect ? undefined : staffControls}
       >
         <main aria-label="计算器实验区" className="calculator-workspace">
           <section className="stage-brief">

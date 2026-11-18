@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, describeApiError, type LabProjectPayload } from "../api/client";
+import type { LabStaffControlsProps } from "./LabPageShell";
 
 /**
  * Fetches `GET /api/classes/:classId/labs/:labId/project` once the caller is
@@ -23,28 +24,49 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
   labId: string;
   /** Gate on auth — fetch only once status is "authenticated". */
   ready: boolean;
-  toAction: (project: LabProjectPayload<TDraft> & TExtras) => TAction;
+  /** Caller holds teacher/admin role: unlocks shared self-reset & free-navigation controls. */
+  staff?: boolean;
+  /** Invoked when a staff self-reset succeeds so page-local state (errors, exec channels) clears cleanly. */
+  onResetSuccess?: () => void;
+  toAction: (project: LabProjectPayload<TDraft> & TExtras, meta?: { isReset?: boolean }) => TAction;
   dispatch: (action: TAction) => void;
 }): {
   projectLoaded: boolean;
   loadError: string | null;
   fetchProject: () => Promise<(LabProjectPayload<TDraft> & TExtras) | null>;
+  resetProject: () => Promise<boolean>;
+  resetting: boolean;
+  resetError: string | null;
+  saveGeneration: number;
+  staffControls: LabStaffControlsProps | undefined;
 } {
-  const { classId, labId, ready, toAction, dispatch } = options;
+  const { classId, labId, ready, staff = false, toAction, dispatch } = options;
   const [projectLoaded, setProjectLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
+  const [resetting, setResetting] = useState(false);
+  const [resetError, setResetError] = useState<string | null>(null);
+  const [saveGeneration, setSaveGeneration] = useState(0);
   const requestSeq = useRef(0);
+  const resetCallbackRef = useRef(options.onResetSuccess);
+  const toActionRef = useRef(toAction);
+
+  useEffect(() => {
+    resetCallbackRef.current = options.onResetSuccess;
+    toActionRef.current = toAction;
+  });
 
   useEffect(() => {
     if (!classId || !ready) return;
     const ticket = ++requestSeq.current;
     setProjectLoaded(false);
     setLoadError(null);
+    setResetting(false);
+    setResetError(null);
     void api
       .get<LabProjectPayload<TDraft> & TExtras>(`/api/classes/${classId}/labs/${labId}/project`)
       .then((project) => {
         if (requestSeq.current !== ticket) return;
-        dispatch(toAction(project));
+        dispatch(toAction(project, { isReset: false }));
         setProjectLoaded(true);
       })
       .catch((error) => {
@@ -53,9 +75,9 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
         setProjectLoaded(true);
       });
     return () => {
-      // Superseded by a newer request (or unmounted): the response, if it
-      // still arrives, finds a stale ticket and is dropped.
-      if (requestSeq.current === ticket) requestSeq.current += 1;
+      // Superseded by a newer request (or unmounted): invalidate every in-flight
+      // fetch/reset so a late response can never mutate a stale context.
+      requestSeq.current += 1;
     };
   }, [classId, labId, ready]);
 
@@ -77,7 +99,55 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
       });
   }, [classId, labId, ready]);
 
-  return { projectLoaded, loadError, fetchProject };
+  const resetProject = useCallback(async (): Promise<boolean> => {
+    if (!classId || !ready) return false;
+    const ticket = ++requestSeq.current;
+    setResetting(true);
+    setResetError(null);
+    try {
+      const fresh = await api.post<LabProjectPayload<TDraft> & TExtras>(
+        `/api/classes/${classId}/labs/${labId}/reset`,
+        {},
+      );
+      if (requestSeq.current !== ticket) return false;
+      // Bump save generation together with the reset snapshot so any pre-reset
+      // debounced or in-flight autosave is fenced off and revision counters start at 0.
+      setSaveGeneration((g) => g + 1);
+      dispatch(toActionRef.current(fresh, { isReset: true }));
+      resetCallbackRef.current?.();
+      setProjectLoaded(true);
+      setLoadError(null);
+      return true;
+    } catch (error) {
+      if (requestSeq.current === ticket) setResetError(describeApiError(error));
+      return false;
+    } finally {
+      if (requestSeq.current === ticket) setResetting(false);
+    }
+  }, [classId, labId, ready, dispatch]);
+
+  const staffControls: LabStaffControlsProps | undefined = staff
+    ? {
+        freeNavigation: true,
+        canReset: Boolean(classId && ready && projectLoaded),
+        resetting,
+        resetError,
+        onReset: () => {
+          void resetProject();
+        },
+      }
+    : undefined;
+
+  return {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    resetProject,
+    resetting,
+    resetError,
+    saveGeneration,
+    staffControls,
+  };
 }
 
 /**

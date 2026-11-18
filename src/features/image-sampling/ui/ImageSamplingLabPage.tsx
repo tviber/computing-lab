@@ -12,15 +12,12 @@ import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/use
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { Icon } from "../../../shared/ui/Icon";
 import type { SamplingJudgeResult, SamplingSubmission } from "../domain/protocol.ts";
-import {
-  IMAGE_SAMPLING_STAGES,
-  samplingStageUnlocked,
-  type SamplingStageDef,
-} from "../domain/stages.ts";
+import { IMAGE_SAMPLING_STAGES, type SamplingStageDef } from "../domain/stages.ts";
 import {
   createSamplingLessonState,
   draftOf,
   draftResolution,
+  isStageUnlocked,
   stageOf,
   transitionSamplingLesson,
   type SamplingLessonAction,
@@ -71,8 +68,9 @@ export function ImageSamplingLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/image-sampling" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { status, role } = useAuth();
+  const isStaff = isStaffRole(role);
   const [state, dispatch] = useReducer(transitionSamplingLesson, undefined, () =>
-    createSamplingLessonState(1),
+    createSamplingLessonState(1, isStaff),
   );
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
@@ -85,25 +83,26 @@ export function ImageSamplingLabPage() {
   // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    StageDraft,
-    Record<never, never>,
-    SamplingLessonAction
-  >({
-    classId,
-    labId: "image-sampling",
-    ready: status === "authenticated",
-    toAction: (project) => ({
-      type: "load-project",
-      currentStage: project.currentStage,
-      passedStages: project.passedStages,
-      draftRevisions: project.draftRevisions,
-      drafts: Object.fromEntries(
-        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-      ),
-    }),
-    dispatch,
-  });
+  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
+    useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>({
+      classId,
+      labId: "image-sampling",
+      ready: status === "authenticated",
+      staff: isStaff,
+      onResetSuccess: () => setSubmitError(null),
+      toAction: (project, meta) => ({
+        type: "load-project",
+        currentStage: project.currentStage,
+        passedStages: project.passedStages,
+        draftRevisions: project.draftRevisions,
+        drafts: Object.fromEntries(
+          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+        ),
+        freeNavigation: project.staffFreeNavigation ?? isStaff,
+        isReset: meta?.isReset,
+      }),
+      dispatch,
+    });
 
   // Apply a shared scenario (?stage=&w=&h=) once, after the project loads.
   useEffect(() => {
@@ -138,10 +137,14 @@ export function ImageSamplingLabPage() {
     labId: "image-sampling",
     // While the (new class's) project is loading the flags on screen still
     // belong to the previous context — nothing may schedule writes for it.
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -239,9 +242,10 @@ export function ImageSamplingLabPage() {
             passedStages={state.passedStages}
             stageIndex={state.stageIndex}
             stages={IMAGE_SAMPLING_STAGES}
-            unlocked={(stage) => samplingStageUnlocked(state.passedStages, stage.index)}
+            unlocked={(item) => isStageUnlocked(state, item.index)}
           />
         }
+        staffControls={staffControls}
       >
         <main aria-label="图像采样实验区" className="sampling-workspace">
           {stage ? <StageBrief stage={stage} /> : null}

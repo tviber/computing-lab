@@ -1,6 +1,6 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LabPageShell } from "./LabPageShell";
 
 beforeEach(() => localStorage.clear());
@@ -93,5 +93,54 @@ describe("LabPageShell", () => {
 
     await user.click(forcedToggle);
     expect(localStorage.getItem("computing-lab:lab-rail:ml-intro")).toBe("1");
+  });
+
+  it("renders staff controls only when provided and gates reset behind confirm", async () => {
+    const user = userEvent.setup();
+    const confirmMock = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmMock);
+    const onReset = vi.fn();
+
+    const { rerender } = renderShell();
+    expect(screen.queryByText("教师视角 · 自由切关")).toBeNull();
+    expect(screen.queryByRole("button", { name: "重置我的进度" })).toBeNull();
+
+    rerender(
+      <LabPageShell
+        labId="decoding"
+        rail={<nav>关卡列表</nav>}
+        staffControls={{ freeNavigation: true, onReset }}
+      >
+        <main>工作区</main>
+      </LabPageShell>,
+    );
+
+    expect(screen.getByText("教师视角 · 自由切关")).toBeInTheDocument();
+    const resetBtn = screen.getByRole("button", { name: "重置我的进度" });
+    await user.click(resetBtn);
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(onReset).not.toHaveBeenCalled();
+
+    confirmMock.mockReturnValueOnce(true);
+    await user.click(resetBtn);
+    expect(onReset).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <LabPageShell
+        labId="decoding"
+        rail={<nav>关卡列表</nav>}
+        staffControls={{
+          freeNavigation: true,
+          onReset,
+          resetting: true,
+          resetError: "重置失败",
+        }}
+      >
+        <main>工作区</main>
+      </LabPageShell>,
+    );
+    expect(screen.getByRole("button", { name: "重置中…" })).toBeDisabled();
+    expect(screen.getByRole("alert")).toHaveTextContent("重置失败");
+    vi.unstubAllGlobals();
   });
 });

@@ -33,7 +33,7 @@ export function decodingRoutes() {
       saveStageDraft(db, project, stageIndex, sanitizeDraft(body.draft ?? {}), {
         expectedRevision,
       }),
-    judge: (db, project, stageIndex, body) => {
+    judge: (db, project, stageIndex, body, { staff }) => {
       const key = `${project.userId}|decoding|${stageIndex}`;
       if (judgeLimiter.exceeded(key)) return { error: "rate-limited", status: 429 };
       judgeLimiter.hit(key);
@@ -54,11 +54,17 @@ export function decodingRoutes() {
           }
         }
       }
-      return judgeDecodingSubmission(db, project, stageIndex, {
-        artifact: body.artifact,
-        code: body.code,
-        conceptAnswers,
-      });
+      return judgeDecodingSubmission(
+        db,
+        project,
+        stageIndex,
+        {
+          artifact: body.artifact,
+          code: body.code,
+          conceptAnswers,
+        },
+        { bypassLock: staff },
+      );
     },
   });
 }

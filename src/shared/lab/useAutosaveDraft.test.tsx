@@ -14,6 +14,7 @@ type Params = {
   expectedComponentsRevisionOf?: () => number;
   bodyFor?: (stageIndex: number, draft: Draft) => Record<string, unknown>;
   deps?: unknown[];
+  resetVersion?: number;
   onSaving: (stageIndex: number) => void;
   onSaved: (stageIndex: number, revision?: number, componentsRevision?: number) => void;
   onError: (stageIndex: number) => void;
@@ -619,5 +620,44 @@ describe("useAutosaveDraft", () => {
     await flush();
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError).toHaveBeenCalledWith(1);
+  });
+
+  it("cancels timers, drops in-flight saves, and forgets stale revisions when resetVersion bumps", async () => {
+    const onSaved = vi.fn();
+    const { rerender } = renderHook((p: Params) => useAutosaveDraft(p), {
+      initialProps: base({ deps: [1], resetVersion: 0, onSaved }),
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    calls[0].done.resolve(ok(true, 4));
+    await flush();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+
+    // Arm a new timer before resetting, then bump resetVersion with clean/idle status.
+    rerender(base({ deps: [2], saveStatus: "dirty", resetVersion: 0, onSaved }));
+    rerender(base({ deps: [2], saveStatus: "idle", resetVersion: 1, onSaved }));
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    // Pre-reset armed timer was cancelled.
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    // Subsequent edit after reset starts from expectedRevision 0 instead of stale revision 4.
+    rerender(
+      base({
+        deps: [3],
+        saveStatus: "dirty",
+        resetVersion: 1,
+        expectedRevisionOf: () => 0,
+        onSaved,
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(calls[1].body.expectedRevision).toBe(0);
   });
 });
