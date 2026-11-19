@@ -52,12 +52,6 @@ describe("logistic-regression lesson state", () => {
       eta: 5,
       epochs: 30,
     });
-    expect(
-      sanitizeLogisticRegressionDraft(5, { probeText: "短信".repeat(300), threshold: 0.95 }),
-    ).toEqual({
-      activity: "sms-classification",
-      probeText: "短信".repeat(120),
-    });
   });
 
   it("handles OCC save status, conflict backup restore, and stage navigation", () => {

@@ -1,5 +1,9 @@
 import type { DatabaseSync } from "node:sqlite";
 import {
+  createExperienceClassifier,
+  EXPERIENCE_EXAMPLES,
+} from "../../../src/features/logistic-regression/domain/experience.ts";
+import {
   evaluateManualWeights,
   MAX_SAMPLE_SIZE,
   trainLogisticRegression,
@@ -27,7 +31,7 @@ import {
   sanitizeTokenizeDraft,
   sanitizeTrainDraft,
 } from "../../../src/features/logistic-regression/lesson/state.ts";
-import { withTransaction } from "../../db/client.ts";
+import { parseJsonColumn, withTransaction } from "../../db/client.ts";
 import {
   advanceStage,
   gateStage,
@@ -38,6 +42,23 @@ import {
 
 function pct(value: number): string {
   return `${(value * 100).toFixed(1)}%`;
+}
+
+export function latestPassedTraining(
+  db: DatabaseSync,
+  projectId: string,
+): TrainingSettings | undefined {
+  const latest = db
+    .prepare(
+      `SELECT snapshot_graph AS snapshot FROM submissions
+       WHERE project_id = ? AND lab_id = 'logistic-regression' AND stage_index = 4 AND passed = 1
+       ORDER BY submitted_at DESC, rowid DESC LIMIT 1`,
+    )
+    .get(projectId) as { snapshot: string } | undefined;
+  const snapshot = latest && parseJsonColumn<unknown>(latest.snapshot, null);
+  if (!snapshot) return undefined;
+  const { eta, epochs } = sanitizeTrainDraft(snapshot);
+  return { eta, epochs };
 }
 
 function checkConcepts(
@@ -233,7 +254,21 @@ export function judgeLogisticRegressionSubmission(
         : `训练损失或验证损失尚未达到要求。请比较其他学习率和轮数（当前 η=${draft.eta}，${draft.epochs} 轮）。`,
     };
   } else {
-    if ((rawDraft as { activity?: unknown } | null)?.activity !== "sms-classification") {
+    const activity = rawDraft as {
+      activity?: unknown;
+      exampleId?: unknown;
+      prediction?: unknown;
+    } | null;
+    const example = EXPERIENCE_EXAMPLES.find(({ id }) => id === activity?.exampleId);
+    if (
+      activity?.activity !== "sms-classification" ||
+      !example ||
+      (activity.prediction !== 0 && activity.prediction !== 1)
+    ) {
+      return { error: "invalid-activity", status: 400 };
+    }
+    const training = latestPassedTraining(db, project.id) ?? sanitizeTrainDraft(project.drafts[4]);
+    if (createExperienceClassifier(training).inspect(example.text).pred !== activity.prediction) {
       return { error: "invalid-activity", status: 400 };
     }
     snapshot = { activity: "sms-classification" };

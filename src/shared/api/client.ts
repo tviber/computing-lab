@@ -72,6 +72,7 @@ export const API_ERROR_MESSAGES: Record<string, string> = {
   "not-a-student-account": "该账号不是学生账号，请让管理员处理。",
   "stage-locked": "这一关还没有解锁。",
   "missing-run": "先在页面里运行代码，拿到可提交的结果后再提交。",
+  "invalid-activity": "请重新选一条示例短信，查看分类结果后再提交。",
   "invalid-stage": "关卡编号无效。",
   "unknown-stage": "关卡不存在。",
   "invalid-resolution": "分辨率无效（宽和高需在 2～64 之间）。",

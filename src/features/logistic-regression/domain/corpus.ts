@@ -8,7 +8,7 @@ export type CorpusMessage = {
   tokens: string[];
 };
 
-export function parseCorpusRows(rows: readonly string[]): CorpusMessage[] {
+function parseCorpusRows(rows: readonly string[]): CorpusMessage[] {
   const result: CorpusMessage[] = [];
   for (let i = 0; i < rows.length; i++) {
     const parts = rows[i].split("\t");

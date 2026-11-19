@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
-export const SCHEMA_VERSION = 20;
+export const SCHEMA_VERSION = 21;
 
 export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
 
@@ -417,14 +417,10 @@ export function migrate(db: DatabaseSync): void {
         if (oldPassed.includes(6)) passed.push(5);
         const drafts = parseJsonColumn<Record<string, unknown>>(project.draft_graph, {});
         const revisions = parseJsonColumn<Record<string, unknown>>(project.draft_revisions, {});
-        const probeText = (drafts[6] as { probeText?: unknown } | undefined)?.probeText;
         delete drafts[5];
         delete drafts[6];
         delete revisions[5];
         delete revisions[6];
-        if (typeof probeText === "string") {
-          drafts[5] = { activity: "sms-classification", probeText };
-        }
         const next = [1, 2, 3, 4, 5].find((index) => !passed.includes(index)) ?? 6;
         update.run(
           JSON.stringify(passed),
@@ -441,6 +437,20 @@ export function migrate(db: DatabaseSync): void {
         UPDATE submissions SET lab_id = 'logistic-regression' WHERE lab_id = 'ml-intro';
         UPDATE lab_settings SET lab_id = 'logistic-regression' WHERE lab_id = 'ml-intro';
         UPDATE lab_class_settings SET lab_id = 'logistic-regression' WHERE lab_id = 'ml-intro';
+      `);
+    }
+    if (version < 21) {
+      db.exec(`
+        UPDATE student_projects
+        SET draft_graph = json_remove(draft_graph, '$."5"', '$."6"')
+        WHERE lab_id = 'logistic-regression' AND json_valid(draft_graph);
+        UPDATE student_projects
+        SET draft_revisions = json_remove(draft_revisions, '$."5"', '$."6"')
+        WHERE lab_id = 'logistic-regression' AND json_valid(draft_revisions);
+        UPDATE submissions
+        SET snapshot_graph = json_remove(snapshot_graph, '$.probeText')
+        WHERE lab_id = 'logistic-regression' AND stage_index BETWEEN 5 AND 7
+          AND json_valid(snapshot_graph);
       `);
     }
     if (version < SCHEMA_VERSION) db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);

@@ -12,7 +12,7 @@ import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import type {
-  ExperienceDraft,
+  ExperienceSubmission,
   LogisticRegressionDraft,
   LogisticRegressionJudgeResult,
   LogisticRegressionProjectExtras,
@@ -161,7 +161,7 @@ export function LogisticRegressionLabPage() {
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
         : "idle",
     stageIndex: state.stageIndex,
-    draftOf: (index) => draftOf(state, index),
+    draftOf: (index) => (index === 5 ? undefined : draftOf(state, index)),
     deps: [state.drafts],
     expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
@@ -173,7 +173,7 @@ export function LogisticRegressionLabPage() {
   });
 
   const submitJudge = useCallback(
-    async (stageIndex: number, draft: LogisticRegressionDraft) => {
+    async (stageIndex: number, draft: LogisticRegressionDraft | ExperienceSubmission) => {
       if (!classId) return;
       if (!isStaff && !logisticRegressionStageUnlocked(state.passedStages, stageIndex)) {
         setSubmitError(
@@ -363,13 +363,10 @@ export function LogisticRegressionLabPage() {
 
           {projectLoaded && stage?.id === "experience" ? (
             <ExperiencePanel
-              draft={draftOf(state, 5) as ExperienceDraft}
+              key={`${classId}:${projectGeneration}:${state.trainedSettings?.eta}:${state.trainedSettings?.epochs}`}
               training={state.trainedSettings ?? (draftOf(state, 4) as TrainDraft)}
               hasSubmittedModel={state.trainedSettings !== undefined}
-              onChange={(draft) => dispatch({ type: "update-stage5", draft })}
-              onComplete={() =>
-                void submitJudge(5, { activity: "sms-classification", probeText: "" })
-              }
+              onComplete={(submission) => void submitJudge(5, submission)}
               onReviewTraining={() => selectStage(4)}
               passed={activePassed}
               previewOnly={!isStaff && !formalUnlocked}

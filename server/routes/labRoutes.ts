@@ -51,7 +51,7 @@ type LabSpec<TDraft, TOutcome> = {
     expectedRevision: number,
     expectedComponentsRevision?: number,
     expectedGeneration?: number,
-  ) => DraftSaveResult;
+  ) => DraftSaveResult | LabJudgeError;
   judge: (
     db: DatabaseSync,
     project: ProjectRow<TDraft>,
@@ -167,6 +167,7 @@ export function labRoutes<TDraft, TOutcome extends object>(
       expectedComponentsRevision as number | undefined,
       expectedGeneration,
     );
+    if ("error" in result) return jsonError(c, result.status, result.error);
     return c.json({
       ok: true,
       applied: result.applied,

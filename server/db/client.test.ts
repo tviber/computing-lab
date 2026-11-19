@@ -398,7 +398,7 @@ describe("migrate", () => {
     db.close();
   });
 
-  it("retires old logistic regression evaluations while preserving training, sample drafts, and graduation", () => {
+  it("retires old evaluations and removes their SMS text while preserving training and graduation", () => {
     const db = fixtureDb(18);
     db.exec(`
       INSERT INTO classes (id, name, invite_code) VALUES ('c1', 'class', 'inv');
@@ -413,8 +413,8 @@ describe("migrate", () => {
       INSERT INTO submissions (id, project_id, user_id, lab_id, stage_index,
         snapshot_graph, score, total, passed, test_summary)
       VALUES ('matrix', 'finished', 'u1', 'ml-intro', 5, '{}', 1, 1, 1, '{}'),
-        ('final', 'finished', 'u1', 'ml-intro', 6, '{}', 1, 1, 1, '{}'),
-        ('retry', 'evaluated', 'u2', 'ml-intro', 6, '{}', 0, 1, 0, '{}');
+        ('final', 'finished', 'u1', 'ml-intro', 6, '{"probeText":"示例短信","eta":0.25}', 1, 1, 1, '{}'),
+        ('retry', 'evaluated', 'u2', 'ml-intro', 6, '{"probeText":"另一条短信"}', 0, 1, 0, '{}');
     `);
 
     migrate(db);
@@ -426,7 +426,6 @@ describe("migrate", () => {
       passed_stages: "[1,2,3,4,5]",
       draft_graph: JSON.stringify({
         4: { eta: 0.25 },
-        5: { activity: "sms-classification", probeText: "示例短信" },
       }),
       draft_revisions: '{"4":2}',
       project_generation: 4,
@@ -438,10 +437,12 @@ describe("migrate", () => {
         project_generation: 1,
       },
     );
-    expect(db.prepare("SELECT id, stage_index FROM submissions ORDER BY id").all()).toEqual([
-      { id: "final", stage_index: 5 },
-      { id: "matrix", stage_index: 7 },
-      { id: "retry", stage_index: 6 },
+    expect(
+      db.prepare("SELECT id, stage_index, snapshot_graph FROM submissions ORDER BY id").all(),
+    ).toEqual([
+      { id: "final", stage_index: 5, snapshot_graph: '{"eta":0.25}' },
+      { id: "matrix", stage_index: 7, snapshot_graph: "{}" },
+      { id: "retry", stage_index: 6, snapshot_graph: "{}" },
     ]);
     db.close();
   });
@@ -474,8 +475,8 @@ describe("migrate", () => {
         lab_id: "logistic-regression",
         current_stage: 6,
         passed_stages: "[1,2,3,4,5]",
-        draft_graph: '{"5":{"activity":"sms-classification"}}',
-        draft_revisions: '{"5":2}',
+        draft_graph: "{}",
+        draft_revisions: "{}",
         project_generation: 4,
       },
     ]);
@@ -489,6 +490,25 @@ describe("migrate", () => {
     expect(db.prepare("SELECT * FROM lab_class_settings").all()).toMatchObject([
       { lab_id: "logistic-regression", class_id: "c1", open: 0 },
     ]);
+    db.close();
+  });
+
+  it("removes saved experience drafts from an already renamed v20 project", () => {
+    const db = fixtureDb(20);
+    db.exec(`
+      INSERT INTO users (id, student_no, name, password_hash) VALUES ('u1', 'no1', 'n', 'h');
+      INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage,
+        passed_stages, draft_graph, draft_revisions)
+      VALUES ('p1', 'u1', 'c1', 'logistic-regression', 6, '[1,2,3,4,5]',
+        '{"4":{"eta":0.1},"5":{"probeText":"旧短信"}}', '{"4":1,"5":2}');
+    `);
+    migrate(db);
+    expect(db.prepare("SELECT * FROM student_projects").get()).toMatchObject({
+      current_stage: 6,
+      passed_stages: "[1,2,3,4,5]",
+      draft_graph: '{"4":{"eta":0.1}}',
+      draft_revisions: '{"4":1}',
+    });
     db.close();
   });
 

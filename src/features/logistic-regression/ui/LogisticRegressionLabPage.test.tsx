@@ -85,7 +85,8 @@ describe("LogisticRegressionLabPage", () => {
       makeProject({
         currentStage: 5,
         passedStages: [1, 2, 3, 4],
-        drafts: { 4: { eta: 0.16, epochs: 14, inspectEpoch: 1, showBgd: false } },
+        drafts: { 4: { eta: 0.001, epochs: 1, inspectEpoch: 1, showBgd: false } },
+        trainedSettings: { eta: 0.16, epochs: 14 },
       }),
       () =>
         json({
@@ -102,6 +103,9 @@ describe("LogisticRegressionLabPage", () => {
     expect(screen.queryByRole("button", { name: /误报与漏报/ })).not.toBeInTheDocument();
     const finish = screen.getByRole("button", { name: "完成体验" });
     expect(finish).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("短信内容"), { target: { value: "明天来学校开会" } });
+    expect(screen.getByText(/模型分类：/)).toBeInTheDocument();
+    expect(finish).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "促销短信" }));
     expect(screen.getByText("模型分类：垃圾短信")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "日常消息" }));
@@ -111,9 +115,10 @@ describe("LogisticRegressionLabPage", () => {
     fireEvent.click(finish);
     expect(await screen.findByText("已完成短信分类体验")).toBeInTheDocument();
     const request = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/judge"));
-    expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({
+    expect(JSON.parse(String(request?.[1]?.body))).toEqual({
       stageIndex: 5,
-      draft: { activity: "sms-classification", probeText: "" },
+      expectedGeneration: 0,
+      draft: { activity: "sms-classification", exampleId: "everyday", prediction: 0 },
     });
   });
 

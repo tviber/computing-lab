@@ -31,13 +31,13 @@ export type TrainDraft = {
 
 export type TrainingSettings = Pick<TrainDraft, "eta" | "epochs">;
 
-export type ExperienceDraft = {
+export type ExperienceSubmission = {
   activity: "sms-classification";
-  probeText: string;
+  exampleId: string;
+  prediction: 0 | 1;
 };
 
-export type LogisticRegressionDraft =
-  StrategyDraft | TokenizeDraft | ScoreDraft | TrainDraft | ExperienceDraft;
+export type LogisticRegressionDraft = StrategyDraft | TokenizeDraft | ScoreDraft | TrainDraft;
 
 export type LogisticRegressionPartSummary = {
   id: string;

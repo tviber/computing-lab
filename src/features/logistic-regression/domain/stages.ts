@@ -370,7 +370,7 @@ export const LOGISTIC_REGRESSION_STAGES: LogisticRegressionStageDef[] = [
     englishTitle: "Try your classifier",
     description: "用第 4 关训练的模型试一试。可以选一条示例，也可以自己写一条短信。",
     task: "看模型会把短信分到哪一类，再换几个词试试。",
-    judgeNote: "体验完成后即可记录进度。",
+    judgeNote: "试分任一示例后即可记录进度。自写短信只在浏览器里处理。",
     takeaway: "模型根据训练时学到的词权重分类。换一种写法，预测也可能改变。",
     hints: [],
     prompts: [],

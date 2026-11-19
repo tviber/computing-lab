@@ -17,7 +17,6 @@ import {
 } from "../domain/logisticRegression.ts";
 import type {
   ConceptAnswers,
-  ExperienceDraft,
   LogisticRegressionDraft,
   LogisticRegressionJudgeResult,
   LogisticRegressionProjectExtras,
@@ -102,10 +101,6 @@ export function defaultTrainDraft(): TrainDraft {
     inspectEpoch: 10,
     showBgd: false,
   };
-}
-
-export function defaultExperienceDraft(): ExperienceDraft {
-  return { activity: "sms-classification", probeText: "" };
 }
 
 export function sanitizeStrategyDraft(raw: unknown): StrategyDraft {
@@ -208,15 +203,6 @@ export function sanitizeTrainDraft(raw: unknown): TrainDraft {
   };
 }
 
-export function sanitizeExperienceDraft(raw: unknown): ExperienceDraft {
-  const draft = defaultExperienceDraft();
-  if (!raw || typeof raw !== "object") return draft;
-  const { probeText } = raw as Record<string, unknown>;
-  return typeof probeText === "string"
-    ? { ...draft, probeText: probeText.slice(0, MAX_TEXT_CHARS) }
-    : draft;
-}
-
 export function defaultDraftForStage(stageIndex: number): LogisticRegressionDraft {
   switch (stageIndex) {
     case 1:
@@ -227,8 +213,6 @@ export function defaultDraftForStage(stageIndex: number): LogisticRegressionDraf
       return defaultScoreDraft();
     case 4:
       return defaultTrainDraft();
-    case 5:
-      return defaultExperienceDraft();
     default:
       return defaultStrategyDraft();
   }
@@ -247,8 +231,6 @@ export function sanitizeLogisticRegressionDraft(
       return sanitizeScoreDraft(raw);
     case 4:
       return sanitizeTrainDraft(raw);
-    case 5:
-      return sanitizeExperienceDraft(raw);
     default:
       return sanitizeStrategyDraft(raw);
   }
@@ -290,7 +272,6 @@ export type LogisticRegressionLessonAction =
   | { type: "update-stage2"; draft: TokenizeDraft }
   | { type: "update-stage3"; draft: ScoreDraft }
   | { type: "update-stage4"; draft: TrainDraft }
-  | { type: "update-stage5"; draft: ExperienceDraft }
   | { type: "judge-result"; stageIndex: number; outcome: LogisticRegressionJudgeResult }
   | { type: "mark-saving"; stageIndex: number }
   | { type: "mark-saved"; stageIndex: number; revision?: number }
@@ -343,7 +324,6 @@ export function createLogisticRegressionLessonState(
       2: defaultTokenizeDraft(),
       3: defaultScoreDraft(),
       4: defaultTrainDraft(),
-      5: defaultExperienceDraft(),
     },
     conflictedLocalDrafts: {},
     draftRevisions: {},
@@ -413,18 +393,18 @@ export function transitionLogisticRegressionLesson(
     case "load-project": {
       const draftRevisions: Record<number, number> = {};
       for (const [key, rev] of Object.entries(action.draftRevisions ?? {})) {
-        draftRevisions[Number(key)] = rev;
+        const index = Number(key);
+        if (index >= 1 && index <= 4) draftRevisions[index] = rev;
       }
       const drafts: Record<number, LogisticRegressionDraft> = {
         1: defaultStrategyDraft(),
         2: defaultTokenizeDraft(),
         3: defaultScoreDraft(),
         4: defaultTrainDraft(),
-        5: defaultExperienceDraft(),
       };
       for (const [key, draft] of Object.entries(action.drafts)) {
         const s = Number(key);
-        if (getLogisticRegressionStage(s)) drafts[s] = sanitizeLogisticRegressionDraft(s, draft);
+        if (s >= 1 && s <= 4) drafts[s] = sanitizeLogisticRegressionDraft(s, draft);
       }
       const staffMode = action.staffMode ?? state.staffMode;
       const pinnedStage = action.isReset ? null : state.pinnedStage;
@@ -501,8 +481,6 @@ export function transitionLogisticRegressionLesson(
       return state.stageIndex === 3 ? withDraft(state, 3, action.draft) : state;
     case "update-stage4":
       return state.stageIndex === 4 ? withDraft(state, 4, action.draft) : state;
-    case "update-stage5":
-      return state.stageIndex === 5 ? withDraft(state, 5, action.draft) : state;
 
     case "judge-result": {
       const summaryKey = SUMMARY_KEYS[action.stageIndex];

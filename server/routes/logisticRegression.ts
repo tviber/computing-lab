@@ -5,13 +5,13 @@ import type {
   LogisticRegressionTestSummary,
 } from "../../src/features/logistic-regression/domain/protocol.ts";
 import { LOGISTIC_REGRESSION_STAGES } from "../../src/features/logistic-regression/domain/stages.ts";
-import {
-  sanitizeLogisticRegressionDraft,
-  sanitizeTrainDraft,
-} from "../../src/features/logistic-regression/lesson/state.ts";
+import { sanitizeLogisticRegressionDraft } from "../../src/features/logistic-regression/lesson/state.ts";
 import { SlidingWindowLimiter } from "../auth/rateLimit.ts";
 import { parseJsonColumn } from "../db/client.ts";
-import { judgeLogisticRegressionSubmission } from "../judge/logistic-regression/judge.ts";
+import {
+  judgeLogisticRegressionSubmission,
+  latestPassedTraining,
+} from "../judge/logistic-regression/judge.ts";
 import { saveStageDraft } from "../judge/pipeline.ts";
 import { labRoutes } from "./labRoutes.ts";
 
@@ -57,20 +57,10 @@ export function logisticRegressionRoutes() {
     labId: "logistic-regression",
     stageCount: LOGISTIC_REGRESSION_STAGES.length,
     projectExtras: (db, project) => {
-      const latestModel = db
-        .prepare(
-          `SELECT snapshot_graph AS snapshot FROM submissions
-         WHERE project_id = ? AND lab_id = 'logistic-regression' AND stage_index = 4 AND passed = 1
-         ORDER BY submitted_at DESC, rowid DESC LIMIT 1`,
-        )
-        .get(project.id) as { snapshot: string } | undefined;
-      const settings = latestModel && parseJsonColumn<unknown>(latestModel.snapshot, null);
-      const trainedSettings = settings ? sanitizeTrainDraft(settings) : undefined;
+      const trainedSettings = latestPassedTraining(db, project.id);
       return {
         runSummaries: latestRunSummaries(db, project.id),
-        ...(trainedSettings
-          ? { trainedSettings: { eta: trainedSettings.eta, epochs: trainedSettings.epochs } }
-          : {}),
+        ...(trainedSettings ? { trainedSettings } : {}),
       };
     },
     saveDraft: (
@@ -81,8 +71,9 @@ export function logisticRegressionRoutes() {
       expectedRevision,
       _expectedComponents,
       expectedGeneration,
-    ) =>
-      saveStageDraft(
+    ) => {
+      if (stageIndex === 5) return { error: "invalid-stage", status: 400 };
+      return saveStageDraft(
         db,
         project,
         stageIndex,
@@ -91,7 +82,8 @@ export function logisticRegressionRoutes() {
           expectedRevision,
           expectedGeneration,
         },
-      ),
+      );
+    },
     judge: (db, project, stageIndex, body, { staff }) => {
       const key = `${project.userId}|logistic-regression|${stageIndex}`;
       if (judgeLimiter.exceeded(key)) return { error: "rate-limited", status: 429 };

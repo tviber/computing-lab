@@ -297,6 +297,42 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(page.getByText(/学习率 0.1 · 12 轮 · 系统阈值/)).toBeVisible();
   await expect(page.getByText("概念检查", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "完成体验" })).toBeDisabled();
+  const experienceDrafts: unknown[] = [];
+  page.on("request", (req) => {
+    if (req.method() === "PUT" && req.url().endsWith("/labs/logistic-regression/draft")) {
+      const body = req.postDataJSON();
+      if (body.stageIndex === 5) experienceDrafts.push(body);
+    }
+  });
+  await page.clock.install();
+  const smsInput = page.getByLabel("短信内容");
+  await smsInput.fill("自写测试短信只留在页面");
+  await expect(page.getByText(/^模型分类：/)).toBeVisible();
+  await page.clock.fastForward(2_000);
+  expect(experienceDrafts).toEqual([]);
+  await expect(page.getByRole("button", { name: "完成体验" })).toBeDisabled();
+  const labApi = `/api/classes/${classId}/labs/logistic-regression`;
+  const project = await (await page.request.get(`${labApi}/project`)).json();
+  const blockedDraft = await page.request.put(`${labApi}/draft`, {
+    data: {
+      stageIndex: 5,
+      expectedGeneration: project.projectGeneration,
+      expectedRevision: 0,
+      draft: { probeText: "自写测试短信只留在页面" },
+    },
+  });
+  expect(blockedDraft.status()).toBe(400);
+  const markerOnly = await page.request.post(`${labApi}/judge`, {
+    data: {
+      stageIndex: 5,
+      expectedGeneration: project.projectGeneration,
+      draft: { activity: "sms-classification" },
+    },
+  });
+  expect(markerOnly.status()).toBe(400);
+  expect((await (await page.request.get(`${labApi}/project`)).json()).drafts).not.toHaveProperty(
+    "5",
+  );
   await page.getByRole("button", { name: "促销短信", exact: true }).click();
   await expect(page.getByText("模型分类：垃圾短信")).toBeVisible();
   await page.getByRole("button", { name: "日常消息", exact: true }).click();
@@ -320,13 +356,20 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
       res.request().method() === "POST" && res.url().endsWith("/labs/logistic-regression/judge"),
   );
   await page.getByRole("button", { name: "完成体验" }).click();
-  expect(await (await completion).json()).toMatchObject({ passedStages: [1, 2, 3, 4, 5] });
+  const completionResponse = await completion;
+  expect(completionResponse.request().postDataJSON().draft).toEqual({
+    activity: "sms-classification",
+    exampleId: "everyday",
+    prediction: 0,
+  });
+  expect(await completionResponse.json()).toMatchObject({ passedStages: [1, 2, 3, 4, 5] });
   await expect(page.getByText("已完成短信分类体验")).toBeVisible();
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "用新短信试试模型", exact: true })).toBeVisible();
   await expect(page.getByText(/学习率 0.1 · 12 轮 · 系统阈值/)).toBeVisible();
   await expect(page.getByText("已完成短信分类体验")).toBeVisible();
 
+  await expect(smsInput).toHaveValue("");
   await page.goto(`classes/${classId}/labs/logistic-regression?classroom=1&stage=1`, {
     waitUntil: "networkidle",
   });

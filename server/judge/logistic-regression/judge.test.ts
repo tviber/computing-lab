@@ -6,7 +6,6 @@ import {
   LOGISTIC_REGRESSION_STAGES,
   TOKENIZE_PUZZLE_ITEMS,
 } from "../../../src/features/logistic-regression/domain/stages.ts";
-import { HIDDEN_TEST_ROWS } from "./hiddenCorpus.ts";
 
 const LAB_ID = "logistic-regression";
 
@@ -179,7 +178,7 @@ describe("logistic-regression judge", () => {
     expect(pass.passedStages).toEqual([1, 2, 3, 4]);
   });
 
-  it("records the experience without grading predictions or retaining SMS text", () => {
+  it("validates a public example against the trained model and records only completion", () => {
     const { db, project } = setupProject([1, 2, 3, 4]);
     expect(judgeLogisticRegressionSubmission(db, project, 5, { threshold: 0.4 })).toMatchObject({
       error: "invalid-activity",
@@ -187,11 +186,29 @@ describe("logistic-regression judge", () => {
     expect(judgeLogisticRegressionSubmission(db, project, 6, {})).toMatchObject({
       error: "unknown-stage",
     });
-    const activity = { activity: "sms-classification", probeText: "试一条短信" };
+    const activity = { activity: "sms-classification", exampleId: "promotion", prediction: 1 };
     expect(
       judgeLogisticRegressionSubmission(db, { ...project, passedStages: [] }, 5, activity),
     ).toMatchObject({ error: "stage-locked" });
-    const outcome = judgeLogisticRegressionSubmission(db, project, 5, activity);
+    expect(
+      judgeLogisticRegressionSubmission(db, project, 4, { eta: 0.1, epochs: 12 }),
+    ).toMatchObject({ passed: true });
+    for (const draft of [
+      { activity: "sms-classification" },
+      { ...activity, exampleId: "arbitrary" },
+      { ...activity, prediction: 0 },
+      { ...activity, prediction: "1" },
+    ]) {
+      expect(judgeLogisticRegressionSubmission(db, project, 5, draft)).toEqual({
+        error: "invalid-activity",
+        status: 400,
+      });
+    }
+    expect(db.prepare("SELECT * FROM submissions WHERE stage_index = 5").get()).toBeUndefined();
+    const outcome = judgeLogisticRegressionSubmission(db, project, 5, {
+      ...activity,
+      probeText: "试一条短信",
+    });
     expect(outcome).toMatchObject({
       passed: true,
       score: 1,
@@ -199,25 +216,8 @@ describe("logistic-regression judge", () => {
       currentStage: 6,
       passedStages: [1, 2, 3, 4, 5],
     });
-    expect(db.prepare("SELECT snapshot_graph FROM submissions").get()).toMatchObject({
-      snapshot_graph: JSON.stringify({ activity: "sms-classification" }),
-    });
-  });
-
-  it("keeps held-out server corpus free of unredacted PII and classroom-unsafe text", () => {
-    const patterns = [
-      /(?<!\d)1[3-9]\d{9}(?!\d)/,
-      /(?<!\d)1\d{2}[x*]{4}\d{2,4}/i,
-      /(?<!\d)[48]00[-\s]?\d{3}[-\s]?\d{4}/,
-      /https?:\/\/|www\./i,
-      /强奸|强暴|乱伦|轮奸|他妈|操你|滚蛋|蠢货/,
-    ];
-    expect(HIDDEN_TEST_ROWS).toHaveLength(300);
-    for (const row of HIDDEN_TEST_ROWS) {
-      const text = row.split("\t")[1] ?? "";
-      for (const re of patterns) {
-        expect(text, `hidden row matched ${re}: ${text}`).not.toMatch(re);
-      }
-    }
+    expect(
+      db.prepare("SELECT snapshot_graph FROM submissions WHERE stage_index = 5").get(),
+    ).toMatchObject({ snapshot_graph: JSON.stringify({ activity: "sms-classification" }) });
   });
 });

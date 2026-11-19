@@ -1,65 +1,35 @@
-import { useId, useMemo } from "react";
-import {
-  MAX_SAMPLE_SIZE,
-  selectExperienceThreshold,
-  trainLogisticRegression,
-} from "../domain/logisticRegression.ts";
-import type { ExperienceDraft, TrainingSettings } from "../domain/protocol.ts";
-import { inspectMessageWithModel } from "../domain/tokenizer.ts";
+import { useId, useMemo, useState } from "react";
+import { createExperienceClassifier, EXPERIENCE_EXAMPLES } from "../domain/experience.ts";
+import type { ExperienceSubmission, TrainingSettings } from "../domain/protocol.ts";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
 
-const EXAMPLES = [
-  { label: "日常消息", text: "明天下午和同学一起去学校看电影，别忘了带手机！" },
-  { label: "促销短信", text: "尊敬的客户，本店年终促销，全场五折，欢迎到店选购！咨询电话 TEL。" },
-  { label: "简短广告", text: "限时优惠！免费领取现金红包，回复 TD 退订。" },
-];
-
 export function ExperiencePanel({
-  draft,
   training,
   hasSubmittedModel,
-  onChange,
   onComplete,
   onReviewTraining,
   passed,
   previewOnly,
   submitting,
 }: {
-  draft: ExperienceDraft;
   training: TrainingSettings;
   hasSubmittedModel: boolean;
-  onChange: (draft: ExperienceDraft) => void;
-  onComplete: () => void;
+  onComplete: (submission: ExperienceSubmission) => void;
   onReviewTraining: () => void;
   passed: boolean;
   previewOnly: boolean;
   submitting: boolean;
 }) {
   const inputId = useId();
+  const [probeText, setProbeText] = useState("");
+  const [sampleResult, setSampleResult] = useState<ExperienceSubmission | null>(null);
   const { eta, epochs } = training;
-  const { model, threshold } = useMemo(() => {
-    const run = trainLogisticRegression({ trainCount: MAX_SAMPLE_SIZE, eta, epochs });
-    return {
-      model: run.finalModel,
-      threshold: selectExperienceThreshold(run.valPredictions),
-    };
-  }, [eta, epochs]);
-  const text = draft.probeText.trim();
-  const inspection = useMemo(
-    () =>
-      text
-        ? inspectMessageWithModel(
-            text,
-            model.weightsByWord,
-            model.bias,
-            model.vocabSet,
-            threshold,
-            model.wordToIndex,
-          )
-        : null,
-    [text, model, threshold],
+  const { threshold, inspect } = useMemo(
+    () => createExperienceClassifier({ eta, epochs }),
+    [eta, epochs],
   );
-  const updateText = (probeText: string) => onChange({ ...draft, probeText });
+  const text = probeText.trim();
+  const inspection = useMemo(() => (text ? inspect(text) : null), [text, inspect]);
 
   return (
     <section
@@ -82,12 +52,19 @@ export function ExperiencePanel({
         · 系统阈值 {(threshold * 100).toFixed(0)}%
       </p>
       <div aria-label="短信示例" className="logistic-regression-preset-row" role="group">
-        {EXAMPLES.map((example) => (
+        {EXPERIENCE_EXAMPLES.map((example) => (
           <button
-            aria-pressed={draft.probeText === example.text}
-            className={`logistic-regression-chip-btn${draft.probeText === example.text ? " is-active" : ""}`}
+            aria-pressed={probeText === example.text}
+            className={`logistic-regression-chip-btn${probeText === example.text ? " is-active" : ""}`}
             key={example.label}
-            onClick={() => updateText(example.text)}
+            onClick={() => {
+              setProbeText(example.text);
+              setSampleResult({
+                activity: "sms-classification",
+                exampleId: example.id,
+                prediction: inspect(example.text).pred,
+              });
+            }}
             type="button"
           >
             {example.label}
@@ -101,10 +78,10 @@ export function ExperiencePanel({
         className="logistic-regression-text-input logistic-regression-experience-input"
         id={inputId}
         maxLength={240}
-        onChange={(event) => updateText(event.target.value)}
-        placeholder="请输入不含姓名、电话号码等个人信息的短信"
+        onChange={(event) => setProbeText(event.target.value)}
+        placeholder="自写短信只在这个页面处理"
         rows={3}
-        value={draft.probeText}
+        value={probeText}
       />
       <div aria-live="polite" className="logistic-regression-experience-result">
         {inspection ? (
@@ -136,12 +113,13 @@ export function ExperiencePanel({
         <div className="logistic-regression-submit-bar">
           <button
             className="button button-primary"
-            disabled={!inspection || submitting}
-            onClick={onComplete}
+            disabled={!sampleResult || submitting}
+            onClick={() => sampleResult && onComplete(sampleResult)}
             type="button"
           >
             {submitting ? "正在记录…" : "完成体验"}
           </button>
+          {!sampleResult ? <span>点击任一示例，试分一次即可记录进度。</span> : null}
         </div>
       )}
     </section>
