@@ -9,17 +9,27 @@ export function imageSamplingRoutes() {
   return labRoutes<StageDraft, SamplingJudgeResult>({
     labId: "image-sampling",
     stageCount: IMAGE_SAMPLING_STAGES.length,
-    saveDraft: (db, project, stageIndex, body, expectedRevision) =>
+    saveDraft: (
+      db,
+      project,
+      stageIndex,
+      body,
+      expectedRevision,
+      _expectedComponents,
+      expectedGeneration,
+    ) =>
       saveStageDraft(db, project, stageIndex, sanitizeDraft(body.draft ?? {}), {
         expectedRevision,
+        expectedGeneration,
       }),
-    judge: (db, project, stageIndex, body) =>
+    judge: (db, project, stageIndex, body, { staff }) =>
       judgeImageSubmission(
         db,
         project,
         stageIndex,
         { width: body.width, height: body.height },
         body.code,
+        { bypassLock: staff },
       ),
   });
 }

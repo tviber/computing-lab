@@ -24,6 +24,14 @@ export const adminAuthState: AuthState = {
 
 export const anonymousAuthState: AuthState = { status: "anonymous", session: null };
 
+export const studentAuthState: AuthState = {
+  status: "authenticated",
+  session: {
+    user: { id: "u-student", studentNo: "20240101", name: "学生", role: "user" },
+    memberships: [{ classId: "c1", className: "测试班级", role: "student" }],
+  },
+};
+
 export type RenderAppOptions = { auth?: AuthState; strict?: boolean };
 
 export async function renderAppAt(initialEntry: string, options: RenderAppOptions = {}) {

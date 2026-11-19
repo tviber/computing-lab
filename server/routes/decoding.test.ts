@@ -112,6 +112,7 @@ describe("decoding routes", () => {
         body: JSON.stringify({
           stageIndex: 1,
           expectedRevision: 0,
+          expectedGeneration: 0,
           draft: { code: "def decode(d): return ''", signature: "BM", verdicts: "junk" },
         }),
       }),
@@ -135,6 +136,7 @@ describe("decoding routes", () => {
         headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
         body: JSON.stringify({
           stageIndex: 1,
+          expectedGeneration: 0,
           artifact: expected,
           conceptAnswers: conceptAnswers(1),
           code: "def decode(data): return ''.join(map(chr, data))",
@@ -153,7 +155,11 @@ describe("decoding routes", () => {
       new Request(url(classId, "/judge"), {
         method: "POST",
         headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
-        body: JSON.stringify({ stageIndex: 1, artifact: { text: "WHATEVER" } }),
+        body: JSON.stringify({
+          stageIndex: 1,
+          expectedGeneration: 0,
+          artifact: { text: "WHATEVER" },
+        }),
       }),
     );
     expect(res.status).toBe(200);

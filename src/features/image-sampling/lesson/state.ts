@@ -8,6 +8,7 @@ import { MAX_RESOLUTION, MIN_RESOLUTION, type Resolution } from "../domain/downs
 import type { SamplingJudgeResult } from "../domain/protocol.ts";
 import {
   getSamplingStage,
+  IMAGE_SAMPLING_STAGES,
   nextSamplingStage,
   samplingStageUnlocked,
   type SamplingStageDef,
@@ -37,6 +38,7 @@ export type SamplingLessonState = {
   /** Next unpassed stage (mainline pointer). */
   currentStage: number;
   passedStages: number[];
+  freeNavigation: boolean;
   drafts: Record<number, StageDraft>;
   /** The local drafts a save conflict replaced — kept so the learner can
    *  restore their unsaved version explicitly after reconciling. */
@@ -62,6 +64,8 @@ export type SamplingLessonAction =
       drafts: Record<number, StageDraft>;
       /** Server revisions of the applied drafts, seeded into expectedRevision. */
       draftRevisions?: Record<number, number>;
+      freeNavigation?: boolean;
+      isReset?: boolean;
     }
   | { type: "select-stage"; stageIndex: number }
   | { type: "set-resolution"; width: number; height: number }
@@ -112,14 +116,21 @@ export function stageOf(state: SamplingLessonState): SamplingStageDef | undefine
 }
 
 export function isStageUnlocked(state: SamplingLessonState, stageIndex: number): boolean {
-  return samplingStageUnlocked(state.passedStages, stageIndex);
+  return (
+    Boolean(getSamplingStage(stageIndex)) &&
+    (state.freeNavigation || samplingStageUnlocked(state.passedStages, stageIndex))
+  );
 }
 
-export function createSamplingLessonState(stageIndex = 1): SamplingLessonState {
+export function createSamplingLessonState(
+  stageIndex = 1,
+  freeNavigation = false,
+): SamplingLessonState {
   return {
     stageIndex,
     currentStage: stageIndex,
     passedStages: [],
+    freeNavigation,
     drafts: {},
     conflictedLocalDrafts: {},
     draftRevisions: {},
@@ -146,11 +157,20 @@ export function transitionSamplingLesson(
         const index = Number(key);
         drafts[index] = sanitizeDraft(draft);
       }
-      const stageIndex = samplingStageUnlocked(action.passedStages, state.stageIndex)
-        ? state.stageIndex
-        : action.currentStage;
+      const freeNavigation = action.freeNavigation ?? state.freeNavigation;
+      const candidate = action.isReset
+        ? 1
+        : freeNavigation
+          ? state.stageIndex !== 1 && getSamplingStage(state.stageIndex)
+            ? state.stageIndex
+            : action.currentStage
+          : samplingStageUnlocked(action.passedStages, state.stageIndex)
+            ? state.stageIndex
+            : action.currentStage;
+      const stageIndex = getSamplingStage(candidate) ? candidate : IMAGE_SAMPLING_STAGES.length;
       return {
         ...state,
+        freeNavigation,
         stageIndex,
         currentStage: action.currentStage,
         passedStages: action.passedStages,
@@ -161,6 +181,7 @@ export function transitionSamplingLesson(
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
+        message: action.isReset ? null : state.message,
       };
     }
 

@@ -1,6 +1,5 @@
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
@@ -12,10 +11,11 @@ import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/use
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { Icon } from "../../../shared/ui/Icon";
 import type { QuantJudgeResult, QuantSubmission } from "../domain/protocol.ts";
-import { COLOR_QUANT_STAGES, quantStageUnlocked, type QuantStageDef } from "../domain/stages.ts";
+import { COLOR_QUANT_STAGES, type QuantStageDef } from "../domain/stages.ts";
 import {
   createQuantLessonState,
   draftOf,
+  isStageUnlocked,
   stageOf,
   transitionQuantLesson,
   type QuantLessonAction,
@@ -65,10 +65,10 @@ export function ColorQuantizationLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/color-quantization" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { status, role } = useAuth();
+  const isStaff = isStaffRole(role);
   const [state, dispatch] = useReducer(transitionQuantLesson, undefined, () =>
-    createQuantLessonState(1),
+    createQuantLessonState(1, isStaff),
   );
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const scenarioApplied = useRef(false);
 
@@ -79,15 +79,23 @@ export function ColorQuantizationLabPage() {
   // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    StageDraft,
-    Record<never, never>,
-    QuantLessonAction
-  >({
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<StageDraft, Record<never, never>, QuantLessonAction>({
     classId,
     labId: "color-quantization",
     ready: status === "authenticated",
-    toAction: (project) => ({
+    staff: isStaff,
+    onResetSuccess: () => setSubmitError(null),
+    toAction: (project, meta) => ({
       type: "load-project",
       currentStage: project.currentStage,
       passedStages: project.passedStages,
@@ -95,6 +103,8 @@ export function ColorQuantizationLabPage() {
       drafts: Object.fromEntries(
         Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
       ),
+      freeNavigation: project.staffFreeNavigation ?? isStaff,
+      isReset: meta?.isReset,
     }),
     dispatch,
   });
@@ -133,10 +143,15 @@ export function ColorQuantizationLabPage() {
     labId: "color-quantization",
     // While the (new class's) project is loading the flags on screen still
     // belong to the previous context — nothing may schedule writes for it.
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -162,24 +177,20 @@ export function ColorQuantizationLabPage() {
       dispatch({ type: "message", text: "先生成一张映射表再提交。" });
       return;
     }
-    setSubmitting(true);
-    try {
-      const submission: QuantSubmission = {
-        stageIndex: stage.index,
-        ...(stage.mode === "pick" ? { toners: draft.toners } : { table: draft.table ?? undefined }),
-        code: draft.code || undefined,
-      };
-      const outcome = await api.post<QuantJudgeResult>(
-        `/api/classes/${classId}/labs/color-quantization/judge`,
-        submission,
-      );
-      dispatch({ type: "judge-result", outcome });
-    } catch (error) {
-      setSubmitError(describeApiError(error));
-    } finally {
-      setSubmitting(false);
+    setSubmitError(null);
+    const submission: QuantSubmission = {
+      stageIndex: stage.index,
+      ...(stage.mode === "pick" ? { toners: draft.toners } : { table: draft.table ?? undefined }),
+      code: draft.code || undefined,
+    };
+    const response = await postJudge<QuantJudgeResult>(submission);
+    if (response.status === "applied") {
+      dispatch({ type: "judge-result", outcome: response.outcome });
+    } else if (response.status === "error") {
+      setSubmitError(response.error);
     }
-  }, [classId, stage, state, draft]);
+  }, [classId, stage, state, draft, postJudge]);
+  const submitting = submittingJudge || resetting;
 
   const shareSearch =
     stage && isStaffRole(role)
@@ -226,9 +237,10 @@ export function ColorQuantizationLabPage() {
             passedStages={state.passedStages}
             stageIndex={state.stageIndex}
             stages={COLOR_QUANT_STAGES}
-            unlocked={(stage) => quantStageUnlocked(state.passedStages, stage.index)}
+            unlocked={(item) => isStageUnlocked(state, item.index)}
           />
         }
+        staffControls={staffControls}
       >
         <main aria-label="颜色量化实验区" className="quant-workspace">
           {stage ? <StageBrief stage={stage} /> : null}

@@ -60,23 +60,31 @@ export function lunchShiftRoutes() {
   return labRoutes<LunchDraft, LunchJudgeResult>({
     labId: "lunch-shift",
     stageCount: LUNCH_STAGES.length,
-    projectExtras: (db, project) => ({
+    projectExtras: (db, project, { staff }) => ({
       runSummaries: latestRunSummaries(db, project.id),
       training: trainingOrderFor(project.userId),
-      // The graded orders' wording ships only once stage 4 unlocks —
-      // the browser's embedding model needs the raw sentences, but the
-      // expected tickets never leave hiddenSet.ts.
-      aiOrders: lunchStageUnlocked(project.passedStages, 4) ? FINAL_PUBLIC_ORDERS : null,
+      // The graded orders' wording ships once stage 4 unlocks (or immediately
+      // for teachers/admins exploring freely) — expected tickets never leave hiddenSet.ts.
+      aiOrders: staff || lunchStageUnlocked(project.passedStages, 4) ? FINAL_PUBLIC_ORDERS : null,
     }),
-    saveDraft: (db, project, stageIndex, body, expectedRevision) =>
+    saveDraft: (
+      db,
+      project,
+      stageIndex,
+      body,
+      expectedRevision,
+      _expectedComponents,
+      expectedGeneration,
+    ) =>
       saveStageDraft(db, project, stageIndex, sanitizeLunchDraft(stageIndex, body.draft ?? {}), {
         expectedRevision,
+        expectedGeneration,
       }),
-    judge: (db, project, stageIndex, body) => {
+    judge: (db, project, stageIndex, body, { staff }) => {
       const key = `${project.userId}|lunch-shift|${stageIndex}`;
       if (judgeLimiter.exceeded(key)) return { error: "rate-limited", status: 429 };
       judgeLimiter.hit(key);
-      return judgeLunchShiftSubmission(db, project, stageIndex, body.draft);
+      return judgeLunchShiftSubmission(db, project, stageIndex, body.draft, { bypassLock: staff });
     },
   });
 }

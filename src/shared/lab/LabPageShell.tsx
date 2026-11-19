@@ -9,6 +9,16 @@ import { Icon } from "../ui/Icon";
  * hidden: collapse is a wide-screen affordance only.
  */
 
+export type LabStaffControlsProps = {
+  /** Staff (teacher / admin) free stage navigation is enabled across the lab. */
+  freeNavigation: boolean;
+  /** Disable reset until initial project load finishes. */
+  canReset?: boolean;
+  resetting?: boolean;
+  resetError?: string | null;
+  onReset?: () => void;
+};
+
 export type LabPageShellProps = {
   /** Lab id — namespaces the localStorage collapse key (`computing-lab:lab-rail:<labId>`). */
   labId: string;
@@ -22,6 +32,8 @@ export type LabPageShellProps = {
   contentClassName?: string;
   /** Override that keeps the rail expanded (e.g. a coach highlighting rail content). */
   forceExpand?: boolean;
+  /** Shared teacher/admin controls rendered below the stage rail in every interactive lab. */
+  staffControls?: LabStaffControlsProps;
   children: ReactNode;
 };
 
@@ -44,6 +56,7 @@ export function LabPageShell({
   railWidth = 240,
   contentClassName = "page-content",
   forceExpand = false,
+  staffControls,
   children,
 }: LabPageShellProps) {
   const [collapsed, setCollapsed] = useState(() => readCollapsed(labId));
@@ -87,6 +100,42 @@ export function LabPageShell({
         </div>
         <div className="lab-rail-scroll" id={scrollId}>
           {rail}
+          {staffControls ? (
+            <section aria-label="教师控制" className="lab-staff-tools">
+              {staffControls.freeNavigation ? (
+                <p className="lab-staff-badge">
+                  <Icon name="circle" size={10} />
+                  <span>教师视角 · 自由切关</span>
+                </p>
+              ) : null}
+              <p className="lab-staff-note">
+                可任意切换并评测全部关卡；重置仅清空你自己的当前实验记录。
+              </p>
+              {staffControls.onReset ? (
+                <button
+                  className="button button-ghost lab-staff-reset-btn"
+                  disabled={staffControls.canReset === false || staffControls.resetting}
+                  onClick={() => {
+                    if (
+                      window.confirm(
+                        "确定重置你在本实验的进度吗？将清空全部草稿、过关与提交记录并回到第 1 关（不影响学生数据）。",
+                      )
+                    ) {
+                      staffControls.onReset?.();
+                    }
+                  }}
+                  type="button"
+                >
+                  {staffControls.resetting ? "重置中…" : "重置我的进度"}
+                </button>
+              ) : null}
+              {staffControls.resetError ? (
+                <p className="test-error" role="alert">
+                  {staffControls.resetError}
+                </p>
+              ) : null}
+            </section>
+          ) : null}
         </div>
       </div>
       {children}

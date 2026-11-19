@@ -58,15 +58,24 @@ export function mlIntroRoutes() {
     projectExtras: (db, project) => ({
       runSummaries: latestRunSummaries(db, project.id),
     }),
-    saveDraft: (db, project, stageIndex, body, expectedRevision) =>
+    saveDraft: (
+      db,
+      project,
+      stageIndex,
+      body,
+      expectedRevision,
+      _expectedComponents,
+      expectedGeneration,
+    ) =>
       saveStageDraft(db, project, stageIndex, sanitizeMlDraft(stageIndex, body.draft ?? {}), {
         expectedRevision,
+        expectedGeneration,
       }),
-    judge: (db, project, stageIndex, body) => {
+    judge: (db, project, stageIndex, body, { staff }) => {
       const key = `${project.userId}|ml-intro|${stageIndex}`;
       if (judgeLimiter.exceeded(key)) return { error: "rate-limited", status: 429 };
       judgeLimiter.hit(key);
-      return judgeMlIntroSubmission(db, project, stageIndex, body.draft);
+      return judgeMlIntroSubmission(db, project, stageIndex, body.draft, { bypassLock: staff });
     },
   });
 }

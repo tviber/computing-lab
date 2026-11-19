@@ -33,6 +33,7 @@ export type DecodingLessonState = {
   /** Next unpassed stage (mainline pointer). */
   currentStage: number;
   passedStages: number[];
+  freeNavigation: boolean;
   drafts: Record<number, DecodingDraft>;
   /** The local drafts a save conflict replaced — kept so the learner can
    *  restore their unsaved version explicitly after reconciling. */
@@ -63,6 +64,8 @@ export type DecodingLessonAction =
       /** Server revisions of the applied drafts, seeded into expectedRevision. */
       draftRevisions?: Record<number, number>;
       payloads: Record<number, LabPayload>;
+      freeNavigation?: boolean;
+      isReset?: boolean;
     }
   | { type: "select-stage"; stageIndex: number }
   | { type: "set-code"; code: string }
@@ -108,7 +111,10 @@ export function stageOf(state: DecodingLessonState): DecodingStageDef | undefine
 }
 
 export function isStageUnlocked(state: DecodingLessonState, stageIndex: number): boolean {
-  return decodingStageUnlocked(state.passedStages, stageIndex);
+  return (
+    Boolean(getDecodingStage(stageIndex)) &&
+    (state.freeNavigation || decodingStageUnlocked(state.passedStages, stageIndex))
+  );
 }
 
 /** Prompt ids already answered correctly in the current stage's draft. */
@@ -124,11 +130,15 @@ export function allPromptsAnswered(state: DecodingLessonState): boolean {
   return stage.prompts.every((p) => answered.has(p.id));
 }
 
-export function createDecodingLessonState(stageIndex = 1): DecodingLessonState {
+export function createDecodingLessonState(
+  stageIndex = 1,
+  freeNavigation = false,
+): DecodingLessonState {
   return {
     stageIndex,
     currentStage: stageIndex,
     passedStages: [],
+    freeNavigation,
     drafts: {},
     conflictedLocalDrafts: {},
     draftRevisions: {},
@@ -173,14 +183,20 @@ export function transitionDecodingLesson(
       for (const [key, draft] of Object.entries(action.drafts)) {
         drafts[Number(key)] = sanitizeDraft(draft);
       }
+      const freeNavigation = action.freeNavigation ?? state.freeNavigation;
       // Resume where the server's mainline pointer says, provided it's still
-      // unlocked (a challenge can sit ahead of it in the rail). A pointer
-      // past the last stage (everything passed) clamps to the last stage.
-      const stageIndex = decodingStageUnlocked(action.passedStages, action.currentStage)
-        ? action.currentStage
-        : Math.min(nextDecodingStage(action.passedStages), DECODING_STAGES.length);
+      // unlocked (or staff free navigation is active). On reset return to stage 1.
+      const candidate = action.isReset
+        ? 1
+        : freeNavigation
+          ? action.currentStage
+          : decodingStageUnlocked(action.passedStages, action.currentStage)
+            ? action.currentStage
+            : nextDecodingStage(action.passedStages);
+      const stageIndex = getDecodingStage(candidate) ? candidate : DECODING_STAGES.length;
       return {
         ...state,
+        freeNavigation,
         stageIndex,
         currentStage: action.currentStage,
         passedStages: action.passedStages,
@@ -192,6 +208,7 @@ export function transitionDecodingLesson(
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
+        message: action.isReset ? null : state.message,
       };
     }
 

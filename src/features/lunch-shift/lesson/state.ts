@@ -45,6 +45,7 @@ export type LunchLessonState = {
   /** Next unpassed stage (mainline pointer). */
   currentStage: number;
   passedStages: number[];
+  freeNavigation: boolean;
   drafts: Record<number, LunchDraft>;
   /** The local drafts a save conflict replaced — kept so the learner can
    *  restore their unsaved version explicitly after reconciling. */
@@ -72,6 +73,8 @@ export type LunchLessonAction =
       runSummaries?: LunchProjectExtras["runSummaries"];
       training?: LunchProjectExtras["training"];
       aiOrders?: LunchProjectExtras["aiOrders"];
+      freeNavigation?: boolean;
+      isReset?: boolean;
     }
   | { type: "select-stage"; stageIndex: number }
   | { type: "update-training"; draft: TrainingDraft }
@@ -95,7 +98,10 @@ export function stageOf(state: LunchLessonState): LunchStageDef | undefined {
 }
 
 export function isStageUnlocked(state: LunchLessonState, stageIndex: number): boolean {
-  return lunchStageUnlocked(state.passedStages, stageIndex);
+  return (
+    Boolean(getLunchStage(stageIndex)) &&
+    (state.freeNavigation || lunchStageUnlocked(state.passedStages, stageIndex))
+  );
 }
 
 export function emptyTrainingDraft(): TrainingDraft {
@@ -240,11 +246,12 @@ function withDraft(state: LunchLessonState, draft: LunchDraft): LunchLessonState
   };
 }
 
-export function createLunchLessonState(stageIndex = 1): LunchLessonState {
+export function createLunchLessonState(stageIndex = 1, freeNavigation = false): LunchLessonState {
   return {
     stageIndex,
     currentStage: stageIndex,
     passedStages: [],
+    freeNavigation,
     drafts: {},
     conflictedLocalDrafts: {},
     draftRevisions: {},
@@ -284,16 +291,22 @@ export function transitionLunchLesson(
         const stageIndex = Number(key);
         drafts[stageIndex] = sanitizeLunchDraft(stageIndex, draft);
       }
+      const freeNavigation = action.freeNavigation ?? state.freeNavigation;
       // currentStage can point one past the last stage once every stage
       // passed — clamp to a real stage so the workspace never goes blank.
-      const candidate = lunchStageUnlocked(action.passedStages, action.currentStage)
-        ? action.currentStage
-        : lunchStageUnlocked(action.passedStages, state.stageIndex)
-          ? state.stageIndex
-          : 1;
+      const candidate = action.isReset
+        ? 1
+        : freeNavigation
+          ? action.currentStage
+          : lunchStageUnlocked(action.passedStages, action.currentStage)
+            ? action.currentStage
+            : lunchStageUnlocked(action.passedStages, state.stageIndex)
+              ? state.stageIndex
+              : 1;
       const stageIndex = getLunchStage(candidate) ? candidate : LUNCH_STAGES.length;
       return {
         ...state,
+        freeNavigation,
         stageIndex,
         currentStage: action.currentStage,
         passedStages: action.passedStages,
@@ -303,6 +316,7 @@ export function transitionLunchLesson(
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
+        message: action.isReset ? null : state.message,
         runSummaries: action.runSummaries ?? {
           intake: null,
           queue: null,

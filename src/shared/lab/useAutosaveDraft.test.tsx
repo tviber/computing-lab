@@ -14,6 +14,8 @@ type Params = {
   expectedComponentsRevisionOf?: () => number;
   bodyFor?: (stageIndex: number, draft: Draft) => Record<string, unknown>;
   deps?: unknown[];
+  expectedGeneration?: number;
+  resetVersion?: number;
   onSaving: (stageIndex: number) => void;
   onSaved: (stageIndex: number, revision?: number, componentsRevision?: number) => void;
   onError: (stageIndex: number) => void;
@@ -43,11 +45,19 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const ok = (applied = true, revision?: number, componentsRevision?: number) =>
-  new Response(JSON.stringify({ ok: true, applied, revision, componentsRevision }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
+const ok = (
+  applied = true,
+  revision?: number,
+  componentsRevision?: number,
+  projectGeneration?: number,
+) =>
+  new Response(
+    JSON.stringify({ ok: true, applied, revision, componentsRevision, projectGeneration }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
 
 describe("useAutosaveDraft", () => {
   let calls: {
@@ -619,5 +629,108 @@ describe("useAutosaveDraft", () => {
     await flush();
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError).toHaveBeenCalledWith(1);
+  });
+
+  it("cancels timers, drops in-flight saves, and forgets stale revisions when resetVersion bumps", async () => {
+    const onSaved = vi.fn();
+    const { rerender } = renderHook((p: Params) => useAutosaveDraft(p), {
+      initialProps: base({ deps: [1], resetVersion: 0, onSaved }),
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    calls[0].done.resolve(ok(true, 4));
+    await flush();
+    expect(onSaved).toHaveBeenCalledTimes(1);
+
+    // Arm a new timer before resetting, then bump resetVersion with clean/idle status.
+    rerender(base({ deps: [2], saveStatus: "dirty", resetVersion: 0, onSaved }));
+    rerender(base({ deps: [2], saveStatus: "idle", resetVersion: 1, onSaved }));
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    // Pre-reset armed timer was cancelled.
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    // Subsequent edit after reset starts from expectedRevision 0 instead of stale revision 4.
+    rerender(
+      base({
+        deps: [3],
+        saveStatus: "dirty",
+        resetVersion: 1,
+        expectedRevisionOf: () => 0,
+        onSaved,
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(calls[1].body.expectedRevision).toBe(0);
+  });
+
+  it("sends expectedGeneration and fences cross-tab generation conflicts until synced", async () => {
+    const onConflict = vi.fn();
+    const { rerender } = renderHook((p: Params) => useAutosaveDraft(p), {
+      initialProps: base({
+        deps: [1],
+        expectedGeneration: 0,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(calls[0].body.expectedGeneration).toBe(0);
+
+    // Another tab reset the project (projectGeneration became 1, revision reset to 0).
+    calls[0].done.resolve(ok(false, 0, undefined, 1));
+    await flush();
+    expect(onConflict).toHaveBeenCalledWith(1);
+
+    // Further local edits while still on stale expectedGeneration=0 stay fenced (must not resend!).
+    rerender(
+      base({
+        deps: [2],
+        expectedGeneration: 0,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    // Once cross-tab reset sync updates expectedGeneration=1 & bumps resetVersion, saves resume with gen 1.
+    rerender(
+      base({
+        deps: [2],
+        saveStatus: "idle",
+        expectedGeneration: 1,
+        resetVersion: 1,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    );
+    rerender(
+      base({
+        deps: [3],
+        saveStatus: "dirty",
+        expectedGeneration: 1,
+        resetVersion: 1,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(calls[1].body.expectedGeneration).toBe(1);
+    expect(calls[1].body.expectedRevision).toBe(0);
   });
 });

@@ -410,7 +410,7 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
   expect(studentLogin.status()).toBe(200);
 
   const judgeRes = await request.post(`/api/classes/${classId}/labs/ml-intro/judge`, {
-    data: { stageIndex: 1, draft: {} },
+    data: { stageIndex: 1, expectedGeneration: 0, draft: {} },
   });
   expect(judgeRes.status()).toBe(200);
   const judgeBody = (await judgeRes.json()) as { score: number; total: number; passed: boolean };
@@ -489,5 +489,53 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
   await expect(page.getByRole("dialog", { name: "提交详情" })).toBeVisible();
   await expect(page.getByText("6 条示例短信分类")).toBeVisible();
 
+  expect(failures, failures.join("\n")).toEqual([]);
+});
+
+test("teacher enjoys immediate free stage switching and resets own progress back to stage 1", async ({
+  page,
+}) => {
+  const failures = collectFailures(page);
+
+  await page.goto("login", { waitUntil: "networkidle" });
+  await page.getByLabel("学号").fill("teacher");
+  await page.getByLabel("密码").fill("teacher-dev-password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  await expect(page.getByRole("heading", { name: "实验课程" })).toBeVisible();
+
+  const mlCard = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "机器学习入门" }) });
+  await mlCard.getByRole("link", { name: "开始实验" }).click();
+
+  await expect(page.getByText("教师视角 · 自由切关")).toBeVisible();
+  await expect(page.getByRole("button", { name: "课堂模式：先看后面关卡" })).toHaveCount(0);
+
+  const stage4Btn = page.getByRole("button", { name: /让模型调整权重/ });
+  await expect(stage4Btn).toBeEnabled();
+  await stage4Btn.click();
+  await expect(page.getByRole("heading", { name: "让模型调整权重" })).toBeVisible();
+
+  // Direct staff submission on Stage 4 succeeds even when Stage 1-3 are not passed.
+  for (const prompt of ML_STAGES[3].prompts) {
+    await page.getByRole("button", { name: prompt.options[prompt.correct].label }).click();
+  }
+  const judgeResponse = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().includes("/labs/ml-intro/judge"),
+  );
+  await page.getByRole("button", { name: "提交第 4 关判定" }).click();
+  expect((await judgeResponse).status()).toBe(200);
+
+  // Confirming self-reset wipes the teacher's own progress back to Stage 1 cleanly.
+  page.once("dialog", (dialog) => void dialog.accept());
+  const resetResponse = page.waitForResponse(
+    (res) => res.request().method() === "POST" && res.url().includes("/labs/ml-intro/reset"),
+  );
+  await page.getByRole("button", { name: "重置我的进度" }).click();
+  expect((await resetResponse).status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "给 10 个词打分" })).toBeVisible();
+
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "给 10 个词打分" })).toBeVisible();
   expect(failures, failures.join("\n")).toEqual([]);
 });

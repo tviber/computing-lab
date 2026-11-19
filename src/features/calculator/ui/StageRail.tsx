@@ -13,6 +13,8 @@ type StageRailProps = {
   stageIndex: number;
   passedStages: number[];
   unlockedSubmodules: ComponentDef[];
+  /** Staff free navigation: unlock optional challenges regardless of passed prerequisites. */
+  freeNavigation?: boolean;
   onSelectStage: (stageIndex: number) => void;
   onPlaceComponent: (name: string) => void;
   onEditCustomComponent: (name: string) => void;
@@ -25,6 +27,7 @@ export function StageRail({
   stageIndex,
   passedStages,
   unlockedSubmodules,
+  freeNavigation = false,
   onSelectStage,
   onPlaceComponent,
   onEditCustomComponent,
@@ -39,9 +42,11 @@ export function StageRail({
     optionalByAnchor.set(challenge.railAfter, stages);
   }
   const lateChallenges = challengeStages().filter((stage) => stage.railAfter === undefined);
-  const lateChallengesUnlocked = lateChallenges.every((stage) =>
-    stagePrerequisites(stage).every((index) => passedStages.includes(index)),
-  );
+  const lateChallengesUnlocked =
+    freeNavigation ||
+    lateChallenges.every((stage) =>
+      stagePrerequisites(stage).every((index) => passedStages.includes(index)),
+    );
   const lateChallengesPassed = lateChallenges.filter((stage) =>
     passedStages.includes(stage.index),
   ).length;
@@ -49,7 +54,8 @@ export function StageRail({
   const mainlinePassed = coreStages().filter((stage) => passedStages.includes(stage.index)).length;
 
   const renderStage = (stage: (typeof CALCULATOR_STAGES)[number], optional = false) => {
-    const unlocked = stagePrerequisites(stage).every((index) => passedStages.includes(index));
+    const unlocked =
+      freeNavigation || stagePrerequisites(stage).every((index) => passedStages.includes(index));
     return (
       <li key={stage.id}>
         <StageLink

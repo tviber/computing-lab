@@ -272,4 +272,44 @@ describe("decoding controller", () => {
     act(() => result.current.actions.setFill("1", "chr(code)"));
     expect(result.current.model.output?.runError).toBeNull();
   });
+
+  it("allows staff free stage switching and resets project + transient runs", async () => {
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    vi.mocked(runDecode).mockResolvedValue("MOON");
+    const fetch = vi.fn(async (url: unknown, init?: RequestInit) => {
+      if (String(url).includes("/reset") && init?.method === "POST") {
+        return projectResponse({ currentStage: 1, passedStages: [], drafts: {} });
+      }
+      return projectResponse({ currentStage: 2, passedStages: [1] });
+    });
+    vi.stubGlobal("fetch", fetch);
+
+    const { result } = renderHook(() => useDecodingLabController({ ...context, staff: true }));
+    await waitFor(() => expect(result.current.model.payload).toEqual(bitsPayload));
+    expect(result.current.staffControls?.freeNavigation).toBe(true);
+
+    // Stage 5 is accessible to staff even with passedStages = [1].
+    act(() => result.current.actions.selectStage(5));
+    expect(result.current.model.stage?.index).toBe(5);
+
+    act(() => result.current.actions.selectStage(1));
+    act(() => result.current.actions.setFill("1", "chr(code)"));
+    act(() => result.current.actions.run());
+    await waitFor(() => expect(result.current.model.output?.lastRun).toEqual({ text: "MOON" }));
+
+    await act(async () => {
+      await result.current.staffControls?.onReset?.();
+    });
+
+    expect(
+      fetch.mock.calls.some(
+        ([url, init]) => String(url).includes("/reset") && init?.method === "POST",
+      ),
+    ).toBe(true);
+    expect(result.current.model.stage?.index).toBe(1);
+    expect(result.current.model.output?.lastRun).toBeNull();
+  });
 });

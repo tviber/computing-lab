@@ -83,4 +83,29 @@ describe("color-quantization lesson state", () => {
       code: "ok",
     });
   });
+
+  it("unlocks all stages with freeNavigation and restores stage 1 on isReset", () => {
+    let s = transitionQuantLesson(createQuantLessonState(), {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: { 2: { toners: [0, 1], table: null, code: "x" } },
+      freeNavigation: true,
+    });
+    s = transitionQuantLesson(s, { type: "select-stage", stageIndex: 3 });
+    expect(s.stageIndex).toBe(3);
+
+    const reset = transitionQuantLesson(s, {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: {},
+      freeNavigation: true,
+      isReset: true,
+    });
+    expect(reset.stageIndex).toBe(1);
+    expect(reset.freeNavigation).toBe(true);
+    expect(draftOf(reset, 2)).toEqual({ toners: [], table: null, code: "" });
+    expect(reset.judgeOutcome).toBeNull();
+  });
 });

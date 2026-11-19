@@ -127,4 +127,29 @@ describe("ml-intro lesson state", () => {
     const afterConflictReload = transitionMlLesson(navigatedToSecond, serverProject);
     expect(afterConflictReload.stageIndex).toBe(2);
   });
+
+  it("keeps staffMode permanently unlocked and returns to stage 1 on isReset", () => {
+    let staff = transitionMlLesson(createMlLessonState(null), {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: {},
+      staffMode: true,
+    });
+    expect(isStageUnlocked(staff, 5)).toBe(true);
+    staff = transitionMlLesson(staff, { type: "select-stage", stageIndex: 5 });
+    expect(staff.stageIndex).toBe(5);
+
+    const reset = transitionMlLesson(staff, {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: {},
+      staffMode: true,
+      isReset: true,
+    });
+    expect(reset.stageIndex).toBe(1);
+    expect(reset.staffMode).toBe(true);
+    expect(isStageUnlocked(reset, 5)).toBe(true);
+  });
 });

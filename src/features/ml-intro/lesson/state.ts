@@ -330,6 +330,9 @@ export type MlLessonState = {
   pinnedStage: number | null;
   currentStage: number;
   passedStages: number[];
+  /** Teacher/admin built-in free navigation + judge testing across all stages. */
+  staffMode: boolean;
+  /** Student opt-in classroom preview toggle. */
   classroomMode: boolean;
   drafts: Record<number, MlDraft>;
   conflictedLocalDrafts: Record<number, MlDraft>;
@@ -349,6 +352,8 @@ export type MlLessonAction =
       drafts: Record<number, MlDraft>;
       draftRevisions?: Record<number, number>;
       runSummaries?: MlProjectExtras["runSummaries"];
+      staffMode?: boolean;
+      isReset?: boolean;
     }
   | { type: "select-stage"; stageIndex: number }
   | { type: "set-classroom-mode"; enabled: boolean }
@@ -390,6 +395,7 @@ const SUMMARY_KEYS: Record<number, keyof MlProjectExtras["runSummaries"]> = {
 export function createMlLessonState(
   initialStage: number | null = null,
   classroomMode = false,
+  staffMode = false,
 ): MlLessonState {
   const pinnedStage = initialStage !== null && getMlStage(initialStage) ? initialStage : null;
   const stageIndex = pinnedStage ?? 1;
@@ -398,6 +404,7 @@ export function createMlLessonState(
     pinnedStage,
     currentStage: 1,
     passedStages: [],
+    staffMode,
     classroomMode,
     drafts: {
       1: defaultStrategyDraft(),
@@ -424,7 +431,7 @@ export function stageOf(state: MlLessonState): MlStageDef | undefined {
 export function isStageUnlocked(state: MlLessonState, stageIndex: number): boolean {
   return (
     Boolean(getMlStage(stageIndex)) &&
-    (state.classroomMode || mlStageUnlocked(state.passedStages, stageIndex))
+    (state.staffMode || state.classroomMode || mlStageUnlocked(state.passedStages, stageIndex))
   );
 }
 
@@ -472,18 +479,24 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
         const s = Number(key);
         if (getMlStage(s)) drafts[s] = sanitizeMlDraft(s, draft);
       }
-      const candidate = state.classroomMode
-        ? state.pinnedStage !== null
-          ? state.pinnedStage
-          : action.currentStage
-        : mlStageUnlocked(action.passedStages, action.currentStage)
-          ? action.currentStage
-          : mlStageUnlocked(action.passedStages, state.stageIndex)
-            ? state.stageIndex
-            : 1;
+      const staffMode = action.staffMode ?? state.staffMode;
+      const pinnedStage = action.isReset ? null : state.pinnedStage;
+      const candidate = action.isReset
+        ? 1
+        : staffMode || state.classroomMode
+          ? pinnedStage !== null
+            ? pinnedStage
+            : action.currentStage
+          : mlStageUnlocked(action.passedStages, action.currentStage)
+            ? action.currentStage
+            : mlStageUnlocked(action.passedStages, state.stageIndex)
+              ? state.stageIndex
+              : 1;
       const stageIndex = getMlStage(candidate) ? candidate : ML_STAGES.length;
       return {
         ...state,
+        staffMode,
+        pinnedStage,
         stageIndex,
         currentStage: action.currentStage,
         passedStages: action.passedStages,
@@ -493,6 +506,7 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
+        message: action.isReset ? null : state.message,
         runSummaries: action.runSummaries ?? { ...EMPTY_SUMMARIES },
       };
     }
@@ -502,7 +516,7 @@ export function transitionMlLesson(state: MlLessonState, action: MlLessonAction)
       return {
         ...state,
         stageIndex: action.stageIndex,
-        pinnedStage: state.classroomMode ? action.stageIndex : state.pinnedStage,
+        pinnedStage: state.staffMode || state.classroomMode ? action.stageIndex : state.pinnedStage,
         judgeOutcome: null,
       };
 

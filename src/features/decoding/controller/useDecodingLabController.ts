@@ -5,7 +5,6 @@
  */
 
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { statusForStage } from "../../../shared/lab/saveStatus.ts";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
@@ -44,17 +43,19 @@ export function useDecodingLabController({
   ready,
   userId,
   stageLink,
+  staff = false,
 }: {
   classId: string;
   ready: boolean;
   userId: string;
   /** Raw `?stage=` search value — applied once, after the project loads. */
   stageLink?: unknown;
+  /** Staff accounts (teacher / admin) unlock free stage navigation + self-reset. */
+  staff?: boolean;
 }): DecodingWorkspaceProps {
   const [state, dispatch] = useReducer(transitionDecodingLesson, undefined, () =>
-    createDecodingLessonState(1),
+    createDecodingLessonState(1, staff),
   );
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [sampleFills, setSampleFills] = useState<Record<string, string>>(
     () => stageOf(state)?.example?.blankDefaults ?? {},
@@ -70,10 +71,6 @@ export function useDecodingLabController({
   const payload = state.payloads[state.stageIndex];
   const inputRevision = state.inputRevisions[state.stageIndex] ?? 0;
 
-  // The judge round-trip is one more async channel: a submission is stamped
-  // with the stage and input version it ran for plus a ticket, and a stale
-  // response applies nothing — the same rule the execution channels enforce.
-  const submitTicketRef = useRef(0);
   const stageIndexRef = useRef(state.stageIndex);
   stageIndexRef.current = state.stageIndex;
   const inputRevisionRef = useRef(inputRevision);
@@ -81,15 +78,26 @@ export function useDecodingLabController({
 
   useEffect(() => warmPyodide(), []);
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    DecodingDraft,
-    { payloads: Record<number, LabPayload> },
-    DecodingLessonAction
-  >({
+  const decodeExecRef = useRef<(() => void) | null>(null);
+
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    invalidateJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<DecodingDraft, { payloads: Record<number, LabPayload> }, DecodingLessonAction>({
     classId,
     labId: "decoding",
     ready,
-    toAction: (project) => ({
+    staff,
+    onResetSuccess: () => decodeExecRef.current?.(),
+    toAction: (project, meta) => ({
       type: "load-project",
       currentStage: project.currentStage,
       passedStages: project.passedStages,
@@ -98,6 +106,8 @@ export function useDecodingLabController({
         Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
       ),
       payloads: project.payloads ?? {},
+      freeNavigation: project.staffFreeNavigation ?? staff,
+      isReset: meta?.isReset,
     }),
     dispatch,
   });
@@ -124,10 +134,15 @@ export function useDecodingLabController({
     labId: "decoding",
     // While the (new class's) project is loading the flags on screen still
     // belong to the previous context — nothing may schedule writes for it.
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -157,21 +172,23 @@ export function useDecodingLabController({
   });
   const running = decodeExec.running || previewExec.running || sampleExec.running;
 
-  // Switching stage drops the working results — each stage's artifact is
-  // its own; channel stamps make an in-flight completion unable to land here.
-  useEffect(() => {
+  const clearTransientRuns = (stageIndex: number) => {
     decodeExec.clear();
     previewExec.clear();
     sampleExec.clear();
-    // An in-flight submit retires like a run: its late judge response may
-    // not land on the newly selected stage, nor may its flag outlive it.
-    submitTicketRef.current += 1;
-    setSubmitting(false);
+    invalidateJudge();
     setSubmitError(null);
     setSampleHover(null);
     setWrongPick(null);
     setSampleRevision(0);
-    setSampleFills(getDecodingStage(state.stageIndex)?.example?.blankDefaults ?? {});
+    setSampleFills(getDecodingStage(stageIndex)?.example?.blankDefaults ?? {});
+  };
+  decodeExecRef.current = () => clearTransientRuns(1);
+
+  // Switching stage drops the working results — each stage's artifact is
+  // its own; channel stamps make an in-flight completion unable to land here.
+  useEffect(() => {
+    clearTransientRuns(state.stageIndex);
   }, [state.stageIndex]);
 
   // A shared ?stage=N link opens that stage once, after the project loads
@@ -208,7 +225,7 @@ export function useDecodingLabController({
         : null),
     sampleHover,
     wrongPick,
-    submitting,
+    submitting: submittingJudge || resetting,
     loadError: loadError ?? null,
     submitError,
   });
@@ -283,48 +300,38 @@ export function useDecodingLabController({
       dispatch({ type: "message", text: blocker });
       return;
     }
-    const ticket = ++submitTicketRef.current;
     const submittedStage = stage.index;
     const submittedRevision = inputRevision;
-    // The response lands only while the submit still describes the stage
-    // and draft on screen — an edit mid-flight retires it like a stale run.
-    const stillCurrent = () =>
-      submitTicketRef.current === ticket &&
-      stageIndexRef.current === submittedStage &&
-      inputRevisionRef.current === submittedRevision;
-    setSubmitting(true);
     setSubmitError(null);
-    try {
-      const lastRun = decodeExec.result;
-      const artifact =
-        stage.kind === "files"
-          ? { verdicts: draft.verdicts }
-          : stage.kind === "bmp"
-            ? { pixels: lastRun && "pixels" in lastRun ? lastRun.pixels : [] }
-            : { text: lastRun && "text" in lastRun ? lastRun.text : "" };
-      const submission: DecodingSubmission = {
-        stageIndex: stage.index,
-        artifact,
-        code: model.editor?.cloze ? model.editor.source : draft.code || undefined,
-        conceptAnswers:
-          stage.prompts && stage.prompts.length > 0 ? draft.conceptAnswers : undefined,
-      };
-      const outcome = await api.post<DecodingJudgeResult>(
-        `/api/classes/${classId}/labs/decoding/judge`,
-        submission,
-      );
-      // The student moved on (or edited, or submitted again) mid-flight — drop it.
-      if (!stillCurrent()) return;
+    const lastRun = decodeExec.result;
+    const artifact =
+      stage.kind === "files"
+        ? { verdicts: draft.verdicts }
+        : stage.kind === "bmp"
+          ? { pixels: lastRun && "pixels" in lastRun ? lastRun.pixels : [] }
+          : { text: lastRun && "text" in lastRun ? lastRun.text : "" };
+    const submission: DecodingSubmission = {
+      stageIndex: stage.index,
+      artifact,
+      code: model.editor?.cloze ? model.editor.source : draft.code || undefined,
+      conceptAnswers: stage.prompts && stage.prompts.length > 0 ? draft.conceptAnswers : undefined,
+    };
+    const response = await postJudge<DecodingJudgeResult>(submission, {
+      // The response lands only while the submit still describes the stage
+      // and draft on screen — an edit mid-flight retires it like a stale run.
+      isStillCurrent: () =>
+        stageIndexRef.current === submittedStage && inputRevisionRef.current === submittedRevision,
+    });
+    if (response.status === "applied") {
+      const outcome = response.outcome;
       dispatch({ type: "judge-result", outcome });
       if (!outcome.passed) {
         dispatch({ type: "message", text: "判定未通过——看看右侧每一项的检查结果。" });
       }
-    } catch (error) {
-      if (stillCurrent()) setSubmitError(describeApiError(error));
-    } finally {
-      if (submitTicketRef.current === ticket) setSubmitting(false);
+    } else if (response.status === "error") {
+      setSubmitError(response.error);
     }
-  }, [classId, stage, payload, model, draft, inputRevision, decodeExec.result]);
+  }, [classId, stage, payload, model, draft, inputRevision, decodeExec.result, postJudge]);
 
   const actions: DecodingLabActions = {
     selectStage: (stageIndex) => dispatch({ type: "select-stage", stageIndex }),
@@ -362,5 +369,5 @@ export function useDecodingLabController({
       dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex }),
     retrySyncConflict: () => reconcileConflict(state.stageIndex),
   };
-  return { model, actions };
+  return { model, actions, staffControls };
 }

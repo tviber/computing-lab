@@ -44,7 +44,7 @@ const putDraft = (
     new Request(url(classId, "/draft"), {
       method: "PUT",
       headers: { cookie, "content-type": "application/json" },
-      body: JSON.stringify(body),
+      body: JSON.stringify({ expectedGeneration: 0, ...body }),
     }),
   );
 

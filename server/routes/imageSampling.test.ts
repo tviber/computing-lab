@@ -89,6 +89,7 @@ describe("image-sampling routes", () => {
         body: JSON.stringify({
           stageIndex: 1,
           expectedRevision: 0,
+          expectedGeneration: 0,
           draft: { width: 16, height: 16, code: "x" },
         }),
       }),
@@ -105,7 +106,7 @@ describe("image-sampling routes", () => {
       new Request(url(classId, "/judge"), {
         method: "POST",
         headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
-        body: JSON.stringify({ stageIndex: 1, width: 16, height: 16 }),
+        body: JSON.stringify({ stageIndex: 1, expectedGeneration: 0, width: 16, height: 16 }),
       }),
     );
     expect(res.status).toBe(200);
@@ -130,7 +131,7 @@ describe("image-sampling routes", () => {
       new Request(url(classId, "/judge"), {
         method: "POST",
         headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
-        body: JSON.stringify({ stageIndex: 2, width: 24, height: 24 }),
+        body: JSON.stringify({ stageIndex: 2, expectedGeneration: 0, width: 24, height: 24 }),
       }),
     );
     expect(res.status).toBe(400);

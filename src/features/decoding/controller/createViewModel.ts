@@ -77,7 +77,7 @@ export function createDecodingViewModel(input: {
     englishTitle: s.englishTitle,
     active: s.index === state.stageIndex,
     passed: state.passedStages.includes(s.index),
-    unlocked: decodingStageUnlocked(state.passedStages, s.index),
+    unlocked: state.freeNavigation || decodingStageUnlocked(state.passedStages, s.index),
   });
 
   const blocker = submitBlocker(state, stage, payload, cloze, complete, draft, lastRun);

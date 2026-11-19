@@ -1,7 +1,6 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
-import { useAuth } from "../../../shared/auth";
+import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -27,7 +26,8 @@ export function CalculatorLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/calculator" });
   const search = useSearch({ from: "/classes/$classId/labs/calculator" });
   const navigate = useNavigate();
-  const { status } = useAuth();
+  const { status, role } = useAuth();
+  const isStaff = isStaffRole(role);
   // The current stage rides in the URL so a refresh reopens the same canvas
   // instead of dropping back to stage 1.
   const requestedStage = useMemo(() => {
@@ -38,22 +38,29 @@ export function CalculatorLabPage() {
     createCalculatorLessonState(1),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const graph = graphOf(state);
   const components = useMemo(() => componentMap(state), [state.unlockedSubmodules]);
   const stage = stageOf(state);
   const stageIndex = state.stageIndex;
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    CircuitGraph,
-    { unlockedSubmodules: ComponentDef[] },
-    CalculatorLessonAction
-  >({
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<CircuitGraph, { unlockedSubmodules: ComponentDef[] }, CalculatorLessonAction>({
     classId,
     labId: "calculator",
     ready: status === "authenticated",
-    toAction: (project) => ({
+    staff: isStaff,
+    onResetSuccess: () => setSubmitError(null),
+    toAction: (project, meta) => ({
       type: "load-project",
       currentStage: project.currentStage,
       passedStages: project.passedStages,
@@ -63,7 +70,9 @@ export function CalculatorLabPage() {
       drafts: Object.fromEntries(
         Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
       ),
-      stageIndex: requestedStage,
+      stageIndex: meta?.isReset ? 1 : requestedStage,
+      forceStage: isStaff,
+      isReset: meta?.isReset,
     }),
     dispatch,
   });
@@ -125,7 +134,12 @@ export function CalculatorLabPage() {
     labId: "calculator",
     // While the (new class's) project is loading the flags on screen still
     // belong to the previous context — nothing may schedule writes for it.
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
+    expectedGeneration: projectGeneration,
+    resetVersion: saveGeneration,
     stageIndex,
     dirtyStages,
     draftOf: (s) => graphOf(state, s),
@@ -173,17 +187,15 @@ export function CalculatorLabPage() {
 
   const onSubmit = useCallback(async () => {
     if (!classId) return;
-    setSubmitting(true);
-    try {
-      const submission: CalculatorSubmission = {
-        stageIndex,
-        graph,
-        components: state.unlockedSubmodules,
-      };
-      const result = await api.post<CalculatorJudgeResult>(
-        `/api/classes/${classId}/labs/calculator/judge`,
-        submission,
-      );
+    setSubmitError(null);
+    const submission: CalculatorSubmission = {
+      stageIndex,
+      graph,
+      components: state.unlockedSubmodules,
+    };
+    const response = await postJudge<CalculatorJudgeResult>(submission);
+    if (response.status === "applied") {
+      const result = response.outcome;
       dispatch({
         type: "judge-result",
         // The stage this submission ran on — captured now, not whenever the
@@ -203,12 +215,10 @@ export function CalculatorLabPage() {
           componentsRevision: result.componentsRevision,
         },
       });
-    } catch (error) {
-      setSubmitError(describeApiError(error));
-    } finally {
-      setSubmitting(false);
+    } else if (response.status === "error") {
+      setSubmitError(response.error);
     }
-  }, [classId, stageIndex, graph, state.unlockedSubmodules]);
+  }, [classId, stageIndex, graph, state.unlockedSubmodules, postJudge]);
 
   return (
     <AppPageLayout
@@ -246,10 +256,12 @@ export function CalculatorLabPage() {
         coach={coach}
         dispatch={dispatch}
         error={loadError ?? submitError}
+        freeNavigation={isStaff}
         onSubmit={() => void onSubmit()}
         projectLoaded={projectLoaded}
+        staffControls={staffControls}
         state={state}
-        submitting={submitting}
+        submitting={submittingJudge || resetting}
       />
     </AppPageLayout>
   );

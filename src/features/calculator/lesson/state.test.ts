@@ -832,4 +832,40 @@ describe("calculator lesson state", () => {
     expect(graphOf(state).nodes.length).toBe(scaffoldGraph(1).nodes.length + 5);
     expect(apply(state, { type: "undo" }).past).toHaveLength(0);
   });
+
+  it("allows staff forceStage load and clears selection/wire on isReset", () => {
+    const edited = apply(createCalculatorLessonState(), {
+      type: "add-node",
+      kind: "and",
+      x: 20,
+      y: 20,
+    });
+    const nodeId = graphOf(edited).nodes.find((n) => n.kind === "and")!.id;
+    const withSelection = apply(edited, { type: "select-node", id: nodeId });
+    const forced = apply(withSelection, {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      unlockedSubmodules: [],
+      drafts: {},
+      stageIndex: 8,
+      forceStage: true,
+    });
+    expect(forced.stageIndex).toBe(8);
+
+    const reset = apply(forced, {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      unlockedSubmodules: [],
+      drafts: {},
+      stageIndex: 1,
+      forceStage: true,
+      isReset: true,
+    });
+    expect(reset.stageIndex).toBe(1);
+    expect(reset.selectedNodeId).toBeNull();
+    expect(reset.pendingWire).toBeNull();
+    expect(reset.message).toBeNull();
+  });
 });

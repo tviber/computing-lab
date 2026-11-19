@@ -1,6 +1,5 @@
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
@@ -12,15 +11,12 @@ import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/use
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { Icon } from "../../../shared/ui/Icon";
 import type { SamplingJudgeResult, SamplingSubmission } from "../domain/protocol.ts";
-import {
-  IMAGE_SAMPLING_STAGES,
-  samplingStageUnlocked,
-  type SamplingStageDef,
-} from "../domain/stages.ts";
+import { IMAGE_SAMPLING_STAGES, type SamplingStageDef } from "../domain/stages.ts";
 import {
   createSamplingLessonState,
   draftOf,
   draftResolution,
+  isStageUnlocked,
   stageOf,
   transitionSamplingLesson,
   type SamplingLessonAction,
@@ -71,10 +67,10 @@ export function ImageSamplingLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/image-sampling" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
   const { status, role } = useAuth();
+  const isStaff = isStaffRole(role);
   const [state, dispatch] = useReducer(transitionSamplingLesson, undefined, () =>
-    createSamplingLessonState(1),
+    createSamplingLessonState(1, isStaff),
   );
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const scenarioApplied = useRef(false);
 
@@ -85,15 +81,23 @@ export function ImageSamplingLabPage() {
   // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
-  const { projectLoaded, loadError, fetchProject } = useLabProject<
-    StageDraft,
-    Record<never, never>,
-    SamplingLessonAction
-  >({
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>({
     classId,
     labId: "image-sampling",
     ready: status === "authenticated",
-    toAction: (project) => ({
+    staff: isStaff,
+    onResetSuccess: () => setSubmitError(null),
+    toAction: (project, meta) => ({
       type: "load-project",
       currentStage: project.currentStage,
       passedStages: project.passedStages,
@@ -101,6 +105,8 @@ export function ImageSamplingLabPage() {
       drafts: Object.fromEntries(
         Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
       ),
+      freeNavigation: project.staffFreeNavigation ?? isStaff,
+      isReset: meta?.isReset,
     }),
     dispatch,
   });
@@ -138,10 +144,15 @@ export function ImageSamplingLabPage() {
     labId: "image-sampling",
     // While the (new class's) project is loading the flags on screen still
     // belong to the previous context — nothing may schedule writes for it.
-    saveStatus: projectLoaded ? statusForStage(state.saveStatusByStage, state.stageIndex) : "idle",
+    saveStatus:
+      projectLoaded && !resetting
+        ? statusForStage(state.saveStatusByStage, state.stageIndex)
+        : "idle",
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
+    resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
@@ -168,25 +179,21 @@ export function ImageSamplingLabPage() {
       });
       return;
     }
-    setSubmitting(true);
-    try {
-      const submission: SamplingSubmission = {
-        stageIndex: stage.index,
-        width: resolution.width,
-        height: resolution.height,
-        code: draft.code || undefined,
-      };
-      const outcome = await api.post<SamplingJudgeResult>(
-        `/api/classes/${classId}/labs/image-sampling/judge`,
-        submission,
-      );
-      dispatch({ type: "judge-result", outcome });
-    } catch (error) {
-      setSubmitError(describeApiError(error));
-    } finally {
-      setSubmitting(false);
+    setSubmitError(null);
+    const submission: SamplingSubmission = {
+      stageIndex: stage.index,
+      width: resolution.width,
+      height: resolution.height,
+      code: draft.code || undefined,
+    };
+    const response = await postJudge<SamplingJudgeResult>(submission);
+    if (response.status === "applied") {
+      dispatch({ type: "judge-result", outcome: response.outcome });
+    } else if (response.status === "error") {
+      setSubmitError(response.error);
     }
-  }, [classId, stage, state, draft.code]);
+  }, [classId, stage, state, draft.code, postJudge]);
+  const submitting = submittingJudge || resetting;
 
   const resolution = stage ? draftResolution(state, stage) : null;
   const previewWidth = draft.width ?? 8;
@@ -239,9 +246,10 @@ export function ImageSamplingLabPage() {
             passedStages={state.passedStages}
             stageIndex={state.stageIndex}
             stages={IMAGE_SAMPLING_STAGES}
-            unlocked={(stage) => samplingStageUnlocked(state.passedStages, stage.index)}
+            unlocked={(item) => isStageUnlocked(state, item.index)}
           />
         }
+        staffControls={staffControls}
       >
         <main aria-label="图像采样实验区" className="sampling-workspace">
           {stage ? <StageBrief stage={stage} /> : null}

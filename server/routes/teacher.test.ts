@@ -391,6 +391,7 @@ describe("teacher lab routes", () => {
       "/api/classes/c1/labs/ml-intro/judge",
       {
         stageIndex: 1,
+        expectedGeneration: 0,
         draft: {
           weights: { 中奖: 2, 发票: 2 },
           selectedMsgId: "st-spam-1",

@@ -10,7 +10,7 @@
  */
 
 import { useParams, useSearch } from "@tanstack/react-router";
-import { useAuth } from "../../../shared/auth";
+import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
@@ -21,12 +21,13 @@ import "./decoding.css";
 export function DecodingLabPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/decoding" });
   const search = useSearch({ strict: false }) as Record<string, unknown>;
-  const { status, session } = useAuth();
+  const { status, session, role } = useAuth();
   const controller = useDecodingLabController({
     classId,
     ready: status === "authenticated",
     userId: session?.user.id ?? "",
     stageLink: search.stage,
+    staff: isStaffRole(role),
   });
   const { model } = controller;
   return (

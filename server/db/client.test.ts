@@ -17,6 +17,7 @@ function fixtureDb(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(schemaSql);
+  if (version < 18) db.exec("ALTER TABLE student_projects DROP COLUMN project_generation");
   if (version < 9) db.exec("DROP TABLE IF EXISTS cpu_guided_first_answers");
   if (version < 8) db.exec("DROP TABLE IF EXISTS lab_class_settings");
   if (version < 7) db.exec("ALTER TABLE lab_settings DROP COLUMN open_class_ids");
@@ -364,6 +365,34 @@ describe("migrate", () => {
         }
       ).passed_stages,
     ).toBe("[1,2]");
+    expect(
+      (
+        db.prepare("SELECT project_generation FROM student_projects WHERE id='p2'").get() as {
+          project_generation: number;
+        }
+      ).project_generation,
+    ).toBe(0);
+    db.close();
+  });
+
+  it("backfills project_generation = 0 when a v17 database upgrades to v18", () => {
+    const db = fixtureDb(17);
+    db.prepare("INSERT INTO classes (id, name, invite_code) VALUES ('c1', 'class', 'inv')").run();
+    db.prepare(
+      "INSERT INTO users (id, student_no, name, password_hash, role) VALUES ('u1', 'no1', 'n', 'h', 'teacher')",
+    ).run();
+    db.prepare(
+      "INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage, passed_stages) " +
+        "VALUES ('p1', 'u1', 'c1', 'ml-intro', 3, '[1,2]')",
+    ).run();
+
+    migrate(db);
+
+    expect(versionOf(db)).toBe(SCHEMA_VERSION);
+    const row = db
+      .prepare("SELECT project_generation FROM student_projects WHERE id = 'p1'")
+      .get() as { project_generation: number };
+    expect(row.project_generation).toBe(0);
     db.close();
   });
 

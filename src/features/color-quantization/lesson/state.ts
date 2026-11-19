@@ -12,6 +12,7 @@ import {
   sanitizeTable,
 } from "../domain/quantize.ts";
 import {
+  COLOR_QUANT_STAGES,
   getQuantStage,
   nextQuantStage,
   quantStageUnlocked,
@@ -42,6 +43,7 @@ export type QuantLessonState = {
   /** Next unpassed stage (mainline pointer). */
   currentStage: number;
   passedStages: number[];
+  freeNavigation: boolean;
   drafts: Record<number, StageDraft>;
   /** The local drafts a save conflict replaced — kept so the learner can
    *  restore their unsaved version explicitly after reconciling. */
@@ -65,6 +67,8 @@ export type QuantLessonAction =
       drafts: Record<number, StageDraft>;
       /** Server revisions of the applied drafts, seeded into expectedRevision. */
       draftRevisions?: Record<number, number>;
+      freeNavigation?: boolean;
+      isReset?: boolean;
     }
   | { type: "select-stage"; stageIndex: number }
   | { type: "set-toners"; toners: number[] }
@@ -101,14 +105,18 @@ export function stageOf(state: QuantLessonState): QuantStageDef | undefined {
 }
 
 export function isStageUnlocked(state: QuantLessonState, stageIndex: number): boolean {
-  return quantStageUnlocked(state.passedStages, stageIndex);
+  return (
+    Boolean(getQuantStage(stageIndex)) &&
+    (state.freeNavigation || quantStageUnlocked(state.passedStages, stageIndex))
+  );
 }
 
-export function createQuantLessonState(stageIndex = 1): QuantLessonState {
+export function createQuantLessonState(stageIndex = 1, freeNavigation = false): QuantLessonState {
   return {
     stageIndex,
     currentStage: stageIndex,
     passedStages: [],
+    freeNavigation,
     drafts: {},
     conflictedLocalDrafts: {},
     draftRevisions: {},
@@ -134,11 +142,20 @@ export function transitionQuantLesson(
         const index = Number(key);
         drafts[index] = sanitizeDraft(draft);
       }
-      const stageIndex = quantStageUnlocked(action.passedStages, state.stageIndex)
-        ? state.stageIndex
-        : action.currentStage;
+      const freeNavigation = action.freeNavigation ?? state.freeNavigation;
+      const candidate = action.isReset
+        ? 1
+        : freeNavigation
+          ? state.stageIndex !== 1 && getQuantStage(state.stageIndex)
+            ? state.stageIndex
+            : action.currentStage
+          : quantStageUnlocked(action.passedStages, state.stageIndex)
+            ? state.stageIndex
+            : action.currentStage;
+      const stageIndex = getQuantStage(candidate) ? candidate : COLOR_QUANT_STAGES.length;
       return {
         ...state,
+        freeNavigation,
         stageIndex,
         currentStage: action.currentStage,
         passedStages: action.passedStages,
@@ -148,6 +165,7 @@ export function transitionQuantLesson(
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         judgeOutcome: null,
+        message: action.isReset ? null : state.message,
       };
     }
 

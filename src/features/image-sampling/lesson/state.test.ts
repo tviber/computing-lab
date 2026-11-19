@@ -125,3 +125,30 @@ function fakeOutcome(stageIndex: number, passed: boolean) {
     passedStages: passed ? [stageIndex] : [],
   };
 }
+
+describe("sampling freeNavigation and reset", () => {
+  it("allows staff free stage navigation and resets back to stage 1 on isReset", () => {
+    let state = transitionSamplingLesson(base(), {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: { 2: { width: 16, height: 16, code: "return 16" } },
+      freeNavigation: true,
+    });
+    state = transitionSamplingLesson(state, { type: "select-stage", stageIndex: 3 });
+    expect(state.stageIndex).toBe(3);
+
+    const reset = transitionSamplingLesson(state, {
+      type: "load-project",
+      currentStage: 1,
+      passedStages: [],
+      drafts: {},
+      freeNavigation: true,
+      isReset: true,
+    });
+    expect(reset.stageIndex).toBe(1);
+    expect(reset.passedStages).toEqual([]);
+    expect(reset.freeNavigation).toBe(true);
+    expect(draftResolution(reset)).toBeNull();
+  });
+});

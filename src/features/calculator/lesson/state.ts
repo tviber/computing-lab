@@ -127,19 +127,13 @@ export type CalculatorLessonAction =
       passedStages: number[];
       unlockedSubmodules: ComponentDef[];
       drafts: Record<number, CircuitGraph>;
-      /** Server revisions of the applied drafts, seeded into expectedRevision. */
       draftRevisions?: Record<number, number>;
-      /** Server revision of the component library — seeds expectedComponentsRevision. */
       componentsRevision?: number;
-      /** Stage the URL asked to reopen; falls back when absent or still locked. */
       stageIndex?: number;
+      forceStage?: boolean;
+      isReset?: boolean;
     }
-  | {
-      type: "select-stage";
-      stageIndex: number;
-      /** Admin preview only: open a stage regardless of the student's unlock path. */
-      force?: boolean;
-    }
+  | { type: "select-stage"; stageIndex: number; force?: boolean }
   | { type: "undo" }
   | { type: "start-node-move"; id: string }
   | { type: "finish-node-move" }
@@ -679,18 +673,16 @@ export function transitionCalculatorLesson(
       }
       const draftRevisions: Record<number, number> = {};
       for (const [key, rev] of Object.entries(action.draftRevisions ?? {})) {
-        // The library's own revision shares the map under a reserved
-        // non-numeric key — never seed it as a stage revision.
+        // Reserve non-numeric keys (e.g. components) outside stage revisions.
         if (Number.isInteger(Number(key))) draftRevisions[Number(key)] = rev;
       }
       const requested = action.stageIndex ?? state.stageIndex;
       const requestedStage = getStage(requested);
-      const requestedUnlocked =
+      const canOpen =
         requestedStage !== undefined &&
-        stagePrerequisites(requestedStage).every((index) => action.passedStages.includes(index));
-      const stageIndex = requestedUnlocked
-        ? requested
-        : Math.min(state.stageIndex, action.currentStage);
+        (action.forceStage ||
+          stagePrerequisites(requestedStage).every((i) => action.passedStages.includes(i)));
+      const stageIndex = canOpen ? requested : Math.min(state.stageIndex, action.currentStage);
       drafts[stageIndex] = withScaffold(drafts[stageIndex] ?? emptyGraph(), stageIndex);
       return {
         ...state,
@@ -708,6 +700,7 @@ export function transitionCalculatorLesson(
         draftRevisions,
         past: [],
         nodeMove: null,
+        ...(action.isReset ? { selectedNodeId: null, pendingWire: null, message: null } : null),
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         runOutcome: null,

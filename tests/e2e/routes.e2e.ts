@@ -219,12 +219,13 @@ test("completes the first calculator stage through the real API", async ({ page,
       components: [],
       expectedRevision: 0,
       expectedComponentsRevision: 0,
+      expectedGeneration: 0,
     },
   });
   expect(draft.status()).toBe(200);
 
   const judge = await browserRequest.post(`/api/classes/${classId}/labs/calculator/judge`, {
-    data: { stageIndex: 1, graph, components: [] },
+    data: { stageIndex: 1, expectedGeneration: 0, graph, components: [] },
   });
   expect(judge.status()).toBe(200);
   await expect(judge.json()).resolves.toMatchObject({
