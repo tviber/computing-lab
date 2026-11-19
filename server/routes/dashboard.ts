@@ -26,9 +26,6 @@ const DEFAULT_LAB_ID = "calculator";
 export function dashboardRoutes() {
   const app = new Hono<{ Variables: AppVariables }>();
 
-  // Teacher-only: progress matrix for one class. `?lab=` selects the lab —
-  // allowlisted via the server registry; preview labs stay admin-only, the
-  // same visibility rule the lab APIs themselves enforce.
   app.get("/", (c) => {
     const auth = requireMembership(c, "teacher");
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
@@ -36,8 +33,6 @@ export function dashboardRoutes() {
     const lab = labInfo(labId);
     if (!lab) return jsonError(c, 404, "unknown-lab");
     const db = c.get("db");
-    // The dashboard reports one class's progress, so the lab must be open to
-    // that class — admins keep full access (hidden labs included).
     if (auth.user.role !== "admin" && !isLabOpenToClass(db, labId, auth.membership.classId)) {
       return jsonError(c, 403, "lab-not-available");
     }
@@ -52,20 +47,19 @@ export function dashboardRoutes() {
       )
       .all(classId) as { studentNo: string; name: string; userId: string }[];
 
-    // Latest submission per (student, stage) for students of this class only.
     const latest = db
       .prepare(
         `SELECT s.user_id AS userId, s.stage_index AS stageIndex, s.score, s.total, s.passed,
                 s.id AS submissionId, s.submitted_at AS submittedAt
          FROM submissions s
          JOIN class_members m ON m.user_id = s.user_id AND m.class_id = ?
-         WHERE s.lab_id = ?
+         WHERE s.lab_id = ? AND s.stage_index BETWEEN 1 AND ?
            AND s.submitted_at = (
              SELECT MAX(x.submitted_at) FROM submissions x
              WHERE x.user_id = s.user_id AND x.stage_index = s.stage_index AND x.lab_id = s.lab_id
            )`,
       )
-      .all(classId, labId) as {
+      .all(classId, labId, lab.stageCount) as {
       userId: string;
       stageIndex: number;
       score: number;
@@ -120,7 +114,6 @@ export function dashboardRoutes() {
     return c.json({ classId, className: auth.membership.className, labId, rows });
   });
 
-  // Teacher-only: one submission's failure detail for the drawer.
   app.get("/submissions/:submissionId", (c) => {
     const auth = requireMembership(c, "teacher");
     if ("error" in auth) return jsonError(c, auth.status, auth.error);

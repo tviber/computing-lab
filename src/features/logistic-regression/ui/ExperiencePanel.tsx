@@ -9,7 +9,6 @@ export function ExperiencePanel({
   onComplete,
   onReviewTraining,
   passed,
-  previewOnly,
   submitting,
 }: {
   training: TrainingSettings;
@@ -17,7 +16,6 @@ export function ExperiencePanel({
   onComplete: (submission: ExperienceSubmission) => void;
   onReviewTraining: () => void;
   passed: boolean;
-  previewOnly: boolean;
   submitting: boolean;
 }) {
   const inputId = useId();
@@ -109,7 +107,7 @@ export function ExperiencePanel({
         <p className="stage-takeaway" role="status">
           已完成短信分类体验
         </p>
-      ) : previewOnly ? null : (
+      ) : (
         <div className="logistic-regression-submit-bar">
           <button
             className="button button-primary"

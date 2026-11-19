@@ -29,7 +29,8 @@ src/features/task-sheets
 
 src/shared/lab
   └─ 各实验页共用的薄封装：useLabProject（加载）、
-     useAutosaveDraft（防抖自动保存）、LabAccessGate/SaveIndicator（入口守卫）
+     useAutosaveDraft（防抖自动保存）、LabPageShell（关卡栏与进度重置）、
+     LabAccessGate/SaveIndicator（入口守卫）
 
 server
   ├─ auth/db/http：认证、SQLite 和请求边界
@@ -46,6 +47,11 @@ POST judge 跑隐藏用例并推进 `passedStages`。每个实验只提供 spec�
 关卡数、saveDraft、judge）；不引入通用 `LessonRuntime`/
 `Stepper` 框架。通过 `LAB_IDS` 与三个类型完备的注册表（`APP_LABS`、`LAB_SPECS`、
 `LAB_ROUTES`），新增实验若遗漏路由、实验管理、首页或班级看板接入会在编译和架构测试阶段被拦截。
+
+`POST /reset` 与加载、保存和判题使用同一实验访问守卫，只操作当前登录用户的项目。
+`{scope: "stage", stageIndex}` 清除指定关卡及编号更高的关卡记录，`{scope: "lab"}` 清空整个实验。
+两种操作都会更新项目版本，旧的自动保存和判题请求无法写回已清除的记录。
+逻辑回归对所有角色使用相同的顺序解锁规则，旧的 `classroom` 链接参数不再启用跳关。
 
 实验可见性由管理员维护的 `hidden` 与按班开放列表控制：未隐藏的实验向勾选班级的成员开放；
 隐藏时非管理员无法访问首页入口、实验页面、实验 API 或教师看板，管理员仍保留预览与看板访问能力。

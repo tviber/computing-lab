@@ -1,13 +1,13 @@
 import { lazyRouteComponent } from "@tanstack/react-router";
-import { CALCULATOR_STAGES, CalculatorLabPage, coreStages } from "../features/calculator";
-import { COLOR_QUANT_STAGES } from "../features/color-quantization";
-import { DECODING_CORE_STAGES, DECODING_STAGES } from "../features/decoding";
-import { IMAGE_SAMPLING_STAGES } from "../features/image-sampling";
-import { LUNCH_STAGES } from "../features/lunch-shift";
+import { CALCULATOR_STAGES, coreStages } from "../features/calculator/domain/stages";
+import { COLOR_QUANT_STAGES } from "../features/color-quantization/domain/stages";
+import { DECODING_CORE_STAGES, DECODING_STAGES } from "../features/decoding/domain/stages";
+import { IMAGE_SAMPLING_STAGES } from "../features/image-sampling/domain/stages";
+import { LUNCH_STAGES } from "../features/lunch-shift/domain/stages";
 import {
   LOGISTIC_REGRESSION_CORE_STAGES,
   LOGISTIC_REGRESSION_STAGES,
-} from "../features/logistic-regression";
+} from "../features/logistic-regression/domain/stages";
 import type { LabId } from "../shared/lab/labMetadata";
 
 export type DashboardStage = {
@@ -17,46 +17,45 @@ export type DashboardStage = {
 };
 
 export type AppLabEntry = {
-  /** Stages shown as columns in the class progress dashboard. */
   dashboardStages: readonly DashboardStage[];
-  /** Core stage count shown on the homepage progress bar (null = no progress block). */
   homeProgressStages: number | null;
-  /** Featured homepage card styling. */
   primaryCard?: true;
-  /** Admin dashboard cells open the student canvas preview rather than a failure drawer. */
   supportsCanvasPreview?: true;
-  /** Lab workspace component mounted at `/classes/$classId/labs/<id>`. */
-  component: typeof CalculatorLabPage | ReturnType<typeof lazyRouteComponent>;
+  component: ReturnType<typeof lazyRouteComponent>;
 };
 
-/**
- * Single frontend registration point for every lab in `labMetadata`: routes,
- * homepage cards, and teacher dashboard columns all read from here. Adding a
- * new `LabId` to `labMetadata` fails TypeScript compilation until wired here.
- */
 export const APP_LABS = {
   calculator: {
     dashboardStages: CALCULATOR_STAGES,
     homeProgressStages: coreStages().length,
     primaryCard: true,
     supportsCanvasPreview: true,
-    component: CalculatorLabPage,
+    component: lazyRouteComponent(
+      () => import("../features/calculator/ui/CalculatorLabPage"),
+      "CalculatorLabPage",
+    ),
   },
   decoding: {
     dashboardStages: DECODING_STAGES,
     homeProgressStages: DECODING_CORE_STAGES.length,
-    component: lazyRouteComponent(() => import("../features/decoding"), "DecodingLabPage"),
+    component: lazyRouteComponent(
+      () => import("../features/decoding/ui/DecodingLabPage"),
+      "DecodingLabPage",
+    ),
   },
   "lunch-shift": {
     dashboardStages: LUNCH_STAGES,
     homeProgressStages: LUNCH_STAGES.length,
-    component: lazyRouteComponent(() => import("../features/lunch-shift"), "LunchShiftLabPage"),
+    component: lazyRouteComponent(
+      () => import("../features/lunch-shift/ui/LunchShiftLabPage"),
+      "LunchShiftLabPage",
+    ),
   },
   "logistic-regression": {
     dashboardStages: LOGISTIC_REGRESSION_STAGES,
     homeProgressStages: LOGISTIC_REGRESSION_CORE_STAGES.length,
     component: lazyRouteComponent(
-      () => import("../features/logistic-regression"),
+      () => import("../features/logistic-regression/ui/LogisticRegressionLabPage"),
       "LogisticRegressionLabPage",
     ),
   },
@@ -64,7 +63,7 @@ export const APP_LABS = {
     dashboardStages: IMAGE_SAMPLING_STAGES,
     homeProgressStages: null,
     component: lazyRouteComponent(
-      () => import("../features/image-sampling"),
+      () => import("../features/image-sampling/ui/ImageSamplingLabPage"),
       "ImageSamplingLabPage",
     ),
   },
@@ -72,7 +71,7 @@ export const APP_LABS = {
     dashboardStages: COLOR_QUANT_STAGES,
     homeProgressStages: null,
     component: lazyRouteComponent(
-      () => import("../features/color-quantization"),
+      () => import("../features/color-quantization/ui/ColorQuantizationLabPage"),
       "ColorQuantizationLabPage",
     ),
   },

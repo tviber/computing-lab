@@ -77,7 +77,7 @@ describe("LogisticRegressionLabPage", () => {
     expect(screen.getByRole("heading", { name: "第一条短信的算分过程" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交第 1 关判定" })).toBeDisabled();
     expect(screen.getByRole("button", { name: /从短信到数字/ })).toBeDisabled();
-    expect(screen.queryByRole("button", { name: "重置我的进度" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "重置进度" })).toBeEnabled();
   });
 
   it("classifies new messages using the saved training parameters without a quiz", async () => {
@@ -424,7 +424,7 @@ describe("LogisticRegressionLabPage", () => {
       auth: studentAuthState,
     });
     await screen.findByRole("heading", { name: "给 10 个词打分" });
-    expect(screen.getByText(/课堂自由跳关：已开启/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /用新短信试试模型/ })).toBeDisabled();
   });
 
   it("opens server currentStage when ?classroom=1 omits the stage query parameter", async () => {
@@ -442,85 +442,24 @@ describe("LogisticRegressionLabPage", () => {
     await screen.findByRole("heading", { name: "训练模型" });
   });
 
-  it("allows student classroom free-navigation preview across stages while guarding formal judge submission", async () => {
-    const fetchSpy = stubLogisticRegressionFetch(
-      makeProject({ currentStage: 1, passedStages: [] }),
-      () => json({}),
-    );
-
-    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
-
-    expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled();
-
-    fireEvent.click(screen.getByRole("button", { name: "课堂模式：先看后面关卡" }));
-    const stage4Btn = screen.getByRole("button", { name: /训练模型/ });
-    expect(stage4Btn).toBeEnabled();
-    fireEvent.click(stage4Btn);
-
-    await screen.findByRole("heading", { name: "训练模型" });
-    expect(screen.getByText(/当前为「课堂自由跳关」预览模式/)).toBeInTheDocument();
-
-    for (const prompt of LOGISTIC_REGRESSION_STAGES[3].prompts) {
-      fireEvent.click(
-        await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
-      );
-    }
-    fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
-    expect(screen.getByText(/如需正式提交过关记录，请先通过前面的关卡/)).toBeInTheDocument();
-    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(false);
-  });
-
-  it("grants teacher and admin immediate free navigation across stages without classroom toggle", async () => {
-    for (const auth of [teacherAuthState, adminAuthState]) {
-      const fetchSpy = stubLogisticRegressionFetch(
-        makeProject({ currentStage: 1, passedStages: [] }),
-        () =>
-          json({
-            passed: true,
-            score: 5,
-            total: 5,
-            testSummary: { parts: [], detail: "ok" },
-            submissionId: "sub-4",
-            currentStage: 5,
-            passedStages: [4],
-          }),
-      );
-
-      const rendered = await renderAppAt("/classes/c1/labs/logistic-regression", { auth });
+  it.each([studentAuthState, teacherAuthState, adminAuthState])(
+    "ignores old classroom links for every role",
+    async (auth) => {
+      stubLogisticRegressionFetch(makeProject(), () => json({}));
+      await renderAppAt("/classes/c1/labs/logistic-regression?classroom=1&stage=4", { auth });
       await screen.findByRole("heading", { name: "给 10 个词打分" });
+      expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled();
+      expect(screen.queryByRole("button", { name: /课堂模式/ })).not.toBeInTheDocument();
+    },
+  );
 
-      expect(screen.getByText("教师视角 · 自由切关")).toBeInTheDocument();
-      expect(screen.getByRole("button", { name: "重置我的进度" })).toBeInTheDocument();
-      expect(screen.queryByRole("button", { name: "课堂模式：先看后面关卡" })).toBeNull();
-
-      const stage4Btn = screen.getByRole("button", { name: /训练模型/ });
-      expect(stage4Btn).toBeEnabled();
-      fireEvent.click(stage4Btn);
-
-      await screen.findByRole("heading", { name: "训练模型" });
-      for (const prompt of LOGISTIC_REGRESSION_STAGES[3].prompts) {
-        fireEvent.click(
-          await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
-        );
-      }
-      fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
-      await waitFor(() =>
-        expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(true),
-      );
-      rendered.unmount();
-    }
-  });
-
-  it("prompts for confirmation and resets staff own progress via POST /reset", async () => {
-    const confirmMock = vi.fn(() => false);
-    vi.stubGlobal("confirm", confirmMock);
-    let resetCalls = 0;
+  it("resets a student's chosen stage and opens its fresh workspace", async () => {
+    const resets: unknown[] = [];
     const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
       const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
       if (url.includes("/reset") && init?.method === "POST") {
-        resetCalls += 1;
-        return json(makeProject({ currentStage: 1, passedStages: [], drafts: {} }));
+        resets.push(JSON.parse(String(init.body)));
+        return json(makeProject({ currentStage: 2, passedStages: [1] }));
       }
       if (url.includes("/project")) {
         return json(makeProject({ currentStage: 4, passedStages: [1, 2, 3] }));
@@ -532,24 +471,19 @@ describe("LogisticRegressionLabPage", () => {
     });
     vi.stubGlobal("fetch", fetchSpy);
 
-    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
     await screen.findByRole("heading", { name: "训练模型" });
 
-    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
-    expect(confirmMock).toHaveBeenCalledTimes(1);
-    expect(resetCalls).toBe(0);
-
-    confirmMock.mockReturnValueOnce(true);
-    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
-    expect(resetCalls).toBe(1);
+    fireEvent.click(screen.getByRole("button", { name: /从短信到数字/ }));
+    fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
+    expect(resets).toEqual([]);
+    fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled());
+    expect(screen.getByRole("heading", { name: "从短信到数字" })).toBeInTheDocument();
+    expect(resets).toEqual([{ scope: "stage", stageIndex: 2 }]);
   });
 
   it("drops a pre-reset in-flight judge verdict that resolves after reset", async () => {
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => true),
-    );
     let resolveJudge!: (value: Response) => void;
     const judgePromise = new Promise<Response>((res) => {
       resolveJudge = res;
@@ -593,7 +527,9 @@ describe("LogisticRegressionLabPage", () => {
       expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(true),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
+    fireEvent.click(screen.getByRole("radio", { name: /重置整个实验/ }));
+    fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
     await screen.findByRole("heading", { name: "给 10 个词打分" });
 
     resolveJudge(

@@ -370,7 +370,30 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(page.getByText("已完成短信分类体验")).toBeVisible();
 
   await expect(smsInput).toHaveValue("");
-  await page.goto(`classes/${classId}/labs/logistic-regression?classroom=1&stage=1`, {
+  await page.getByRole("button", { name: /从短信到数字/ }).click();
+  await page.getByRole("button", { name: "重置进度" }).click();
+  const resetDialog = page.getByRole("dialog", { name: "重置实验进度" });
+  await expect(resetDialog.getByRole("radio", { name: /从本关重来/ })).toBeChecked();
+  const partialReset = page.waitForResponse((res) =>
+    res.url().endsWith("/logistic-regression/reset"),
+  );
+  await resetDialog.getByRole("button", { name: "确认重置" }).click();
+  expect(await (await partialReset).json()).toMatchObject({ currentStage: 2, passedStages: [1] });
+  await expect(resetDialog).not.toBeVisible();
+  await page.reload({ waitUntil: "networkidle" });
+  await expect(page.getByRole("heading", { name: "从短信到数字", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /从分数到概率/ })).toBeDisabled();
+
+  await page.getByRole("button", { name: "重置进度" }).click();
+  await resetDialog.getByRole("radio", { name: /重置整个实验/ }).check();
+  const fullReset = page.waitForResponse((res) => res.url().endsWith("/logistic-regression/reset"));
+  await resetDialog.getByRole("button", { name: "确认重置" }).click();
+  expect(await (await fullReset).json()).toMatchObject({
+    currentStage: 1,
+    passedStages: [],
+    drafts: {},
+  });
+  await page.goto(`classes/${classId}/labs/logistic-regression?classroom=1&stage=4`, {
     waitUntil: "networkidle",
   });
   await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
@@ -491,16 +514,34 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   }
 
   const studentRow = page.getByRole("row", { name: new RegExp(studentNo) });
-  await studentRow.getByRole("button", { name: `${judgeBody.score}/${judgeBody.total}` }).click();
-  await expect(page.getByRole("dialog", { name: "提交详情" })).toBeVisible();
-  await expect(page.getByText("6 条示例短信分类")).toBeVisible();
+  const scoreButton = studentRow.getByRole("button", {
+    name: `${judgeBody.score}/${judgeBody.total}`,
+  });
+  const detailDialog = page.getByRole("dialog", { name: "提交详情" });
+  const matrix = page.getByLabel("学生进度横向滚动区");
+  await matrix.focus();
+  await page.keyboard.press("Tab");
+  await expect(scoreButton).toBeFocused();
+  await expect(scoreButton).toHaveCSS("outline-style", "solid");
+  await page.keyboard.press("Enter");
+  await expect(detailDialog.locator("xpath=self::dialog")).toBeVisible();
+  await expect(detailDialog.getByText("6 条示例短信分类")).toBeVisible();
+  await expect(detailDialog.getByRole("button", { name: "关闭详情" })).toBeFocused();
+
+  await page.keyboard.press("Escape");
+  await expect(detailDialog).toBeHidden();
+  await expect(scoreButton).toBeFocused();
+
+  await scoreButton.click();
+  await expect(detailDialog).toBeVisible();
+  await page.mouse.click(10, 10);
+  await expect(detailDialog).toBeHidden();
+  await expect(scoreButton).toBeFocused();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });
 
-test("teacher enjoys immediate free stage switching and resets own progress back to stage 1", async ({
-  page,
-}) => {
+test("teacher follows sequential unlocks and uses the shared reset dialog", async ({ page }) => {
   const failures = collectFailures(page);
 
   await page.goto("login", { waitUntil: "networkidle" });
@@ -514,31 +555,39 @@ test("teacher enjoys immediate free stage switching and resets own progress back
     .filter({ has: page.getByRole("heading", { name: "逻辑回归" }) });
   await logisticRegressionCard.getByRole("link", { name: "开始实验" }).click();
 
-  await expect(page.getByText("教师视角 · 自由切关")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "课堂模式：先看后面关卡" })).toHaveCount(0);
 
-  const stage4Btn = page.getByRole("button", { name: /训练模型/ });
-  await expect(stage4Btn).toBeEnabled();
-  await stage4Btn.click();
-  await expect(page.getByRole("heading", { name: "训练模型", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: /训练模型/ })).toBeDisabled();
+  await page.getByRole("button", { name: "收起关卡栏" }).click();
+  await expect(page.getByRole("button", { name: /训练模型/ })).not.toBeVisible();
+  await page.getByRole("button", { name: "展开关卡栏" }).click();
+  await expect(page.getByRole("button", { name: /训练模型/ })).toBeDisabled();
 
-  const judgeResponse = page.waitForResponse(
-    (res) =>
-      res.request().method() === "POST" && res.url().includes("/labs/logistic-regression/judge"),
-  );
-  await page.getByRole("button", { name: "提交第 4 关判定" }).click();
-  expect((await judgeResponse).status()).toBe(200);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const expandRail = page.getByRole("button", { name: "展开关卡栏" });
+  await expect(expandRail).toHaveAttribute("aria-expanded", "false");
+  await expect(expandRail).toHaveText("第 1 关");
+  await expect(page.getByRole("button", { name: /训练模型/ })).toBeHidden();
+  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeInViewport();
+  await expandRail.click();
+  await expect(page.getByRole("button", { name: /训练模型/ })).toBeDisabled();
+  await page.getByRole("button", { name: "收起关卡栏" }).click();
+  await page.getByRole("button", { name: "重置进度" }).click();
+  const resetDialog = page.getByRole("dialog", { name: "重置实验进度" });
+  await expect(resetDialog).toBeVisible();
+  await resetDialog.getByRole("radio", { name: /重置整个实验/ }).check();
 
-  page.once("dialog", (dialog) => void dialog.accept());
   const resetResponse = page.waitForResponse(
     (res) =>
       res.request().method() === "POST" && res.url().includes("/labs/logistic-regression/reset"),
   );
-  await page.getByRole("button", { name: "重置我的进度" }).click();
+  await resetDialog.getByRole("button", { name: "确认重置" }).click();
   expect((await resetResponse).status()).toBe(200);
   await expect(page.getByRole("heading", { name: "给 10 个词打分" })).toBeVisible();
 
   await page.reload({ waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "给 10 个词打分" })).toBeVisible();
+  await expect(expandRail).toHaveAttribute("aria-expanded", "false");
   expect(failures, failures.join("\n")).toEqual([]);
 });

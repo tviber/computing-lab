@@ -84,7 +84,6 @@ describe("decoding controller", () => {
     await waitFor(() => expect(result.current.model.output?.lastRun).toEqual({ text: "MOON" }));
     expect(result.current.model.submission.blocker).toBeNull();
 
-    // Edit-after-run: code changed, so the stamped result no longer applies.
     act(() => result.current.actions.setFill("1", "chr(code+1)"));
     expect(result.current.model.output?.lastRun).toBeNull();
     expect(result.current.model.submission.blocker).toBe("先运行你的 decode，得到解码结果。");
@@ -102,7 +101,6 @@ describe("decoding controller", () => {
     act(() => result.current.actions.run());
     expect(result.current.model.editor?.running).toBe(true);
 
-    // Fast stage switching while stage 1's run is still in flight.
     act(() => result.current.actions.selectStage(2));
     expect(result.current.model.editor?.running).toBe(false);
     act(() => result.current.actions.selectStage(3));
@@ -130,12 +128,10 @@ describe("decoding controller", () => {
     act(() => result.current.actions.run());
     act(() => result.current.actions.selectStage(2));
 
-    // Stage 2 (bits) has its own template + payload: a fresh run owns running.
     act(() => result.current.actions.setFill("1", "chr(n)"));
     act(() => result.current.actions.run());
     expect(result.current.model.editor?.running).toBe(true);
 
-    // The old stage-1 request may not clear stage 2's running indicator.
     await act(async () => {
       slow1.resolve("STALE");
       await slow1.promise;
@@ -179,7 +175,6 @@ describe("decoding controller", () => {
     });
     expect(result.current.model.submission.submitting).toBe(true);
 
-    // The student moves on while the judge request is still in flight.
     act(() => result.current.actions.selectStage(2));
     expect(result.current.model.submission.submitting).toBe(false);
 
@@ -233,8 +228,6 @@ describe("decoding controller", () => {
     });
     expect(result.current.model.submission.submitting).toBe(true);
 
-    // Edit while the judge request is in flight — its response describes
-    // code that is no longer on screen.
     act(() => result.current.actions.setFill("1", "chr(code+1)"));
 
     await act(async () => {
@@ -274,10 +267,6 @@ describe("decoding controller", () => {
   });
 
   it("allows staff free stage switching and resets project + transient runs", async () => {
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => true),
-    );
     vi.mocked(runDecode).mockResolvedValue("MOON");
     const fetch = vi.fn(async (url: unknown, init?: RequestInit) => {
       if (String(url).includes("/reset") && init?.method === "POST") {
@@ -289,9 +278,8 @@ describe("decoding controller", () => {
 
     const { result } = renderHook(() => useDecodingLabController({ ...context, staff: true }));
     await waitFor(() => expect(result.current.model.payload).toEqual(bitsPayload));
-    expect(result.current.staffControls?.freeNavigation).toBe(true);
+    expect(result.current.resetControls?.canReset).toBe(true);
 
-    // Stage 5 is accessible to staff even with passedStages = [1].
     act(() => result.current.actions.selectStage(5));
     expect(result.current.model.stage?.index).toBe(5);
 
@@ -301,7 +289,7 @@ describe("decoding controller", () => {
     await waitFor(() => expect(result.current.model.output?.lastRun).toEqual({ text: "MOON" }));
 
     await act(async () => {
-      await result.current.staffControls?.onReset?.();
+      await result.current.resetControls?.onReset({ scope: "lab" });
     });
 
     expect(

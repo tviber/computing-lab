@@ -1,10 +1,3 @@
-/**
- * Shared lab pipeline: every lab exposes GET /project, PUT /draft, and
- * POST /judge under /api/classes/:classId/labs/<lab>. Each route file only
- * declares its stage contract and the three data functions — access control,
- * stage validation, and payload shape live here once.
- */
-
 import { Hono, type Context } from "hono";
 import type { DatabaseSync } from "node:sqlite";
 import type { SessionUser } from "../auth/session.ts";
@@ -34,10 +27,9 @@ function isStaffUser(user: SessionUser): boolean {
 type LabSpec<TDraft, TOutcome> = {
   labId: string;
   stageCount: number;
-  /** The draft body may carry `components` — then `expectedComponentsRevision`
-   *  is required and CAS'd alongside the stage revision (calculator). */
   usesComponents?: boolean;
-  /** Extra top-level fields merged into the GET /project and POST /reset payloads. */
+  staffNavigation?: boolean;
+  keepSubmodulesOnReset?: (library: unknown[], fromStage: number) => unknown[];
   projectExtras?: (
     db: DatabaseSync,
     project: ProjectRow<TDraft>,
@@ -69,8 +61,6 @@ export function labRoutes<TDraft, TOutcome extends object>(
   const requireAccess = (c: LabContext): LabAuth | GuardFailure => {
     const auth = requireMembership(c);
     if ("error" in auth) return auth;
-    // Hidden labs are admin-only; open labs admit members of the checked
-    // classes (all classes when no scope is pinned).
     if (!canAccessLab(c.get("db"), spec.labId, auth.user)) {
       return { error: "lab-not-available", status: 403 };
     }
@@ -80,15 +70,16 @@ export function labRoutes<TDraft, TOutcome extends object>(
   const projectOf = (db: DatabaseSync, auth: LabAuth) =>
     getOrCreateProject<TDraft>(db, auth.user.id, auth.membership.classId, spec.labId);
 
+  const canNavigateFreely = (auth: LabAuth) =>
+    spec.staffNavigation !== false && isStaffUser(auth.user);
+
   const projectPayload = (db: DatabaseSync, auth: LabAuth, project: ProjectRow<TDraft>) => {
-    const staff = isStaffUser(auth.user);
+    const staff = canNavigateFreely(auth);
     return {
       labId: project.labId,
       currentStage: project.currentStage,
       passedStages: project.passedStages,
       drafts: project.drafts,
-      // Per-stage revision of the latest applied write — the client seeds its
-      // expectedRevision from this so its next save is a compare-and-swap.
       draftRevisions: project.draftRevisions,
       projectGeneration: project.projectGeneration,
       staffFreeNavigation: staff,
@@ -115,12 +106,23 @@ export function labRoutes<TDraft, TOutcome extends object>(
     return c.json(projectPayload(db, auth, projectOf(db, auth)));
   });
 
-  app.post("/reset", (c) => {
+  app.post("/reset", async (c) => {
     const auth = requireAccess(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    if (!isStaffUser(auth.user)) return jsonError(c, 403, "teacher-required");
+    const body = await c.req.json().catch(() => null);
+    if (body?.scope !== "lab" && body?.scope !== "stage") {
+      return jsonError(c, 400, "invalid-reset-scope");
+    }
+    const fromStage =
+      body.scope === "lab" ? 1 : typeof body.stageIndex === "number" ? stageIndexOf(body) : null;
+    if (fromStage === null) return jsonError(c, 400, "invalid-stage");
     const db = c.get("db");
-    const reset = resetLabProject<TDraft>(db, projectOf(db, auth).id);
+    const reset = resetLabProject<TDraft>(
+      db,
+      projectOf(db, auth).id,
+      fromStage,
+      spec.keepSubmodulesOnReset,
+    );
     return c.json(projectPayload(db, auth, reset));
   });
 
@@ -130,9 +132,6 @@ export function labRoutes<TDraft, TOutcome extends object>(
     const body = await c.req.json().catch(() => null);
     const stageIndex = stageIndexOf(body);
     if (stageIndex === null) return jsonError(c, 400, "invalid-stage");
-    // Optimistic concurrency: the client states which server revision its
-    // write builds on (0/null on the first write); the server applies it only
-    // while that is still the stored revision, assigning stored+1 itself.
     const rawExpected = body?.expectedRevision;
     const expectedRevision = rawExpected === null ? 0 : rawExpected;
     if (
@@ -142,8 +141,6 @@ export function labRoutes<TDraft, TOutcome extends object>(
     ) {
       return jsonError(c, 400, "invalid-revision");
     }
-    // A component-library write needs its own expected revision — without
-    // one it cannot be compared and must not write anything.
     const rawExpectedComponents = body?.expectedComponentsRevision;
     const expectedComponentsRevision = rawExpectedComponents === null ? 0 : rawExpectedComponents;
     if (spec.usesComponents && body?.components !== undefined) {
@@ -196,7 +193,7 @@ export function labRoutes<TDraft, TOutcome extends object>(
       return jsonError(c, 409, "stale-project-generation");
     }
     const outcome = spec.judge(db, project, stageIndex, body as Record<string, unknown>, {
-      staff: isStaffUser(auth.user),
+      staff: canNavigateFreely(auth),
     });
     if ("error" in outcome) {
       return jsonError(c, (outcome as LabJudgeError).status, (outcome as LabJudgeError).error);

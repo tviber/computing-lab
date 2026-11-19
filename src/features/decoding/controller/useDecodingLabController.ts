@@ -1,9 +1,3 @@
-/**
- * Decoding lab controller: owns persistence (project load + autosave),
- * lesson transitions, the Pyodide execution channels and judging — the
- * workspace only sees the view model and user-intent actions.
- */
-
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { statusForStage } from "../../../shared/lab/saveStatus.ts";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -48,9 +42,7 @@ export function useDecodingLabController({
   classId: string;
   ready: boolean;
   userId: string;
-  /** Raw `?stage=` search value — applied once, after the project loads. */
   stageLink?: unknown;
-  /** Staff accounts (teacher / admin) unlock free stage navigation + self-reset. */
   staff?: boolean;
 }): DecodingWorkspaceProps {
   const [state, dispatch] = useReducer(transitionDecodingLesson, undefined, () =>
@@ -60,8 +52,6 @@ export function useDecodingLabController({
   const [sampleFills, setSampleFills] = useState<Record<string, string>>(
     () => stageOf(state)?.example?.blankDefaults ?? {},
   );
-  // The sample generator's own input version — an edit to its blanks makes
-  // any in-flight or stored printout stale, same rule as the decoder draft.
   const [sampleRevision, setSampleRevision] = useState(0);
   const [sampleHover, setSampleHover] = useState<PixelHover | null>(null);
   const [wrongPick, setWrongPick] = useState<{ promptId: string; option: number } | null>(null);
@@ -90,12 +80,12 @@ export function useDecodingLabController({
     projectGeneration,
     resetting,
     saveGeneration,
-    staffControls,
+    resetControls,
   } = useLabProject<DecodingDraft, { payloads: Record<number, LabPayload> }, DecodingLessonAction>({
     classId,
     labId: "decoding",
     ready,
-    staff,
+    stageIndex: state.stageIndex,
     onResetSuccess: () => decodeExecRef.current?.(),
     toAction: (project, meta) => ({
       type: "load-project",
@@ -112,9 +102,6 @@ export function useDecodingLabController({
     dispatch,
   });
 
-  // Reconcile one conflicted stage against the server's copy — also used by
-  // the explicit retry the sync-error state offers; a failed refetch flags
-  // sync-error and keeps the local draft, never a fake "已载入最新进度".
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
       fetchProject,
@@ -132,8 +119,6 @@ export function useDecodingLabController({
   useAutosaveDraft<DecodingDraft>({
     classId,
     labId: "decoding",
-    // While the (new class's) project is loading the flags on screen still
-    // belong to the previous context — nothing may schedule writes for it.
     saveStatus:
       projectLoaded && !resetting
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
@@ -147,15 +132,9 @@ export function useDecodingLabController({
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
     onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-    // The server dropped this write because a newer one already exists
-    // elsewhere: refetch so local state reconciles to the winning draft,
-    // then flag the conflict briefly on the stage.
     onConflict: (s) => reconcileConflict(s),
   });
 
-  // Execution channels: the student decode run is versioned by the draft
-  // input; the bmp preview by its (per-stage fixed) payload; the sample
-  // generator by its own fills. Each drops results that went stale.
   const decodeExec = useDecodeExecution<DecodingRunResult>({
     stageIndex: state.stageIndex,
     inputRevision,
@@ -183,16 +162,12 @@ export function useDecodingLabController({
     setSampleRevision(0);
     setSampleFills(getDecodingStage(stageIndex)?.example?.blankDefaults ?? {});
   };
-  decodeExecRef.current = () => clearTransientRuns(1);
+  decodeExecRef.current = () => clearTransientRuns(state.stageIndex);
 
-  // Switching stage drops the working results — each stage's artifact is
-  // its own; channel stamps make an in-flight completion unable to land here.
   useEffect(() => {
     clearTransientRuns(state.stageIndex);
   }, [state.stageIndex]);
 
-  // A shared ?stage=N link opens that stage once, after the project loads
-  // (locked or out-of-range targets fall through to the saved position).
   const stageLinkApplied = useRef(false);
   useEffect(() => {
     if (stageLinkApplied.current || !projectLoaded) return;
@@ -208,14 +183,11 @@ export function useDecodingLabController({
     userId,
     running,
     lastRun: decodeExec.result,
-    // Decode and preview errors share one slot, as before the split.
     runError: decodeExec.error ?? previewExec.error,
     preview: previewExec.result,
     sampleFills,
     samplePrintout: sampleExec.result?.stdout ?? null,
     samplePixels: sampleExec.result?.pixels ?? null,
-    // The generator's printout is kept even when its pixels fail the check —
-    // same pairing the old page produced by setting printout before throwing.
     samplePrintError:
       sampleExec.error ??
       (sampleExec.result &&
@@ -268,9 +240,6 @@ export function useDecodingLabController({
     });
   }, [payload, stage, previewExec]);
 
-  // The sample generator's printout is the stage's sample input; on BMP
-  // stages decoding that same `data` in the same run yields the sample
-  // output image.
   const printExample = useCallback(() => {
     if (!stage?.example?.run) return;
     const expectImage = stage.kind === "bmp" || stage.kind === "bmp-script";
@@ -317,8 +286,6 @@ export function useDecodingLabController({
       conceptAnswers: stage.prompts && stage.prompts.length > 0 ? draft.conceptAnswers : undefined,
     };
     const response = await postJudge<DecodingJudgeResult>(submission, {
-      // The response lands only while the submit still describes the stage
-      // and draft on screen — an edit mid-flight retires it like a stale run.
       isStillCurrent: () =>
         stageIndexRef.current === submittedStage && inputRevisionRef.current === submittedRevision,
     });
@@ -348,7 +315,6 @@ export function useDecodingLabController({
     answerPrompt: (promptId, option) => {
       setWrongPick(null);
       dispatch({ type: "answer-prompt", promptId, option });
-      // answer-prompt only records correct picks — a miss is the wrong pick.
       const prompt = stage?.prompts?.find((p) => p.id === promptId);
       if (prompt && !prompt.options[option]?.correct) {
         setWrongPick({ promptId, option });
@@ -369,5 +335,5 @@ export function useDecodingLabController({
       dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex }),
     retrySyncConflict: () => reconcileConflict(state.stageIndex),
   };
-  return { model, actions, staffControls };
+  return { model, actions, resetControls };
 }

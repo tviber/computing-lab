@@ -1505,32 +1505,6 @@ button.logistic-regression-triage-card {
   color: var(--muted);
 }
 
-.logistic-regression-rail-stack {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-
-.logistic-regression-classroom-toggle-card {
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-  padding: 10px 16px 0 0;
-  border-top: 1px solid var(--border);
-}
-
-.logistic-regression-classroom-btn {
-  width: 100%;
-  justify-content: center;
-  font-size: 12.5px;
-}
-
-.logistic-regression-classroom-banner {
-  border-color: var(--warning-border);
-  background: var(--warning-soft);
-  color: var(--warning-ink);
-}
-
 .logistic-regression-before-after {
   display: flex;
   flex-direction: column;
@@ -1610,10 +1584,6 @@ button.logistic-regression-triage-card {
 }
 
 @media (max-width: 960px) {
-  .logistic-regression-classroom-toggle-card {
-    padding-right: 0;
-  }
-
   .logistic-regression-spotlight-row {
     grid-template-columns: 1fr;
     align-items: start;

@@ -1,5 +1,5 @@
 import { Link, useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useLayoutEffect, useRef, useState, type MouseEvent } from "react";
 import { api, describeApiError } from "../../shared/api/client";
 import { isStaffRole, useAuth } from "../../shared/auth";
 import { TaskDashboard, type AssignmentSummary } from "../../features/task-sheets/ui/TaskDashboard";
@@ -11,7 +11,6 @@ import { APP_LABS, type AppLabEntry, type DashboardStage } from "../labRegistry"
 import "./dashboard.css";
 import "../../features/task-sheets/ui/taskSheets.css";
 
-/** First-level dashboard category: lab matrix vs task-sheet responses. */
 type DashKind = "lab" | "task";
 
 type LabOption = {
@@ -106,10 +105,12 @@ function CellView({
   cell,
   onOpen,
   openTitle,
+  opensDialog,
 }: {
   cell: MatrixCell | undefined;
-  onOpen?: () => void;
+  onOpen?: (event: MouseEvent<HTMLButtonElement>) => void;
   openTitle?: string;
+  opensDialog?: boolean;
 }) {
   if (!cell) return <span className="cell-empty">—</span>;
   if (cell.passed) {
@@ -129,7 +130,12 @@ function CellView({
     );
   }
   return onOpen ? (
-    <button className="cell-score" onClick={onOpen} type="button">
+    <button
+      aria-haspopup={opensDialog ? "dialog" : undefined}
+      className="cell-score"
+      onClick={onOpen}
+      type="button"
+    >
       {cell.score}/{cell.total}
     </button>
   ) : (
@@ -148,17 +154,20 @@ export function TeacherDashboardPage() {
   };
   const navigate = useNavigate();
   const { status, role, session } = useAuth();
-  const [payload, setPayload] = useState<MatrixPayload | null>(null);
+  const [matrix, setMatrix] = useState<{ labId: LabId; payload: MatrixPayload } | null>(null);
   const [assignments, setAssignments] = useState<AssignmentSummary[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
   const [detail, setDetail] = useState<SubmissionDetail | null>(null);
+  const [detailError, setDetailError] = useState<string | null>(null);
+  const detailDialog = useRef<HTMLDialogElement>(null);
+  const detailTrigger = useRef<HTMLButtonElement | null>(null);
+  const detailSeqRef = useRef(0);
+  const backdropPressed = useRef(false);
   const isAdmin = role === "admin";
 
   const kind: DashKind = search.kind === "task" ? "task" : "lab";
   const catalog = useLabCatalog(status === "authenticated");
-  // The dashboard reports one class's progress, so only labs open to THIS
-  // class's students stay in the picker; admins keep full access.
   const labOptions = LAB_OPTIONS.filter((l) => {
     if (isAdmin) return true;
     const entry = catalog?.get(l.id);
@@ -166,10 +175,21 @@ export function TeacherDashboardPage() {
     return !entry?.visibleClassIds || !classId || entry.visibleClassIds.includes(classId);
   });
   const lab = labOptions.find((l) => l.id === search.lab) ?? labOptions[0] ?? LAB_OPTIONS[0];
+  const payload =
+    matrix?.labId === lab.id && matrix.payload.classId === classId ? matrix.payload : null;
   const assignment = assignments.find((a) => a.id === search.assignment) ?? assignments[0] ?? null;
 
   const loadSeqRef = useRef(0);
   const assignmentsSeqRef = useRef(0);
+
+  useLayoutEffect(() => {
+    const dialog = detailDialog.current;
+    return () => {
+      ++detailSeqRef.current;
+      detailTrigger.current = null;
+      if (dialog?.open) dialog.close();
+    };
+  }, [classId, kind, lab.id, status]);
 
   const load = useCallback(() => {
     if (!classId) return;
@@ -180,7 +200,7 @@ export function TeacherDashboardPage() {
       .then((next) => {
         if (loadSeqRef.current !== seq) return;
         setError(null);
-        setPayload(next);
+        setMatrix({ labId: lab.id, payload: next });
       })
       .catch((caught) => {
         if (loadSeqRef.current !== seq) return;
@@ -231,14 +251,26 @@ export function TeacherDashboardPage() {
       .catch((caught) => setError(describeApiError(caught)));
   };
 
-  const openDetail = (submissionId: string) => {
+  const openDetail = (submissionId: string, trigger: HTMLButtonElement) => {
+    const dialog = detailDialog.current;
+    if (!classId || !dialog || dialog.open) return;
+    const seq = ++detailSeqRef.current;
+    detailTrigger.current = trigger;
+    backdropPressed.current = false;
+    setDetail(null);
+    setDetailError(null);
+    dialog.showModal();
+
     void api
       .get<SubmissionDetail>(`/api/classes/${classId}/dashboard/submissions/${submissionId}`)
-      .then(setDetail)
-      .catch((caught) => setError(describeApiError(caught)));
+      .then((next) => {
+        if (detailSeqRef.current === seq && dialog.open) setDetail(next);
+      })
+      .catch((caught) => {
+        if (detailSeqRef.current === seq && dialog.open) setDetailError(describeApiError(caught));
+      });
   };
 
-  /** Admin replay of a student's calculator lab — own route, own page, never writes back. */
   const openPreview = (row: MatrixRow, cell?: MatrixCell) => {
     if (!classId) return;
     void navigate({
@@ -427,24 +459,28 @@ export function TeacherDashboardPage() {
                   <tr key={row.studentNo}>
                     <th scope="row">{row.studentNo}</th>
                     <td>{row.name}</td>
-                    {lab.stages.map((stage) => (
-                      <td key={stage.index}>
-                        <CellView
-                          cell={row.cells[String(stage.index)]}
-                          onOpen={(() => {
-                            const cell = row.cells[String(stage.index)];
-                            if (!cell) return undefined;
-                            if (isAdmin && lab.supportsCanvasPreview) {
-                              return () => openPreview(row, cell);
+                    {lab.stages.map((stage) => {
+                      const cell = row.cells[String(stage.index)];
+                      const canPreview = isAdmin && lab.supportsCanvasPreview;
+                      return (
+                        <td key={stage.index}>
+                          <CellView
+                            cell={cell}
+                            onOpen={
+                              !cell
+                                ? undefined
+                                : canPreview
+                                  ? () => openPreview(row, cell)
+                                  : cell.passed
+                                    ? undefined
+                                    : (event) => openDetail(cell.submissionId, event.currentTarget)
                             }
-                            return cell.passed ? undefined : () => openDetail(cell.submissionId);
-                          })()}
-                          openTitle={
-                            isAdmin && lab.supportsCanvasPreview ? "预览学生画布" : undefined
-                          }
-                        />
-                      </td>
-                    ))}
+                            opensDialog={!canPreview}
+                            openTitle={canPreview ? "预览学生画布" : undefined}
+                          />
+                        </td>
+                      );
+                    })}
                     <td>{timeOf(row.lastActiveAt)}</td>
                     {isAdmin ? (
                       <td>
@@ -485,55 +521,76 @@ export function TeacherDashboardPage() {
         )}
       </main>
 
-      {detail ? (
-        <div className="drawer-scrim" role="presentation" onClick={() => setDetail(null)}>
-          <aside
-            aria-label="提交详情"
-            className="drawer"
-            onClick={(event) => event.stopPropagation()}
-            role="dialog"
+      <dialog
+        aria-label="提交详情"
+        className="drawer submission-dialog"
+        onClick={(event) => {
+          if (backdropPressed.current && event.target === event.currentTarget) {
+            event.currentTarget.close();
+          }
+        }}
+        onClose={(event) => {
+          if (event.currentTarget.open) return;
+          const trigger = detailTrigger.current;
+          detailTrigger.current = null;
+          if (trigger?.isConnected) trigger.focus({ preventScroll: true });
+        }}
+        onPointerDown={(event) => {
+          backdropPressed.current = event.target === event.currentTarget;
+        }}
+        ref={detailDialog}
+      >
+        <div className="submission-dialog-content">
+          <button
+            aria-label="关闭详情"
+            className="drawer-close"
+            onClick={() => detailDialog.current?.close()}
+            type="button"
           >
-            <header>
-              <p className="eyebrow">
-                {detail.studentNo} {detail.name}
-              </p>
-              <h2>
-                第 {detail.stageIndex} 关 · {detail.score} / {detail.total}
-              </h2>
-              <button
-                aria-label="关闭详情"
-                className="drawer-close"
-                onClick={() => setDetail(null)}
-                type="button"
-              >
-                <Icon name="x" size={16} />
-              </button>
-            </header>
-
-            {detail.testSummary.error ? (
-              <p className="test-error">{detail.testSummary.error}</p>
-            ) : null}
-
-            <ul className="drawer-categories">
-              {drawerChecks(detail.testSummary).map((check) => {
-                const ok = check.passed === check.total;
-                return (
-                  <li className={ok ? "is-pass" : "is-fail"} key={check.id}>
-                    <span>
-                      {check.label}
-                      {check.detail ? <small>{check.detail}</small> : null}
-                    </span>
-                    <span className="drawer-category-score">
-                      {check.passed}/{check.total} <Icon name={ok ? "check" : "x"} size={13} />
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-            <p className="drawer-note">提交时间 {timeOf(detail.submittedAt)}</p>
-          </aside>
+            <Icon name="x" size={16} />
+          </button>
+          {detail ? (
+            <>
+              <header>
+                <p className="eyebrow">
+                  {detail.studentNo} {detail.name}
+                </p>
+                <h2>
+                  第 {detail.stageIndex} 关 · {detail.score} / {detail.total}
+                </h2>
+              </header>
+              {detail.testSummary.error ? (
+                <p className="test-error">{detail.testSummary.error}</p>
+              ) : null}
+              <ul className="drawer-categories">
+                {drawerChecks(detail.testSummary).map((check) => {
+                  const ok = check.passed === check.total;
+                  return (
+                    <li className={ok ? "is-pass" : "is-fail"} key={check.id}>
+                      <span>
+                        {check.label}
+                        {check.detail ? <small>{check.detail}</small> : null}
+                      </span>
+                      <span className="drawer-category-score">
+                        {check.passed}/{check.total} <Icon name={ok ? "check" : "x"} size={13} />
+                      </span>
+                    </li>
+                  );
+                })}
+              </ul>
+              <p className="drawer-note">提交时间 {timeOf(detail.submittedAt)}</p>
+            </>
+          ) : detailError ? (
+            <p className="test-error" role="alert">
+              {detailError}
+            </p>
+          ) : (
+            <p className="drawer-note" role="status">
+              正在载入提交详情…
+            </p>
+          )}
         </div>
-      ) : null}
+      </dialog>
     </AppPageLayout>
   );
 }

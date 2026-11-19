@@ -1,37 +1,20 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, describeApiError, type LabProjectPayload } from "../api/client";
-import type { LabStaffControlsProps } from "./LabPageShell";
+import type { LabResetControlsProps, LabResetScope } from "./LabPageShell";
 
 export type JudgeSubmissionResult<TOutcome> =
   | { status: "applied"; outcome: TOutcome }
   | { status: "stale" }
   | { status: "error"; error: string };
 
-// Tracks `/project` payloads that already applied a cross-tab project reset inside
-// `fetchProject` so `reconcileConflictedStage` skips single-stage conflict backup.
 const resetHandledPayloads = new WeakSet<object>();
-// Tracks `fetchProject()` promises invalidated by an overlapping or newer reset
-// so `reconcileConflictedStage` skips both `onResolved` and `onSyncError`.
 const resetSupersededFetches = new WeakSet<Promise<unknown>>();
 
-/**
- * Fetches `GET /api/classes/:classId/labs/:labId/project` once the caller is
- * authenticated, then hands the payload to `toAction` so the lab's own
- * reducer folds it into lesson state. Lab-specific payload fields flow
- * through the `TExtras` generic.
- *
- * Also owns the concurrency boundary around staff self-reset (`projectGeneration`,
- * `saveGeneration`, `postJudge`, and `invalidateJudge`) so delayed autosaves and
- * pre-reset judge requests/responses are rejected both on the server and client.
- */
 export function useLabProject<TDraft, TExtras, TAction>(options: {
   classId: string | undefined;
   labId: string;
-  /** Gate on auth — fetch only once status is "authenticated". */
   ready: boolean;
-  /** Caller holds teacher/admin role: unlocks shared self-reset & free-navigation controls. */
-  staff?: boolean;
-  /** Invoked when a staff self-reset (or cross-tab reset sync) settles so page-local state clears cleanly. */
+  stageIndex: number;
   onResetSuccess?: () => void;
   toAction: (project: LabProjectPayload<TDraft> & TExtras, meta?: { isReset?: boolean }) => TAction;
   dispatch: (action: TAction) => void;
@@ -45,14 +28,14 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
   ) => Promise<JudgeSubmissionResult<TOutcome>>;
   invalidateJudge: () => void;
   submittingJudge: boolean;
-  resetProject: () => Promise<boolean>;
+  resetProject: (scope: LabResetScope) => Promise<boolean>;
   resetting: boolean;
   resetError: string | null;
   projectGeneration: number;
   saveGeneration: number;
-  staffControls: LabStaffControlsProps | undefined;
+  resetControls: LabResetControlsProps;
 } {
-  const { classId, labId, ready, staff = false, toAction, dispatch } = options;
+  const { classId, labId, ready, stageIndex, toAction, dispatch } = options;
   const [projectLoaded, setProjectLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -118,8 +101,6 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
         setProjectLoaded(true);
       });
     return () => {
-      // Superseded by a newer context (or unmounted): invalidate every in-flight
-      // fetch, reset, or judge call so a late response never mutates stale state.
       requestSeq.current += 1;
       resetSeq.current += 1;
       contextSeq.current += 1;
@@ -173,8 +154,6 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
         if (contextSeq.current !== ctx || resetSeq.current !== resetAtStart) {
           resetSupersededFetches.add(pending);
         }
-        // Best-effort reconcile: a failed refetch leaves the current state
-        // untouched and reports null — the caller still settles the flag.
         return null;
       });
     return pending;
@@ -185,45 +164,48 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
     setSubmittingJudge(false);
   }, []);
 
-  const resetProject = useCallback(async (): Promise<boolean> => {
-    if (!classId || !ready || resettingRef.current) return false;
-    const ctx = contextSeq.current;
-    const resetTicket = ++resetSeq.current;
-    // Invalidate pre-reset GET fetches and pre-reset judge calls without letting
-    // subsequent fetchProject() calls cancel this reset's lifecycle.
-    requestSeq.current += 1;
-    judgeSeq.current += 1;
-    setSubmittingJudge(false);
-    resettingRef.current = true;
-    setResetting(true);
-    setResetError(null);
-    try {
-      const fresh = await api.post<LabProjectPayload<TDraft> & TExtras>(
-        `/api/classes/${classId}/labs/${labId}/reset`,
-        {},
-      );
-      if (contextSeq.current !== ctx || resetSeq.current !== resetTicket) return false;
-      const nextGen = fresh.projectGeneration ?? projectGenerationRef.current + 1;
-      projectGenerationRef.current = nextGen;
-      setProjectGeneration(nextGen);
-      setSaveGeneration((g) => g + 1);
-      dispatch(toActionRef.current(fresh, { isReset: true }));
-      resetCallbackRef.current?.();
-      setProjectLoaded(true);
-      setLoadError(null);
-      return true;
-    } catch (error) {
-      if (contextSeq.current === ctx && resetSeq.current === resetTicket) {
-        setResetError(describeApiError(error));
+  const resetProject = useCallback(
+    async (scope: LabResetScope): Promise<boolean> => {
+      if (!classId || !ready || resettingRef.current) return false;
+      const ctx = contextSeq.current;
+      const resetTicket = ++resetSeq.current;
+      // Invalidate pre-reset GET fetches and pre-reset judge calls without letting
+      // subsequent fetchProject() calls cancel this reset's lifecycle.
+      requestSeq.current += 1;
+      judgeSeq.current += 1;
+      setSubmittingJudge(false);
+      resettingRef.current = true;
+      setResetting(true);
+      setResetError(null);
+      try {
+        const fresh = await api.post<LabProjectPayload<TDraft> & TExtras>(
+          `/api/classes/${classId}/labs/${labId}/reset`,
+          scope,
+        );
+        if (contextSeq.current !== ctx || resetSeq.current !== resetTicket) return false;
+        const nextGen = fresh.projectGeneration ?? projectGenerationRef.current + 1;
+        projectGenerationRef.current = nextGen;
+        setProjectGeneration(nextGen);
+        setSaveGeneration((g) => g + 1);
+        dispatch(toActionRef.current(fresh, { isReset: true }));
+        resetCallbackRef.current?.();
+        setProjectLoaded(true);
+        setLoadError(null);
+        return true;
+      } catch (error) {
+        if (contextSeq.current === ctx && resetSeq.current === resetTicket) {
+          setResetError(describeApiError(error));
+        }
+        return false;
+      } finally {
+        if (contextSeq.current === ctx && resetSeq.current === resetTicket) {
+          resettingRef.current = false;
+          setResetting(false);
+        }
       }
-      return false;
-    } finally {
-      if (contextSeq.current === ctx && resetSeq.current === resetTicket) {
-        resettingRef.current = false;
-        setResetting(false);
-      }
-    }
-  }, [classId, labId, ready, dispatch]);
+    },
+    [classId, labId, ready, dispatch],
+  );
 
   const postJudge = useCallback(
     async <TOutcome>(
@@ -273,18 +255,6 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
     [classId, labId, ready, fetchProject],
   );
 
-  const staffControls: LabStaffControlsProps | undefined = staff
-    ? {
-        freeNavigation: true,
-        canReset: Boolean(classId && ready && projectLoaded),
-        resetting,
-        resetError,
-        onReset: () => {
-          void resetProject();
-        },
-      }
-    : undefined;
-
   return {
     projectLoaded,
     loadError,
@@ -297,17 +267,16 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
     resetError,
     projectGeneration,
     saveGeneration,
-    staffControls,
+    resetControls: {
+      stageIndex,
+      canReset: Boolean(classId && ready && projectLoaded && !loadError),
+      resetting,
+      resetError,
+      onReset: resetProject,
+    },
   };
 }
 
-/**
- * One conflict reconcile step shared by every lab's `onConflict`/retry: the
- * refetch resolves with the payload (reconcile landed — swap the stage's
- * draft for the server's copy, or apply a cross-tab project reset already
- * handled in `fetchProject`) or `null` (superseded or offline — flag the
- * stage as sync-error and keep the local draft).
- */
 export function reconcileConflictedStage<TDraft, TExtras>(options: {
   fetchProject: () => Promise<(LabProjectPayload<TDraft> & TExtras) | null>;
   stageIndex: number;

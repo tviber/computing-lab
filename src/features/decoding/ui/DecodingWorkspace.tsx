@@ -12,8 +12,7 @@ import { StageBrief } from "./StageBrief.tsx";
 import { TextResult } from "./TextResult.tsx";
 import "./decoding.css";
 
-/** Real presentation, also rendered in previews; teaching decisions arrive in model. */
-export function DecodingWorkspace({ model, actions, staffControls }: DecodingWorkspaceProps) {
+export function DecodingWorkspace({ model, actions, resetControls }: DecodingWorkspaceProps) {
   const { stage, feedback, payload, editor, output, concepts, submission, judge } = model;
   const sample = output?.sample ?? null;
   return (
@@ -22,7 +21,7 @@ export function DecodingWorkspace({ model, actions, staffControls }: DecodingWor
       labId="decoding"
       rail={<DecodingStageRail model={model.rail} onSelect={actions.selectStage} />}
       railWidth={220}
-      staffControls={staffControls}
+      resetControls={resetControls}
     >
       <main aria-label="解码实验区" className="decoding-workspace">
         {stage ? <StageBrief passed={model.stagePassed} stage={stage} /> : null}

@@ -2,8 +2,6 @@ import { hasCloze } from "../domain/cloze.ts";
 import type { DecodingStageDef } from "../domain/stages.ts";
 import { ClozeEditor } from "./ClozeEditor.tsx";
 
-/** The student's decoder: cloze blanks over the stage template, plus the
- * stage's sample-input generator (itself an editable cloze on most stages). */
 export function DecodeEditor({
   stage,
   code,
@@ -38,38 +36,43 @@ export function DecodeEditor({
           aria-label={stage.example.run ? "输入生成器" : "样例输入"}
           className="decode-example"
         >
-          <div className="decode-example-heading">
-            <h4>{stage.example.run ? "输入生成器" : "样例输入"}</h4>
-            {stage.example.run ? (
-              <button
-                aria-label="运行输入生成器，得到样例输入"
-                className="decode-example-play"
-                disabled={running}
-                onClick={onPrintExample}
-                title="运行生成器，得到样例输入"
-                type="button"
-              >
-                ▶
-              </button>
-            ) : null}
-          </div>
-          {hasCloze(stage.example.input) ? (
-            <>
-              <ClozeEditor
-                ariaLabel="输入生成器代码"
-                blankLabel={() => "表达式，可编辑——改完点 ▶ 重新生成"}
-                code={stage.example.input}
-                fills={sampleFills}
-                onBlankEnter={onPrintExample}
-                onFill={onSampleFill}
-              />
-              <p className="decode-example-empty">表达式可改——改完点 ▶ 看字节流和图案怎么变</p>
-            </>
-          ) : (
-            <pre>
-              <code>{stage.example.input}</code>
-            </pre>
-          )}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (stage.example?.run && !running) onPrintExample();
+            }}
+          >
+            <div className="decode-example-heading">
+              <h4>{stage.example.run ? "输入生成器" : "样例输入"}</h4>
+              {stage.example.run ? (
+                <button
+                  aria-label="运行输入生成器，得到样例输入"
+                  className="decode-example-play"
+                  disabled={running}
+                  title="运行生成器，得到样例输入"
+                  type="submit"
+                >
+                  ▶
+                </button>
+              ) : null}
+            </div>
+            {hasCloze(stage.example.input) ? (
+              <>
+                <ClozeEditor
+                  ariaLabel="输入生成器代码"
+                  blankLabel={() => "表达式，可编辑——改完点 ▶ 重新生成"}
+                  code={stage.example.input}
+                  fills={sampleFills}
+                  onFill={onSampleFill}
+                />
+                <p className="decode-example-empty">表达式可改——改完点 ▶ 看字节流和图案怎么变</p>
+              </>
+            ) : (
+              <pre>
+                <code>{stage.example.input}</code>
+              </pre>
+            )}
+          </form>
         </aside>
       ) : null}
       <ClozeEditor code={code} fills={fills} onFill={onFill} />

@@ -176,10 +176,17 @@
   opacity: 1;
 }
 
-/* Stage progression rail — the shared StageRail/StageLink component. */
 .lab-rail {
-  border-right: 1px solid var(--border);
-  padding-right: 16px;
+  padding: 0 8px 8px;
+}
+
+.lab-rail > .eyebrow {
+  padding: 2px 10px 8px;
+  color: var(--secondary);
+  font:
+    650 12px/1.4 system-ui,
+    sans-serif;
+  letter-spacing: 0.02em;
 }
 
 .lab-rail ol {
@@ -210,21 +217,21 @@
 
 .lab-stage-link:disabled {
   cursor: not-allowed;
-  opacity: 0.45;
+  color: var(--muted);
 }
 
 .lab-stage-link.is-active {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
+  background: var(--subtle);
+  color: var(--accent-ink);
 }
 
 .lab-stage-link.is-passed .lab-stage-mark {
   color: var(--success);
 }
 
-/* Optional side stages shared by multiple labs. */
 .lab-stage-link.is-optional {
   margin-left: 12px;
+  width: calc(100% - 12px);
   border-style: dashed;
 }
 
@@ -282,19 +289,39 @@
 
 .lab-stage-titles span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .lab-stage-mark {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
+  width: 16px;
+  color: var(--muted);
   font-size: 12px;
 }
 
-/* LabPageShell — the rail|workspace grid every lab page uses. The rail zone
-   sticks to the scroll container and scrolls internally; collapsing swaps the
-   rail for a 44px strip while keeping the React tree (and its <details>
-   state) mounted. */
+.profile-card {
+  min-width: 0;
+  padding: 24px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  box-shadow: var(--shadow-sm);
+}
+
+.profile-card-heading {
+  padding-bottom: 18px;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-card h2 {
+  margin-top: 6px;
+  color: var(--primary);
+  font-size: 18px;
+  font-weight: 680;
+}
+
 .lab-page-grid {
   display: grid;
   grid-template-columns: var(--rail-w, 240px) minmax(0, 1fr);
@@ -309,19 +336,24 @@
   flex-direction: column;
   max-height: calc(100dvh - 112px);
   min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
 }
 
 .lab-rail-scroll {
   min-height: 0;
   overflow-y: auto;
+  scrollbar-width: thin;
 }
 
 .lab-rail-bar {
   display: flex;
   align-items: center;
-  justify-content: flex-end;
+  justify-content: space-between;
   gap: 8px;
-  min-height: 26px;
+  padding: 6px 8px 4px;
+  flex-shrink: 0;
 }
 
 .lab-rail-bar-label {
@@ -335,9 +367,9 @@
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 26px;
-  height: 26px;
-  border: 1px solid var(--border);
+  width: 32px;
+  height: 32px;
+  border: 0;
   border-radius: var(--radius-control);
   background: transparent;
   color: var(--muted);
@@ -359,21 +391,17 @@
   background: transparent;
 }
 
-/* While a coach forces the rail open (e.g. highlights its component shelf),
-   the rail rejoins page flow so page scroll can reach every rail item. */
 .lab-page-grid.is-forced .lab-rail-zone {
   position: static;
   max-height: none;
 }
 
 .lab-page-grid.is-collapsed {
-  grid-template-columns: 44px minmax(0, 1fr);
+  grid-template-columns: 50px minmax(0, 1fr);
 }
 
 .lab-page-grid.is-collapsed .lab-rail-zone {
   align-items: center;
-  border-right: 1px solid var(--border);
-  padding-right: 8px;
 }
 
 .lab-page-grid.is-collapsed .lab-rail-bar {
@@ -382,59 +410,131 @@
   gap: 10px;
 }
 
-.lab-page-grid.is-collapsed .lab-rail-scroll {
+.lab-progress-tools {
+  margin: 0 8px;
+  padding: 6px 0;
+  border-top: 1px solid var(--border);
+}
+
+.lab-rail-action {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  min-height: 32px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lab-rail-action:hover:not(:disabled) {
+  background: var(--subtle);
+  color: var(--primary);
+}
+
+.lab-rail-action:disabled {
+  cursor: default;
+  opacity: 0.55;
+}
+
+.lab-rail-toggle:focus-visible,
+.lab-stage-link:focus-visible,
+.lab-rail-action:focus-visible {
+  outline-color: var(--focus-ring);
+  outline-offset: -1px;
+}
+
+.lab-page-grid.is-collapsed .lab-rail-action > span {
   display: none;
 }
 
-.lab-staff-tools {
-  display: flex;
-  flex-direction: column;
+.lab-reset-dialog {
+  width: min(440px, calc(100% - 32px));
+  max-height: calc(100dvh - 32px);
+  margin: auto;
+  padding: clamp(16px, 4vw, 24px);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: var(--shadow-md);
+}
+
+.lab-reset-dialog::backdrop {
+  background: var(--scrim);
+}
+
+.lab-reset-dialog h2 {
+  font-size: 18px;
+}
+
+.lab-reset-dialog > p {
+  margin-top: 4px;
+  color: var(--secondary);
+  font-size: 13px;
+}
+
+.lab-reset-options {
+  display: grid;
   gap: 8px;
-  margin-top: 12px;
-  padding: 10px 12px;
+  margin: 16px 0;
+  padding: 0;
+  border: 0;
+}
+
+.lab-reset-options label {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--subtle);
+  font-size: 13px;
+  cursor: pointer;
 }
 
-.lab-staff-badge {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin: 0;
-  color: var(--accent-ink);
-  font-size: 12px;
-  font-weight: 650;
+.lab-reset-options label:has(:checked) {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
 }
 
-.lab-staff-badge svg {
-  color: var(--accent);
+.lab-reset-options input {
+  accent-color: var(--accent);
 }
 
-.lab-staff-note {
-  margin: 0;
+.lab-reset-options label:focus-within {
+  border-color: var(--focus);
+}
+
+.lab-reset-options small {
+  display: block;
   color: var(--muted);
-  font-size: 11.5px;
-  line-height: 1.45;
+  font-size: 12px;
 }
 
-.lab-staff-reset-btn {
-  width: 100%;
-  justify-content: center;
-  font-size: 12.5px;
+.lab-reset-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 16px;
 }
 
-.lab-staff-reset-btn:hover:not(:disabled) {
+.lab-reset-confirm {
   border-color: var(--danger-border);
   background: var(--danger-soft);
-  color: var(--danger);
+  color: var(--danger-ink);
+}
+
+.lab-reset-confirm:hover:not(:disabled) {
+  border-color: var(--danger);
 }
 
 @media (max-width: 960px) {
-  .lab-rail {
-    border-right: none;
-  }
-
   .lab-page-grid,
   .lab-page-grid.is-collapsed {
     grid-template-columns: 1fr;
@@ -442,21 +542,55 @@
 
   .lab-rail-zone {
     position: static;
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) auto;
+    align-items: center;
     max-height: none;
   }
 
-  .lab-page-grid.is-collapsed .lab-rail-zone {
-    align-items: stretch;
-    border-right: none;
-    padding-right: 0;
+  .lab-rail-scroll {
+    grid-column: 1 / -1;
+    grid-row: 2;
+    border-top: 1px solid var(--border);
   }
 
-  .lab-page-grid.is-collapsed .lab-rail-scroll {
-    display: block;
+  .lab-rail-bar,
+  .lab-page-grid.is-collapsed .lab-rail-bar {
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 4px;
   }
 
-  .lab-rail-bar {
-    display: none;
+  .lab-rail-toggle {
+    justify-content: flex-start;
+    gap: 6px;
+    width: auto;
+    min-height: 44px;
+    padding: 0 10px;
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 650;
+  }
+
+  .lab-rail-toggle[aria-expanded="true"] svg {
+    rotate: 180deg;
+  }
+
+  .lab-progress-tools {
+    grid-column: 2;
+    grid-row: 1;
+    margin: 0 4px 0 0;
+    padding: 0;
+    border-top: 0;
+  }
+
+  .lab-rail-action {
+    gap: 6px;
+    min-height: 44px;
+  }
+
+  .lab-page-grid.is-collapsed .lab-rail-action > span {
+    display: inline;
   }
 }
 

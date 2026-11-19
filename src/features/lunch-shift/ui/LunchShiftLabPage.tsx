@@ -1,10 +1,3 @@
-/**
- * Lunch-shift lab page: stage rail plus four stage panels — 订单旅程,
- * 智能接单, 修排队, 晚餐高峰. Same wiring as the other labs: project load →
- * autosaved drafts → server judge. The Pyodide worker is warmed as soon as
- * the project loads so the stage-2 run doesn't wait on the download.
- */
-
 import { useParams } from "@tanstack/react-router";
 import { Fragment, useCallback, useEffect, useReducer, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
@@ -74,8 +67,6 @@ export function LunchShiftLabPage() {
     createLunchLessonState(1, isStaff),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Which stage the latest judge outcome belongs to — the outcome itself
-  // carries no stageIndex.
   const [judgedStage, setJudgedStage] = useState<number | null>(null);
 
   const stage = stageOf(state);
@@ -89,12 +80,12 @@ export function LunchShiftLabPage() {
     projectGeneration,
     resetting,
     saveGeneration,
-    staffControls,
+    resetControls,
   } = useLabProject<LunchDraft, LunchProjectExtras, LunchLessonAction>({
     classId,
     labId: "lunch-shift",
     ready: status === "authenticated",
-    staff: isStaff,
+    stageIndex: state.stageIndex,
     onResetSuccess: () => {
       setSubmitError(null);
       setJudgedStage(null);
@@ -116,7 +107,6 @@ export function LunchShiftLabPage() {
     dispatch,
   });
 
-  // Warm the Python worker while the student is still on 订单旅程.
   useEffect(() => {
     if (projectLoaded) warmPyodide();
   }, [projectLoaded]);
@@ -154,7 +144,6 @@ export function LunchShiftLabPage() {
     onConflict: (s) => reconcileConflict(s),
   });
 
-  // The bonus challenge lives on the stage-3 page but saves under slot 5.
   useAutosaveDraft<LunchDraft>({
     classId,
     labId: "lunch-shift",
@@ -261,9 +250,9 @@ export function LunchShiftLabPage() {
             </ol>
           </aside>
         }
-        staffControls={staffControls}
+        resetControls={resetControls}
       >
-        <main aria-label="设计餐馆系统实验区" className="lunch-workspace">
+        <main aria-label="设计餐馆系统实验区" className="lunch-workspace" key={saveGeneration}>
           {stage ? <StageBrief stage={stage} passed={passedStages.includes(stage.index)} /> : null}
 
           {state.message ? (

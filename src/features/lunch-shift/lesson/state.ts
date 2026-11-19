@@ -1,10 +1,3 @@
-/**
- * Lunch-shift lesson state: which stage, the per-stage draft, the last
- * judge verdict. Pure transitions — no React, no network. Reuses the
- * shared save-status/conflict machinery so autosave behaves the
- * same across labs.
- */
-
 import type { SaveStatus } from "../../../shared/api/client";
 import {
   markSaveStatus,
@@ -42,21 +35,15 @@ export type { SaveStatus };
 
 export type LunchLessonState = {
   stageIndex: number;
-  /** Next unpassed stage (mainline pointer). */
   currentStage: number;
   passedStages: number[];
   freeNavigation: boolean;
   drafts: Record<number, LunchDraft>;
-  /** The local drafts a save conflict replaced — kept so the learner can
-   *  restore their unsaved version explicitly after reconciling. */
   conflictedLocalDrafts: Record<number, LunchDraft>;
   draftRevisions: Record<number, number>;
   judgeOutcome: LunchJudgeResult | null;
-  /** Latest recorded summary per graded stage, from GET /project extras. */
   runSummaries: LunchProjectExtras["runSummaries"];
-  /** This student's training order, deterministic from their user id. */
   training: LunchProjectExtras["training"];
-  /** Stage-4 order wording for the browser's AI intake — null until unlocked. */
   aiOrders: LunchProjectExtras["aiOrders"];
   saveStatusByStage: SaveStatusByStage;
   unresolvedSyncConflicts: SyncConflictByStage;
@@ -124,12 +111,6 @@ function codeOf(raw: unknown): string {
   return typeof raw === "string" ? raw.slice(0, MAX_CODE_CHARS) : "";
 }
 
-/**
- * The draft for a stage: the stored copy, or a fresh default. The
- * dinner-rush stage seeds its confirm code from the stage-2 intake draft
- * and its queue artefact from the stage-3 draft, so both pieces of
- * student work carry into the final run.
- */
 export function draftOf(state: LunchLessonState, stageIndex = state.stageIndex): LunchDraft {
   const stored = state.drafts[stageIndex];
   if (stored !== undefined) return stored;
@@ -225,7 +206,6 @@ export function sanitizeCompensateDraft(raw: unknown): CompensateDraft {
   return draft;
 }
 
-/** Bound a restored draft at the domain edge, dispatched by stage. */
 export function sanitizeLunchDraft(stageIndex: number, raw: unknown): LunchDraft {
   if (stageIndex === 1) return sanitizeTrainingDraft(raw);
   if (stageIndex === 2) return sanitizeAiIntakeDraft(raw);
@@ -265,8 +245,6 @@ export function createLunchLessonState(stageIndex = 1, freeNavigation = false): 
   };
 }
 
-// Freshly-judged summaries slot back into runSummaries so navigating
-// away and back still shows the latest result (not just page-load data).
 const SUMMARY_KEY_BY_KIND: Partial<
   Record<LunchTestSummary["kind"], keyof LunchProjectExtras["runSummaries"]>
 > = {
@@ -292,10 +270,8 @@ export function transitionLunchLesson(
         drafts[stageIndex] = sanitizeLunchDraft(stageIndex, draft);
       }
       const freeNavigation = action.freeNavigation ?? state.freeNavigation;
-      // currentStage can point one past the last stage once every stage
-      // passed — clamp to a real stage so the workspace never goes blank.
       const candidate = action.isReset
-        ? 1
+        ? action.currentStage
         : freeNavigation
           ? action.currentStage
           : lunchStageUnlocked(action.passedStages, action.currentStage)
@@ -342,8 +318,6 @@ export function transitionLunchLesson(
     case "update-final":
       return state.stageIndex === 4 ? withDraft(state, action.draft) : state;
     case "update-compensate":
-      // The bonus panel lives on the stage-3 page — its draft belongs to
-      // slot 5 regardless of which stage is currently selected.
       return {
         ...state,
         drafts: { ...state.drafts, 5: sanitizeCompensateDraft(action.draft) },
@@ -358,7 +332,6 @@ export function transitionLunchLesson(
         judgeOutcome: action.outcome,
         passedStages: action.outcome.passedStages,
         currentStage: nextLunchStage(action.outcome.passedStages),
-        // A stage-3 pass ships the stage-4 order wording with the result.
         aiOrders: action.outcome.aiOrders ?? state.aiOrders,
         runSummaries: summaryKey
           ? { ...state.runSummaries, [summaryKey]: action.outcome.testSummary }

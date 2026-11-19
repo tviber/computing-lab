@@ -1,9 +1,3 @@
-/**
- * Decoding lesson state: which stage, the draft per stage (code,
- * concept answers, per-file verdicts), and the last judge verdict. Pure
- * transitions — no React, no network.
- */
-
 import type { PixelMatrix } from "../domain/bmp.ts";
 import type {
   DecodingDraft,
@@ -30,27 +24,16 @@ import {
 
 export type DecodingLessonState = {
   stageIndex: number;
-  /** Next unpassed stage (mainline pointer). */
   currentStage: number;
   passedStages: number[];
   freeNavigation: boolean;
   drafts: Record<number, DecodingDraft>;
-  /** The local drafts a save conflict replaced — kept so the learner can
-   *  restore their unsaved version explicitly after reconciling. */
   conflictedLocalDrafts: Record<number, DecodingDraft>;
-  /** Server-assigned revision of each stage's latest applied write — the
-   *  next autosave for that stage sends it back as `expectedRevision`. */
   draftRevisions: Record<number, number>;
-  /** Per-user stage payloads issued by the server at project load. */
   payloads: Record<number, LabPayload>;
-  /** Per-stage counter over the code/fills input — bumped on each edit so
-   * an execution result can be stamped with the input it ran under and
-   * dropped once the draft moves on (edit-after-run invalidation). */
   inputRevisions: Record<number, number>;
   judgeOutcome: DecodingJudgeResult | null;
   saveStatusByStage: SaveStatusByStage;
-  /** Stages with an unreconciled sync-error — the retry stays visible
-   *  while set, even after further edits flip the save flag to dirty. */
   unresolvedSyncConflicts: SyncConflictByStage;
   message: string | null;
 };
@@ -61,7 +44,6 @@ export type DecodingLessonAction =
       currentStage: number;
       passedStages: number[];
       drafts: Record<number, DecodingDraft>;
-      /** Server revisions of the applied drafts, seeded into expectedRevision. */
       draftRevisions?: Record<number, number>;
       payloads: Record<number, LabPayload>;
       freeNavigation?: boolean;
@@ -74,10 +56,8 @@ export type DecodingLessonAction =
   | {
       type: "set-verdict";
       fileIndex: number;
-      /** Stage the verdict was pinned on — drops stale async writes. */
       stageIndex: number;
       verdict: { decoder: DecoderChoice; text?: string; pixels?: PixelMatrix } | null;
-      /** Sync writes only when the pinned verdict still picks this decoder. */
       expectDecoder?: DecoderChoice;
     }
   | { type: "judge-result"; outcome: DecodingJudgeResult }
@@ -88,9 +68,7 @@ export type DecodingLessonAction =
   | {
       type: "resolve-save-conflict";
       stageIndex: number;
-      /** The draft the server holds for the stage; absent → the stage's empty draft. */
       draft?: DecodingDraft;
-      /** Server revision now stored for the stage — seeds the next save. */
       revision?: number;
     }
   | { type: "restore-conflict-draft"; stageIndex: number }
@@ -117,12 +95,10 @@ export function isStageUnlocked(state: DecodingLessonState, stageIndex: number):
   );
 }
 
-/** Prompt ids already answered correctly in the current stage's draft. */
 export function answeredPromptIds(state: DecodingLessonState): Set<string> {
   return new Set(Object.keys(draftOf(state).conceptAnswers));
 }
 
-/** Every concept prompt of the stage answered — required before submit. */
 export function allPromptsAnswered(state: DecodingLessonState): boolean {
   const stage = stageOf(state);
   if (!stage?.prompts?.length) return true;
@@ -159,8 +135,6 @@ function touchDraft(state: DecodingLessonState, draft: DecodingDraft): DecodingL
   };
 }
 
-/** Code/fills changed — the stage's run-input version advances; a run
- * stamped with the old number no longer describes the current draft. */
 function bumpInputRevision(state: DecodingLessonState): DecodingLessonState {
   const current = state.inputRevisions[state.stageIndex] ?? 0;
   return {
@@ -184,10 +158,8 @@ export function transitionDecodingLesson(
         drafts[Number(key)] = sanitizeDraft(draft);
       }
       const freeNavigation = action.freeNavigation ?? state.freeNavigation;
-      // Resume where the server's mainline pointer says, provided it's still
-      // unlocked (or staff free navigation is active). On reset return to stage 1.
       const candidate = action.isReset
-        ? 1
+        ? action.currentStage
         : freeNavigation
           ? action.currentStage
           : decodingStageUnlocked(action.passedStages, action.currentStage)
@@ -233,7 +205,6 @@ export function transitionDecodingLesson(
     case "answer-prompt": {
       const draft = draftOf(state);
       const stage = stageOf(state);
-      // Only correct picks are recorded — a wrong option just shows its note.
       const prompt = stage?.prompts?.find((p) => p.id === action.promptId);
       if (!prompt || !(prompt.options[action.option]?.correct === true)) return state;
       return touchDraft(state, {
@@ -243,11 +214,8 @@ export function transitionDecodingLesson(
     }
 
     case "set-verdict": {
-      // A decoder run finishing after a stage switch must not scribble its
-      // verdict into the newly-selected stage's draft.
       if (action.stageIndex !== state.stageIndex) return state;
       const draft = draftOf(state);
-      // Same for a run that landed after the student re-pinned the decoder.
       if (
         action.expectDecoder &&
         draft.verdicts[action.fileIndex]?.decoder !== action.expectDecoder
@@ -273,11 +241,7 @@ export function transitionDecodingLesson(
         saveStatusByStage: markSaveStatus(state.saveStatusByStage, action.stageIndex, "saving"),
       };
     case "mark-saved": {
-      // Only a save started from the stage's current dirty state may settle it.
       if (statusForStage(state.saveStatusByStage, action.stageIndex) !== "saving") return state;
-      // A saved write does NOT drop the stage's conflict backup — the
-      // recoverable local copy stays until the learner restores or
-      // explicitly discards it.
       return {
         ...state,
         draftRevisions:
@@ -295,10 +259,6 @@ export function transitionDecodingLesson(
       };
 
     case "mark-save-sync-error": {
-      // The refused write's reconcile fetch failed: the local draft is
-      // untouched and the stage stays fenced (its revision never advanced)
-      // — only an explicit retry's resolve lifts the fence. Distinct from
-      // "conflict": nothing was loaded, so "已载入最新进度" would be a lie.
       const status = statusForStage(state.saveStatusByStage, action.stageIndex);
       if (status !== "saving" && status !== "dirty" && status !== "sync-error") return state;
       return {
@@ -313,17 +273,7 @@ export function transitionDecodingLesson(
     }
 
     case "resolve-save-conflict": {
-      // Per-stage reconcile after a refused write: swap ONLY the conflicted
-      // stage's draft for the server's copy and land its conflict flag in the
-      // same transition — every other stage's local draft and save flag is
-      // left untouched. The replaced local draft is stashed in
-      // conflictedLocalDrafts so the learner can still recover it. Settles
-      // while the stage waits on its save — and on a dirty flag too: a
-      // fenced stage cannot retry its own save, so the reconcile must still
-      // land (the stash keeps those newer edits recoverable the same way).
       const status = statusForStage(state.saveStatusByStage, action.stageIndex);
-      // "sync-error" is the same refusal, still unreconciled — a retry's
-      // payload lands here too.
       if (status !== "saving" && status !== "dirty" && status !== "sync-error") return state;
       const conflictedLocalDrafts = { ...state.conflictedLocalDrafts };
       const localDraft = state.drafts[action.stageIndex];
@@ -347,10 +297,6 @@ export function transitionDecodingLesson(
     }
 
     case "restore-conflict-draft": {
-      // The learner explicitly keeps their pre-conflict version: it returns
-      // as a dirty draft and autosave re-arms — expectedRevision is now the
-      // reconciled server revision, so the write supersedes legitimately
-      // (or loses OCC to an even newer write → a fresh conflict).
       const backup = state.conflictedLocalDrafts[action.stageIndex];
       if (backup === undefined) return state;
       const conflictedLocalDrafts = { ...state.conflictedLocalDrafts };
@@ -370,9 +316,6 @@ export function transitionDecodingLesson(
     }
 
     case "discard-conflict-draft": {
-      // The learner accepts the server's draft: drop the recoverable local
-      // copy for good. A "conflict" flag settles to "saved" — the content
-      // on screen is the server's applied write; other flags stay put.
       if (state.conflictedLocalDrafts[action.stageIndex] === undefined) return state;
       const conflictedLocalDrafts = { ...state.conflictedLocalDrafts };
       delete conflictedLocalDrafts[action.stageIndex];
@@ -398,7 +341,6 @@ export function transitionDecodingLesson(
   }
 }
 
-/** Bound a restored draft at the domain edge; junk fields drop to defaults. */
 export function sanitizeDraft(raw: unknown): DecodingDraft {
   if (!raw || typeof raw !== "object") return emptyDraft();
   const { code, fills, conceptAnswers, verdicts } = raw as {

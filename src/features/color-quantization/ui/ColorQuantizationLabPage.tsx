@@ -75,8 +75,6 @@ export function ColorQuantizationLabPage() {
   const stage = stageOf(state);
   const draft = draftOf(state);
 
-  // Start downloading the Python runtime as soon as the lab opens,
-  // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
   const {
@@ -88,12 +86,12 @@ export function ColorQuantizationLabPage() {
     projectGeneration,
     resetting,
     saveGeneration,
-    staffControls,
+    resetControls,
   } = useLabProject<StageDraft, Record<never, never>, QuantLessonAction>({
     classId,
     labId: "color-quantization",
     ready: status === "authenticated",
-    staff: isStaff,
+    stageIndex: state.stageIndex,
     onResetSuccess: () => setSubmitError(null),
     toAction: (project, meta) => ({
       type: "load-project",
@@ -109,21 +107,14 @@ export function ColorQuantizationLabPage() {
     dispatch,
   });
 
-  // Apply a shared scenario (?stage=&toners=/&table=) once — but only after
-  // the project loads, or unlocked stages would look locked at mount.
   useEffect(() => {
     if (scenarioApplied.current || !projectLoaded) return;
     scenarioApplied.current = true;
     const scenario = parseQuantScenario(search);
     const actions = quantScenarioActions(state, scenario);
     actions.forEach((action) => dispatch(action));
-    // A shared scenario link is a starting point, not a live binding to the URL.
-    // projectLoaded flips in the same batch as load-project, so `state` is fresh.
   }, [projectLoaded]);
 
-  // Reconcile one conflicted stage against the server's copy — also used by
-  // the explicit retry the sync-error state offers; a failed refetch flags
-  // sync-error and keeps the local draft, never a fake "已载入最新进度".
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
       fetchProject,
@@ -141,8 +132,6 @@ export function ColorQuantizationLabPage() {
   useAutosaveDraft<StageDraft>({
     classId,
     labId: "color-quantization",
-    // While the (new class's) project is loading the flags on screen still
-    // belong to the previous context — nothing may schedule writes for it.
     saveStatus:
       projectLoaded && !resetting
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
@@ -156,9 +145,6 @@ export function ColorQuantizationLabPage() {
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
     onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-    // The server dropped this write because a newer one already exists
-    // elsewhere: refetch so local state reconciles to the winning draft,
-    // then flag the conflict briefly on the stage.
     onConflict: (s) => reconcileConflict(s),
   });
 
@@ -240,9 +226,9 @@ export function ColorQuantizationLabPage() {
             unlocked={(item) => isStageUnlocked(state, item.index)}
           />
         }
-        staffControls={staffControls}
+        resetControls={resetControls}
       >
-        <main aria-label="颜色量化实验区" className="quant-workspace">
+        <main aria-label="颜色量化实验区" className="quant-workspace" key={saveGeneration}>
           {stage ? <StageBrief stage={stage} /> : null}
 
           {state.message ? (

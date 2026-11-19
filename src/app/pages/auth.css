@@ -77,14 +77,6 @@
   border-color: var(--focus);
 }
 
-.auth-error {
-  padding: 8px 12px;
-  border-radius: var(--radius-control);
-  background: var(--danger-soft);
-  color: var(--danger);
-  font-size: 13px;
-}
-
 .auth-note {
   margin-top: 18px;
   color: var(--muted);

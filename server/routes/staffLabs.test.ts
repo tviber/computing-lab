@@ -161,14 +161,14 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
   });
 
   it.each(LAB_CASES)(
-    "$labId: grants staff free navigation + bypassLock judge + isolated self-reset",
+    "$labId: applies navigation policy and grants all roles isolated self-reset",
     async ({ labId, gatedStage, draftBody, judgeBody }) => {
       const { db, classId, studentId, teacherId, adminId, app, cookieFor } = await setupEnv();
       const studentCookie = cookieFor(studentId);
       const teacherCookie = cookieFor(teacherId);
       const adminCookie = cookieFor(adminId);
+      const staffFreeNavigation = labId !== "logistic-regression";
 
-      // 1. Project payload advertises staffFreeNavigation per role.
       const stuProjRes = await app.fetch(
         new Request(labUrl(classId, labId, "/project"), { headers: { cookie: studentCookie } }),
       );
@@ -179,15 +179,14 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
         new Request(labUrl(classId, labId, "/project"), { headers: { cookie: teacherCookie } }),
       );
       expect(teaProjRes.status).toBe(200);
-      expect(await teaProjRes.json()).toMatchObject({ staffFreeNavigation: true });
+      expect(await teaProjRes.json()).toMatchObject({ staffFreeNavigation });
 
       const admProjRes = await app.fetch(
         new Request(labUrl(classId, labId, "/project"), { headers: { cookie: adminCookie } }),
       );
       expect(admProjRes.status).toBe(200);
-      expect(await admProjRes.json()).toMatchObject({ staffFreeNavigation: true });
+      expect(await admProjRes.json()).toMatchObject({ staffFreeNavigation });
 
-      // 2. Student cannot jump-judge a locked stage and cannot POST /reset.
       const stuJudge = await app.fetch(
         new Request(labUrl(classId, labId, "/judge"), {
           method: "POST",
@@ -198,7 +197,6 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
       expect(stuJudge.status).toBe(409);
       expect(await stuJudge.json()).toMatchObject({ error: "stage-locked" });
 
-      // Persist a student draft and verify /reset rejects students cleanly.
       const stuDraft = await app.fetch(
         new Request(labUrl(classId, labId, "/draft"), {
           method: "PUT",
@@ -208,16 +206,6 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
       );
       expect(stuDraft.status).toBe(200);
 
-      const stuReset = await app.fetch(
-        new Request(labUrl(classId, labId, "/reset"), {
-          method: "POST",
-          headers: { cookie: studentCookie },
-        }),
-      );
-      expect(stuReset.status).toBe(403);
-      expect(await stuReset.json()).toMatchObject({ error: "teacher-required" });
-
-      // 3. Teacher and admin bypass the stage lock when judging the gated stage.
       for (const [userId, cookie] of [
         [teacherId, teacherCookie],
         [adminId, adminCookie],
@@ -238,7 +226,10 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
             body: JSON.stringify(judgeBody),
           }),
         );
-        expect(judgeRes.status).toBe(200);
+        expect(judgeRes.status).toBe(staffFreeNavigation ? 200 : 409);
+        if (!staffFreeNavigation) {
+          expect(await judgeRes.json()).toMatchObject({ error: "stage-locked" });
+        }
 
         const projectRow = db
           .prepare(
@@ -252,13 +243,13 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
         const beforeResetSubs = db
           .prepare("SELECT COUNT(*) AS n FROM submissions WHERE project_id = ?")
           .get(projectRow.id) as { n: number };
-        expect(beforeResetSubs.n).toBeGreaterThanOrEqual(1);
+        expect(beforeResetSubs.n).toBe(staffFreeNavigation ? 1 : 0);
 
-        // 4. POST /reset clears only the caller's own state + submissions and bumps projectGeneration.
         const resetRes = await app.fetch(
           new Request(labUrl(classId, labId, "/reset"), {
             method: "POST",
-            headers: { cookie },
+            headers: { cookie, "content-type": "application/json" },
+            body: JSON.stringify({ scope: "lab" }),
           }),
         );
         expect(resetRes.status).toBe(200);
@@ -269,10 +260,9 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
           drafts: {},
           draftRevisions: {},
           projectGeneration: 1,
-          staffFreeNavigation: true,
+          staffFreeNavigation,
         });
 
-        // Delayed pre-reset save with expectedGeneration=0 (and expectedRevision=0!) must NOT resurrect drafts.
         const staleDraftRes = await app.fetch(
           new Request(labUrl(classId, labId, "/draft"), {
             method: "PUT",
@@ -287,7 +277,6 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
           projectGeneration: 1,
         });
 
-        // Delayed pre-reset judge with expectedGeneration=0 must return 409 without recording a submission.
         const staleJudgeRes = await app.fetch(
           new Request(labUrl(classId, labId, "/judge"), {
             method: "POST",
@@ -298,7 +287,6 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
         expect(staleJudgeRes.status).toBe(409);
         expect(await staleJudgeRes.json()).toMatchObject({ error: "stale-project-generation" });
 
-        // Post-reset save carrying expectedGeneration=1 applies normally.
         const freshDraftRes = await app.fetch(
           new Request(labUrl(classId, labId, "/draft"), {
             method: "PUT",
@@ -315,7 +303,8 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
         await app.fetch(
           new Request(labUrl(classId, labId, "/reset"), {
             method: "POST",
-            headers: { cookie },
+            headers: { cookie, "content-type": "application/json" },
+            body: JSON.stringify({ scope: "lab" }),
           }),
         );
 
@@ -330,14 +319,76 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
         expect(afterResetGuided.n).toBe(0);
       }
 
-      // 5. Student's saved draft remained untouched throughout staff resets.
       const stuAfter = await app.fetch(
         new Request(labUrl(classId, labId, "/project"), { headers: { cookie: studentCookie } }),
       );
       const stuBody = (await stuAfter.json()) as { drafts: Record<string, unknown> };
       expect(Object.keys(stuBody.drafts).length).toBeGreaterThan(0);
+      const stuReset = await app.request(labUrl(classId, labId, "/reset"), {
+        method: "POST",
+        headers: { cookie: studentCookie, "content-type": "application/json" },
+        body: JSON.stringify({ scope: "lab" }),
+      });
+      expect(stuReset.status).toBe(200);
+      expect(await stuReset.json()).toMatchObject({
+        currentStage: 1,
+        drafts: {},
+        projectGeneration: 1,
+      });
     },
   );
+
+  it("resets the chosen stage and every later record while preserving earlier work", async () => {
+    const { db, classId, studentId, teacherId, app, cookieFor } = await setupEnv();
+    const labId = "logistic-regression";
+    const projectId = newId();
+    db.prepare(
+      `INSERT INTO student_projects
+      (id, user_id, class_id, lab_id, current_stage, passed_stages, draft_graph, draft_revisions)
+      VALUES (?, ?, ?, ?, 6, '[1,2,3,4,5]', '{"1":{},"2":{},"4":{}}', '{"1":8,"2":2,"4":4}')`,
+    ).run(projectId, studentId, classId, labId);
+    for (const stage of [1, 2, 4, 7]) {
+      db.prepare(
+        `INSERT INTO submissions
+        (id, project_id, user_id, lab_id, stage_index, snapshot_graph, score, total, passed, test_summary)
+        VALUES (?, ?, ?, ?, ?, '{}', 1, 1, 1, '{}')`,
+      ).run(newId(), projectId, studentId, labId, stage);
+      db.prepare(
+        "INSERT INTO cpu_guided_first_answers (project_id, stage_index, prompt_id, option_index) VALUES (?, ?, 'probe', 0)",
+      ).run(projectId, stage);
+    }
+    const resetUrl = labUrl(classId, labId, "/reset");
+    const reset = (body: unknown, cookie = cookieFor(studentId)) =>
+      app.request(resetUrl, {
+        method: "POST",
+        headers: { cookie, "content-type": "application/json" },
+        body: JSON.stringify(body),
+      });
+    expect((await reset({ scope: "stage", stageIndex: 2 }, "")).status).toBe(401);
+    expect((await reset({})).status).toBe(400);
+    for (const stageIndex of [null, true, "2", 0, 1.5, 6]) {
+      expect((await reset({ scope: "stage", stageIndex })).status).toBe(400);
+    }
+    expect((await reset({ scope: "lab", userId: studentId }, cookieFor(teacherId))).status).toBe(
+      200,
+    );
+    const response = await reset({ scope: "stage", stageIndex: 2 });
+    expect(response.status).toBe(200);
+    expect(await response.json()).toMatchObject({
+      currentStage: 2,
+      passedStages: [1],
+      drafts: { 1: {} },
+      draftRevisions: { 1: 8 },
+      projectGeneration: 1,
+      runSummaries: { s1: {}, s2: null, s4: null },
+    });
+    for (const table of ["submissions", "cpu_guided_first_answers"]) {
+      const rows = db
+        .prepare(`SELECT stage_index AS stage FROM ${table} WHERE project_id = ?`)
+        .all(projectId);
+      expect(rows).toEqual([{ stage: 1 }]);
+    }
+  });
 
   it("lunch-shift ships final aiOrders immediately to teacher/admin before stage 4 unlocks", async () => {
     const { classId, studentId, teacherId, adminId, app, cookieFor } = await setupEnv();

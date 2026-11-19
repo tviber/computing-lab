@@ -1,10 +1,3 @@
-/**
- * The calculator lab workspace: stage rail, palette, circuit canvas, actions,
- * and test panel as one composable unit. Both the student's own lab page and
- * the admin student-preview page render this — the shells around it differ
- * (autosave + judge + coach for students, nothing persisted for previews).
- */
-
 import { useMemo, useState, type ReactNode } from "react";
 import { evaluateGraph } from "../domain/evaluate";
 import { GATE_LABEL, type CircuitGraph, type GateKind } from "../domain/graph";
@@ -17,7 +10,7 @@ import {
   type CalculatorLessonAction,
   type CalculatorLessonState,
 } from "../lesson/state";
-import { LabPageShell, type LabStaffControlsProps } from "../../../shared/lab/LabPageShell";
+import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/LabPageShell";
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { BusReadout } from "./BusReadout";
 import { CircuitCanvas } from "./CircuitCanvas";
@@ -31,21 +24,13 @@ import "./calculator.css";
 export type CalculatorLabWorkspaceProps = {
   state: CalculatorLessonState;
   dispatch: (action: CalculatorLessonAction) => void;
-  /** Guided-tour driver; omitted outside the student's own lab. */
   coach?: CalculatorCoach;
   projectLoaded: boolean;
-  /** Load or submit error surfaced above the canvas. */
   error?: string | null;
-  /** Omit to hide the submit action (a preview never judges). */
   onSubmit?: () => void;
   submitting?: boolean;
   freeNavigation?: boolean;
-  staffControls?: LabStaffControlsProps;
-  /**
-   * Snapshot inspection: render this graph read-only instead of the live
-   * draft — palette, actions, and editing help stay hidden so the frozen
-   * submission cannot be nudged. `meta` renders above the canvas.
-   */
+  resetControls?: LabResetControlsProps;
   inspect?: { graph: CircuitGraph; meta?: ReactNode } | null;
 };
 
@@ -58,7 +43,7 @@ export function CalculatorLabWorkspace({
   onSubmit,
   submitting = false,
   freeNavigation = false,
-  staffControls,
+  resetControls,
   inspect = null,
 }: CalculatorLabWorkspaceProps) {
   const [editingComponentName, setEditingComponentName] = useState<string | null>(null);
@@ -84,7 +69,6 @@ export function CalculatorLabWorkspace({
       )
     : undefined;
 
-  // Live preview: evaluate with the pins' current toggle values.
   const preview = useMemo(() => evaluateGraph(graph, {}, components), [graph, components]);
 
   const addGate = (kind: GateKind) =>
@@ -115,7 +99,7 @@ export function CalculatorLabWorkspace({
           />
         }
         railWidth={232}
-        staffControls={inspect ? undefined : staffControls}
+        resetControls={inspect ? undefined : resetControls}
       >
         <main aria-label="计算器实验区" className="calculator-workspace">
           <section className="stage-brief">

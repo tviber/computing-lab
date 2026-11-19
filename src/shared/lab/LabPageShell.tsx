@@ -1,39 +1,31 @@
-import { useId, useState, type CSSProperties, type ReactNode } from "react";
+import {
+  useId,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type CSSProperties,
+  type ReactNode,
+} from "react";
 import { Icon } from "../ui/Icon";
 
-/**
- * The rail|workspace shell every lab page sits inside. Owns the grid columns,
- * the rail's collapse toggle, and per-lab persistence — the rail itself stays
- * a plain ReactNode passed by the page, so stage semantics never enter shared
- * code. Below the shared 960px breakpoint the grid stacks and the toggle is
- * hidden: collapse is a wide-screen affordance only.
- */
+export type LabResetScope = { scope: "stage"; stageIndex: number } | { scope: "lab" };
 
-export type LabStaffControlsProps = {
-  /** Staff (teacher / admin) free stage navigation is enabled across the lab. */
-  freeNavigation: boolean;
-  /** Disable reset until initial project load finishes. */
-  canReset?: boolean;
-  resetting?: boolean;
-  resetError?: string | null;
-  onReset?: () => void;
+export type LabResetControlsProps = {
+  stageIndex: number;
+  canReset: boolean;
+  resetting: boolean;
+  resetError: string | null;
+  onReset: (scope: LabResetScope) => Promise<boolean>;
 };
 
 export type LabPageShellProps = {
-  /** Lab id — namespaces the localStorage collapse key (`computing-lab:lab-rail:<labId>`). */
   labId: string;
-  /** The page's rail element, rendered as-is. */
   rail: ReactNode;
-  /** Vertical-strip label shown while collapsed (e.g. 当前关卡). */
   collapsedLabel?: ReactNode;
-  /** Expanded rail column width in px; labs keep their historical 220–240. */
   railWidth?: number;
-  /** Extra class on the grid root — "page-content" for the standard centered page. */
   contentClassName?: string;
-  /** Override that keeps the rail expanded (e.g. a coach highlighting rail content). */
   forceExpand?: boolean;
-  /** Shared teacher/admin controls rendered below the stage rail in every interactive lab. */
-  staffControls?: LabStaffControlsProps;
+  resetControls?: LabResetControlsProps;
   children: ReactNode;
 };
 
@@ -49,6 +41,132 @@ function readCollapsed(labId: string): boolean {
   }
 }
 
+const narrowRailQuery = "(max-width: 960px)";
+
+function subscribeToNarrowRail(onChange: () => void) {
+  const media = window.matchMedia?.(narrowRailQuery);
+  media?.addEventListener("change", onChange);
+  return () => media?.removeEventListener("change", onChange);
+}
+
+function isNarrowRail() {
+  return window.matchMedia?.(narrowRailQuery).matches ?? false;
+}
+
+function LabProgressTools({
+  stageIndex,
+  canReset,
+  resetting,
+  resetError,
+  onReset,
+}: LabResetControlsProps) {
+  const dialog = useRef<HTMLDialogElement>(null);
+  const titleId = useId();
+  const descriptionId = useId();
+  const [scope, setScope] = useState<LabResetScope["scope"]>("stage");
+  const [showError, setShowError] = useState(false);
+  const [notice, setNotice] = useState("");
+
+  return (
+    <div className="lab-progress-tools">
+      <button
+        aria-haspopup="dialog"
+        aria-disabled={resetting || undefined}
+        aria-label="重置进度"
+        className="lab-rail-action"
+        disabled={!canReset}
+        onClick={() => {
+          if (resetting) return;
+          setScope("stage");
+          setShowError(false);
+          setNotice("");
+          dialog.current?.showModal();
+        }}
+        title="重置进度"
+        type="button"
+      >
+        <Icon name="rotate-ccw" size={16} />
+        <span>重置进度</span>
+      </button>
+      <span className="sr-only" role="status">
+        {notice}
+      </span>
+      <dialog
+        aria-describedby={descriptionId}
+        aria-labelledby={titleId}
+        className="lab-reset-dialog"
+        onCancel={(event) => {
+          if (resetting) event.preventDefault();
+        }}
+        ref={dialog}
+      >
+        <h2 id={titleId}>重置实验进度</h2>
+        <p id={descriptionId}>此操作只影响你自己的记录，清除后无法恢复。</p>
+        <form
+          onSubmit={async (event) => {
+            event.preventDefault();
+            if (!canReset || resetting) return;
+            setShowError(true);
+            if (await onReset(scope === "stage" ? { scope, stageIndex } : { scope })) {
+              dialog.current?.close();
+              setNotice("实验进度已重置。");
+            }
+          }}
+        >
+          <fieldset aria-label="重置范围" className="lab-reset-options" disabled={resetting}>
+            <label>
+              <input
+                checked={scope === "stage"}
+                name="reset-scope"
+                onChange={() => setScope("stage")}
+                type="radio"
+              />
+              <span>
+                <strong>从本关重来</strong>
+                <small>清除第 {stageIndex} 关及后续关卡的草稿、通关和提交记录。</small>
+              </span>
+            </label>
+            <label>
+              <input
+                checked={scope === "lab"}
+                name="reset-scope"
+                onChange={() => setScope("lab")}
+                type="radio"
+              />
+              <span>
+                <strong>重置整个实验</strong>
+                <small>清除所有关卡的记录，从第 1 关开始。</small>
+              </span>
+            </label>
+          </fieldset>
+          {showError && resetError ? (
+            <p className="test-error" role="alert">
+              {resetError}
+            </p>
+          ) : null}
+          <div className="lab-reset-actions">
+            <button
+              className="button button-ghost"
+              disabled={resetting}
+              onClick={() => dialog.current?.close()}
+              type="button"
+            >
+              取消
+            </button>
+            <button
+              className="button lab-reset-confirm"
+              disabled={!canReset || resetting}
+              type="submit"
+            >
+              {resetting ? "重置中…" : "确认重置"}
+            </button>
+          </div>
+        </form>
+      </dialog>
+    </div>
+  );
+}
+
 export function LabPageShell({
   labId,
   rail,
@@ -56,23 +174,27 @@ export function LabPageShell({
   railWidth = 240,
   contentClassName = "page-content",
   forceExpand = false,
-  staffControls,
+  resetControls,
   children,
 }: LabPageShellProps) {
-  const [collapsed, setCollapsed] = useState(() => readCollapsed(labId));
-  const effective = collapsed && !forceExpand;
+  const [desktopCollapsed, setDesktopCollapsed] = useState(() => readCollapsed(labId));
+  const [mobileCollapsed, setMobileCollapsed] = useState(true);
+  const narrow = useSyncExternalStore(subscribeToNarrowRail, isNarrowRail);
+  const effective = !forceExpand && (narrow ? mobileCollapsed : desktopCollapsed);
   const scrollId = useId();
 
   const toggle = () => {
-    setCollapsed((prev) => {
-      const next = !prev;
-      try {
-        localStorage.setItem(storageKey(labId), next ? "1" : "0");
-      } catch {
-        // storage unavailable — collapse still works for this mount
-      }
-      return next;
-    });
+    if (narrow) {
+      setMobileCollapsed((prev) => !prev);
+      return;
+    }
+    const next = !desktopCollapsed;
+    setDesktopCollapsed(next);
+    try {
+      localStorage.setItem(storageKey(labId), next ? "1" : "0");
+    } catch {
+      // storage unavailable — collapse still works for this mount
+    }
   };
 
   return (
@@ -92,51 +214,17 @@ export function LabPageShell({
             title={effective ? "展开关卡栏" : "收起关卡栏"}
             type="button"
           >
-            <Icon name={effective ? "chevron-right" : "chevron-left"} size={14} />
+            <Icon name={narrow ? "chevron-down" : "panel-left"} size={18} />
+            {narrow ? <span>{collapsedLabel ?? "关卡"}</span> : null}
           </button>
-          {effective && collapsedLabel ? (
+          {!narrow && effective && collapsedLabel ? (
             <span className="lab-rail-bar-label">{collapsedLabel}</span>
           ) : null}
         </div>
-        <div className="lab-rail-scroll" id={scrollId}>
+        <div className="lab-rail-scroll" hidden={effective} id={scrollId}>
           {rail}
-          {staffControls ? (
-            <section aria-label="教师控制" className="lab-staff-tools">
-              {staffControls.freeNavigation ? (
-                <p className="lab-staff-badge">
-                  <Icon name="circle" size={10} />
-                  <span>教师视角 · 自由切关</span>
-                </p>
-              ) : null}
-              <p className="lab-staff-note">
-                可任意切换并评测全部关卡；重置仅清空你自己的当前实验记录。
-              </p>
-              {staffControls.onReset ? (
-                <button
-                  className="button button-ghost lab-staff-reset-btn"
-                  disabled={staffControls.canReset === false || staffControls.resetting}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        "确定重置你在本实验的进度吗？将清空全部草稿、过关与提交记录并回到第 1 关（不影响学生数据）。",
-                      )
-                    ) {
-                      staffControls.onReset?.();
-                    }
-                  }}
-                  type="button"
-                >
-                  {staffControls.resetting ? "重置中…" : "重置我的进度"}
-                </button>
-              ) : null}
-              {staffControls.resetError ? (
-                <p className="test-error" role="alert">
-                  {staffControls.resetError}
-                </p>
-              ) : null}
-            </section>
-          ) : null}
         </div>
+        {resetControls ? <LabProgressTools {...resetControls} /> : null}
       </div>
       {children}
     </div>

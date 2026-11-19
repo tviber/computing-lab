@@ -12,6 +12,7 @@ import {
   type PublicSheetSchema,
 } from "../../features/task-sheets";
 import "../../features/task-sheets/ui/taskSheets.css";
+import "./dashboard.css";
 
 type ResponseState = {
   status: "not_started" | "in_progress" | "submitted" | "reviewed" | "returned";
