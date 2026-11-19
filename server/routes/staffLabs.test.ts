@@ -10,7 +10,7 @@ import { colorQuantizationRoutes } from "./colorQuantization.ts";
 import { decodingRoutes } from "./decoding.ts";
 import { imageSamplingRoutes } from "./imageSampling.ts";
 import { lunchShiftRoutes } from "./lunchShift.ts";
-import { mlIntroRoutes } from "./mlIntro.ts";
+import { logisticRegressionRoutes } from "./logisticRegression.ts";
 
 type LabCase = {
   labId: LabId;
@@ -62,8 +62,8 @@ const LAB_CASES: LabCase[] = [
     },
   },
   {
-    labId: "ml-intro",
-    mount: mlIntroRoutes,
+    labId: "logistic-regression",
+    mount: logisticRegressionRoutes,
     gatedStage: 4,
     draftBody: {
       stageIndex: 1,
@@ -371,7 +371,7 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
 
     for (const expectedGeneration of [undefined, -1, "0", 1.5, null]) {
       const draftRes = await app.fetch(
-        new Request(labUrl(classId, "ml-intro", "/draft"), {
+        new Request(labUrl(classId, "logistic-regression", "/draft"), {
           method: "PUT",
           headers: { cookie, "content-type": "application/json" },
           body: JSON.stringify({
@@ -386,7 +386,7 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
       expect(await draftRes.json()).toMatchObject({ error: "invalid-generation" });
 
       const judgeRes = await app.fetch(
-        new Request(labUrl(classId, "ml-intro", "/judge"), {
+        new Request(labUrl(classId, "logistic-regression", "/judge"), {
           method: "POST",
           headers: { cookie, "content-type": "application/json" },
           body: JSON.stringify({

@@ -4,7 +4,10 @@ import { COLOR_QUANT_STAGES } from "../features/color-quantization";
 import { DECODING_CORE_STAGES, DECODING_STAGES } from "../features/decoding";
 import { IMAGE_SAMPLING_STAGES } from "../features/image-sampling";
 import { LUNCH_STAGES } from "../features/lunch-shift";
-import { ML_CORE_STAGES, ML_STAGES } from "../features/ml-intro";
+import {
+  LOGISTIC_REGRESSION_CORE_STAGES,
+  LOGISTIC_REGRESSION_STAGES,
+} from "../features/logistic-regression";
 import type { LabId } from "../shared/lab/labMetadata";
 
 export type DashboardStage = {
@@ -49,10 +52,13 @@ export const APP_LABS = {
     homeProgressStages: LUNCH_STAGES.length,
     component: lazyRouteComponent(() => import("../features/lunch-shift"), "LunchShiftLabPage"),
   },
-  "ml-intro": {
-    dashboardStages: ML_STAGES,
-    homeProgressStages: ML_CORE_STAGES.length,
-    component: lazyRouteComponent(() => import("../features/ml-intro"), "MlIntroLabPage"),
+  "logistic-regression": {
+    dashboardStages: LOGISTIC_REGRESSION_STAGES,
+    homeProgressStages: LOGISTIC_REGRESSION_CORE_STAGES.length,
+    component: lazyRouteComponent(
+      () => import("../features/logistic-regression"),
+      "LogisticRegressionLabPage",
+    ),
   },
   "image-sampling": {
     dashboardStages: IMAGE_SAMPLING_STAGES,

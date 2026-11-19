@@ -10,7 +10,7 @@ import { COLOR_QUANT_STAGES } from "../src/features/color-quantization/domain/st
 import { DECODING_STAGES } from "../src/features/decoding/domain/stages.ts";
 import { IMAGE_SAMPLING_STAGES } from "../src/features/image-sampling/domain/stages.ts";
 import { LUNCH_STAGES } from "../src/features/lunch-shift/domain/stages.ts";
-import { ML_STAGES } from "../src/features/ml-intro/domain/stages.ts";
+import { LOGISTIC_REGRESSION_STAGES } from "../src/features/logistic-regression/domain/stages.ts";
 import {
   LAB_IDS,
   labMetadata,
@@ -41,7 +41,7 @@ const LAB_SPECS: Record<LabId, Omit<LabInfo, "id">> = {
   calculator: { stageCount: CALCULATOR_STAGES.length },
   decoding: { stageCount: DECODING_STAGES.length },
   "lunch-shift": { stageCount: LUNCH_STAGES.length },
-  "ml-intro": { stageCount: ML_STAGES.length },
+  "logistic-regression": { stageCount: LOGISTIC_REGRESSION_STAGES.length },
   "image-sampling": { stageCount: IMAGE_SAMPLING_STAGES.length },
   "color-quantization": { stageCount: COLOR_QUANT_STAGES.length },
 };

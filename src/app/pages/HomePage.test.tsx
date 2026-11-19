@@ -36,8 +36,8 @@ describe("HomePage lab visibility", () => {
                 visibleClassIds: ["c1"],
               },
               {
-                id: "ml-intro",
-                stageCount: 6,
+                id: "logistic-regression",
+                stageCount: 5,
                 hidden: true,
                 openClassIds: null,
                 visible: false,
@@ -57,7 +57,7 @@ describe("HomePage lab visibility", () => {
     await renderAppAt("/", { auth: studentAuth });
 
     expect(await screen.findByRole("heading", { name: "实现ALU" })).toBeInTheDocument();
-    expect(screen.queryByRole("heading", { name: "机器学习入门" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "逻辑回归" })).not.toBeInTheDocument();
   });
 
   it("shows hidden labs badged for admins and requires class membership to enter", async () => {
@@ -66,8 +66,8 @@ describe("HomePage lab visibility", () => {
         JSON.stringify({
           labs: [
             {
-              id: "ml-intro",
-              stageCount: 6,
+              id: "logistic-regression",
+              stageCount: 5,
               hidden: true,
               openClassIds: null,
               visible: true,
@@ -81,7 +81,7 @@ describe("HomePage lab visibility", () => {
 
     await renderAppAt("/", { auth: adminWithoutClassAuth });
 
-    const card = await screen.findByRole("heading", { name: "机器学习入门" });
+    const card = await screen.findByRole("heading", { name: "逻辑回归" });
     const article = card.closest("article");
     expect(article).not.toBeNull();
     expect(within(article!).getByText("人工智能")).toBeInTheDocument();

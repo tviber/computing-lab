@@ -34,8 +34,8 @@ const payload = {
       ],
     },
     {
-      id: "ml-intro",
-      stageCount: 6,
+      id: "logistic-regression",
+      stageCount: 5,
       hidden: false,
       openClassIds: null,
       visibleClassIds: ["c1", "c2"],
@@ -129,13 +129,13 @@ describe("TeacherLabsPage", () => {
     // admin scope — the row reads 2 个班开放 now.
     await waitFor(() => expect(decoding.getByText("2 个班开放")).toBeInTheDocument());
 
-    const mlRow = labRow("机器学习入门");
-    expect(mlRow.getByText("ml-intro")).toBeInTheDocument();
-    expect(mlRow.getByText("6")).toBeInTheDocument();
-    await user.click(mlRow.getByRole("checkbox", { name: "一班" }));
+    const logisticRegressionRow = labRow("逻辑回归");
+    expect(logisticRegressionRow.getByText("logistic-regression")).toBeInTheDocument();
+    expect(logisticRegressionRow.getByText("5")).toBeInTheDocument();
+    await user.click(logisticRegressionRow.getByRole("checkbox", { name: "一班" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/teacher/labs/ml-intro/classes/c1/open",
+        "/api/teacher/labs/logistic-regression/classes/c1/open",
         expect.objectContaining({ method: "PUT", body: JSON.stringify({ open: false }) }),
       ),
     );
@@ -197,32 +197,32 @@ describe("TeacherLabsPage", () => {
 
     await renderAppAt("/teacher/labs", { auth: teacherAuthState });
 
-    expect(await screen.findByText("机器学习入门")).toBeInTheDocument();
+    expect(await screen.findByText("逻辑回归")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(7);
     expect(
-      screen.getByText(new RegExp(`服务器尚未注册：.*${labMetadata["ml-intro"].title}`)),
+      screen.getByText(new RegExp(`服务器尚未注册：.*${labMetadata["logistic-regression"].title}`)),
     ).toBeInTheDocument();
     for (const retiredId of ["cpu", "audio-encoding", "is-sim"]) {
       expect(screen.queryByText(retiredId)).not.toBeInTheDocument();
     }
-    expect(labRow("机器学习入门").getByText("待服务器同步")).toBeInTheDocument();
+    expect(labRow("逻辑回归").getByText("待服务器同步")).toBeInTheDocument();
   });
 
   it("keeps admin-hidden labs out of the teacher management list", async () => {
-    const hiddenMlPayload = {
+    const hiddenLogisticRegressionPayload = {
       ...payload,
-      labs: payload.labs.filter((lab) => lab.id !== "ml-intro"),
+      labs: payload.labs.filter((lab) => lab.id !== "logistic-regression"),
     };
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
-      if (path.includes("/api/teacher/labs")) return jsonResponse(hiddenMlPayload);
+      if (path.includes("/api/teacher/labs")) return jsonResponse(hiddenLogisticRegressionPayload);
       if (path.includes("/api/labs")) {
         return jsonResponse({
           labs: [
             ...payload.labs.map((lab) => ({ ...lab, visible: true })),
             {
-              id: "ml-intro",
-              stageCount: 6,
+              id: "logistic-regression",
+              stageCount: 5,
               hidden: true,
               openClassIds: null,
               visible: false,
@@ -237,6 +237,6 @@ describe("TeacherLabsPage", () => {
     await renderAppAt("/teacher/labs", { auth: teacherAuthState });
 
     await waitFor(() => expect(screen.getByText("实现ALU")).toBeInTheDocument());
-    expect(screen.queryByText("机器学习入门")).not.toBeInTheDocument();
+    expect(screen.queryByText("逻辑回归")).not.toBeInTheDocument();
   });
 });

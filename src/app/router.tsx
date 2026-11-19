@@ -5,6 +5,7 @@ import {
   createRoute,
   createRouter,
   lazyRouteComponent,
+  redirect,
   useParams,
   type RouterHistory,
 } from "@tanstack/react-router";
@@ -131,6 +132,7 @@ function createLabRoutePair<TId extends LabId>(id: TId) {
   const entryRoute = createRoute({
     getParentRoute: () => rootRoute,
     path: `/labs/${id}`,
+    validateSearch: passThroughSearch,
     component: () => <LabRedirectPage labId={id} />,
     errorComponent: LabErrorPage,
   });
@@ -146,10 +148,43 @@ function createLabRoutePair<TId extends LabId>(id: TId) {
 
 const labRoutes = LAB_IDS.flatMap((id) => createLabRoutePair(id));
 
+const legacyLogisticRegressionEntryRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/labs/ml-intro",
+  validateSearch: passThroughSearch,
+  beforeLoad: ({ search }) => {
+    throw redirect({ to: "/labs/logistic-regression", search, replace: true });
+  },
+});
+
+const legacyLogisticRegressionClassRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: "/classes/$classId/labs/ml-intro",
+  validateSearch: passThroughSearch,
+  beforeLoad: ({ params, search }) => {
+    throw redirect({
+      to: "/classes/$classId/labs/logistic-regression",
+      params,
+      search,
+      replace: true,
+    });
+  },
+});
+
 const dashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/classes/$classId/dashboard",
   validateSearch: passThroughSearch,
+  beforeLoad: ({ params, search }) => {
+    if (search.lab === "ml-intro") {
+      throw redirect({
+        to: "/classes/$classId/dashboard",
+        params,
+        search: { ...search, lab: "logistic-regression" },
+        replace: true,
+      });
+    }
+  },
   component: TeacherDashboardPage,
   errorComponent: LabErrorPage,
 });
@@ -231,6 +266,8 @@ const routeTree = rootRoute.addChildren([
   adminLabsRoute,
   teacherLabsRoute,
   ...labRoutes,
+  legacyLogisticRegressionEntryRoute,
+  legacyLogisticRegressionClassRoute,
   dashboardRoute,
   classMembersRoute,
   studentLabPreviewRoute,

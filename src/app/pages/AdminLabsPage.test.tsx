@@ -21,8 +21,8 @@ const labs = [
     visibleClassIds: [],
   },
   {
-    id: "ml-intro",
-    stageCount: 6,
+    id: "logistic-regression",
+    stageCount: 5,
     hidden: false,
     openClassIds: null,
     visible: true,
@@ -136,23 +136,25 @@ describe("AdminLabsPage", () => {
     );
   });
 
-  it("lists ml-intro, hides it, and saves class-scoped visibility", async () => {
+  it("lists logistic-regression, hides it, and saves class-scoped visibility", async () => {
     const fetchMock = mockApi();
     const user = userEvent.setup();
 
     await renderAppAt("/admin/labs", { auth: adminAuthState });
 
-    await waitFor(() => expect(screen.getByText("机器学习入门")).toBeInTheDocument());
-    const mlRow = labRow("机器学习入门");
-    expect(mlRow.getByText("ml-intro")).toBeInTheDocument();
-    expect(mlRow.getByText("6")).toBeInTheDocument();
-    await waitFor(() => expect(mlRow.getByRole("radio", { name: "开放" })).toBeChecked());
+    await waitFor(() => expect(screen.getByText("逻辑回归")).toBeInTheDocument());
+    const logisticRegressionRow = labRow("逻辑回归");
+    expect(logisticRegressionRow.getByText("logistic-regression")).toBeInTheDocument();
+    expect(logisticRegressionRow.getByText("5")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(logisticRegressionRow.getByRole("radio", { name: "开放" })).toBeChecked(),
+    );
 
-    await user.click(mlRow.getByRole("radio", { name: /隐藏/ }));
-    await user.click(mlRow.getByRole("button", { name: "保存" }));
+    await user.click(logisticRegressionRow.getByRole("radio", { name: /隐藏/ }));
+    await user.click(logisticRegressionRow.getByRole("button", { name: "保存" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/admin/labs/ml-intro/visibility",
+        "/api/admin/labs/logistic-regression/visibility",
         expect.objectContaining({
           method: "PUT",
           body: JSON.stringify({ hidden: true, openClassIds: null }),
@@ -160,13 +162,13 @@ describe("AdminLabsPage", () => {
       ),
     );
 
-    await user.click(mlRow.getByRole("radio", { name: "开放" }));
-    await user.click(mlRow.getByRole("checkbox", { name: "二班" }));
-    await user.click(mlRow.getByRole("button", { name: "保存" }));
+    await user.click(logisticRegressionRow.getByRole("radio", { name: "开放" }));
+    await user.click(logisticRegressionRow.getByRole("checkbox", { name: "二班" }));
+    await user.click(logisticRegressionRow.getByRole("button", { name: "保存" }));
 
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(
-        "/api/admin/labs/ml-intro/visibility",
+        "/api/admin/labs/logistic-regression/visibility",
         expect.objectContaining({
           method: "PUT",
           body: JSON.stringify({ hidden: false, openClassIds: ["c1"] }),
@@ -215,13 +217,13 @@ describe("AdminLabsPage", () => {
 
     await renderAppAt("/admin/labs", { auth: adminAuthState });
 
-    expect(await screen.findByText("机器学习入门")).toBeInTheDocument();
+    expect(await screen.findByText("逻辑回归")).toBeInTheDocument();
     expect(screen.getAllByRole("row")).toHaveLength(7);
     for (const retiredId of ["cpu", "audio-encoding", "is-sim"]) {
       expect(screen.queryByText(retiredId)).not.toBeInTheDocument();
     }
-    expect(screen.getByText(/服务器尚未注册：.*机器学习入门/)).toBeInTheDocument();
-    expect(labRow("机器学习入门").getByRole("button", { name: "保存" })).toBeDisabled();
+    expect(screen.getByText(/服务器尚未注册：.*逻辑回归/)).toBeInTheDocument();
+    expect(labRow("逻辑回归").getByRole("button", { name: "保存" })).toBeDisabled();
   });
 
   it("shows a loading status while classes are still being fetched", async () => {

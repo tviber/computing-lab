@@ -4,7 +4,7 @@
 
 仓库是一个 Vite 包和一个 Node API 进程。前端入口是 `src/main.tsx`，应用路由集中在
 `src/app/router.tsx`；六个在役课程 feature 是 `calculator`、`decoding`、
-`lunch-shift`、`ml-intro`、`image-sampling`、`color-quantization`。
+`lunch-shift`、`logistic-regression`、`image-sampling`、`color-quantization`。
 另有跨课程的 `task-sheets`（任务单）功能。
 
 ```text
@@ -17,7 +17,7 @@ src/app
   │  `/labs/<id>`（`LabRedirectPage`）与 `/classes/$classId/labs/<id>`（`GuardedLabRoute`）
   └─ 非课程页面（登录、资料、管理、班级看板）
 
-src/features/<lab>（calculator / decoding / lunch-shift / ml-intro / image-sampling / color-quantization）
+src/features/<lab>（calculator / decoding / lunch-shift / logistic-regression / image-sampling / color-quantization）
   ├─ domain：关卡、判题协议与纯计算（前端与服务端共享契约）
   ├─ lesson：URL/课程状态、引导和公开用例
   ├─ controller（按需）：组织 API、时钟、教学交互和界面 ViewModel
@@ -70,7 +70,7 @@ POST judge 跑隐藏用例并推进 `passedStages`。每个实验只提供 spec�
 
 ## 删除决策
 
-除当前保留的 `calculator`、`decoding`、`lunch-shift`、`ml-intro`、`image-sampling` 和
+除当前保留的 `calculator`、`decoding`、`lunch-shift`、`logistic-regression`、`image-sampling` 和
 `color-quantization` 六个实验外，其他旧实验（包括已退役的 `cpu`、`is-sim`、`audio-encoding` 等）
 的 feature 目录、路由、实验 API、专属资产、e2e/单测和 Slidev
 构建/编辑链路都已退役。数据库仍保留历史兼容的字段与迁移脚本，以便维持旧部署数据的可读性，

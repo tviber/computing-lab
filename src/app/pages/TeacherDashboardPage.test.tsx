@@ -1,7 +1,7 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { ML_STAGES } from "../../features/ml-intro";
+import { LOGISTIC_REGRESSION_STAGES } from "../../features/logistic-regression";
 import type { AuthState } from "../../shared/auth";
 import { LAB_IDS, labMetadata } from "../../shared/lab/labMetadata";
 import { renderAppAt } from "../../test/router-test-helpers";
@@ -99,44 +99,25 @@ describe("TeacherDashboardPage", () => {
     expect(screen.getByText("第 1 个字符不符")).toBeInTheDocument();
   });
 
-  it("includes every judged lab and renders ml-intro progress and part details", async () => {
+  it("lists all labs and marks the five-stage logistic regression experience completed", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
-      const payload = path.includes("/submissions/ml-sub-6")
+      const payload = path.includes("/submissions/logistic-regression-sub-5")
         ? {
-            id: "ml-sub-6",
+            id: "logistic-regression-sub-5",
             studentNo: "20260101",
             name: "张三",
-            stageIndex: 6,
-            score: 4,
-            total: 6,
-            passed: false,
+            stageIndex: 5,
+            score: 1,
+            total: 1,
+            passed: true,
             submittedAt: "2026-10-11T00:00:00.000Z",
             testSummary: {
-              parts: [
-                {
-                  id: "val-loss",
-                  label: "公开验证损失稳定 (≤ 0.14)",
-                  ok: true,
-                  detail: "训练样本 1400 条，验证损失 0.102",
-                },
-                {
-                  id: "hidden-blind-exam",
-                  label: "300 条隐藏测试集结业盲测",
-                  ok: false,
-                  detail: "盲测未达标：当前模型在未见短信上的准确率、Precision 或 Recall 尚有短板",
-                },
-                {
-                  id: "concepts",
-                  label: "概念检查",
-                  ok: true,
-                  detail: "3 / 3 题全对",
-                },
-              ],
-              detail: "公开验证损失已稳定，但 300 条隐藏盲测尚未同时达标。",
+              parts: [{ id: "experience", label: "短信分类体验", ok: true, detail: null }],
+              detail: "已完成短信分类体验。",
             },
           }
-        : path.includes("/api/classes/c11/dashboard?lab=ml-intro")
+        : path.includes("/api/classes/c11/dashboard?lab=logistic-regression")
           ? {
               classId: "c11",
               className: "2026-高二信息技术-11",
@@ -152,15 +133,15 @@ describe("TeacherDashboardPage", () => {
                       score: 9,
                       total: 9,
                       passed: true,
-                      submissionId: "ml-sub-1",
+                      submissionId: "logistic-regression-sub-1",
                       submittedAt: "2026-10-11T00:00:00.000Z",
                     },
-                    6: {
-                      stageIndex: 6,
-                      score: 4,
-                      total: 6,
-                      passed: false,
-                      submissionId: "ml-sub-6",
+                    5: {
+                      stageIndex: 5,
+                      score: 1,
+                      total: 1,
+                      passed: true,
+                      submissionId: "logistic-regression-sub-5",
                       submittedAt: "2026-10-11T00:05:00.000Z",
                     },
                   },
@@ -175,10 +156,12 @@ describe("TeacherDashboardPage", () => {
       });
     });
 
-    await renderAppAt("/classes/c11/dashboard?lab=ml-intro", { auth: multiClassTeacher });
+    await renderAppAt("/classes/c11/dashboard?lab=logistic-regression", {
+      auth: multiClassTeacher,
+    });
 
     const labSelect = screen.getByRole("combobox", { name: "选择实验" });
-    expect(labSelect).toHaveValue("ml-intro");
+    expect(labSelect).toHaveValue("logistic-regression");
     expect(Array.from(labSelect.querySelectorAll("option")).map((option) => option.value)).toEqual(
       LAB_IDS,
     );
@@ -186,20 +169,19 @@ describe("TeacherDashboardPage", () => {
       expect(screen.getByRole("option", { name: meta.title })).toBeInTheDocument();
     }
 
-    for (const stage of ML_STAGES) {
+    for (const stage of LOGISTIC_REGRESSION_STAGES) {
       expect(
         screen.getByRole("columnheader", { name: stage.englishTitle ?? stage.title }),
       ).toBeInTheDocument();
     }
 
-    await userEvent.click(await screen.findByRole("button", { name: "4/6" }));
-    expect(await screen.findByText("300 条隐藏测试集结业盲测")).toBeInTheDocument();
-    expect(
-      screen.getByText("盲测未达标：当前模型在未见短信上的准确率、Precision 或 Recall 尚有短板"),
-    ).toBeInTheDocument();
+    const studentRow = await screen.findByRole("row", { name: /20260101.*张三/ });
+    const stageFiveCell =
+      within(studentRow).getAllByRole("cell")[LOGISTIC_REGRESSION_STAGES.length];
+    expect(stageFiveCell.querySelector(".cell-pass")).toBeInTheDocument();
   });
 
-  async function openTeacherWithClosedMlIntro(closedLabFetch: () => Promise<Response>) {
+  async function openTeacherWithClosedLogisticRegression(closedLabFetch: () => Promise<Response>) {
     const teacherAuth: AuthState = {
       status: "authenticated",
       session: {
@@ -214,13 +196,13 @@ describe("TeacherDashboardPage", () => {
           JSON.stringify({
             labs: [
               { id: "calculator", visible: true, visibleClassIds: ["c11"] },
-              { id: "ml-intro", visible: true, visibleClassIds: [] },
+              { id: "logistic-regression", visible: true, visibleClassIds: [] },
             ],
           }),
           { status: 200, headers: { "content-type": "application/json" } },
         );
       }
-      if (path.includes("lab=ml-intro")) return closedLabFetch();
+      if (path.includes("lab=logistic-regression")) return closedLabFetch();
       return new Response(
         JSON.stringify({
           classId: "c11",
@@ -231,7 +213,7 @@ describe("TeacherDashboardPage", () => {
       );
     });
 
-    await renderAppAt("/classes/c11/dashboard?lab=ml-intro", { auth: teacherAuth });
+    await renderAppAt("/classes/c11/dashboard?lab=logistic-regression", { auth: teacherAuth });
 
     await waitFor(() =>
       expect(screen.getByRole("combobox", { name: "选择实验" })).toHaveValue("calculator"),
@@ -240,7 +222,7 @@ describe("TeacherDashboardPage", () => {
   }
 
   it("clears the transient closed-lab error when catalog filtering falls back to an open lab", async () => {
-    await openTeacherWithClosedMlIntro(
+    await openTeacherWithClosedLogisticRegression(
       async () =>
         new Response(JSON.stringify({ error: "lab-not-available" }), {
           status: 403,
@@ -251,13 +233,13 @@ describe("TeacherDashboardPage", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
-  it("ignores a late 403 error from ml-intro after falling back to calculator", async () => {
+  it("ignores a late 403 error from logistic-regression after falling back to calculator", async () => {
     let resolveStaleClosed!: (response: Response) => void;
     const staleClosed = new Promise<Response>((resolve) => {
       resolveStaleClosed = resolve;
     });
 
-    await openTeacherWithClosedMlIntro(() => staleClosed);
+    await openTeacherWithClosedLogisticRegression(() => staleClosed);
 
     resolveStaleClosed(
       new Response(JSON.stringify({ error: "lab-not-available" }), {

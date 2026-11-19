@@ -1,0 +1,608 @@
+import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  adminAuthState,
+  renderAppAt,
+  studentAuthState,
+  teacherAuthState,
+} from "../../../test/router-test-helpers.tsx";
+import type {
+  LogisticRegressionJudgeResult,
+  LogisticRegressionProjectPayload,
+} from "../domain/protocol.ts";
+import { LOGISTIC_REGRESSION_STAGES } from "../domain/stages.ts";
+import { STRATEGY_WORDS } from "../domain/strategy.ts";
+
+function json(body: unknown, init?: ResponseInit) {
+  return new Response(JSON.stringify(body), {
+    headers: { "content-type": "application/json" },
+    ...init,
+  });
+}
+
+function makeProject(
+  overrides: Partial<LogisticRegressionProjectPayload> = {},
+): LogisticRegressionProjectPayload {
+  return {
+    currentStage: 1,
+    passedStages: [],
+    drafts: {},
+    draftRevisions: {},
+    runSummaries: { s1: null, s2: null, s3: null, s4: null, s5: null },
+    ...overrides,
+  };
+}
+
+function stubLogisticRegressionFetch(
+  project: LogisticRegressionProjectPayload,
+  onJudge: (body: { stageIndex: number; draft: unknown }) => Promise<Response> | Response,
+) {
+  const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+    const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+    if (url.includes("/judge")) {
+      const parsed = init?.body ? JSON.parse(String(init.body)) : {};
+      return onJudge(parsed);
+    }
+    if (url.includes("/draft")) {
+      return json({ applied: true, revision: 4 });
+    }
+    if (url.includes("/project")) {
+      return json(project);
+    }
+    if (url.includes("/api/labs")) {
+      return json({ labs: [{ id: "logistic-regression", visible: true }] });
+    }
+    return json({});
+  });
+  vi.stubGlobal("fetch", fetchSpy);
+  return fetchSpy;
+}
+
+describe("LogisticRegressionLabPage", () => {
+  afterEach(() => {
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
+  });
+
+  it("renders stage 1 10-word strategy workspace with stage 2 locked for students", async () => {
+    stubLogisticRegressionFetch(makeProject(), () => json({}));
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
+
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("group", { name: "中奖 倾向设置" });
+    for (const word of STRATEGY_WORDS) {
+      expect(screen.getByRole("group", { name: `${word} 倾向设置` })).toBeInTheDocument();
+    }
+    expect(screen.getByRole("heading", { name: "第一条短信的算分过程" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "提交第 1 关判定" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /从短信到数字/ })).toBeDisabled();
+    expect(screen.queryByRole("button", { name: "重置我的进度" })).not.toBeInTheDocument();
+  });
+
+  it("classifies new messages using the saved training parameters without a quiz", async () => {
+    const fetchSpy = stubLogisticRegressionFetch(
+      makeProject({
+        currentStage: 5,
+        passedStages: [1, 2, 3, 4],
+        drafts: { 4: { eta: 0.16, epochs: 14, inspectEpoch: 1, showBgd: false } },
+      }),
+      () =>
+        json({
+          passed: true,
+          currentStage: 6,
+          passedStages: [1, 2, 3, 4, 5],
+          testSummary: { parts: [], detail: "已完成短信分类体验。" },
+        }),
+    );
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
+    await screen.findByRole("heading", { name: "用新短信试试模型" });
+    expect(screen.getByText(/学习率 0.16 · 14 轮 · 系统阈值/)).toBeInTheDocument();
+    expect(screen.queryByText("概念检查")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /误报与漏报/ })).not.toBeInTheDocument();
+    const finish = screen.getByRole("button", { name: "完成体验" });
+    expect(finish).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "促销短信" }));
+    expect(screen.getByText("模型分类：垃圾短信")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "日常消息" }));
+    expect(screen.getByText("模型分类：正常短信")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("短信内容"), { target: { value: "明天来学校开会" } });
+    expect(finish).toBeEnabled();
+    fireEvent.click(finish);
+    expect(await screen.findByText("已完成短信分类体验")).toBeInTheDocument();
+    const request = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/judge"));
+    expect(JSON.parse(String(request?.[1]?.body))).toMatchObject({
+      stageIndex: 5,
+      draft: { activity: "sms-classification", probeText: "" },
+    });
+  });
+
+  it("explains the data splits and distinguishes replay from model training", async () => {
+    stubLogisticRegressionFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+        drafts: { 4: { eta: 0.1, epochs: 12, inspectEpoch: 12, showBgd: false } },
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "训练模型" });
+
+    expect(screen.getByText(/训练集的 1,400 条短信用于更新权重/)).toBeInTheDocument();
+    expect(screen.getByText(/每读一条，模型更新一次权重/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/回放第/), { target: { value: "0" } });
+    expect(screen.getByText(/第 0 轮是训练前的权重/)).toBeInTheDocument();
+    expect(screen.getByText(/下面只回放已有结果，不改变最终提交的模型/)).toBeInTheDocument();
+  });
+
+  it("completes stage 1 weights + concepts, passes judge, and unlocks stage 2", async () => {
+    const passResult: LogisticRegressionJudgeResult = {
+      passed: true,
+      score: 9,
+      total: 9,
+      submissionId: "sub-1",
+      currentStage: 2,
+      passedStages: [1],
+      testSummary: {
+        parts: [
+          { id: "strategy-sms", label: "6 条 10 词短信分类", ok: true, detail: "6 / 6 条全部分对" },
+          { id: "concepts", label: "概念检查", ok: true, detail: "2 / 2 题全对" },
+        ],
+        detail: "10 词点积策略全部命中，解锁第 2 关探索真实词袋。",
+      },
+    };
+
+    const fetchSpy = stubLogisticRegressionFetch(makeProject(), () => json(passResult));
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("group", { name: "中奖 倾向设置" });
+
+    const results = within(screen.getByRole("list", { name: "6 条短信的分类结果" }));
+    expect(results.getAllByRole("listitem")).toHaveLength(6);
+    expect(results.queryByRole("button")).not.toBeInTheDocument();
+    const firstResult = within(results.getAllByRole("listitem")[0]);
+    expect(firstResult.getByText("漏拦")).toBeInTheDocument();
+    expect(firstResult.getByText("w·x = 0")).toBeInTheDocument();
+
+    const tierSelections: Record<string, string> = {
+      中奖: "+2 强垃圾",
+      发票: "+1 偏垃圾",
+      退款: "+1 偏垃圾",
+      优惠: "+1 偏垃圾",
+      妈妈: "−2 强正常",
+      开会: "−1 偏正常",
+      老师: "−1 偏正常",
+    };
+    for (const [word, tierLabel] of Object.entries(tierSelections)) {
+      const group = screen.getByRole("group", { name: `${word} 倾向设置` });
+      fireEvent.click(within(group).getByRole("button", { name: tierLabel }));
+    }
+
+    expect(screen.getByText("判对 6 / 6")).toBeInTheDocument();
+    expect(firstResult.getByText("正确拦截")).toBeInTheDocument();
+    expect(firstResult.getByText("w·x = +4")).toBeInTheDocument();
+
+    for (const prompt of LOGISTIC_REGRESSION_STAGES[0].prompts) {
+      const btn = await screen.findByRole("button", { name: prompt.options[prompt.correct].label });
+      fireEvent.click(btn);
+    }
+
+    const submitBtn = screen.getByRole("button", { name: "提交第 1 关判定" });
+    expect(submitBtn).toBeEnabled();
+    fireEvent.click(submitBtn);
+
+    await screen.findByText("通过本关判定");
+    expect(screen.getByText(/本关收获/)).toBeInTheDocument();
+    expect(fetchSpy).toHaveBeenCalledWith(
+      expect.stringContaining("/api/classes/c1/labs/logistic-regression/judge"),
+      expect.objectContaining({ method: "POST" }),
+    );
+
+    const stage2Nav = screen.getByRole("button", { name: /从短信到数字/ });
+    expect(stage2Nav).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /进入下一关/ }));
+    await screen.findByRole("heading", { name: "从短信到数字" });
+  });
+
+  it("keeps stage 2 locked and displays verdict details on failed submission", async () => {
+    const failResult: LogisticRegressionJudgeResult = {
+      passed: false,
+      score: 6,
+      total: 9,
+      submissionId: "sub-fail",
+      currentStage: 1,
+      passedStages: [],
+      testSummary: {
+        parts: [
+          {
+            id: "strategy-sms",
+            label: "6 条 10 词短信分类",
+            ok: false,
+            detail: "5 / 6 条分对（未过：含报销词的日常）",
+          },
+        ],
+        detail: "请调整 10 个词的权重策略并完成概念题。",
+      },
+    };
+
+    stubLogisticRegressionFetch(makeProject(), () => json(failResult));
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+    fireEvent.click(
+      within(await screen.findByRole("group", { name: "中奖 倾向设置" })).getByRole("button", {
+        name: "+2 强垃圾",
+      }),
+    );
+    for (const prompt of LOGISTIC_REGRESSION_STAGES[0].prompts) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+      );
+    }
+
+    fireEvent.click(screen.getByRole("button", { name: "提交第 1 关判定" }));
+
+    await screen.findByText("尚未通过本关");
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /从短信到数字/ })).toBeDisabled(),
+    );
+  });
+
+  it("restores saved Stage 1 draft from server and autosaves updates", async () => {
+    const project = makeProject({
+      currentStage: 1,
+      passedStages: [],
+      drafts: {
+        "1": {
+          weights: { 中奖: 1, 妈妈: -2 },
+          selectedMsgId: "st-ham-1",
+          concepts: { "dot-product-strategy": 1 },
+        },
+      },
+      draftRevisions: { "1": 3 },
+    });
+    const fetchSpy = stubLogisticRegressionFetch(project, () => json({}));
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+    const prizeGroup = await screen.findByRole("group", { name: "中奖 倾向设置" });
+    expect(within(prizeGroup).getByRole("button", { name: "+1 偏垃圾" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+    const momGroup = screen.getByRole("group", { name: "妈妈 倾向设置" });
+    expect(within(momGroup).getByRole("button", { name: "−2 强正常" })).toHaveAttribute(
+      "aria-pressed",
+      "true",
+    );
+
+    fireEvent.click(within(prizeGroup).getByRole("button", { name: "+2 强垃圾" }));
+    await waitFor(
+      () =>
+        expect(
+          fetchSpy.mock.calls.some(([url, init]) => {
+            const u = typeof url === "string" ? url : url instanceof URL ? url.href : url.url;
+            if (!u.includes("/labs/logistic-regression/draft") || init?.method !== "PUT")
+              return false;
+            const parsed = init.body ? JSON.parse(String(init.body)) : {};
+            return parsed.stageIndex === 1 && parsed.draft?.weights?.["中奖"] === 2;
+          }),
+        ).toBe(true),
+      { timeout: 3000 },
+    );
+    await screen.findByText("已保存");
+  });
+
+  it("renders Stage 3 Sigmoid curve with all 6 calibration messages and prefilled blacklist starter", async () => {
+    const project = makeProject({
+      currentStage: 3,
+      passedStages: [1, 2],
+    });
+    stubLogisticRegressionFetch(project, () => json({}));
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "从分数到概率" });
+
+    const chart = screen.getByLabelText("Sigmoid 曲线与当前模型定位");
+    expect(chart).toBeInTheDocument();
+    expect(chart.querySelectorAll("circle").length).toBeGreaterThanOrEqual(6);
+    expect(screen.getByText(/没有已知词时的垃圾概率：59\.9%/)).toBeInTheDocument();
+
+    const hamDotTitle = within(chart as unknown as HTMLElement).getByText(/含「免费」的正常短信/);
+    fireEvent.click(hamDotTitle.closest("g")!);
+    expect(screen.getByText(/当前选中的短信拆解：含「免费」的正常短信/)).toBeInTheDocument();
+  });
+
+  it("renders Stage 4 role-focused visuals, single math appendix toggle, and plain-language 1D slice", async () => {
+    stubLogisticRegressionFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+        drafts: { 4: { eta: 0.1, epochs: 12, inspectEpoch: 12, showBgd: false } },
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "训练模型" });
+
+    const beforeAfter = screen.getByLabelText("训练前后验证短信表现对比");
+    expect(beforeAfter).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/训练前（全 0 权重各猜 50%）/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/分对 42 \/ 300 条（14\.0%）/)).toBeInTheDocument();
+    expect(
+      within(beforeAfter).getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/),
+    ).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/分对 258 \/ 300 条（86\.0%）/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/按训练集垃圾占比/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/准确率：已超过 86\.0% 多数类基线/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/BCE Loss 0\.6931 →/)).toBeInTheDocument();
+    expect(within(beforeAfter).getByText(/优于训练集固定先验基线/)).toBeInTheDocument();
+    expect(screen.getByText(/损失 = −ln/)).toBeInTheDocument();
+    expect(screen.getByText("梯度与权重更新")).toBeInTheDocument();
+    expect(screen.getByLabelText("预测概率与损失")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "权重改变量" })).toBeInTheDocument();
+
+    const appendixToggle = screen.getByRole("button", { name: /数学推导（选读，不考查）/ });
+    expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("从极大似然到最小化交叉熵")).not.toBeInTheDocument();
+
+    fireEvent.click(appendixToggle);
+    expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("从极大似然到最小化交叉熵")).toBeInTheDocument();
+    expect(screen.getByText(/相乘时约掉这一项/)).toBeInTheDocument();
+    expect(screen.getByText("链式法则如何化简权重梯度")).toBeInTheDocument();
+    expect(screen.queryByText("概念检查")).not.toBeInTheDocument();
+
+    const advancedToggle = screen.getByRole("button", { name: /展开进阶探索：单维权重切片图/ });
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
+    expect(
+      screen.queryByRole("region", { name: "单维权重与损失切片探索" }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(advancedToggle);
+    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
+
+    const slicePanel = screen.getByRole("region", { name: "单维权重与损失切片探索" });
+    expect(within(slicePanel).getByText(/含「免费」样本：14 条/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/按 50% 门槛判对/)).toBeInTheDocument();
+
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /往右试推一格/ }));
+    fireEvent.click(within(slicePanel).getByRole("button", { name: /← 往左试推一格/ }));
+    expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/坡度（偏导）不同/)).toBeInTheDocument();
+
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "示例：步子太大跨过头" }));
+    expect(within(slicePanel).getByText(/含「好」样本：111 条/)).toBeInTheDocument();
+    const stepBtn = within(slicePanel).getByRole("button", { name: "按梯度更新一步" });
+    fireEvent.click(stepBtn);
+    fireEvent.click(stepBtn);
+    expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
+
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "当前训练模型权重" }));
+    expect(within(slicePanel).getByText(/当前模型为「好」学到的权重/)).toBeInTheDocument();
+    expect(within(slicePanel).getByText(/误拦正常/)).toBeInTheDocument();
+
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "按梯度更新一步" }));
+    expect(within(slicePanel).getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "较小 η = 0.002" }));
+    await waitFor(() => expect(within(slicePanel).getByText(/仍有差距/)).toBeInTheDocument());
+    expect(
+      within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "按梯度更新一步" }));
+    expect(within(slicePanel).getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
+    const handle = within(slicePanel).getByRole("slider", { name: /拖动调整词「好」的权重/ });
+    fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    expect(
+      within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("keeps explicit stage=1 when opening ?classroom=1&stage=1 on an advanced project", async () => {
+    stubLogisticRegressionFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/logistic-regression?classroom=1&stage=1", {
+      auth: studentAuthState,
+    });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    expect(screen.getByText(/课堂自由跳关：已开启/)).toBeInTheDocument();
+  });
+
+  it("opens server currentStage when ?classroom=1 omits the stage query parameter", async () => {
+    stubLogisticRegressionFetch(
+      makeProject({
+        currentStage: 4,
+        passedStages: [1, 2, 3],
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/logistic-regression?classroom=1", {
+      auth: studentAuthState,
+    });
+    await screen.findByRole("heading", { name: "训练模型" });
+  });
+
+  it("allows student classroom free-navigation preview across stages while guarding formal judge submission", async () => {
+    const fetchSpy = stubLogisticRegressionFetch(
+      makeProject({ currentStage: 1, passedStages: [] }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+    expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "课堂模式：先看后面关卡" }));
+    const stage4Btn = screen.getByRole("button", { name: /训练模型/ });
+    expect(stage4Btn).toBeEnabled();
+    fireEvent.click(stage4Btn);
+
+    await screen.findByRole("heading", { name: "训练模型" });
+    expect(screen.getByText(/当前为「课堂自由跳关」预览模式/)).toBeInTheDocument();
+
+    for (const prompt of LOGISTIC_REGRESSION_STAGES[3].prompts) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+      );
+    }
+    fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+    expect(screen.getByText(/如需正式提交过关记录，请先通过前面的关卡/)).toBeInTheDocument();
+    expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(false);
+  });
+
+  it("grants teacher and admin immediate free navigation across stages without classroom toggle", async () => {
+    for (const auth of [teacherAuthState, adminAuthState]) {
+      const fetchSpy = stubLogisticRegressionFetch(
+        makeProject({ currentStage: 1, passedStages: [] }),
+        () =>
+          json({
+            passed: true,
+            score: 5,
+            total: 5,
+            testSummary: { parts: [], detail: "ok" },
+            submissionId: "sub-4",
+            currentStage: 5,
+            passedStages: [4],
+          }),
+      );
+
+      const rendered = await renderAppAt("/classes/c1/labs/logistic-regression", { auth });
+      await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+      expect(screen.getByText("教师视角 · 自由切关")).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "重置我的进度" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: "课堂模式：先看后面关卡" })).toBeNull();
+
+      const stage4Btn = screen.getByRole("button", { name: /训练模型/ });
+      expect(stage4Btn).toBeEnabled();
+      fireEvent.click(stage4Btn);
+
+      await screen.findByRole("heading", { name: "训练模型" });
+      for (const prompt of LOGISTIC_REGRESSION_STAGES[3].prompts) {
+        fireEvent.click(
+          await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+        );
+      }
+      fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+      await waitFor(() =>
+        expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(true),
+      );
+      rendered.unmount();
+    }
+  });
+
+  it("prompts for confirmation and resets staff own progress via POST /reset", async () => {
+    const confirmMock = vi.fn(() => false);
+    vi.stubGlobal("confirm", confirmMock);
+    let resetCalls = 0;
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/reset") && init?.method === "POST") {
+        resetCalls += 1;
+        return json(makeProject({ currentStage: 1, passedStages: [], drafts: {} }));
+      }
+      if (url.includes("/project")) {
+        return json(makeProject({ currentStage: 4, passedStages: [1, 2, 3] }));
+      }
+      if (url.includes("/api/labs")) {
+        return json({ labs: [{ id: "logistic-regression", visible: true }] });
+      }
+      return json({});
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "训练模型" });
+
+    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    expect(confirmMock).toHaveBeenCalledTimes(1);
+    expect(resetCalls).toBe(0);
+
+    confirmMock.mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    expect(resetCalls).toBe(1);
+  });
+
+  it("drops a pre-reset in-flight judge verdict that resolves after reset", async () => {
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    let resolveJudge!: (value: Response) => void;
+    const judgePromise = new Promise<Response>((res) => {
+      resolveJudge = res;
+    });
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/judge") && init?.method === "POST") {
+        return judgePromise;
+      }
+      if (url.includes("/reset") && init?.method === "POST") {
+        return json(
+          makeProject({
+            currentStage: 1,
+            passedStages: [],
+            drafts: {},
+          }) as LogisticRegressionProjectPayload & {
+            projectGeneration: number;
+          },
+        );
+      }
+      if (url.includes("/project")) {
+        return json(makeProject({ currentStage: 4, passedStages: [1, 2, 3] }));
+      }
+      if (url.includes("/api/labs")) {
+        return json({ labs: [{ id: "logistic-regression", visible: true }] });
+      }
+      return json({});
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "训练模型" });
+
+    for (const prompt of LOGISTIC_REGRESSION_STAGES[3].prompts) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+      );
+    }
+    fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+    await waitFor(() =>
+      expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(true),
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+    resolveJudge(
+      json({
+        passed: true,
+        score: 5,
+        total: 5,
+        testSummary: { parts: [], detail: "stale" },
+        submissionId: "sub-stale",
+        currentStage: 5,
+        passedStages: [1, 2, 3, 4],
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("通过本关判定")).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "给 10 个词打分" })).toBeInTheDocument();
+  });
+});

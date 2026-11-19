@@ -161,8 +161,8 @@ export default tseslint.config(
   {
     // Curated data tables, not handwritten calculation/control flow.
     files: [
-      "src/features/ml-intro/domain/cnLexicon.ts",
-      "src/features/ml-intro/domain/corpusData.ts",
+      "src/features/logistic-regression/domain/cnLexicon.ts",
+      "src/features/logistic-regression/domain/corpusData.ts",
     ],
     rules: { "max-lines": "off" },
   },

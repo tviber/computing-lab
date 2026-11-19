@@ -8,9 +8,9 @@ import { authRoutes } from "./auth.ts";
 import { calculatorRoutes } from "./calculator.ts";
 import { dashboardRoutes } from "./dashboard.ts";
 import { labsRoutes } from "./labs.ts";
-import { mlIntroRoutes } from "./mlIntro.ts";
+import { logisticRegressionRoutes } from "./logisticRegression.ts";
 import { teacherRoutes } from "./teacher.ts";
-import { ML_STAGES } from "../../src/features/ml-intro/domain/stages.ts";
+import { LOGISTIC_REGRESSION_STAGES } from "../../src/features/logistic-regression/domain/stages.ts";
 
 async function setup() {
   const db = openMemoryDb();
@@ -51,7 +51,7 @@ async function setup() {
   app.route("/api/teacher", teacherRoutes());
   app.route("/api/classes/:classId/dashboard", dashboardRoutes());
   app.route("/api/classes/:classId/labs/calculator", calculatorRoutes());
-  app.route("/api/classes/:classId/labs/ml-intro", mlIntroRoutes());
+  app.route("/api/classes/:classId/labs/logistic-regression", logisticRegressionRoutes());
   app.route("/api/labs", labsRoutes());
   return { db, app };
 }
@@ -344,7 +344,7 @@ describe("teacher lab routes", () => {
     ).toBeUndefined();
   });
 
-  it("exposes ml-intro in teacher lab switches and class dashboard matrix + drawer", async () => {
+  it("exposes logistic-regression in teacher lab switches and class dashboard matrix + drawer", async () => {
     const { app } = await setup();
     const teacher = await login(app, "teacher", "teacher-pass");
     const student = await login(app, "20260101", "student-pass");
@@ -354,9 +354,9 @@ describe("teacher lab routes", () => {
     const { labs } = (await listRes.json()) as {
       labs: { id: string; stageCount: number; classes: { classId: string; open: boolean }[] }[];
     };
-    expect(labs.find((l) => l.id === "ml-intro")).toMatchObject({
-      id: "ml-intro",
-      stageCount: 6,
+    expect(labs.find((l) => l.id === "logistic-regression")).toMatchObject({
+      id: "logistic-regression",
+      stageCount: 5,
       classes: [{ classId: "c1", open: true }],
     });
 
@@ -364,22 +364,36 @@ describe("teacher lab routes", () => {
     await request(
       app,
       "PUT",
-      "/api/teacher/labs/ml-intro/classes/c1/open",
+      "/api/teacher/labs/logistic-regression/classes/c1/open",
       { open: false },
       teacher,
     );
     expect(
-      (await request(app, "GET", "/api/classes/c1/labs/ml-intro/project", undefined, student))
-        .status,
+      (
+        await request(
+          app,
+          "GET",
+          "/api/classes/c1/labs/logistic-regression/project",
+          undefined,
+          student,
+        )
+      ).status,
     ).toBe(403);
     expect(
-      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, teacher))
-        .status,
+      (
+        await request(
+          app,
+          "GET",
+          "/api/classes/c1/dashboard?lab=logistic-regression",
+          undefined,
+          teacher,
+        )
+      ).status,
     ).toBe(403);
     await request(
       app,
       "PUT",
-      "/api/teacher/labs/ml-intro/classes/c1/open",
+      "/api/teacher/labs/logistic-regression/classes/c1/open",
       { open: true },
       teacher,
     );
@@ -388,14 +402,17 @@ describe("teacher lab routes", () => {
     const judgeRes = await request(
       app,
       "POST",
-      "/api/classes/c1/labs/ml-intro/judge",
+      "/api/classes/c1/labs/logistic-regression/judge",
       {
         stageIndex: 1,
         expectedGeneration: 0,
         draft: {
           weights: { 中奖: 2, 发票: 2 },
           selectedMsgId: "st-spam-1",
-          concepts: { [ML_STAGES[0].prompts[0].id]: ML_STAGES[0].prompts[0].correct },
+          concepts: {
+            [LOGISTIC_REGRESSION_STAGES[0].prompts[0].id]:
+              LOGISTIC_REGRESSION_STAGES[0].prompts[0].correct,
+          },
         },
       },
       student,
@@ -412,7 +429,7 @@ describe("teacher lab routes", () => {
     const dashRes = await request(
       app,
       "GET",
-      "/api/classes/c1/dashboard?lab=ml-intro",
+      "/api/classes/c1/dashboard?lab=logistic-regression",
       undefined,
       teacher,
     );
@@ -427,7 +444,7 @@ describe("teacher lab routes", () => {
         >;
       }[];
     };
-    expect(dash.labId).toBe("ml-intro");
+    expect(dash.labId).toBe("logistic-regression");
     const studentRow = dash.rows.find((r) => r.studentNo === "20260101");
     expect(studentRow?.cells["1"]).toMatchObject({
       score: judged.score,
