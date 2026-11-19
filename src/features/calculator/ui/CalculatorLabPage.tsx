@@ -1,6 +1,5 @@
 import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { labMetadata } from "../../../shared/lab/labMetadata";
@@ -39,36 +38,44 @@ export function CalculatorLabPage() {
     createCalculatorLessonState(1),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
 
   const graph = graphOf(state);
   const components = useMemo(() => componentMap(state), [state.unlockedSubmodules]);
   const stage = stageOf(state);
   const stageIndex = state.stageIndex;
 
-  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
-    useLabProject<CircuitGraph, { unlockedSubmodules: ComponentDef[] }, CalculatorLessonAction>({
-      classId,
-      labId: "calculator",
-      ready: status === "authenticated",
-      staff: isStaff,
-      onResetSuccess: () => setSubmitError(null),
-      toAction: (project, meta) => ({
-        type: "load-project",
-        currentStage: project.currentStage,
-        passedStages: project.passedStages,
-        unlockedSubmodules: project.unlockedSubmodules,
-        draftRevisions: project.draftRevisions,
-        componentsRevision: project.draftRevisions?.components ?? 0,
-        drafts: Object.fromEntries(
-          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-        ),
-        stageIndex: meta?.isReset ? 1 : requestedStage,
-        forceStage: isStaff,
-        isReset: meta?.isReset,
-      }),
-      dispatch,
-    });
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<CircuitGraph, { unlockedSubmodules: ComponentDef[] }, CalculatorLessonAction>({
+    classId,
+    labId: "calculator",
+    ready: status === "authenticated",
+    staff: isStaff,
+    onResetSuccess: () => setSubmitError(null),
+    toAction: (project, meta) => ({
+      type: "load-project",
+      currentStage: project.currentStage,
+      passedStages: project.passedStages,
+      unlockedSubmodules: project.unlockedSubmodules,
+      draftRevisions: project.draftRevisions,
+      componentsRevision: project.draftRevisions?.components ?? 0,
+      drafts: Object.fromEntries(
+        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+      ),
+      stageIndex: meta?.isReset ? 1 : requestedStage,
+      forceStage: isStaff,
+      isReset: meta?.isReset,
+    }),
+    dispatch,
+  });
 
   // Keep the URL in step with the stage the learner actually ended on — rail
   // clicks, coach jumps, and the load-project fallback all funnel here.
@@ -131,6 +138,7 @@ export function CalculatorLabPage() {
       projectLoaded && !resetting
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
         : "idle",
+    expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
     stageIndex,
     dirtyStages,
@@ -179,17 +187,15 @@ export function CalculatorLabPage() {
 
   const onSubmit = useCallback(async () => {
     if (!classId) return;
-    setSubmitting(true);
-    try {
-      const submission: CalculatorSubmission = {
-        stageIndex,
-        graph,
-        components: state.unlockedSubmodules,
-      };
-      const result = await api.post<CalculatorJudgeResult>(
-        `/api/classes/${classId}/labs/calculator/judge`,
-        submission,
-      );
+    setSubmitError(null);
+    const submission: CalculatorSubmission = {
+      stageIndex,
+      graph,
+      components: state.unlockedSubmodules,
+    };
+    const response = await postJudge<CalculatorJudgeResult>(submission);
+    if (response.status === "applied") {
+      const result = response.outcome;
       dispatch({
         type: "judge-result",
         // The stage this submission ran on — captured now, not whenever the
@@ -209,12 +215,10 @@ export function CalculatorLabPage() {
           componentsRevision: result.componentsRevision,
         },
       });
-    } catch (error) {
-      setSubmitError(describeApiError(error));
-    } finally {
-      setSubmitting(false);
+    } else if (response.status === "error") {
+      setSubmitError(response.error);
     }
-  }, [classId, stageIndex, graph, state.unlockedSubmodules]);
+  }, [classId, stageIndex, graph, state.unlockedSubmodules, postJudge]);
 
   return (
     <AppPageLayout
@@ -257,7 +261,7 @@ export function CalculatorLabPage() {
         projectLoaded={projectLoaded}
         staffControls={staffControls}
         state={state}
-        submitting={submitting}
+        submitting={submittingJudge || resetting}
       />
     </AppPageLayout>
   );

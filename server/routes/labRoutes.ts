@@ -50,6 +50,7 @@ type LabSpec<TDraft, TOutcome> = {
     body: Record<string, unknown>,
     expectedRevision: number,
     expectedComponentsRevision?: number,
+    expectedGeneration?: number,
   ) => DraftSaveResult;
   judge: (
     db: DatabaseSync,
@@ -89,6 +90,7 @@ export function labRoutes<TDraft, TOutcome extends object>(
       // Per-stage revision of the latest applied write — the client seeds its
       // expectedRevision from this so its next save is a compare-and-swap.
       draftRevisions: project.draftRevisions,
+      projectGeneration: project.projectGeneration,
       staffFreeNavigation: staff,
       ...(spec.projectExtras?.(db, project, { staff }) ?? {}),
     };
@@ -99,6 +101,12 @@ export function labRoutes<TDraft, TOutcome extends object>(
     return Number.isInteger(stageIndex) && stageIndex >= 1 && stageIndex <= spec.stageCount
       ? stageIndex
       : null;
+  };
+
+  const parseOptionalGeneration = (body: unknown): number | undefined | "invalid" => {
+    const raw = (body as { expectedGeneration?: unknown } | null)?.expectedGeneration;
+    if (raw === undefined) return undefined;
+    return typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? raw : "invalid";
   };
 
   app.get("/project", (c) => {
@@ -148,6 +156,8 @@ export function labRoutes<TDraft, TOutcome extends object>(
         return jsonError(c, 400, "invalid-revision");
       }
     }
+    const expectedGeneration = parseOptionalGeneration(body);
+    if (expectedGeneration === "invalid") return jsonError(c, 400, "invalid-generation");
     const db = c.get("db");
     const result = spec.saveDraft(
       db,
@@ -156,11 +166,15 @@ export function labRoutes<TDraft, TOutcome extends object>(
       body as Record<string, unknown>,
       expectedRevision,
       expectedComponentsRevision as number | undefined,
+      expectedGeneration,
     );
     return c.json({
       ok: true,
       applied: result.applied,
       revision: result.revision,
+      ...(result.projectGeneration !== undefined
+        ? { projectGeneration: result.projectGeneration }
+        : {}),
       ...(result.componentsRevision !== undefined
         ? { componentsRevision: result.componentsRevision }
         : {}),
@@ -174,16 +188,16 @@ export function labRoutes<TDraft, TOutcome extends object>(
     const body = await c.req.json().catch(() => null);
     const stageIndex = stageIndexOf(body);
     if (stageIndex === null) return jsonError(c, 400, "invalid-stage");
+    const expectedGeneration = parseOptionalGeneration(body);
+    if (expectedGeneration === "invalid") return jsonError(c, 400, "invalid-generation");
     const db = c.get("db");
-    const outcome = spec.judge(
-      db,
-      projectOf(db, auth),
-      stageIndex,
-      body as Record<string, unknown>,
-      {
-        staff: isStaffUser(auth.user),
-      },
-    );
+    const project = projectOf(db, auth);
+    if (expectedGeneration !== undefined && project.projectGeneration !== expectedGeneration) {
+      return jsonError(c, 409, "stale-project-generation");
+    }
+    const outcome = spec.judge(db, project, stageIndex, body as Record<string, unknown>, {
+      staff: isStaffUser(auth.user),
+    });
     if ("error" in outcome) {
       return jsonError(c, (outcome as LabJudgeError).status, (outcome as LabJudgeError).error);
     }

@@ -1,6 +1,5 @@
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
@@ -70,7 +69,6 @@ export function ColorQuantizationLabPage() {
   const [state, dispatch] = useReducer(transitionQuantLesson, undefined, () =>
     createQuantLessonState(1, isStaff),
   );
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const scenarioApplied = useRef(false);
 
@@ -81,26 +79,35 @@ export function ColorQuantizationLabPage() {
   // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
-  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
-    useLabProject<StageDraft, Record<never, never>, QuantLessonAction>({
-      classId,
-      labId: "color-quantization",
-      ready: status === "authenticated",
-      staff: isStaff,
-      onResetSuccess: () => setSubmitError(null),
-      toAction: (project, meta) => ({
-        type: "load-project",
-        currentStage: project.currentStage,
-        passedStages: project.passedStages,
-        draftRevisions: project.draftRevisions,
-        drafts: Object.fromEntries(
-          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-        ),
-        freeNavigation: project.staffFreeNavigation ?? isStaff,
-        isReset: meta?.isReset,
-      }),
-      dispatch,
-    });
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<StageDraft, Record<never, never>, QuantLessonAction>({
+    classId,
+    labId: "color-quantization",
+    ready: status === "authenticated",
+    staff: isStaff,
+    onResetSuccess: () => setSubmitError(null),
+    toAction: (project, meta) => ({
+      type: "load-project",
+      currentStage: project.currentStage,
+      passedStages: project.passedStages,
+      draftRevisions: project.draftRevisions,
+      drafts: Object.fromEntries(
+        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+      ),
+      freeNavigation: project.staffFreeNavigation ?? isStaff,
+      isReset: meta?.isReset,
+    }),
+    dispatch,
+  });
 
   // Apply a shared scenario (?stage=&toners=/&table=) once — but only after
   // the project loads, or unlocked stages would look locked at mount.
@@ -143,6 +150,7 @@ export function ColorQuantizationLabPage() {
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
@@ -169,24 +177,20 @@ export function ColorQuantizationLabPage() {
       dispatch({ type: "message", text: "先生成一张映射表再提交。" });
       return;
     }
-    setSubmitting(true);
-    try {
-      const submission: QuantSubmission = {
-        stageIndex: stage.index,
-        ...(stage.mode === "pick" ? { toners: draft.toners } : { table: draft.table ?? undefined }),
-        code: draft.code || undefined,
-      };
-      const outcome = await api.post<QuantJudgeResult>(
-        `/api/classes/${classId}/labs/color-quantization/judge`,
-        submission,
-      );
-      dispatch({ type: "judge-result", outcome });
-    } catch (error) {
-      setSubmitError(describeApiError(error));
-    } finally {
-      setSubmitting(false);
+    setSubmitError(null);
+    const submission: QuantSubmission = {
+      stageIndex: stage.index,
+      ...(stage.mode === "pick" ? { toners: draft.toners } : { table: draft.table ?? undefined }),
+      code: draft.code || undefined,
+    };
+    const response = await postJudge<QuantJudgeResult>(submission);
+    if (response.status === "applied") {
+      dispatch({ type: "judge-result", outcome: response.outcome });
+    } else if (response.status === "error") {
+      setSubmitError(response.error);
     }
-  }, [classId, stage, state, draft]);
+  }, [classId, stage, state, draft, postJudge]);
+  const submitting = submittingJudge || resetting;
 
   const shareSearch =
     stage && isStaffRole(role)

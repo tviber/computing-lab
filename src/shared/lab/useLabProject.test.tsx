@@ -1,12 +1,13 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { useLabProject } from "./useLabProject";
+import { reconcileConflictedStage, useLabProject } from "./useLabProject";
 
 type Payload = {
   labId: string;
   currentStage: number;
   passedStages: number[];
   drafts: Record<string, unknown>;
+  projectGeneration?: number;
 };
 
 type Params = {
@@ -58,7 +59,7 @@ describe("useLabProject", () => {
     calls = [];
     vi.stubGlobal(
       "fetch",
-      vi.fn((input: unknown) => {
+      vi.fn((input: unknown, _init?: unknown) => {
         const done = deferred<Response>();
         calls.push({ url: String(input), done });
         return done.promise;
@@ -281,5 +282,167 @@ describe("useLabProject", () => {
     expect(result.current.resetError).toBeTruthy();
     expect(result.current.saveGeneration).toBe(0);
     expect(onResetSuccess).not.toHaveBeenCalled();
+  });
+
+  it("attaches expectedGeneration on postJudge, drops stale judge responses on reset, and blocks submit during reset", async () => {
+    const dispatch = vi.fn();
+    const onResetSuccess = vi.fn();
+    const { result } = renderHook((p: Params) => useLabProject(p), {
+      initialProps: base({ dispatch, staff: true, onResetSuccess }),
+    });
+    calls[0].done.resolve(
+      new Response(
+        JSON.stringify({
+          labId: "lab",
+          currentStage: 3,
+          passedStages: [1, 2],
+          drafts: {},
+          projectGeneration: 2,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    await flush();
+    expect(result.current.projectGeneration).toBe(2);
+
+    // Start judge request (sends expectedGeneration: 2), then start reset mid-flight.
+    let judgePromise!: ReturnType<typeof result.current.postJudge>;
+    await act(async () => {
+      judgePromise = result.current.postJudge({ stageIndex: 3, draft: {} });
+    });
+    expect(result.current.submittingJudge).toBe(true);
+    expect(calls[1].url).toBe("/api/classes/class-1/labs/lab/judge");
+
+    let resetPromise!: Promise<boolean>;
+    await act(async () => {
+      resetPromise = result.current.resetProject();
+    });
+    expect(result.current.submittingJudge).toBe(false);
+    expect(result.current.resetting).toBe(true);
+
+    // Submitting while reset is in-flight is rejected synchronously as stale.
+    let blockedWhileResetting!: Awaited<ReturnType<typeof result.current.postJudge>>;
+    await act(async () => {
+      blockedWhileResetting = await result.current.postJudge({ stageIndex: 1, draft: {} });
+    });
+    expect(blockedWhileResetting).toEqual({ status: "stale" });
+    expect(calls).toHaveLength(3); // no extra fetch issued
+
+    calls[2].done.resolve(
+      new Response(
+        JSON.stringify({
+          labId: "lab",
+          currentStage: 1,
+          passedStages: [],
+          drafts: {},
+          projectGeneration: 3,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    await act(async () => {
+      await resetPromise;
+    });
+    expect(result.current.projectGeneration).toBe(3);
+
+    // Pre-reset judge response finally lands with passedStages=[1,2,3] — must return stale!
+    calls[1].done.resolve(
+      new Response(JSON.stringify({ passed: true, passedStages: [1, 2, 3] }), {
+        status: 200,
+        headers: { "content-type": "application/json" },
+      }),
+    );
+    let judgeResult!: Awaited<ReturnType<typeof result.current.postJudge>>;
+    await act(async () => {
+      judgeResult = await judgePromise;
+    });
+    expect(judgeResult).toEqual({ status: "stale" });
+    expect(onResetSuccess).toHaveBeenCalledTimes(1);
+  });
+
+  it("syncs project on 409 stale-project-generation from another tab and via reconcileConflictedStage", async () => {
+    const dispatch = vi.fn();
+    const onResetSuccess = vi.fn();
+    const { result } = renderHook((p: Params) => useLabProject(p), {
+      initialProps: base({ dispatch, staff: true, onResetSuccess }),
+    });
+    calls[0].done.resolve(
+      new Response(
+        JSON.stringify({
+          labId: "lab",
+          currentStage: 4,
+          passedStages: [1, 2, 3],
+          drafts: { "4": { x: 1 } },
+          projectGeneration: 0,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    await flush();
+
+    // Another tab reset the project (generation 0 -> 1); this tab posts judge and gets 409.
+    let judgePromise!: ReturnType<typeof result.current.postJudge>;
+    await act(async () => {
+      judgePromise = result.current.postJudge({ stageIndex: 4 });
+    });
+    calls[1].done.resolve(
+      new Response(JSON.stringify({ error: "stale-project-generation" }), { status: 409 }),
+    );
+    await flush();
+    expect(calls[2].url).toBe("/api/classes/class-1/labs/lab/project");
+    calls[2].done.resolve(
+      new Response(
+        JSON.stringify({
+          labId: "lab",
+          currentStage: 1,
+          passedStages: [],
+          drafts: {},
+          projectGeneration: 1,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    let judgeResult!: Awaited<ReturnType<typeof result.current.postJudge>>;
+    await act(async () => {
+      judgeResult = await judgePromise;
+    });
+    expect(judgeResult.status).toBe("error");
+    expect(result.current.projectGeneration).toBe(1);
+    expect(result.current.saveGeneration).toBe(1);
+    expect(dispatch).toHaveBeenLastCalledWith({
+      type: "load",
+      project: expect.objectContaining({ currentStage: 1, passedStages: [], projectGeneration: 1 }),
+      isReset: true,
+    });
+
+    // Cross-tab reset also reconciles cleanly inside reconcileConflictedStage (generation 1 -> 2).
+    const onResolved = vi.fn();
+    const onSyncError = vi.fn();
+    await act(async () => {
+      reconcileConflictedStage({
+        fetchProject: result.current.fetchProject,
+        stageIndex: 2,
+        onResolved,
+        onSyncError,
+      });
+    });
+    calls[3].done.resolve(
+      new Response(
+        JSON.stringify({
+          labId: "lab",
+          currentStage: 1,
+          passedStages: [],
+          drafts: {},
+          projectGeneration: 2,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      ),
+    );
+    await flush();
+    expect(result.current.projectGeneration).toBe(2);
+    expect(result.current.saveGeneration).toBe(2);
+    expect(onResolved).not.toHaveBeenCalled();
+    expect(onSyncError).not.toHaveBeenCalled();
+    expect(onResetSuccess).toHaveBeenCalledTimes(2);
   });
 });

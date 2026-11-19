@@ -105,6 +105,7 @@ export function saveDraft(
   rawComponents?: unknown,
   expectedRevision?: number,
   expectedComponentsRevision?: number,
+  expectedGeneration?: number,
 ): DraftSaveResult {
   const submodules =
     rawComponents === undefined
@@ -117,6 +118,7 @@ export function saveDraft(
     unlockedSubmodules: submodules,
     expectedRevision,
     expectedComponentsRevision,
+    expectedGeneration,
   });
 }
 

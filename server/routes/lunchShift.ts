@@ -67,9 +67,18 @@ export function lunchShiftRoutes() {
       // for teachers/admins exploring freely) — expected tickets never leave hiddenSet.ts.
       aiOrders: staff || lunchStageUnlocked(project.passedStages, 4) ? FINAL_PUBLIC_ORDERS : null,
     }),
-    saveDraft: (db, project, stageIndex, body, expectedRevision) =>
+    saveDraft: (
+      db,
+      project,
+      stageIndex,
+      body,
+      expectedRevision,
+      _expectedComponents,
+      expectedGeneration,
+    ) =>
       saveStageDraft(db, project, stageIndex, sanitizeLunchDraft(stageIndex, body.draft ?? {}), {
         expectedRevision,
+        expectedGeneration,
       }),
     judge: (db, project, stageIndex, body, { staff }) => {
       const key = `${project.userId}|lunch-shift|${stageIndex}`;

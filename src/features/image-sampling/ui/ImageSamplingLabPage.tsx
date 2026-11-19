@@ -1,6 +1,5 @@
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useReducer, useRef, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
@@ -72,7 +71,6 @@ export function ImageSamplingLabPage() {
   const [state, dispatch] = useReducer(transitionSamplingLesson, undefined, () =>
     createSamplingLessonState(1, isStaff),
   );
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const scenarioApplied = useRef(false);
 
@@ -83,26 +81,35 @@ export function ImageSamplingLabPage() {
   // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
-  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
-    useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>({
-      classId,
-      labId: "image-sampling",
-      ready: status === "authenticated",
-      staff: isStaff,
-      onResetSuccess: () => setSubmitError(null),
-      toAction: (project, meta) => ({
-        type: "load-project",
-        currentStage: project.currentStage,
-        passedStages: project.passedStages,
-        draftRevisions: project.draftRevisions,
-        drafts: Object.fromEntries(
-          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-        ),
-        freeNavigation: project.staffFreeNavigation ?? isStaff,
-        isReset: meta?.isReset,
-      }),
-      dispatch,
-    });
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>({
+    classId,
+    labId: "image-sampling",
+    ready: status === "authenticated",
+    staff: isStaff,
+    onResetSuccess: () => setSubmitError(null),
+    toAction: (project, meta) => ({
+      type: "load-project",
+      currentStage: project.currentStage,
+      passedStages: project.passedStages,
+      draftRevisions: project.draftRevisions,
+      drafts: Object.fromEntries(
+        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+      ),
+      freeNavigation: project.staffFreeNavigation ?? isStaff,
+      isReset: meta?.isReset,
+    }),
+    dispatch,
+  });
 
   // Apply a shared scenario (?stage=&w=&h=) once, after the project loads.
   useEffect(() => {
@@ -144,6 +151,7 @@ export function ImageSamplingLabPage() {
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
@@ -171,25 +179,21 @@ export function ImageSamplingLabPage() {
       });
       return;
     }
-    setSubmitting(true);
-    try {
-      const submission: SamplingSubmission = {
-        stageIndex: stage.index,
-        width: resolution.width,
-        height: resolution.height,
-        code: draft.code || undefined,
-      };
-      const outcome = await api.post<SamplingJudgeResult>(
-        `/api/classes/${classId}/labs/image-sampling/judge`,
-        submission,
-      );
-      dispatch({ type: "judge-result", outcome });
-    } catch (error) {
-      setSubmitError(describeApiError(error));
-    } finally {
-      setSubmitting(false);
+    setSubmitError(null);
+    const submission: SamplingSubmission = {
+      stageIndex: stage.index,
+      width: resolution.width,
+      height: resolution.height,
+      code: draft.code || undefined,
+    };
+    const response = await postJudge<SamplingJudgeResult>(submission);
+    if (response.status === "applied") {
+      dispatch({ type: "judge-result", outcome: response.outcome });
+    } else if (response.status === "error") {
+      setSubmitError(response.error);
     }
-  }, [classId, stage, state, draft.code]);
+  }, [classId, stage, state, draft.code, postJudge]);
+  const submitting = submittingJudge || resetting;
 
   const resolution = stage ? draftResolution(state, stage) : null;
   const previewWidth = draft.width ?? 8;

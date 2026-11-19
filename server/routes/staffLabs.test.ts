@@ -211,7 +211,7 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
           .get(projectRow.id) as { n: number };
         expect(beforeResetSubs.n).toBeGreaterThanOrEqual(1);
 
-        // 4. POST /reset clears only the caller's own state + submissions.
+        // 4. POST /reset clears only the caller's own state + submissions and bumps projectGeneration.
         const resetRes = await app.fetch(
           new Request(labUrl(classId, labId, "/reset"), {
             method: "POST",
@@ -225,8 +225,56 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
           passedStages: [],
           drafts: {},
           draftRevisions: {},
+          projectGeneration: 1,
           staffFreeNavigation: true,
         });
+
+        // Delayed pre-reset save with expectedGeneration=0 (and expectedRevision=0!) must NOT resurrect drafts.
+        const staleDraftRes = await app.fetch(
+          new Request(labUrl(classId, labId, "/draft"), {
+            method: "PUT",
+            headers: { cookie, "content-type": "application/json" },
+            body: JSON.stringify({ ...draftBody, expectedRevision: 0, expectedGeneration: 0 }),
+          }),
+        );
+        expect(staleDraftRes.status).toBe(200);
+        expect(await staleDraftRes.json()).toMatchObject({
+          applied: false,
+          revision: 0,
+          projectGeneration: 1,
+        });
+
+        // Delayed pre-reset judge with expectedGeneration=0 must return 409 without recording a submission.
+        const staleJudgeRes = await app.fetch(
+          new Request(labUrl(classId, labId, "/judge"), {
+            method: "POST",
+            headers: { cookie, "content-type": "application/json" },
+            body: JSON.stringify({ ...judgeBody, expectedGeneration: 0 }),
+          }),
+        );
+        expect(staleJudgeRes.status).toBe(409);
+        expect(await staleJudgeRes.json()).toMatchObject({ error: "stale-project-generation" });
+
+        // Post-reset save carrying expectedGeneration=1 applies normally.
+        const freshDraftRes = await app.fetch(
+          new Request(labUrl(classId, labId, "/draft"), {
+            method: "PUT",
+            headers: { cookie, "content-type": "application/json" },
+            body: JSON.stringify({ ...draftBody, expectedRevision: 0, expectedGeneration: 1 }),
+          }),
+        );
+        expect(freshDraftRes.status).toBe(200);
+        expect(await freshDraftRes.json()).toMatchObject({
+          applied: true,
+          revision: 1,
+          projectGeneration: 1,
+        });
+        await app.fetch(
+          new Request(labUrl(classId, labId, "/reset"), {
+            method: "POST",
+            headers: { cookie },
+          }),
+        );
 
         const afterResetSubs = db
           .prepare("SELECT COUNT(*) AS n FROM submissions WHERE project_id = ?")
@@ -271,6 +319,42 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
       expect(staffBody.staffFreeNavigation).toBe(true);
       expect(Array.isArray(staffBody.aiOrders)).toBe(true);
       expect((staffBody.aiOrders ?? []).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("validates expectedGeneration on /draft and /judge cleanly", async () => {
+    const { classId, teacherId, app, cookieFor } = await setupEnv();
+    const cookie = cookieFor(teacherId);
+
+    for (const expectedGeneration of [-1, "0", 1.5, null]) {
+      const draftRes = await app.fetch(
+        new Request(labUrl(classId, "ml-intro", "/draft"), {
+          method: "PUT",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            stageIndex: 1,
+            expectedRevision: 0,
+            expectedGeneration,
+            draft: { weights: { 中奖: 2 } },
+          }),
+        }),
+      );
+      expect(draftRes.status).toBe(400);
+      expect(await draftRes.json()).toMatchObject({ error: "invalid-generation" });
+
+      const judgeRes = await app.fetch(
+        new Request(labUrl(classId, "ml-intro", "/judge"), {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({
+            stageIndex: 1,
+            expectedGeneration,
+            draft: { weights: { 中奖: 2 } },
+          }),
+        }),
+      );
+      expect(judgeRes.status).toBe(400);
+      expect(await judgeRes.json()).toMatchObject({ error: "invalid-generation" });
     }
   });
 });

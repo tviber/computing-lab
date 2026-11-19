@@ -24,6 +24,8 @@ export type LabProjectPayload<TDraft> = {
   /** Server-assigned revision of the latest applied write per stage — the
    *  client's next PUT sends it back as `expectedRevision` (compare-and-swap). */
   draftRevisions?: Record<string, number>;
+  /** Monotonic counter bumped on every server reset; echoed on draft/judge calls. */
+  projectGeneration?: number;
   /** True when the signed-in caller has teacher/admin free-navigation rights. */
   staffFreeNavigation?: boolean;
 };
@@ -81,6 +83,8 @@ export const API_ERROR_MESSAGES: Record<string, string> = {
   "lab-not-available": "这个实验暂未开放。",
   "unknown-lab": "未知的实验。",
   "invalid-revision": "无效的版本参数。",
+  "invalid-generation": "无效的项目版本参数。",
+  "stale-project-generation": "实验进度已被重置，已同步最新状态。",
   "not-found": "没有找到对应的数据。",
   "invalid-title": "标题无效（1～120 字符）。",
   "invalid-description": "说明太长了。",

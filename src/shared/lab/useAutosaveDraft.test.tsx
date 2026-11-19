@@ -14,6 +14,7 @@ type Params = {
   expectedComponentsRevisionOf?: () => number;
   bodyFor?: (stageIndex: number, draft: Draft) => Record<string, unknown>;
   deps?: unknown[];
+  expectedGeneration?: number;
   resetVersion?: number;
   onSaving: (stageIndex: number) => void;
   onSaved: (stageIndex: number, revision?: number, componentsRevision?: number) => void;
@@ -44,11 +45,19 @@ function deferred<T>() {
   return { promise, resolve, reject };
 }
 
-const ok = (applied = true, revision?: number, componentsRevision?: number) =>
-  new Response(JSON.stringify({ ok: true, applied, revision, componentsRevision }), {
-    status: 200,
-    headers: { "content-type": "application/json" },
-  });
+const ok = (
+  applied = true,
+  revision?: number,
+  componentsRevision?: number,
+  projectGeneration?: number,
+) =>
+  new Response(
+    JSON.stringify({ ok: true, applied, revision, componentsRevision, projectGeneration }),
+    {
+      status: 200,
+      headers: { "content-type": "application/json" },
+    },
+  );
 
 describe("useAutosaveDraft", () => {
   let calls: {
@@ -658,6 +667,70 @@ describe("useAutosaveDraft", () => {
       vi.advanceTimersByTime(1500);
     });
     expect(fetch).toHaveBeenCalledTimes(2);
+    expect(calls[1].body.expectedRevision).toBe(0);
+  });
+
+  it("sends expectedGeneration and fences cross-tab generation conflicts until synced", async () => {
+    const onConflict = vi.fn();
+    const { rerender } = renderHook((p: Params) => useAutosaveDraft(p), {
+      initialProps: base({
+        deps: [1],
+        expectedGeneration: 0,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    });
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(calls[0].body.expectedGeneration).toBe(0);
+
+    // Another tab reset the project (projectGeneration became 1, revision reset to 0).
+    calls[0].done.resolve(ok(false, 0, undefined, 1));
+    await flush();
+    expect(onConflict).toHaveBeenCalledWith(1);
+
+    // Further local edits while still on stale expectedGeneration=0 stay fenced (must not resend!).
+    rerender(
+      base({
+        deps: [2],
+        expectedGeneration: 0,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(3000);
+    });
+    expect(fetch).toHaveBeenCalledTimes(1);
+
+    // Once cross-tab reset sync updates expectedGeneration=1 & bumps resetVersion, saves resume with gen 1.
+    rerender(
+      base({
+        deps: [2],
+        saveStatus: "idle",
+        expectedGeneration: 1,
+        resetVersion: 1,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    );
+    rerender(
+      base({
+        deps: [3],
+        saveStatus: "dirty",
+        expectedGeneration: 1,
+        resetVersion: 1,
+        expectedRevisionOf: () => 0,
+        onConflict,
+      }),
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+    });
+    expect(fetch).toHaveBeenCalledTimes(2);
+    expect(calls[1].body.expectedGeneration).toBe(1);
     expect(calls[1].body.expectedRevision).toBe(0);
   });
 });

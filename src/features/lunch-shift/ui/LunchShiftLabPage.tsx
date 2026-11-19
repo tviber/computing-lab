@@ -7,7 +7,6 @@
 
 import { useParams } from "@tanstack/react-router";
 import { Fragment, useCallback, useEffect, useReducer, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
@@ -74,7 +73,6 @@ export function LunchShiftLabPage() {
   const [state, dispatch] = useReducer(transitionLunchLesson, undefined, () =>
     createLunchLessonState(1, isStaff),
   );
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   // Which stage the latest judge outcome belongs to — the outcome itself
   // carries no stageIndex.
@@ -82,32 +80,41 @@ export function LunchShiftLabPage() {
 
   const stage = stageOf(state);
 
-  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
-    useLabProject<LunchDraft, LunchProjectExtras, LunchLessonAction>({
-      classId,
-      labId: "lunch-shift",
-      ready: status === "authenticated",
-      staff: isStaff,
-      onResetSuccess: () => {
-        setSubmitError(null);
-        setJudgedStage(null);
-      },
-      toAction: (project: LunchProjectPayload, meta) => ({
-        type: "load-project",
-        currentStage: project.currentStage,
-        passedStages: project.passedStages,
-        draftRevisions: project.draftRevisions,
-        drafts: Object.fromEntries(
-          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-        ),
-        runSummaries: project.runSummaries,
-        training: project.training,
-        aiOrders: project.aiOrders,
-        freeNavigation: project.staffFreeNavigation ?? isStaff,
-        isReset: meta?.isReset,
-      }),
-      dispatch,
-    });
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<LunchDraft, LunchProjectExtras, LunchLessonAction>({
+    classId,
+    labId: "lunch-shift",
+    ready: status === "authenticated",
+    staff: isStaff,
+    onResetSuccess: () => {
+      setSubmitError(null);
+      setJudgedStage(null);
+    },
+    toAction: (project: LunchProjectPayload, meta) => ({
+      type: "load-project",
+      currentStage: project.currentStage,
+      passedStages: project.passedStages,
+      draftRevisions: project.draftRevisions,
+      drafts: Object.fromEntries(
+        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+      ),
+      runSummaries: project.runSummaries,
+      training: project.training,
+      aiOrders: project.aiOrders,
+      freeNavigation: project.staffFreeNavigation ?? isStaff,
+      isReset: meta?.isReset,
+    }),
+    dispatch,
+  });
 
   // Warm the Python worker while the student is still on 订单旅程.
   useEffect(() => {
@@ -138,6 +145,7 @@ export function LunchShiftLabPage() {
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
@@ -154,6 +162,7 @@ export function LunchShiftLabPage() {
     stageIndex: 5,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
@@ -165,23 +174,18 @@ export function LunchShiftLabPage() {
   const submitJudge = useCallback(
     async (stageIndex: number, draft: LunchDraft) => {
       if (!classId) return;
-      setSubmitting(true);
       setSubmitError(null);
-      try {
-        const outcome = await api.post<LunchJudgeResult>(
-          `/api/classes/${classId}/labs/lunch-shift/judge`,
-          { stageIndex, draft },
-        );
+      const response = await postJudge<LunchJudgeResult>({ stageIndex, draft });
+      if (response.status === "applied") {
         setJudgedStage(stageIndex);
-        dispatch({ type: "judge-result", outcome });
-      } catch (error) {
-        setSubmitError(describeApiError(error));
-      } finally {
-        setSubmitting(false);
+        dispatch({ type: "judge-result", outcome: response.outcome });
+      } else if (response.status === "error") {
+        setSubmitError(response.error);
       }
     },
-    [classId],
+    [classId, postJudge],
   );
+  const submitting = submittingJudge || resetting;
 
   const passedStages = state.passedStages;
   const outcomeForStage = (index: number) => (judgedStage === index ? state.judgeOutcome : null);

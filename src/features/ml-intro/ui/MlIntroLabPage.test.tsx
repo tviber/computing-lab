@@ -566,4 +566,68 @@ describe("MlIntroLabPage", () => {
     await screen.findByRole("heading", { name: "给 10 个词打分" });
     expect(resetCalls).toBe(1);
   });
+
+  it("drops a pre-reset in-flight judge verdict that resolves after reset", async () => {
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    let resolveJudge!: (value: Response) => void;
+    const judgePromise = new Promise<Response>((res) => {
+      resolveJudge = res;
+    });
+    const fetchSpy = vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+      const url = typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+      if (url.includes("/judge") && init?.method === "POST") {
+        return judgePromise;
+      }
+      if (url.includes("/reset") && init?.method === "POST") {
+        return json(
+          makeProject({ currentStage: 1, passedStages: [], drafts: {} }) as MlProjectPayload & {
+            projectGeneration: number;
+          },
+        );
+      }
+      if (url.includes("/project")) {
+        return json(makeProject({ currentStage: 4, passedStages: [1, 2, 3] }));
+      }
+      if (url.includes("/api/labs")) {
+        return json({ labs: [{ id: "ml-intro", visible: true }] });
+      }
+      return json({});
+    });
+    vi.stubGlobal("fetch", fetchSpy);
+
+    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await screen.findByRole("heading", { name: "让模型调整权重" });
+
+    for (const prompt of ML_STAGES[3].prompts) {
+      fireEvent.click(
+        await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
+      );
+    }
+    fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+    await waitFor(() =>
+      expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(true),
+    );
+
+    // Reset before the pre-reset judge response returns.
+    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    await screen.findByRole("heading", { name: "给 10 个词打分" });
+
+    // Stale pre-reset judge finally lands claiming stage 4 passed — must be ignored!
+    resolveJudge(
+      json({
+        passed: true,
+        score: 5,
+        total: 5,
+        testSummary: { parts: [], detail: "stale" },
+        submissionId: "sub-stale",
+        currentStage: 5,
+        passedStages: [1, 2, 3, 4],
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("通过本关判定")).not.toBeInTheDocument());
+    expect(screen.getByRole("heading", { name: "给 10 个词打分" })).toBeInTheDocument();
+  });
 });

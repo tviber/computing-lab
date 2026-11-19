@@ -7,6 +7,7 @@ type DraftSaveResponse = {
   ok?: boolean;
   applied?: boolean;
   revision?: number;
+  projectGeneration?: number;
   /** Calculator only: the component library's own OCC counter after this
    *  write (see `expectedComponentsRevision` in the body). */
   componentsRevision?: number;
@@ -110,6 +111,9 @@ export function useAutosaveDraft<TDraft>(options: {
   holdSend?: (stageIndex: number, draft: TDraft) => boolean;
   /** Extra inputs (e.g. unlocked components) whose change re-arms the timer. */
   deps?: unknown[];
+  /** Server project generation counter (incremented on reset) — sent on every
+   *  PUT so a delayed pre-reset write can never match revision 0 after reset. */
+  expectedGeneration?: number;
   /** Incrementing this token cancels pending saves and resets revision tracking (e.g. staff lab reset). */
   resetVersion?: number;
   onSaving: (stageIndex: number) => void;
@@ -131,6 +135,7 @@ export function useAutosaveDraft<TDraft>(options: {
   const queuedArm = useRef(new Map<number, number>());
   const inFlight = useRef(new Set<number>());
   const appliedRev = useRef(new Map<number, number>());
+  const appliedGeneration = useRef(0);
   // The component library's counter mirrors appliedRev but is project-wide
   // (one counter shared by every stage's save). Only our own APPLIED write
   // may raise it — a refusal merely reports where the server's counter
@@ -214,6 +219,9 @@ export function useAutosaveDraft<TDraft>(options: {
     const body = {
       ...(opts.bodyFor ? opts.bodyFor(stage, draft) : { stageIndex: stage, draft }),
       expectedRevision,
+      ...(opts.expectedGeneration !== undefined
+        ? { expectedGeneration: opts.expectedGeneration }
+        : {}),
     } as Record<string, unknown>;
     const carriesComponents = body.components !== undefined;
     // The library edit seq this send carried — echoed to onSaved so the
@@ -270,6 +278,11 @@ export function useAutosaveDraft<TDraft>(options: {
         const rev = typeof result?.revision === "number" ? result.revision : undefined;
         if (rev !== undefined) {
           appliedRev.current.set(stage, Math.max(appliedRev.current.get(stage) ?? 0, rev));
+        }
+        const genNum =
+          typeof result?.projectGeneration === "number" ? result.projectGeneration : undefined;
+        if (genNum !== undefined) {
+          appliedGeneration.current = Math.max(appliedGeneration.current, genNum);
         }
         const componentsRev =
           typeof result?.componentsRevision === "number" ? result.componentsRevision : undefined;
@@ -352,9 +365,11 @@ export function useAutosaveDraft<TDraft>(options: {
       // the learner explicitly restored their copy) the stage autosaves
       // normally.
       if (conflicted.current.has(stage)) {
-        const fenced =
+        const revFenced =
           latestOptions.current.expectedRevisionOf(stage) < (appliedRev.current.get(stage) ?? 0);
-        if (fenced) continue;
+        const genFenced =
+          (latestOptions.current.expectedGeneration ?? 0) < appliedGeneration.current;
+        if (revFenced || genFenced) continue;
         conflicted.current.delete(stage);
       }
       const draft = latestOptions.current.draftOf(stage);
@@ -442,6 +457,7 @@ export function useAutosaveDraft<TDraft>(options: {
     const queued = queuedArm.current;
     const flying = inFlight.current;
     const applied = appliedRev.current;
+    const appliedGen = appliedGeneration;
     const appliedComponents = appliedComponentsRev;
     const componentsFence = componentsFenceRev;
     const componentsFlying = componentsInFlight;
@@ -457,6 +473,7 @@ export function useAutosaveDraft<TDraft>(options: {
       queued.clear();
       flying.clear();
       applied.clear();
+      appliedGen.current = 0;
       appliedComponents.current = 0;
       componentsFence.current = null;
       componentsFlying.current = false;

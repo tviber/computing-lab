@@ -12,9 +12,18 @@ export function colorQuantizationRoutes() {
   return labRoutes<StageDraft, QuantJudgeResult>({
     labId: "color-quantization",
     stageCount: COLOR_QUANT_STAGES.length,
-    saveDraft: (db, project, stageIndex, body, expectedRevision) =>
+    saveDraft: (
+      db,
+      project,
+      stageIndex,
+      body,
+      expectedRevision,
+      _expectedComponents,
+      expectedGeneration,
+    ) =>
       saveStageDraft(db, project, stageIndex, sanitizeDraft(body.draft ?? {}), {
         expectedRevision,
+        expectedGeneration,
       }),
     judge: (db, project, stageIndex, body, { staff }) =>
       judgeQuantSubmission(

@@ -58,9 +58,18 @@ export function mlIntroRoutes() {
     projectExtras: (db, project) => ({
       runSummaries: latestRunSummaries(db, project.id),
     }),
-    saveDraft: (db, project, stageIndex, body, expectedRevision) =>
+    saveDraft: (
+      db,
+      project,
+      stageIndex,
+      body,
+      expectedRevision,
+      _expectedComponents,
+      expectedGeneration,
+    ) =>
       saveStageDraft(db, project, stageIndex, sanitizeMlDraft(stageIndex, body.draft ?? {}), {
         expectedRevision,
+        expectedGeneration,
       }),
     judge: (db, project, stageIndex, body, { staff }) => {
       const key = `${project.userId}|ml-intro|${stageIndex}`;

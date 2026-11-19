@@ -1,4 +1,4 @@
-import { act, fireEvent, screen } from "@testing-library/react";
+import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt } from "../../../test/router-test-helpers";
 import type { CircuitGraph } from "../domain/graph";
@@ -187,6 +187,91 @@ describe("CalculatorLabPage takeaway", () => {
     await renderAppAt("/classes/c1/labs/calculator");
 
     await screen.findByText(/用一根导线把输入 A 连到输出 Y/);
+    expect(screen.queryByText(/本关收获/)).not.toBeInTheDocument();
+  });
+
+  it("drops a pre-reset in-flight judge outcome and disables submit while resetting", async () => {
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    );
+    let resolveJudge!: (value: Response) => void;
+    let resolveReset!: (value: Response) => void;
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL, init?: RequestInit) => {
+        const url =
+          typeof input === "string" ? input : input instanceof URL ? input.href : input.url;
+        if (url.includes("/judge") && init?.method === "POST") {
+          return new Promise<Response>((res) => {
+            resolveJudge = res;
+          });
+        }
+        if (url.includes("/reset") && init?.method === "POST") {
+          return new Promise<Response>((res) => {
+            resolveReset = res;
+          });
+        }
+        if (url.includes("/project")) {
+          return new Response(
+            JSON.stringify({
+              currentStage: 2,
+              passedStages: [1],
+              unlockedSubmodules: [],
+              drafts: {},
+              projectGeneration: 0,
+            }),
+            { headers: { "content-type": "application/json" } },
+          );
+        }
+        return new Response(JSON.stringify({}), {
+          headers: { "content-type": "application/json" },
+        });
+      }),
+    );
+
+    await renderAppAt("/classes/c1/labs/calculator");
+    await screen.findByRole("button", { name: /半加器/ });
+
+    // Start judge, then immediately trigger staff reset.
+    fireEvent.click(screen.getByRole("button", { name: "提交" }));
+    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    expect(screen.getByRole("button", { name: /提交|判定中/ })).toBeDisabled();
+
+    resolveReset(
+      new Response(
+        JSON.stringify({
+          currentStage: 1,
+          passedStages: [],
+          unlockedSubmodules: [],
+          drafts: {},
+          projectGeneration: 1,
+        }),
+        { headers: { "content-type": "application/json" } },
+      ),
+    );
+    await screen.findByText(/用一根导线把输入 A 连到输出 Y/);
+
+    // Delayed judge returns passed=true from pre-reset — must be dropped cleanly.
+    resolveJudge(
+      new Response(
+        JSON.stringify({
+          score: 4,
+          total: 4,
+          passed: true,
+          testSummary: { categories: {}, counterexample: null, error: null },
+          submissionId: "stale-sub",
+          passedStages: [1, 2],
+          unlockedComponent: null,
+          unlockedSubmodules: [],
+          componentsRevision: 0,
+        }),
+        { headers: { "content-type": "application/json" } },
+      ),
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "提交结果" })).not.toBeInTheDocument(),
+    );
     expect(screen.queryByText(/本关收获/)).not.toBeInTheDocument();
   });
 });

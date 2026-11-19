@@ -7,7 +7,7 @@ const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
 /** Current schema version; bump alongside every migration step below. */
-export const SCHEMA_VERSION = 17;
+export const SCHEMA_VERSION = 18;
 
 export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
 
@@ -377,6 +377,15 @@ export function migrate(db: DatabaseSync): void {
           shiftMlStageMap(row.draft_graph),
           shiftMlStageMap(row.draft_revisions),
           row.id,
+        );
+      }
+    }
+    // v17 -> v18: monotonic per-project generation counter incremented on staff reset,
+    // fencing off stale pre-reset autosaves and judge requests even when revisions start over at 0.
+    if (version < 18) {
+      if (!hasColumn(db, "student_projects", "project_generation")) {
+        db.exec(
+          "ALTER TABLE student_projects ADD COLUMN project_generation INTEGER NOT NULL DEFAULT 0",
         );
       }
     }

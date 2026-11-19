@@ -7,7 +7,6 @@
 
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useReducer, useState } from "react";
-import { api, describeApiError } from "../../../shared/api/client";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
@@ -101,36 +100,44 @@ export function MlIntroLabPage() {
       isStaff,
     ),
   );
-  const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [judgedStage, setJudgedStage] = useState<number | null>(null);
 
   const stage = stageOf(state);
 
-  const { projectLoaded, loadError, fetchProject, resetting, saveGeneration, staffControls } =
-    useLabProject<MlDraft, MlProjectExtras, MlLessonAction>({
-      classId,
-      labId: "ml-intro",
-      ready: status === "authenticated",
-      staff: isStaff,
-      onResetSuccess: () => {
-        setSubmitError(null);
-        setJudgedStage(null);
-      },
-      toAction: (project, meta) => ({
-        type: "load-project",
-        currentStage: project.currentStage,
-        passedStages: project.passedStages,
-        draftRevisions: project.draftRevisions,
-        drafts: Object.fromEntries(
-          Object.entries(project.drafts ?? {}).map(([k, v]) => [Number(k), v]),
-        ),
-        runSummaries: project.runSummaries,
-        staffMode: project.staffFreeNavigation ?? isStaff,
-        isReset: meta?.isReset,
-      }),
-      dispatch,
-    });
+  const {
+    projectLoaded,
+    loadError,
+    fetchProject,
+    postJudge,
+    submittingJudge,
+    projectGeneration,
+    resetting,
+    saveGeneration,
+    staffControls,
+  } = useLabProject<MlDraft, MlProjectExtras, MlLessonAction>({
+    classId,
+    labId: "ml-intro",
+    ready: status === "authenticated",
+    staff: isStaff,
+    onResetSuccess: () => {
+      setSubmitError(null);
+      setJudgedStage(null);
+    },
+    toAction: (project, meta) => ({
+      type: "load-project",
+      currentStage: project.currentStage,
+      passedStages: project.passedStages,
+      draftRevisions: project.draftRevisions,
+      drafts: Object.fromEntries(
+        Object.entries(project.drafts ?? {}).map(([k, v]) => [Number(k), v]),
+      ),
+      runSummaries: project.runSummaries,
+      staffMode: project.staffFreeNavigation ?? isStaff,
+      isReset: meta?.isReset,
+    }),
+    dispatch,
+  });
 
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
@@ -156,6 +163,7 @@ export function MlIntroLabPage() {
     stageIndex: state.stageIndex,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
+    expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
     expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
@@ -173,23 +181,18 @@ export function MlIntroLabPage() {
         );
         return;
       }
-      setSubmitting(true);
       setSubmitError(null);
-      try {
-        const outcome = await api.post<MlJudgeResult>(
-          `/api/classes/${classId}/labs/ml-intro/judge`,
-          { stageIndex, draft },
-        );
+      const response = await postJudge<MlJudgeResult>({ stageIndex, draft });
+      if (response.status === "applied") {
         setJudgedStage(stageIndex);
-        dispatch({ type: "judge-result", stageIndex, outcome });
-      } catch (error) {
-        setSubmitError(describeApiError(error));
-      } finally {
-        setSubmitting(false);
+        dispatch({ type: "judge-result", stageIndex, outcome: response.outcome });
+      } else if (response.status === "error") {
+        setSubmitError(response.error);
       }
     },
-    [classId, isStaff, state.passedStages],
+    [classId, isStaff, state.passedStages, postJudge],
   );
+  const submitting = submittingJudge || resetting;
 
   const passedStages = state.passedStages;
   const activeIndex = stage?.index ?? 1;

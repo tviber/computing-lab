@@ -37,6 +37,9 @@ export type ProjectRow<TDraft = unknown> = {
    *  revision it last saw applied (`expectedRevision`) and the server only
    *  applies the write when it still matches, assigning `stored + 1`. */
   draftRevisions: Record<string, number>;
+  /** Monotonic counter bumped on every server reset so pre-reset saves and
+   *  judges cannot land even after `draftRevisions` clears back to `{}`. */
+  projectGeneration: number;
 };
 
 /** Outcome of a compare-and-swap draft write: `revision` is the newly
@@ -47,6 +50,7 @@ export type ProjectRow<TDraft = unknown> = {
 export type DraftSaveResult = {
   applied: boolean;
   revision: number;
+  projectGeneration?: number;
   componentsRevision?: number;
 };
 
@@ -65,6 +69,7 @@ type RawProject = {
   unlocked_submodules: string;
   draft_graph: string;
   draft_revisions: string;
+  project_generation: number;
 };
 
 function toProject<TDraft>(row: RawProject): ProjectRow<TDraft> {
@@ -80,6 +85,7 @@ function toProject<TDraft>(row: RawProject): ProjectRow<TDraft> {
     draftRevisions: toDraftRevisions(
       parseJsonColumn<Record<string, number | { revision?: unknown }>>(row.draft_revisions, {}),
     ),
+    projectGeneration: row.project_generation ?? 0,
   };
 }
 
@@ -155,6 +161,7 @@ export function saveStageDraft<TDraft>(
     unlockedSubmodules?: unknown[];
     expectedRevision?: number;
     expectedComponentsRevision?: number;
+    expectedGeneration?: number;
   },
 ): DraftSaveResult {
   const key = String(stageIndex);
@@ -164,18 +171,34 @@ export function saveStageDraft<TDraft>(
   const expected = extras?.expectedRevision;
   return withTransaction(db, () => {
     const row = db
-      .prepare("SELECT draft_graph, draft_revisions FROM student_projects WHERE id = ?")
-      .get(project.id) as { draft_graph: string; draft_revisions: string } | undefined;
+      .prepare(
+        "SELECT draft_graph, draft_revisions, project_generation FROM student_projects WHERE id = ?",
+      )
+      .get(project.id) as
+      { draft_graph: string; draft_revisions: string; project_generation: number } | undefined;
+    const storedGeneration = row?.project_generation ?? 0;
     const revisions = toDraftRevisions(
       parseJsonColumn<Record<string, number | { revision?: unknown }>>(row?.draft_revisions, {}),
     );
     const stored = revisions[key] ?? 0;
     const carriesLibrary = extras?.unlockedSubmodules !== undefined;
     const storedComponents = revisions[COMPONENTS_REVISION_KEY] ?? 0;
+    if (
+      extras?.expectedGeneration !== undefined &&
+      storedGeneration !== extras.expectedGeneration
+    ) {
+      return {
+        applied: false,
+        revision: stored,
+        projectGeneration: storedGeneration,
+        ...(carriesLibrary ? { componentsRevision: storedComponents } : {}),
+      };
+    }
     if (expected !== undefined && stored !== expected) {
       return {
         applied: false,
         revision: stored,
+        projectGeneration: storedGeneration,
         ...(carriesLibrary ? { componentsRevision: storedComponents } : {}),
       };
     }
@@ -188,7 +211,12 @@ export function saveStageDraft<TDraft>(
       (extras?.expectedComponentsRevision === undefined ||
         storedComponents !== extras.expectedComponentsRevision)
     ) {
-      return { applied: false, revision: stored, componentsRevision: storedComponents };
+      return {
+        applied: false,
+        revision: stored,
+        projectGeneration: storedGeneration,
+        componentsRevision: storedComponents,
+      };
     }
     const revision = stored + 1;
     const drafts = {
@@ -200,7 +228,7 @@ export function saveStageDraft<TDraft>(
       db.prepare(
         "UPDATE student_projects SET draft_graph = ?, draft_revisions = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?",
       ).run(JSON.stringify(drafts), JSON.stringify(revisions), project.id);
-      return { applied: true, revision };
+      return { applied: true, revision, projectGeneration: storedGeneration };
     }
     const componentsRevision = storedComponents + 1;
     revisions[COMPONENTS_REVISION_KEY] = componentsRevision;
@@ -212,7 +240,7 @@ export function saveStageDraft<TDraft>(
       JSON.stringify(extras.unlockedSubmodules),
       project.id,
     );
-    return { applied: true, revision, componentsRevision };
+    return { applied: true, revision, projectGeneration: storedGeneration, componentsRevision };
   });
 }
 
@@ -333,6 +361,7 @@ export function resetLabProject<TDraft = unknown>(
            unlocked_submodules = '[]',
            draft_graph = '{}',
            draft_revisions = '{}',
+           project_generation = project_generation + 1,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
        WHERE id = ?`,
     ).run(projectId);
