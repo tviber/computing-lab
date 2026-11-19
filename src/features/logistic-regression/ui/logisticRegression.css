@@ -1,0 +1,1633 @@
+.logistic-regression-lab {
+  --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", ui-monospace, monospace;
+}
+
+.logistic-regression-workspace,
+.logistic-regression-stage-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.logistic-regression-experience-input {
+  resize: vertical;
+}
+
+.logistic-regression-experience-result {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logistic-regression-experience-details summary {
+  cursor: pointer;
+  color: var(--secondary);
+}
+
+.logistic-regression-experience-details[open] summary {
+  margin-bottom: var(--space-2);
+}
+
+.logistic-regression-lab .stage-brief {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3) var(--space-4);
+  background: var(--surface);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.logistic-regression-lab .stage-brief p:where(:not(.stage-takeaway)) {
+  font-size: 14px;
+  line-height: 1.65;
+  margin: 0;
+}
+
+.logistic-regression-desc {
+  color: var(--secondary);
+}
+
+.logistic-regression-hints-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+.logistic-regression-panel,
+.logistic-regression-probe-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.logistic-regression-panel-head,
+.logistic-regression-chart-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.logistic-regression-panel-head h3,
+.logistic-regression-chart-head h4 {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 650;
+}
+
+.logistic-regression-subhead {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.logistic-regression-field-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--secondary);
+}
+
+.logistic-regression-muted-note {
+  margin: 0;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+
+.logistic-regression-data-guide {
+  margin: 0;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.logistic-regression-mono {
+  font-family: var(--font-mono);
+}
+
+.logistic-regression-badge-neutral,
+.logistic-regression-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 2px 8px;
+}
+
+.logistic-regression-pill.is-success,
+.logistic-regression-pill.is-regime-steady {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success);
+}
+
+.logistic-regression-pill.is-warn,
+.logistic-regression-pill.is-regime-slow {
+  background: var(--warn-soft);
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+  color: var(--warn);
+}
+
+.logistic-regression-pill.is-danger,
+.logistic-regression-pill.is-regime-volatile {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.logistic-regression-preset-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.logistic-regression-chip-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 13px;
+  padding: 6px 10px;
+  cursor: pointer;
+}
+
+.logistic-regression-chip-btn small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.logistic-regression-chip-btn:hover {
+  border-color: var(--accent);
+}
+
+.logistic-regression-chip-btn.is-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.logistic-regression-chip-btn.is-active small {
+  color: var(--accent);
+}
+
+.logistic-regression-text-input {
+  width: 100%;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 8px 12px;
+  font-size: 14px;
+}
+
+.logistic-regression-note-box {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--accent-line);
+  background: var(--accent-soft);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.logistic-regression-quote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+  border-radius: var(--radius-control);
+  font-size: 15px;
+}
+
+.logistic-regression-token-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.logistic-regression-tok {
+  display: inline-flex;
+  max-width: 100%;
+  min-width: 0;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 8px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+}
+
+.logistic-regression-tok-text {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.logistic-regression-tok-tag {
+  font-size: 10px;
+  color: var(--muted);
+}
+
+.logistic-regression-tok.is-kept {
+  background: var(--accent-soft);
+  border-color: var(--accent-line);
+}
+.logistic-regression-tok.is-kept .logistic-regression-tok-text,
+.logistic-regression-tok.is-kept .logistic-regression-tok-tag {
+  color: var(--accent);
+}
+
+.logistic-regression-tok.is-duplicate {
+  background: var(--subtle);
+  border-style: dashed;
+}
+
+.logistic-regression-tok.is-oov {
+  background: var(--warn-soft);
+  border-color: color-mix(in srgb, var(--warn) 40%, transparent);
+}
+.logistic-regression-tok.is-oov .logistic-regression-tok-text,
+.logistic-regression-tok.is-oov .logistic-regression-tok-tag {
+  color: var(--warn);
+}
+
+.logistic-regression-tok.is-filtered {
+  opacity: 0.65;
+}
+
+.logistic-regression-bow-summary {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding-top: var(--space-2);
+  border-top: 1px solid var(--border);
+}
+
+.logistic-regression-vector-preview {
+  margin: var(--space-1) 0 0;
+  font-size: 12px;
+  line-height: 1.5;
+  color: var(--secondary);
+  word-break: break-word;
+}
+
+.logistic-regression-order-compare {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.logistic-regression-puzzle-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.logistic-regression-puzzle-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+
+.logistic-regression-puzzle-token {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+}
+
+.logistic-regression-puzzle-token strong {
+  font-size: 14px;
+}
+
+.logistic-regression-puzzle-token span {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.logistic-regression-puzzle-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.logistic-regression-pill-choice {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 4px 10px;
+  cursor: pointer;
+}
+
+.logistic-regression-pill-choice.is-selected {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.logistic-regression-score-layout {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.logistic-regression-sliders-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logistic-regression-slider-row {
+  display: grid;
+  grid-template-columns: minmax(105px, auto) 1fr 52px;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+}
+
+.logistic-regression-slider-row.is-bias {
+  padding: 8px 10px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+}
+
+.logistic-regression-slider-row.is-bias label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logistic-regression-slider-row.is-bias small {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.logistic-regression-slider-val {
+  text-align: right;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.is-pos {
+  color: var(--danger);
+}
+.is-neg {
+  color: var(--success);
+}
+.is-zero {
+  color: var(--muted);
+}
+.is-ok {
+  color: var(--success);
+}
+.is-bad {
+  color: var(--danger);
+}
+
+.logistic-regression-triage-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logistic-regression-triage-card {
+  width: 100%;
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+button.logistic-regression-triage-card {
+  cursor: pointer;
+}
+
+.logistic-regression-triage-card.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.logistic-regression-triage-card.is-wrong:not(.is-selected) {
+  border-color: var(--danger-border);
+}
+
+.logistic-regression-triage-top {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+}
+
+.logistic-regression-triage-prob {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.logistic-regression-triage-text {
+  margin: 0;
+  font-size: 13px;
+  color: var(--ink);
+}
+
+.logistic-regression-probe-head {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: var(--space-2);
+}
+
+.logistic-regression-probe-text {
+  margin: 4px 0 0;
+  font-size: 14px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+
+.logistic-regression-probe-head > div {
+  min-width: 0;
+}
+
+.logistic-regression-probe-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.logistic-regression-probe-grid {
+  display: grid;
+  grid-template-columns: 1.25fr 1fr;
+  gap: var(--space-4);
+  align-items: start;
+}
+
+.logistic-regression-waterfall-list {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.logistic-regression-waterfall-row {
+  display: grid;
+  grid-template-columns: 92px 1fr 56px 56px;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.logistic-regression-waterfall-word {
+  overflow-wrap: anywhere;
+}
+
+.logistic-regression-waterfall-bar-wrap {
+  height: 8px;
+  border-radius: 4px;
+  background: var(--subtle);
+  overflow: hidden;
+}
+
+.logistic-regression-waterfall-bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+.logistic-regression-waterfall-bar.is-pos {
+  background: var(--danger);
+}
+.logistic-regression-waterfall-bar.is-neg {
+  background: var(--success);
+}
+.logistic-regression-waterfall-bar.is-zero {
+  background: var(--border);
+}
+
+.logistic-regression-waterfall-val,
+.logistic-regression-waterfall-sum {
+  text-align: right;
+  font-size: 12px;
+}
+.logistic-regression-waterfall-sum {
+  color: var(--muted);
+}
+
+.logistic-regression-svg-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.logistic-regression-micro-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.logistic-regression-segmented {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  overflow: hidden;
+}
+
+.logistic-regression-segmented button {
+  border: 0;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  padding: 6px 12px;
+  cursor: pointer;
+}
+
+.logistic-regression-segmented button.is-active {
+  background: var(--accent);
+  color: var(--surface);
+  font-weight: 600;
+}
+
+.logistic-regression-inline-slider {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: 13px;
+  flex: 1;
+  min-width: 240px;
+}
+
+.logistic-regression-inline-slider input {
+  flex: 1;
+}
+
+.logistic-regression-micro-metrics,
+.logistic-regression-target-strip,
+.logistic-regression-gap-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(175px, 1fr));
+  gap: var(--space-2);
+}
+
+.logistic-regression-stat-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  padding: 8px 10px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.logistic-regression-stat-box span {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.logistic-regression-stat-box strong {
+  font-size: 14px;
+}
+
+.logistic-regression-stat-box small {
+  font-size: 11px;
+  color: var(--secondary);
+}
+
+.logistic-regression-stat-box.is-ok {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+}
+
+.logistic-regression-stat-box.is-warn {
+  background: var(--warn-soft);
+  border-color: color-mix(in srgb, var(--warn) 35%, transparent);
+}
+
+.logistic-regression-controls-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.logistic-regression-control-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logistic-regression-control-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+}
+
+.logistic-regression-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  color: var(--secondary);
+  cursor: pointer;
+}
+
+.logistic-regression-scrubber-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  font-size: 13px;
+}
+
+.logistic-regression-scrubber-row input {
+  flex: 1;
+}
+
+.logistic-regression-charts-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  gap: var(--space-3);
+}
+
+.logistic-regression-chart-box {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  padding: var(--space-2) var(--space-3);
+}
+
+.logistic-regression-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.logistic-regression-leg-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.logistic-regression-leg-swatch {
+  display: inline-block;
+  width: 12px;
+  height: 3px;
+  border-radius: 2px;
+}
+.logistic-regression-leg-swatch.is-train {
+  background: var(--accent);
+}
+.logistic-regression-leg-swatch.is-val {
+  background: var(--success);
+}
+.logistic-regression-leg-swatch.is-bgd {
+  background: var(--warn);
+}
+
+.logistic-regression-spectrum-cols {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+
+.logistic-regression-col-title {
+  margin: 0 0 8px;
+  font-size: 12px;
+  font-weight: 700;
+}
+.logistic-regression-col-title.is-danger {
+  color: var(--danger);
+}
+.logistic-regression-col-title.is-success {
+  color: var(--success);
+}
+
+.logistic-regression-weight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.logistic-regression-weight-btn {
+  width: 100%;
+  display: grid;
+  grid-template-columns: 68px 1fr 52px;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  padding: 4px 8px;
+  font-size: 12px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.logistic-regression-weight-btn:hover,
+.logistic-regression-weight-btn.is-selected {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.logistic-regression-weight-word {
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.logistic-regression-weight-bar-track {
+  height: 7px;
+  background: var(--surface);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.logistic-regression-weight-bar {
+  display: block;
+  height: 100%;
+  border-radius: 4px;
+}
+.logistic-regression-weight-bar.is-pos {
+  background: var(--danger);
+}
+.logistic-regression-weight-bar.is-neg {
+  background: var(--success);
+}
+
+.logistic-regression-weight-num {
+  text-align: right;
+  font-weight: 600;
+}
+
+.logistic-regression-word-examples {
+  border-top: 1px solid var(--border);
+  padding-top: var(--space-2);
+}
+
+.logistic-regression-word-examples ul {
+  list-style: none;
+  margin: var(--space-2) 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logistic-regression-word-examples li {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--secondary);
+}
+
+.logistic-regression-experiment-comparison {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.logistic-regression-experiment-comparison h3 {
+  margin: 0;
+  font-size: 15px;
+}
+
+.logistic-regression-comparison-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.logistic-regression-comparison-table caption {
+  text-align: left;
+  margin-bottom: 6px;
+  color: var(--secondary);
+}
+
+.logistic-regression-comparison-table th,
+.logistic-regression-comparison-table td {
+  border: 1px solid var(--border);
+  padding: 8px;
+  text-align: left;
+  overflow-wrap: anywhere;
+}
+
+.logistic-regression-comparison-table thead {
+  background: var(--subtle);
+}
+
+.logistic-regression-guide-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.logistic-regression-guide-item {
+  border-radius: var(--radius-control);
+  padding: var(--space-2);
+  opacity: 0.55;
+}
+
+.logistic-regression-guide-item.is-next,
+.logistic-regression-guide-item.is-done {
+  opacity: 1;
+}
+
+.logistic-regression-guide-item.is-done {
+  background: var(--subtle);
+}
+
+.logistic-regression-guide-prompt {
+  margin: 0 0 6px;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.logistic-regression-guide-check {
+  display: inline-flex;
+  vertical-align: middle;
+  color: var(--success);
+  margin-right: 6px;
+}
+
+.logistic-regression-guide-reveal {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.logistic-regression-guide-options {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logistic-regression-guide-option {
+  text-align: left;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  padding: 7px 10px;
+  font-size: 13px;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.logistic-regression-guide-option:hover {
+  border-color: var(--accent);
+}
+
+.logistic-regression-guide-option.is-wrong {
+  border-color: var(--danger-border);
+  background: var(--danger-soft);
+}
+
+.logistic-regression-guide-note {
+  font-size: 12px;
+  color: var(--danger);
+}
+
+.logistic-regression-submit-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.logistic-regression-verdict {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.logistic-regression-verdict.is-pass {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+}
+
+.logistic-regression-verdict.is-fail {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+
+.logistic-regression-verdict-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.logistic-regression-verdict-title {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 15px;
+}
+
+.logistic-regression-verdict-detail {
+  margin: 0;
+  font-size: 13px;
+}
+
+.logistic-regression-verdict-parts {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logistic-regression-verdict-parts li {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  padding: 6px 10px;
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.logistic-regression-part-label {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-weight: 600;
+}
+
+.logistic-regression-verdict-parts li.is-ok .logistic-regression-part-label {
+  color: var(--success);
+}
+
+.logistic-regression-verdict-parts li.is-bad .logistic-regression-part-label {
+  color: var(--danger);
+}
+
+.logistic-regression-part-detail {
+  color: var(--muted);
+}
+
+.logistic-regression-strategy-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.logistic-regression-strategy-row {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+}
+
+.logistic-regression-strategy-word {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 96px;
+}
+
+.logistic-regression-strategy-word-text {
+  font-weight: 600;
+}
+
+.logistic-regression-strategy-role {
+  font-size: 11px;
+  padding: 1px 6px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--subtle);
+}
+
+.logistic-regression-strategy-role.is-pos {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+}
+
+.logistic-regression-strategy-role.is-neg {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+}
+
+.logistic-regression-tier-group {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.logistic-regression-tier-btn {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11.5px;
+  font-weight: 600;
+  padding: 4px 8px;
+  cursor: pointer;
+}
+
+.logistic-regression-tier-btn:hover {
+  border-color: var(--accent);
+  color: var(--ink);
+}
+
+.logistic-regression-tier-btn.is-active.is-neg {
+  background: var(--success-soft);
+  border-color: var(--success-border);
+  color: var(--success);
+}
+
+.logistic-regression-tier-btn.is-active.is-zero {
+  background: var(--subtle);
+  border-color: var(--muted);
+  color: var(--ink);
+}
+
+.logistic-regression-tier-btn.is-active.is-pos {
+  background: var(--danger-soft);
+  border-color: var(--danger-border);
+  color: var(--danger);
+}
+
+.logistic-regression-strategy-meter-row {
+  display: grid;
+  grid-template-columns: 78px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+  margin-top: 2px;
+}
+
+.logistic-regression-strategy-score-tag {
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.logistic-regression-strategy-meter {
+  position: relative;
+  height: 7px;
+  border-radius: 999px;
+  background: var(--subtle);
+  border: 1px solid var(--border);
+  overflow: hidden;
+}
+
+.logistic-regression-strategy-meter-zero {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: var(--border);
+}
+
+.logistic-regression-strategy-meter-fill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 999px;
+  transition:
+    left 120ms ease-out,
+    width 120ms ease-out;
+}
+
+.logistic-regression-strategy-meter-fill.is-spam {
+  background: var(--danger);
+}
+
+.logistic-regression-strategy-meter-fill.is-warn {
+  background: var(--accent);
+}
+
+.logistic-regression-strategy-meter-fill.is-ham {
+  background: var(--success);
+}
+
+.logistic-regression-strategy-meter-cut {
+  position: absolute;
+  left: 58.3%;
+  top: 0;
+  bottom: 0;
+  width: 2px;
+  background: var(--danger);
+  opacity: 0.75;
+}
+
+.logistic-regression-sigmoid-box {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+  margin-bottom: 10px;
+}
+
+.logistic-regression-sigmoid-box p {
+  margin: 0;
+}
+
+.logistic-regression-leg-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  vertical-align: middle;
+}
+
+.logistic-regression-leg-dot.is-bias {
+  background: var(--surface);
+  border: 2px solid var(--primary);
+  border-radius: 2px;
+  transform: rotate(45deg);
+}
+
+.logistic-regression-leg-dot.is-spam-dot {
+  background: var(--danger);
+}
+
+.logistic-regression-leg-dot.is-ham-dot {
+  background: var(--success);
+}
+
+.logistic-regression-leg-dot.is-msg {
+  background: var(--accent);
+}
+
+.logistic-regression-strategy-matrix-wrap {
+  overflow-x: auto;
+}
+
+.logistic-regression-strategy-matrix {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 12px;
+}
+
+.logistic-regression-strategy-matrix th,
+.logistic-regression-strategy-matrix td {
+  border: 1px solid var(--border);
+  padding: 6px 8px;
+  text-align: center;
+  white-space: nowrap;
+}
+
+.logistic-regression-strategy-matrix thead th {
+  background: var(--subtle);
+  font-weight: 600;
+}
+
+.logistic-regression-strategy-matrix tbody th {
+  text-align: left;
+  background: var(--subtle);
+  font-weight: 600;
+}
+
+.logistic-regression-strategy-matrix td.is-hit {
+  background: var(--accent-soft);
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.logistic-regression-strategy-matrix td.is-miss {
+  color: var(--muted);
+}
+
+.logistic-regression-strategy-formula {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: var(--radius-control);
+  border: 1px solid var(--border);
+  background: var(--subtle);
+  font-size: 13px;
+}
+
+.logistic-regression-strategy-formula p {
+  margin: 0;
+}
+
+.logistic-regression-penalty-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  align-items: stretch;
+}
+
+.logistic-regression-nudge-card {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-2);
+}
+
+.logistic-regression-nudge-val {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.logistic-regression-nudge-labels {
+  display: flex;
+  justify-content: space-between;
+  gap: var(--space-2);
+  font-size: 11px;
+  color: var(--muted);
+}
+
+.logistic-regression-nudge-meter {
+  height: 10px;
+}
+
+.logistic-regression-role-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.logistic-regression-role-desc {
+  margin: 0;
+  font-size: 12.5px;
+  line-height: 1.55;
+  color: var(--secondary);
+}
+
+.logistic-regression-appendix-bar {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.logistic-regression-appendix-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+
+.logistic-regression-derivation-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+
+.logistic-regression-formula-card {
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  padding: var(--space-2) var(--space-3);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.logistic-regression-formula-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.logistic-regression-toggle-btn {
+  font-size: 12px;
+  padding: 4px 10px;
+}
+
+.logistic-regression-formula-conclusion {
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--primary);
+  overflow-wrap: anywhere;
+}
+
+.logistic-regression-derivation-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+
+.logistic-regression-derivation-steps {
+  margin: 0;
+  padding-left: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--secondary);
+}
+
+.logistic-regression-math-line {
+  display: block;
+  margin-top: 3px;
+  padding: 4px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-mini);
+  background: var(--surface);
+  color: var(--primary);
+  font-size: 12px;
+  overflow-wrap: anywhere;
+}
+
+.logistic-regression-slice-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.logistic-regression-slice-group {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logistic-regression-slice-eta-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.logistic-regression-chip-sm {
+  font-size: 12px;
+  padding: 4px 8px;
+}
+
+.logistic-regression-slice-sub {
+  font-weight: 400;
+  font-size: 12px;
+  color: var(--muted);
+  margin-left: 6px;
+}
+
+.logistic-regression-leg-swatch.is-tangent {
+  background: var(--warning);
+}
+
+.logistic-regression-slice-svg {
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.logistic-regression-slice-svg.is-dragging {
+  cursor: grabbing;
+}
+
+.logistic-regression-slice-handle {
+  cursor: grab;
+}
+
+.logistic-regression-slice-handle:focus-visible {
+  stroke: var(--accent-ink);
+  stroke-width: 3;
+}
+
+.logistic-regression-slice-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logistic-regression-slice-insight {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.logistic-regression-slice-trail {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.logistic-regression-trail-chips {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.logistic-regression-trail-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  font-size: 11.5px;
+  color: var(--primary);
+}
+
+.logistic-regression-trail-chip small {
+  color: var(--muted);
+}
+
+.logistic-regression-rail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.logistic-regression-classroom-toggle-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 10px 16px 0 0;
+  border-top: 1px solid var(--border);
+}
+
+.logistic-regression-classroom-btn {
+  width: 100%;
+  justify-content: center;
+  font-size: 12.5px;
+}
+
+.logistic-regression-classroom-banner {
+  border-color: var(--warning-border);
+  background: var(--warning-soft);
+  color: var(--warning-ink);
+}
+
+.logistic-regression-before-after {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+
+.logistic-regression-before-after-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.logistic-regression-before-after-head h4 {
+  margin: 0;
+  font-size: 13.5px;
+  font-weight: 650;
+}
+
+.logistic-regression-before-after-kpis {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.logistic-regression-baseline-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+
+.logistic-regression-baseline-grid .logistic-regression-stat-box {
+  min-width: 0;
+  background: var(--surface);
+}
+
+.logistic-regression-spotlight-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.logistic-regression-spotlight-row {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 12.5px;
+}
+
+.logistic-regression-spotlight-text {
+  min-width: 0;
+  overflow-wrap: anywhere;
+  color: var(--primary);
+}
+
+.logistic-regression-spotlight-prob {
+  font-size: 12px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.logistic-regression-advanced-box .logistic-regression-panel-head p {
+  margin-top: 4px;
+}
+
+@media (max-width: 960px) {
+  .logistic-regression-classroom-toggle-card {
+    padding-right: 0;
+  }
+
+  .logistic-regression-spotlight-row {
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .logistic-regression-penalty-grid,
+  .logistic-regression-appendix-grid,
+  .logistic-regression-derivation-grid,
+  .logistic-regression-baseline-grid,
+  .logistic-regression-bow-summary,
+  .logistic-regression-score-layout,
+  .logistic-regression-probe-grid,
+  .logistic-regression-controls-grid,
+  .logistic-regression-spectrum-cols {
+    grid-template-columns: 1fr;
+  }
+}

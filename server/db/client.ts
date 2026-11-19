@@ -6,8 +6,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
-/** Current schema version; bump alongside every migration step below. */
-export const SCHEMA_VERSION = 18;
+export const SCHEMA_VERSION = 21;
 
 export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
 
@@ -80,7 +79,7 @@ function hasColumn(db: DatabaseSync, table: string, column: string): boolean {
   return rows.some((r) => r.name === column);
 }
 
-function shiftMlStageMap(raw: string): string {
+function shiftLogisticRegressionStageMap(raw: string): string {
   const parsed = parseJsonColumn<Record<string, unknown>>(raw, {});
   const shifted: Record<string, unknown> = {};
   for (const [key, value] of Object.entries(parsed)) {
@@ -341,7 +340,7 @@ export function migrate(db: DatabaseSync): void {
         "UPDATE submissions SET stage_index = stage_index + 1 " +
           "WHERE lab_id = 'ml-intro' AND stage_index BETWEEN 1 AND 5",
       );
-      const mlRows = db
+      const logisticRegressionRows = db
         .prepare(
           "SELECT id, passed_stages, draft_graph, draft_revisions FROM student_projects " +
             "WHERE lab_id = 'ml-intro'",
@@ -356,7 +355,7 @@ export function migrate(db: DatabaseSync): void {
         "UPDATE student_projects SET passed_stages = ?, current_stage = ?, draft_graph = ?, draft_revisions = ? " +
           "WHERE id = ?",
       );
-      for (const row of mlRows) {
+      for (const row of logisticRegressionRows) {
         const shiftedPassed = Array.from(
           new Set(
             parseJsonColumn<number[]>(row.passed_stages, [])
@@ -374,8 +373,8 @@ export function migrate(db: DatabaseSync): void {
         updateStmt.run(
           JSON.stringify(shiftedPassed),
           nextStage,
-          shiftMlStageMap(row.draft_graph),
-          shiftMlStageMap(row.draft_revisions),
+          shiftLogisticRegressionStageMap(row.draft_graph),
+          shiftLogisticRegressionStageMap(row.draft_revisions),
           row.id,
         );
       }
@@ -388,6 +387,71 @@ export function migrate(db: DatabaseSync): void {
           "ALTER TABLE student_projects ADD COLUMN project_generation INTEGER NOT NULL DEFAULT 0",
         );
       }
+    }
+    if (version < 19) {
+      db.exec(`
+        UPDATE submissions SET stage_index = 7 WHERE lab_id = 'ml-intro' AND stage_index = 5;
+        UPDATE submissions SET stage_index = 5
+        WHERE lab_id = 'ml-intro' AND stage_index = 6 AND passed = 1;
+      `);
+      const projects = db
+        .prepare(
+          `SELECT id, passed_stages, draft_graph, draft_revisions
+         FROM student_projects WHERE lab_id = 'ml-intro'`,
+        )
+        .all() as {
+        id: string;
+        passed_stages: string;
+        draft_graph: string;
+        draft_revisions: string;
+      }[];
+      const update = db.prepare(
+        `UPDATE student_projects
+         SET passed_stages = ?, current_stage = ?, draft_graph = ?, draft_revisions = ?,
+             project_generation = project_generation + 1
+         WHERE id = ?`,
+      );
+      for (const project of projects) {
+        const oldPassed = parseJsonColumn<number[]>(project.passed_stages, []);
+        const passed = [1, 2, 3, 4].filter((index) => oldPassed.includes(index));
+        if (oldPassed.includes(6)) passed.push(5);
+        const drafts = parseJsonColumn<Record<string, unknown>>(project.draft_graph, {});
+        const revisions = parseJsonColumn<Record<string, unknown>>(project.draft_revisions, {});
+        delete drafts[5];
+        delete drafts[6];
+        delete revisions[5];
+        delete revisions[6];
+        const next = [1, 2, 3, 4, 5].find((index) => !passed.includes(index)) ?? 6;
+        update.run(
+          JSON.stringify(passed),
+          next,
+          JSON.stringify(drafts),
+          JSON.stringify(revisions),
+          project.id,
+        );
+      }
+    }
+    if (version < 20) {
+      db.exec(`
+        UPDATE student_projects SET lab_id = 'logistic-regression' WHERE lab_id = 'ml-intro';
+        UPDATE submissions SET lab_id = 'logistic-regression' WHERE lab_id = 'ml-intro';
+        UPDATE lab_settings SET lab_id = 'logistic-regression' WHERE lab_id = 'ml-intro';
+        UPDATE lab_class_settings SET lab_id = 'logistic-regression' WHERE lab_id = 'ml-intro';
+      `);
+    }
+    if (version < 21) {
+      db.exec(`
+        UPDATE student_projects
+        SET draft_graph = json_remove(draft_graph, '$."5"', '$."6"')
+        WHERE lab_id = 'logistic-regression' AND json_valid(draft_graph);
+        UPDATE student_projects
+        SET draft_revisions = json_remove(draft_revisions, '$."5"', '$."6"')
+        WHERE lab_id = 'logistic-regression' AND json_valid(draft_revisions);
+        UPDATE submissions
+        SET snapshot_graph = json_remove(snapshot_graph, '$.probeText')
+        WHERE lab_id = 'logistic-regression' AND stage_index BETWEEN 5 AND 7
+          AND json_valid(snapshot_graph);
+      `);
     }
     if (version < SCHEMA_VERSION) db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   });

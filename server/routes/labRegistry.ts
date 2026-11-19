@@ -6,7 +6,7 @@ import { colorQuantizationRoutes } from "./colorQuantization.ts";
 import { decodingRoutes } from "./decoding.ts";
 import { imageSamplingRoutes } from "./imageSampling.ts";
 import { lunchShiftRoutes } from "./lunchShift.ts";
-import { mlIntroRoutes } from "./mlIntro.ts";
+import { logisticRegressionRoutes } from "./logisticRegression.ts";
 
 /**
  * Every `LabId` in `labMetadata` must mount an API route factory here;
@@ -16,7 +16,7 @@ export const LAB_ROUTES: Record<LabId, () => Hono<{ Variables: AppVariables }>> 
   calculator: calculatorRoutes,
   decoding: decodingRoutes,
   "lunch-shift": lunchShiftRoutes,
-  "ml-intro": mlIntroRoutes,
+  "logistic-regression": logisticRegressionRoutes,
   "image-sampling": imageSamplingRoutes,
   "color-quantization": colorQuantizationRoutes,
 };

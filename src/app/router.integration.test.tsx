@@ -63,7 +63,7 @@ describe("application router integration", () => {
     }
   });
 
-  it("blocks closed ml-intro entry redirect and class route for non-admins", async () => {
+  it("blocks closed logistic-regression entry redirect and class route for non-admins", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
       if (path.includes("/api/labs")) {
@@ -71,8 +71,8 @@ describe("application router integration", () => {
           JSON.stringify({
             labs: [
               {
-                id: "ml-intro",
-                stageCount: 6,
+                id: "logistic-regression",
+                stageCount: 5,
                 hidden: true,
                 openClassIds: null,
                 visible: false,
@@ -89,11 +89,11 @@ describe("application router integration", () => {
       });
     });
 
-    await renderAppAt("/labs/ml-intro", { auth: teacherAuthState });
+    await renderAppAt("/labs/logistic-regression", { auth: teacherAuthState });
     expect(await screen.findByRole("heading", { name: "这个实验暂未开放" })).toBeInTheDocument();
-    expect(screen.getByText(/机器学习入门/)).toBeInTheDocument();
+    expect(screen.getByText(/逻辑回归/)).toBeInTheDocument();
 
-    await renderAppAt("/classes/c1/labs/ml-intro", { auth: teacherAuthState });
+    await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
     expect(
       (await screen.findAllByRole("heading", { name: "这个实验暂未开放" })).length,
     ).toBeGreaterThan(0);
@@ -107,6 +107,20 @@ describe("application router integration", () => {
     );
     expect(screen.queryByText(/仅对管理员开放预览/)).not.toBeInTheDocument();
   });
+
+  it.each(["/labs/ml-intro", "/classes/c1/labs/ml-intro"])(
+    "redirects %s without dropping classroom or stage parameters",
+    async (path) => {
+      const { router, history } = await renderAppAt(`${path}?classroom=1&stage=3`, {
+        auth: teacherAuthState,
+      });
+      await waitFor(() =>
+        expect(router.state.location.pathname).toBe("/classes/c1/labs/logistic-regression"),
+      );
+      expect(router.state.location.search).toEqual({ classroom: 1, stage: 3 });
+      expect(history.length).toBe(1);
+    },
+  );
 
   it("keeps one history entry per lab visit so back and forward work", async () => {
     const { router, history } = await renderAppAt("/", { auth: teacherAuthState });

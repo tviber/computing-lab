@@ -313,7 +313,7 @@ describe("migrate", () => {
     db.close();
   });
 
-  it("shifts ml-intro 5-stage progress, drafts, revisions, and submissions forward on v16 -> v17", () => {
+  it("shifts legacy logistic regression progress, drafts, revisions, and submissions forward from v16", () => {
     const db = fixtureDb(16);
     db.prepare("INSERT INTO classes (id, name, invite_code) VALUES ('c1', 'class', 'inv')").run();
     db.prepare(
@@ -330,14 +330,14 @@ describe("migrate", () => {
     for (const stage of [1, 2]) {
       db.prepare(
         "INSERT INTO submissions (id, project_id, user_id, lab_id, stage_index, snapshot_graph, score, total, passed, test_summary) " +
-          `VALUES ('ml-${stage}', 'p1', 'u1', 'ml-intro', ${stage}, '{}', 1, 1, 1, '{}')`,
+          `VALUES ('logistic-regression-${stage}', 'p1', 'u1', 'ml-intro', ${stage}, '{}', 1, 1, 1, '{}')`,
       ).run();
     }
 
     migrate(db);
 
     expect(versionOf(db)).toBe(SCHEMA_VERSION);
-    const mlRow = db
+    const logisticRegressionRow = db
       .prepare(
         "SELECT passed_stages, current_stage, draft_graph, draft_revisions FROM student_projects WHERE id='p1'",
       )
@@ -347,17 +347,19 @@ describe("migrate", () => {
       draft_graph: string;
       draft_revisions: string;
     };
-    expect(mlRow.passed_stages).toBe("[2,3]");
-    expect(mlRow.current_stage).toBe(1);
-    expect(JSON.parse(mlRow.draft_graph)).toEqual({
+    expect(logisticRegressionRow.passed_stages).toBe("[2,3]");
+    expect(logisticRegressionRow.current_stage).toBe(1);
+    expect(JSON.parse(logisticRegressionRow.draft_graph)).toEqual({
       "2": { customText: "hi" },
       "3": { bias: -1 },
     });
-    expect(JSON.parse(mlRow.draft_revisions)).toEqual({ "2": 4, "3": 2 });
-    const mlSubs = db
-      .prepare("SELECT stage_index FROM submissions WHERE lab_id='ml-intro' ORDER BY stage_index")
+    expect(JSON.parse(logisticRegressionRow.draft_revisions)).toEqual({ "2": 4, "3": 2 });
+    const logisticRegressionSubs = db
+      .prepare(
+        "SELECT stage_index FROM submissions WHERE lab_id='logistic-regression' ORDER BY stage_index",
+      )
       .all() as { stage_index: number }[];
-    expect(mlSubs.map((s) => s.stage_index)).toEqual([2, 3]);
+    expect(logisticRegressionSubs.map((s) => s.stage_index)).toEqual([2, 3]);
     expect(
       (
         db.prepare("SELECT passed_stages FROM student_projects WHERE id='p2'").get() as {
@@ -383,7 +385,7 @@ describe("migrate", () => {
     ).run();
     db.prepare(
       "INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage, passed_stages) " +
-        "VALUES ('p1', 'u1', 'c1', 'ml-intro', 3, '[1,2]')",
+        "VALUES ('p1', 'u1', 'c1', 'calculator', 3, '[1,2]')",
     ).run();
 
     migrate(db);
@@ -393,6 +395,120 @@ describe("migrate", () => {
       .prepare("SELECT project_generation FROM student_projects WHERE id = 'p1'")
       .get() as { project_generation: number };
     expect(row.project_generation).toBe(0);
+    db.close();
+  });
+
+  it("retires old evaluations and removes their SMS text while preserving training and graduation", () => {
+    const db = fixtureDb(18);
+    db.exec(`
+      INSERT INTO classes (id, name, invite_code) VALUES ('c1', 'class', 'inv');
+      INSERT INTO users (id, student_no, name, password_hash, role)
+      VALUES ('u1', 'no1', 'n', 'h', 'user'), ('u2', 'no2', 'n', 'h', 'user');
+      INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage,
+        passed_stages, draft_graph, draft_revisions, project_generation)
+      VALUES ('finished', 'u1', 'c1', 'ml-intro', 7, '[1,2,3,4,5,6]',
+        '{"4":{"eta":0.25},"5":{"threshold":0.4},"6":{"probeText":"示例短信"}}',
+        '{"4":2,"5":3,"6":4}', 3),
+        ('evaluated', 'u2', 'c1', 'ml-intro', 6, '[1,2,3,4,5]', '{}', '{}', 0);
+      INSERT INTO submissions (id, project_id, user_id, lab_id, stage_index,
+        snapshot_graph, score, total, passed, test_summary)
+      VALUES ('matrix', 'finished', 'u1', 'ml-intro', 5, '{}', 1, 1, 1, '{}'),
+        ('final', 'finished', 'u1', 'ml-intro', 6, '{"probeText":"示例短信","eta":0.25}', 1, 1, 1, '{}'),
+        ('retry', 'evaluated', 'u2', 'ml-intro', 6, '{"probeText":"另一条短信"}', 0, 1, 0, '{}');
+    `);
+
+    migrate(db);
+
+    expect(versionOf(db)).toBe(SCHEMA_VERSION);
+    expect(db.prepare("SELECT * FROM student_projects WHERE id = 'finished'").get()).toMatchObject({
+      lab_id: "logistic-regression",
+      current_stage: 6,
+      passed_stages: "[1,2,3,4,5]",
+      draft_graph: JSON.stringify({
+        4: { eta: 0.25 },
+      }),
+      draft_revisions: '{"4":2}',
+      project_generation: 4,
+    });
+    expect(db.prepare("SELECT * FROM student_projects WHERE id = 'evaluated'").get()).toMatchObject(
+      {
+        current_stage: 5,
+        passed_stages: "[1,2,3,4]",
+        project_generation: 1,
+      },
+    );
+    expect(
+      db.prepare("SELECT id, stage_index, snapshot_graph FROM submissions ORDER BY id").all(),
+    ).toEqual([
+      { id: "final", stage_index: 5, snapshot_graph: '{"eta":0.25}' },
+      { id: "matrix", stage_index: 7, snapshot_graph: "{}" },
+      { id: "retry", stage_index: 6, snapshot_graph: "{}" },
+    ]);
+    db.close();
+  });
+
+  it("renames the logistic regression lab from v19 without changing progress or access", () => {
+    const db = fixtureDb(19);
+    db.exec(`
+      INSERT INTO classes (id, name, invite_code) VALUES ('c1', 'class', 'inv');
+      INSERT INTO users (id, student_no, name, password_hash, role)
+      VALUES ('u1', 'no1', 'n', 'h', 'user');
+      INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage,
+        passed_stages, draft_graph, draft_revisions, project_generation)
+      VALUES ('p1', 'u1', 'c1', 'ml-intro', 6, '[1,2,3,4,5]',
+        '{"5":{"activity":"sms-classification"}}', '{"5":2}', 4);
+      INSERT INTO submissions (id, project_id, user_id, lab_id, stage_index,
+        snapshot_graph, score, total, passed, test_summary)
+      VALUES ('s1', 'p1', 'u1', 'ml-intro', 5, '{}', 1, 1, 1, '{}');
+      INSERT INTO lab_settings (lab_id, hidden, open_class_ids)
+      VALUES ('ml-intro', 1, '["c1"]'), ('calculator', 0, NULL);
+      INSERT INTO lab_class_settings (lab_id, class_id, open) VALUES ('ml-intro', 'c1', 0);
+    `);
+
+    migrate(db);
+    migrate(db);
+
+    expect(versionOf(db)).toBe(SCHEMA_VERSION);
+    expect(db.prepare("SELECT * FROM student_projects").all()).toMatchObject([
+      {
+        id: "p1",
+        lab_id: "logistic-regression",
+        current_stage: 6,
+        passed_stages: "[1,2,3,4,5]",
+        draft_graph: "{}",
+        draft_revisions: "{}",
+        project_generation: 4,
+      },
+    ]);
+    expect(db.prepare("SELECT * FROM submissions").all()).toMatchObject([
+      { id: "s1", lab_id: "logistic-regression", project_id: "p1", stage_index: 5, passed: 1 },
+    ]);
+    expect(db.prepare("SELECT * FROM lab_settings ORDER BY lab_id").all()).toMatchObject([
+      { lab_id: "calculator", hidden: 0, open_class_ids: null },
+      { lab_id: "logistic-regression", hidden: 1, open_class_ids: '["c1"]' },
+    ]);
+    expect(db.prepare("SELECT * FROM lab_class_settings").all()).toMatchObject([
+      { lab_id: "logistic-regression", class_id: "c1", open: 0 },
+    ]);
+    db.close();
+  });
+
+  it("removes saved experience drafts from an already renamed v20 project", () => {
+    const db = fixtureDb(20);
+    db.exec(`
+      INSERT INTO users (id, student_no, name, password_hash) VALUES ('u1', 'no1', 'n', 'h');
+      INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage,
+        passed_stages, draft_graph, draft_revisions)
+      VALUES ('p1', 'u1', 'c1', 'logistic-regression', 6, '[1,2,3,4,5]',
+        '{"4":{"eta":0.1},"5":{"probeText":"旧短信"}}', '{"4":1,"5":2}');
+    `);
+    migrate(db);
+    expect(db.prepare("SELECT * FROM student_projects").get()).toMatchObject({
+      current_stage: 6,
+      passed_stages: "[1,2,3,4,5]",
+      draft_graph: '{"4":{"eta":0.1}}',
+      draft_revisions: '{"4":1}',
+    });
     db.close();
   });
 

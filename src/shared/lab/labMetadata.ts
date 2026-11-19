@@ -47,10 +47,9 @@ export const labMetadata = {
       "送对一张订单，教 AI 听懂顾客的各种说法、写函数排出先做哪张——12 张订单全对全准时才算真本事。",
     category: "information-systems",
   },
-  "ml-intro": {
-    title: "机器学习入门",
-    description:
-      "你来训练一个垃圾短信分类器：先给词语打分，再让模型从短信中学习，最后检查它会误拦哪些消息、漏掉哪些广告。",
+  "logistic-regression": {
+    title: "逻辑回归",
+    description: "从给词语打分开始，训练一个垃圾短信分类器，再用自己写的短信试试它。",
     category: "artificial-intelligence",
   },
   "image-sampling": {

@@ -10,7 +10,7 @@ import { authRoutes } from "./auth.ts";
 import { calculatorRoutes } from "./calculator.ts";
 import { dashboardRoutes } from "./dashboard.ts";
 import { labsRoutes } from "./labs.ts";
-import { mlIntroRoutes } from "./mlIntro.ts";
+import { logisticRegressionRoutes } from "./logisticRegression.ts";
 
 async function setup() {
   const db = openMemoryDb();
@@ -34,7 +34,7 @@ async function setup() {
   app.route("/api/admin", adminRoutes());
   app.route("/api/classes/:classId/dashboard", dashboardRoutes());
   app.route("/api/classes/:classId/labs/calculator", calculatorRoutes());
-  app.route("/api/classes/:classId/labs/ml-intro", mlIntroRoutes());
+  app.route("/api/classes/:classId/labs/logistic-regression", logisticRegressionRoutes());
   app.route("/api/labs", labsRoutes());
   return { db, app };
 }
@@ -1007,7 +1007,7 @@ describe("lab visibility", () => {
       labs: { id: string; hidden: boolean; openClassIds: string[] | null; visible: boolean }[];
     };
     expect(before.labs.map((lab) => lab.id)).toEqual(LAB_REGISTRY.map((lab) => lab.id));
-    expect(before.labs.some((lab) => lab.id === "ml-intro")).toBe(true);
+    expect(before.labs.some((lab) => lab.id === "logistic-regression")).toBe(true);
     expect(before.labs.map((lab) => lab.id)).not.toContain("cpu");
     expect(before.labs.map((lab) => lab.id)).not.toContain("audio-encoding");
     expect(before.labs.map((lab) => lab.id)).not.toContain("is-sim");
@@ -1201,7 +1201,7 @@ describe("lab visibility", () => {
     expect((await project(student)).status).toBe(200);
   });
 
-  it("registers ml-intro in both the visibility registry and shared lab metadata", async () => {
+  it("registers logistic-regression in both the visibility registry and shared lab metadata", async () => {
     const { app, db } = await setup();
     const admin = await login(app, "admin", "admin-pass");
     const teacher = await login(app, "teacher", "teacher-pass");
@@ -1222,41 +1222,82 @@ describe("lab visibility", () => {
     const { labs } = (await catalogRes.json()) as {
       labs: { id: string; stageCount: number; hidden: boolean; openClassIds: string[] | null }[];
     };
-    expect(labs.find((lab) => lab.id === "ml-intro")).toMatchObject({
-      id: "ml-intro",
-      stageCount: 6,
+    expect(labs.find((lab) => lab.id === "logistic-regression")).toMatchObject({
+      id: "logistic-regression",
+      stageCount: 5,
       hidden: false,
       openClassIds: null,
     });
 
-    await request(app, "PUT", "/api/admin/labs/ml-intro/visibility", { hidden: true }, admin);
+    await request(
+      app,
+      "PUT",
+      "/api/admin/labs/logistic-regression/visibility",
+      { hidden: true },
+      admin,
+    );
     expect(
-      (await request(app, "GET", "/api/classes/c1/labs/ml-intro/project", undefined, student))
-        .status,
+      (
+        await request(
+          app,
+          "GET",
+          "/api/classes/c1/labs/logistic-regression/project",
+          undefined,
+          student,
+        )
+      ).status,
     ).toBe(403);
     expect(
-      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, teacher))
-        .status,
+      (
+        await request(
+          app,
+          "GET",
+          "/api/classes/c1/dashboard?lab=logistic-regression",
+          undefined,
+          teacher,
+        )
+      ).status,
     ).toBe(403);
     expect(
-      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, admin))
-        .status,
+      (
+        await request(
+          app,
+          "GET",
+          "/api/classes/c1/dashboard?lab=logistic-regression",
+          undefined,
+          admin,
+        )
+      ).status,
     ).toBe(200);
 
     await request(
       app,
       "PUT",
-      "/api/admin/labs/ml-intro/visibility",
+      "/api/admin/labs/logistic-regression/visibility",
       { hidden: false, openClassIds: ["c1"] },
       admin,
     );
     expect(
-      (await request(app, "GET", "/api/classes/c1/labs/ml-intro/project", undefined, student))
-        .status,
+      (
+        await request(
+          app,
+          "GET",
+          "/api/classes/c1/labs/logistic-regression/project",
+          undefined,
+          student,
+        )
+      ).status,
     ).toBe(200);
     expect(
-      (await request(app, "GET", "/api/classes/c1/dashboard?lab=ml-intro", undefined, teacher))
-        .status,
+      (
+        await request(
+          app,
+          "GET",
+          "/api/classes/c1/dashboard?lab=logistic-regression",
+          undefined,
+          teacher,
+        )
+      ).status,
     ).toBe(200);
   });
 });

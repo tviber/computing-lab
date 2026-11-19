@@ -1,4 +1,4 @@
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { useEffect } from "react";
 import { useAuth } from "../../shared/auth";
 import { useLabCatalog } from "../../shared/lab/labs";
@@ -15,6 +15,7 @@ export function LabRedirectPage({ labId }: { labId: LabId }) {
   const { status, primaryMembership, role } = useAuth();
   const catalog = useLabCatalog(status === "authenticated");
   const navigate = useNavigate();
+  const search = useSearch({ strict: false });
   const entry = catalog?.get(labId);
   const closed = entry?.visible === false;
   // Land on the first class whose students may take the lab — the primary
@@ -29,9 +30,14 @@ export function LabRedirectPage({ labId }: { labId: LabId }) {
     }
     // Non-admins wait for the catalog so a closed lab never flashes through.
     if (classId && (role === "admin" || (catalog !== null && !closed))) {
-      void navigate({ to: `/classes/$classId/labs/${labId}`, params: { classId }, replace: true });
+      void navigate({
+        to: `/classes/$classId/labs/${labId}`,
+        params: { classId },
+        search,
+        replace: true,
+      });
     }
-  }, [status, classId, role, catalog, closed, labId, navigate]);
+  }, [status, classId, role, catalog, closed, labId, navigate, search]);
 
   if (status === "authenticated" && closed && role !== "admin") {
     return (
