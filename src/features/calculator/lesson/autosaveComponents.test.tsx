@@ -166,7 +166,7 @@ describe("calculator component-library autosave lifecycle", () => {
     exposed.state = state;
     exposed.dispatch = dispatch;
     const graph = graphOf(state);
-    const { projectLoaded, fetchProject } = useLabProject<
+    const { projectLoaded, fetchProject, projectGeneration } = useLabProject<
       CircuitGraph,
       { unlockedSubmodules: ComponentDef[] },
       CalculatorLessonAction
@@ -195,6 +195,7 @@ describe("calculator component-library autosave lifecycle", () => {
     useAutosaveDraft<CircuitGraph>({
       classId,
       labId: "calculator",
+      expectedGeneration: projectGeneration,
       saveStatus: projectLoaded
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
         : "idle",
@@ -270,7 +271,7 @@ describe("calculator component-library autosave lifecycle", () => {
   const submitJudge = async (stageIndex: number, graph: CircuitGraph) => {
     const result = await api.post<CalculatorJudgeResult>(
       `/api/classes/${classId}/labs/calculator/judge`,
-      { stageIndex, graph, components: exposed.state.unlockedSubmodules },
+      { stageIndex, expectedGeneration: 0, graph, components: exposed.state.unlockedSubmodules },
     );
     act(() => {
       exposed.dispatch?.({
@@ -299,7 +300,7 @@ describe("calculator component-library autosave lifecycle", () => {
       new Request(`http://lab.test/api/classes/${classId}/labs/calculator/draft`, {
         method: "PUT",
         headers: { cookie, "content-type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ expectedGeneration: 0, ...body }),
       }),
     );
 

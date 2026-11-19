@@ -406,7 +406,7 @@ describe("useLabProject", () => {
     await act(async () => {
       judgeResult = await judgePromise;
     });
-    expect(judgeResult.status).toBe("error");
+    expect(judgeResult).toEqual({ status: "stale" });
     expect(result.current.projectGeneration).toBe(1);
     expect(result.current.saveGeneration).toBe(1);
     expect(dispatch).toHaveBeenLastCalledWith({
@@ -444,5 +444,54 @@ describe("useLabProject", () => {
     expect(onResolved).not.toHaveBeenCalled();
     expect(onSyncError).not.toHaveBeenCalled();
     expect(onResetSuccess).toHaveBeenCalledTimes(2);
+  });
+
+  it("settles resetting even when a conflict refetch overlaps an in-flight reset", async () => {
+    const dispatch = vi.fn();
+    const { result } = renderHook((p: Params) => useLabProject(p), {
+      initialProps: base({ dispatch, staff: true }),
+    });
+    const body = (gen: number) =>
+      new Response(
+        JSON.stringify({
+          labId: "lab",
+          currentStage: 1,
+          passedStages: [],
+          drafts: {},
+          projectGeneration: gen,
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    calls[0].done.resolve(body(0));
+    await flush();
+
+    let resetPromise!: Promise<boolean>;
+    await act(async () => {
+      resetPromise = result.current.resetProject();
+    });
+    expect(result.current.resetting).toBe(true);
+
+    const onResolved = vi.fn();
+    const onSyncError = vi.fn();
+    await act(async () => {
+      reconcileConflictedStage({
+        fetchProject: result.current.fetchProject,
+        stageIndex: 1,
+        onResolved,
+        onSyncError,
+      });
+    });
+    expect(calls[2].url).toBe("/api/classes/class-1/labs/lab/project");
+
+    calls[2].done.resolve(body(0));
+    await flush();
+    calls[1].done.resolve(body(1));
+    await act(async () => {
+      expect(await resetPromise).toBe(true);
+    });
+    expect(result.current.resetting).toBe(false);
+    expect(result.current.projectGeneration).toBe(1);
+    expect(onResolved).not.toHaveBeenCalled();
+    expect(onSyncError).not.toHaveBeenCalled();
   });
 });

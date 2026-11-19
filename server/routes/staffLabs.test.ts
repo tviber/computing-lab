@@ -25,23 +25,39 @@ const LAB_CASES: LabCase[] = [
     labId: "calculator",
     mount: calculatorRoutes,
     gatedStage: 7,
-    draftBody: { stageIndex: 1, expectedRevision: 0, graph: { nodes: [], edges: [] } },
-    judgeBody: { stageIndex: 7, graph: { nodes: [], edges: [] } },
+    draftBody: {
+      stageIndex: 1,
+      expectedRevision: 0,
+      expectedGeneration: 0,
+      graph: { nodes: [], edges: [] },
+    },
+    judgeBody: { stageIndex: 7, expectedGeneration: 0, graph: { nodes: [], edges: [] } },
   },
   {
     labId: "decoding",
     mount: decodingRoutes,
     gatedStage: 2,
-    draftBody: { stageIndex: 1, expectedRevision: 0, draft: { fills: { "1": "ord(c)" } } },
-    judgeBody: { stageIndex: 2, artifact: { text: "AB" }, code: "" },
+    draftBody: {
+      stageIndex: 1,
+      expectedRevision: 0,
+      expectedGeneration: 0,
+      draft: { fills: { "1": "ord(c)" } },
+    },
+    judgeBody: { stageIndex: 2, expectedGeneration: 0, artifact: { text: "AB" }, code: "" },
   },
   {
     labId: "lunch-shift",
     mount: lunchShiftRoutes,
     gatedStage: 3,
-    draftBody: { stageIndex: 2, expectedRevision: 0, draft: { confirmCode: "return True" } },
+    draftBody: {
+      stageIndex: 2,
+      expectedRevision: 0,
+      expectedGeneration: 0,
+      draft: { confirmCode: "return True" },
+    },
     judgeBody: {
       stageIndex: 3,
+      expectedGeneration: 0,
       draft: { code: "def priority(u, w, c): return u", priority: null },
     },
   },
@@ -49,22 +65,49 @@ const LAB_CASES: LabCase[] = [
     labId: "ml-intro",
     mount: mlIntroRoutes,
     gatedStage: 4,
-    draftBody: { stageIndex: 1, expectedRevision: 0, draft: { weights: { 中奖: 2 } } },
-    judgeBody: { stageIndex: 4, draft: { eta: 0.1, epochs: 12 } },
+    draftBody: {
+      stageIndex: 1,
+      expectedRevision: 0,
+      expectedGeneration: 0,
+      draft: { weights: { 中奖: 2 } },
+    },
+    judgeBody: { stageIndex: 4, expectedGeneration: 0, draft: { eta: 0.1, epochs: 12 } },
   },
   {
     labId: "image-sampling",
     mount: imageSamplingRoutes,
     gatedStage: 3,
-    draftBody: { stageIndex: 1, expectedRevision: 0, draft: { width: 16, height: 16, code: "x" } },
-    judgeBody: { stageIndex: 3, width: 16, height: 16, code: "def choose_size(imgs):\n return 16" },
+    draftBody: {
+      stageIndex: 1,
+      expectedRevision: 0,
+      expectedGeneration: 0,
+      draft: { width: 16, height: 16, code: "x" },
+    },
+    judgeBody: {
+      stageIndex: 3,
+      expectedGeneration: 0,
+      width: 16,
+      height: 16,
+      code: "def choose_size(imgs):\n return 16",
+    },
   },
   {
     labId: "color-quantization",
     mount: colorQuantizationRoutes,
     gatedStage: 3,
-    draftBody: { stageIndex: 2, expectedRevision: 0, draft: { toners: [0, 1], code: "x" } },
-    judgeBody: { stageIndex: 3, toners: [0, 1, 2, 3], table: null, code: "" },
+    draftBody: {
+      stageIndex: 2,
+      expectedRevision: 0,
+      expectedGeneration: 0,
+      draft: { toners: [0, 1], code: "x" },
+    },
+    judgeBody: {
+      stageIndex: 3,
+      expectedGeneration: 0,
+      toners: [0, 1, 2, 3],
+      table: null,
+      code: "",
+    },
   },
 ];
 
@@ -322,11 +365,11 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
     }
   });
 
-  it("validates expectedGeneration on /draft and /judge cleanly", async () => {
+  it("requires valid non-negative integer expectedGeneration on /draft and /judge", async () => {
     const { classId, teacherId, app, cookieFor } = await setupEnv();
     const cookie = cookieFor(teacherId);
 
-    for (const expectedGeneration of [-1, "0", 1.5, null]) {
+    for (const expectedGeneration of [undefined, -1, "0", 1.5, null]) {
       const draftRes = await app.fetch(
         new Request(labUrl(classId, "ml-intro", "/draft"), {
           method: "PUT",

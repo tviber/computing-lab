@@ -10,6 +10,9 @@ export type JudgeSubmissionResult<TOutcome> =
 // Tracks `/project` payloads that already applied a cross-tab project reset inside
 // `fetchProject` so `reconcileConflictedStage` skips single-stage conflict backup.
 const resetHandledPayloads = new WeakSet<object>();
+// Tracks `fetchProject()` promises invalidated by an overlapping or newer reset
+// so `reconcileConflictedStage` skips both `onResolved` and `onSyncError`.
+const resetSupersededFetches = new WeakSet<Promise<unknown>>();
 
 /**
  * Fetches `GET /api/classes/:classId/labs/:labId/project` once the caller is
@@ -59,6 +62,7 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
   const [saveGeneration, setSaveGeneration] = useState(0);
 
   const requestSeq = useRef(0);
+  const resetSeq = useRef(0);
   const contextSeq = useRef(0);
   const judgeSeq = useRef(0);
   const projectGenerationRef = useRef(0);
@@ -74,6 +78,8 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
   useEffect(() => {
     if (!classId || !ready) return;
     const ticket = ++requestSeq.current;
+    const ctx = contextSeq.current;
+    const resetTicket = resetSeq.current;
     resettingRef.current = false;
     judgeSeq.current += 1;
     projectGenerationRef.current = 0;
@@ -86,7 +92,14 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
     void api
       .get<LabProjectPayload<TDraft> & TExtras>(`/api/classes/${classId}/labs/${labId}/project`)
       .then((project) => {
-        if (requestSeq.current !== ticket) return;
+        if (
+          requestSeq.current !== ticket ||
+          contextSeq.current !== ctx ||
+          resetSeq.current !== resetTicket ||
+          resettingRef.current
+        ) {
+          return;
+        }
         const gen = project.projectGeneration ?? 0;
         projectGenerationRef.current = gen;
         setProjectGeneration(gen);
@@ -94,7 +107,13 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
         setProjectLoaded(true);
       })
       .catch((error) => {
-        if (requestSeq.current !== ticket) return;
+        if (
+          requestSeq.current !== ticket ||
+          contextSeq.current !== ctx ||
+          resetSeq.current !== resetTicket
+        ) {
+          return;
+        }
         setLoadError(describeApiError(error));
         setProjectLoaded(true);
       });
@@ -102,6 +121,7 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
       // Superseded by a newer context (or unmounted): invalidate every in-flight
       // fetch, reset, or judge call so a late response never mutates stale state.
       requestSeq.current += 1;
+      resetSeq.current += 1;
       contextSeq.current += 1;
       judgeSeq.current += 1;
       resettingRef.current = false;
@@ -112,11 +132,29 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
     if (!classId || !ready) return Promise.resolve(null);
     const ticket = ++requestSeq.current;
     const ctx = contextSeq.current;
-    return api
+    const resetAtStart = resetSeq.current;
+    const genAtStart = projectGenerationRef.current;
+    const startedDuringReset = resettingRef.current;
+    const pending: Promise<(LabProjectPayload<TDraft> & TExtras) | null> = api
       .get<LabProjectPayload<TDraft> & TExtras>(`/api/classes/${classId}/labs/${labId}/project`)
       .then((project) => {
-        if (requestSeq.current !== ticket || contextSeq.current !== ctx) return null;
+        if (
+          contextSeq.current !== ctx ||
+          resetSeq.current !== resetAtStart ||
+          resettingRef.current
+        ) {
+          resetSupersededFetches.add(pending);
+          return null;
+        }
         const nextGen = project.projectGeneration ?? 0;
+        if (
+          nextGen < projectGenerationRef.current ||
+          (startedDuringReset && nextGen > genAtStart)
+        ) {
+          resetSupersededFetches.add(pending);
+          return null;
+        }
+        if (requestSeq.current !== ticket) return null;
         if (nextGen > projectGenerationRef.current) {
           projectGenerationRef.current = nextGen;
           setProjectGeneration(nextGen);
@@ -132,10 +170,14 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
         return project;
       })
       .catch(() => {
+        if (contextSeq.current !== ctx || resetSeq.current !== resetAtStart) {
+          resetSupersededFetches.add(pending);
+        }
         // Best-effort reconcile: a failed refetch leaves the current state
         // untouched and reports null — the caller still settles the flag.
         return null;
       });
+    return pending;
   }, [classId, labId, ready, dispatch]);
 
   const invalidateJudge = useCallback(() => {
@@ -145,9 +187,11 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
 
   const resetProject = useCallback(async (): Promise<boolean> => {
     if (!classId || !ready || resettingRef.current) return false;
-    const ticket = ++requestSeq.current;
-    // Bump judgeSeq as soon as reset starts so an in-flight pre-reset judge
-    // response landing after reset cannot dispatch stale verdicts or stages.
+    const ctx = contextSeq.current;
+    const resetTicket = ++resetSeq.current;
+    // Invalidate pre-reset GET fetches and pre-reset judge calls without letting
+    // subsequent fetchProject() calls cancel this reset's lifecycle.
+    requestSeq.current += 1;
     judgeSeq.current += 1;
     setSubmittingJudge(false);
     resettingRef.current = true;
@@ -158,7 +202,7 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
         `/api/classes/${classId}/labs/${labId}/reset`,
         {},
       );
-      if (requestSeq.current !== ticket) return false;
+      if (contextSeq.current !== ctx || resetSeq.current !== resetTicket) return false;
       const nextGen = fresh.projectGeneration ?? projectGenerationRef.current + 1;
       projectGenerationRef.current = nextGen;
       setProjectGeneration(nextGen);
@@ -169,10 +213,12 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
       setLoadError(null);
       return true;
     } catch (error) {
-      if (requestSeq.current === ticket) setResetError(describeApiError(error));
+      if (contextSeq.current === ctx && resetSeq.current === resetTicket) {
+        setResetError(describeApiError(error));
+      }
       return false;
     } finally {
-      if (requestSeq.current === ticket) {
+      if (contextSeq.current === ctx && resetSeq.current === resetTicket) {
         resettingRef.current = false;
         setResetting(false);
       }
@@ -207,8 +253,15 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
           return { status: "stale" };
         }
         if (error instanceof ApiError && error.code === "stale-project-generation") {
-          await fetchProject();
-          if (contextSeq.current !== ctx || resettingRef.current) return { status: "stale" };
+          const synced = await fetchProject();
+          if (
+            contextSeq.current !== ctx ||
+            judgeSeq.current !== ticket ||
+            resettingRef.current ||
+            synced
+          ) {
+            return { status: "stale" };
+          }
         }
         return { status: "error", error: describeApiError(error) };
       } finally {
@@ -261,7 +314,9 @@ export function reconcileConflictedStage<TDraft, TExtras>(options: {
   onResolved: (stageIndex: number, project: LabProjectPayload<TDraft> & TExtras) => void;
   onSyncError: (stageIndex: number) => void;
 }): void {
-  void options.fetchProject().then((project) => {
+  const pending = options.fetchProject();
+  void pending.then((project) => {
+    if (resetSupersededFetches.has(pending)) return;
     if (!project) options.onSyncError(options.stageIndex);
     else if (!resetHandledPayloads.has(project)) options.onResolved(options.stageIndex, project);
   });

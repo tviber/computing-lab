@@ -89,6 +89,7 @@ describe("color-quantization routes", () => {
         body: JSON.stringify({
           stageIndex: 2,
           expectedRevision: 0,
+          expectedGeneration: 0,
           draft: { toners: [0, 1, 2, 5], code: "x" },
         }),
       }),
@@ -107,6 +108,7 @@ describe("color-quantization routes", () => {
         headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
         body: JSON.stringify({
           stageIndex: 1,
+          expectedGeneration: 0,
           toners: [0, 1, 2, 3, 4, 5, 6, 7],
         }),
       }),
@@ -123,7 +125,11 @@ describe("color-quantization routes", () => {
       new Request(url(classId, "/judge"), {
         method: "POST",
         headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
-        body: JSON.stringify({ stageIndex: 1, toners: "everything" }),
+        body: JSON.stringify({
+          stageIndex: 1,
+          expectedGeneration: 0,
+          toners: "everything",
+        }),
       }),
     );
     expect(res.status).toBe(400);

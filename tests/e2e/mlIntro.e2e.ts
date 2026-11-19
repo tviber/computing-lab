@@ -410,7 +410,7 @@ test("lists ml-intro in admin/teacher lab management and renders its matrix & dr
   expect(studentLogin.status()).toBe(200);
 
   const judgeRes = await request.post(`/api/classes/${classId}/labs/ml-intro/judge`, {
-    data: { stageIndex: 1, draft: {} },
+    data: { stageIndex: 1, expectedGeneration: 0, draft: {} },
   });
   expect(judgeRes.status()).toBe(200);
   const judgeBody = (await judgeRes.json()) as { score: number; total: number; passed: boolean };

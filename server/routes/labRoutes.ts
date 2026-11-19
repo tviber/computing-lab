@@ -103,10 +103,9 @@ export function labRoutes<TDraft, TOutcome extends object>(
       : null;
   };
 
-  const parseOptionalGeneration = (body: unknown): number | undefined | "invalid" => {
+  const parseRequiredGeneration = (body: unknown): number | null => {
     const raw = (body as { expectedGeneration?: unknown } | null)?.expectedGeneration;
-    if (raw === undefined) return undefined;
-    return typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? raw : "invalid";
+    return typeof raw === "number" && Number.isInteger(raw) && raw >= 0 ? raw : null;
   };
 
   app.get("/project", (c) => {
@@ -156,8 +155,8 @@ export function labRoutes<TDraft, TOutcome extends object>(
         return jsonError(c, 400, "invalid-revision");
       }
     }
-    const expectedGeneration = parseOptionalGeneration(body);
-    if (expectedGeneration === "invalid") return jsonError(c, 400, "invalid-generation");
+    const expectedGeneration = parseRequiredGeneration(body);
+    if (expectedGeneration === null) return jsonError(c, 400, "invalid-generation");
     const db = c.get("db");
     const result = spec.saveDraft(
       db,
@@ -188,11 +187,11 @@ export function labRoutes<TDraft, TOutcome extends object>(
     const body = await c.req.json().catch(() => null);
     const stageIndex = stageIndexOf(body);
     if (stageIndex === null) return jsonError(c, 400, "invalid-stage");
-    const expectedGeneration = parseOptionalGeneration(body);
-    if (expectedGeneration === "invalid") return jsonError(c, 400, "invalid-generation");
+    const expectedGeneration = parseRequiredGeneration(body);
+    if (expectedGeneration === null) return jsonError(c, 400, "invalid-generation");
     const db = c.get("db");
     const project = projectOf(db, auth);
-    if (expectedGeneration !== undefined && project.projectGeneration !== expectedGeneration) {
+    if (project.projectGeneration !== expectedGeneration) {
       return jsonError(c, 409, "stale-project-generation");
     }
     const outcome = spec.judge(db, project, stageIndex, body as Record<string, unknown>, {
