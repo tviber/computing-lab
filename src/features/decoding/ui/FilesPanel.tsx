@@ -112,9 +112,14 @@ export function FilesPanel(props: {
                 <code className="file-name">{file.id}</code>
                 <span className="file-meta">meta：{file.meta}</span>
               </header>
-              <ol className="byte-stream is-compact">
+              <ol
+                aria-label={`${file.id} 字节`}
+                className="byte-stream is-compact"
+                role="list"
+                tabIndex={0}
+              >
                 {file.bytes.map((byte, bi) => (
-                  <li className="byte-chip" key={bi}>
+                  <li key={bi} title={`data[${bi}]`}>
                     {byte}
                   </li>
                 ))}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   BMP_PROFILE,
+  checkBmpHeightReading,
   decodeBmp,
   decodeRawPixels,
   encodeBmp,
@@ -81,6 +82,29 @@ describe("bmp", () => {
     expect(raw.length).toBe(4 * 2 * 3);
     expect(raw.slice(0, 6)).toEqual([255, 0, 0, 0, 255, 0]);
     expect(decodeRawPixels(raw, 4, 2)).toEqual(PIXELS);
+  });
+});
+
+describe("BMP height reading", () => {
+  const square = encodeBmp(Array.from({ length: 4 }, () => PIXELS[0]));
+
+  it("requires the height field even when width and height store the same value", () => {
+    expect(checkBmpHeightReading(square, null, "4")).toBe("pick-start");
+    expect(checkBmpHeightReading(square, 18, "4")).toBe("picked-width");
+    expect(checkBmpHeightReading(square, 23, "4")).toBe("wrong-start");
+    expect(checkBmpHeightReading(square, 22, "4")).toBe("correct");
+  });
+
+  it("reads the whole little-endian field from the supplied BMP", () => {
+    const tall = encodeBmp(Array.from({ length: 258 }, () => PIXELS[0]));
+    expect(checkBmpHeightReading(tall, 22, "2")).toBe("wrong-height");
+    expect(checkBmpHeightReading(tall, 22, "258")).toBe("correct");
+  });
+
+  it("rejects empty, non-decimal and non-positive row counts", () => {
+    for (const answer of ["", "  ", "-4", "0", "4.5", "0x4", "4e0"]) {
+      expect(checkBmpHeightReading(square, 22, answer)).toBe("enter-height");
+    }
   });
 });
 

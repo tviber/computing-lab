@@ -361,85 +361,75 @@
   padding: 0;
 }
 
-/* ---- guided task ----------------------------------------------------- */
-
-.quant-color-strip {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 14px;
-  margin: 12px 0;
-}
-
-.quant-color-card {
-  align-items: center;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  margin: 0;
-}
-
-.quant-color-card figcaption {
-  color: var(--muted);
-  font-size: 12px;
-}
-
-.quant-guess-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 3px;
-  justify-content: center;
-  max-width: 150px;
-}
-
-.quant-mini-swatch {
-  align-items: center;
-  border: 1px solid var(--scrim);
-  border-radius: var(--radius-mini);
-  color: #fff;
-  cursor: pointer;
-  display: inline-flex;
-  font-size: 9px;
-  font-weight: 700;
-  height: 20px;
-  justify-content: center;
-  padding: 0;
-  text-shadow: 0 0 3px var(--scrim-deep);
-  width: 20px;
-}
-
-.quant-mini-swatch.is-active {
-  outline: 2px solid var(--accent);
-  outline-offset: 1px;
-}
-
-.quant-guess-verdict {
-  font-size: 12px;
-}
-
-.quant-guess-verdict.is-ok {
-  color: var(--success-ink);
-}
-
-.quant-guess-verdict.is-bad {
-  color: var(--danger);
-}
-
-.quant-map-outcome {
-  align-items: center;
-  display: inline-flex;
-  gap: 4px;
+.quant-prediction {
+  display: grid;
+  gap: var(--space-3);
+  margin-block: var(--space-4);
   font-size: 13px;
 }
 
-.quant-map-outcome.is-ok .quant-swatch {
-  box-shadow: 0 0 0 2px var(--success);
+.quant-practice-sources,
+.quant-practice-rack {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr));
+  gap: var(--space-1);
 }
 
-.quant-map-outcome.is-bad .quant-swatch {
-  box-shadow: 0 0 0 2px var(--danger);
+.quant-practice-sources button,
+.quant-practice-rack button {
+  display: grid;
+  gap: var(--space-1);
+  padding: var(--space-2);
+  text-align: start;
+  font: inherit;
+  background: var(--surface);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-mini);
 }
 
-/* ---- code editor / blanks -------------------------------------------- */
+.quant-practice-sources button {
+  display: flex;
+  align-items: center;
+}
+
+.quant-prediction button[aria-pressed="true"] {
+  border-color: var(--accent-ink);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent-ink);
+}
+
+.quant-practice-chip {
+  display: block;
+  height: 1.25rem;
+  border: 1px solid var(--scrim);
+}
+
+.quant-practice-sources .quant-practice-chip {
+  inline-size: 1rem;
+  block-size: 1rem;
+}
+
+.quant-practice-rack small {
+  font: 11px var(--font-mono);
+  color: var(--secondary);
+  white-space: nowrap;
+}
+
+.quant-distance {
+  padding: var(--space-2) var(--space-3);
+  background: var(--subtle);
+  line-height: 1.6;
+  overflow-wrap: anywhere;
+}
+
+.quant-practice-results {
+  display: grid;
+  gap: var(--space-1);
+  grid-template-columns: repeat(auto-fit, minmax(min(14rem, 100%), 1fr));
+  padding: 0;
+  margin: 0;
+  list-style: none;
+}
 
 .quant-editor {
   border: 1px solid var(--code-line);

@@ -248,6 +248,26 @@
   padding: 10px 12px;
 }
 
+.sampling-workspace .cell-inspector {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  line-height: 1.6;
+}
+
+.sampling-workspace .preview-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  gap: var(--space-2);
+}
+
+.sampling-workspace .preview-pair canvas {
+  max-width: 100%;
+  height: auto;
+  margin-inline: auto;
+}
+
 .code-editor {
   border: 1px solid var(--code-line);
   border-radius: var(--radius-control);

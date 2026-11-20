@@ -1,19 +1,7 @@
-/**
- * Downsample explorer: pick a signal card, inspect what the receiver sees,
- * zoom into one cell's source region, and scan the resolution sweep table —
- * all against the public atlas. Code-driven stages get their resolution from
- * the choose_size panel instead of this explorer.
- *
- * When the student's stage-1 `cell_value` source exists, a preview-rule
- * toggle runs it over every cell of the displayed member, so the rule they
- * wrote is literally what produces the received image (the built-in
- * majority rule stays the fallback and is labelled as such).
- */
-
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ScenarioLinkButton } from "../../../shared/lab/ScenarioLinkButton";
 import { Icon } from "../../../shared/ui/Icon";
-import { diffBounds, makeImage, type BinaryImage } from "../domain/bitmap.ts";
+import { diffBounds, imageFromLists, makeImage, type BinaryImage } from "../domain/bitmap.ts";
 import { cellBounds, cellRegion, cellStats, type Resolution } from "../domain/downsample.ts";
 import { downsample } from "../domain/downsample.ts";
 import { publicGalleryFor } from "../domain/fixtures.ts";
@@ -141,10 +129,14 @@ export function DownsampleExplorer({
   const member = gallery[Math.min(memberIndex, gallery.length - 1)];
   const [inspectedPairId, setInspectedPairId] = useState<string | null>(null);
   const [useMyRule, setUseMyRule] = useState(false);
-  const [myGrid, setMyGrid] = useState<BinaryImage | null>(null);
-  const [myRuleError, setMyRuleError] = useState<string | null>(null);
-  const [myRuleRunning, setMyRuleRunning] = useState(false);
-  const runSeq = useRef(0);
+  const [preview, setPreview] = useState<{
+    source: BinaryImage;
+    code: string;
+    grid: BinaryImage | null;
+    invalid: Set<number>;
+    error: string | null;
+  } | null>(null);
+  const customCode = !stage.requiresChooseSize && useMyRule ? ruleCode?.trim() : undefined;
 
   const builtinCompressed = useMemo(
     () => downsample(member.image, width, height),
@@ -153,54 +145,50 @@ export function DownsampleExplorer({
 
   // Run the student's cell_value over every cell of the displayed member.
   useEffect(() => {
-    if (stage.requiresChooseSize || !useMyRule || !ruleCode?.trim()) {
-      runSeq.current += 1;
-      setMyGrid(null);
-      setMyRuleError(null);
-      return;
-    }
-    const seq = (runSeq.current += 1);
-    setMyRuleRunning(true);
+    if (!customCode) return;
+    let current = true;
     const timer = setTimeout(() => {
-      void runCellValue(ruleCode, allRegions(member.image, width, height))
+      void runCellValue(customCode, allRegions(member.image, width, height))
         .then((results) => {
-          if (runSeq.current !== seq) return;
+          if (!current) return;
           const grid = makeImage(width, height);
-          const bad: string[] = [];
-          for (let i = 0; i < results.length && i < width * height; i += 1) {
-            const v = Number(results[i]);
-            if (v === 0 || v === 1) {
-              grid.cells[i] = v;
+          const invalid = new Set<number>();
+          for (let index = 0; index < grid.cells.length; index += 1) {
+            const value = results[index];
+            if (value === 0 || value === 1 || typeof value === "boolean") {
+              grid.cells[index] = Number(value);
             } else {
-              const cx = i % width;
-              const cy = (i / width) | 0;
-              if (bad.length < 3) {
-                bad.push(
-                  `(${cx},${cy}) 返回了 ${results[i] === null ? "None" : JSON.stringify(results[i])}`,
-                );
-              }
+              invalid.add(index);
             }
           }
-          setMyGrid(grid);
-          setMyRuleError(
-            bad.length
-              ? `cell_value 必须返回 0 或 1——格子 ${bad.join("、")} 的返回值无效，已按 0 画出。`
-              : null,
-          );
+          setPreview({
+            source: builtinCompressed,
+            code: customCode,
+            grid,
+            invalid,
+            error: invalid.size ? `有 ${invalid.size} 格没有返回 0 或 1，图中暂按 0 显示。` : null,
+          });
         })
         .catch((err: unknown) => {
-          if (runSeq.current !== seq) return;
-          setMyGrid(null);
-          setMyRuleError(err instanceof Error ? err.message : String(err));
-        })
-        .finally(() => {
-          if (runSeq.current === seq) setMyRuleRunning(false);
+          if (current)
+            setPreview({
+              source: builtinCompressed,
+              code: customCode,
+              grid: null,
+              invalid: new Set(),
+              error: err instanceof Error ? err.message : String(err),
+            });
         });
     }, 250);
-    return () => clearTimeout(timer);
-  }, [stage.requiresChooseSize, useMyRule, ruleCode, member, width, height]);
+    return () => {
+      current = false;
+      clearTimeout(timer);
+    };
+  }, [customCode, member, width, height, builtinCompressed]);
 
-  const compressed = !stage.requiresChooseSize && useMyRule && myGrid ? myGrid : builtinCompressed;
+  const activePreview =
+    preview?.code === customCode && preview?.source === builtinCompressed ? preview : null;
+  const compressed = activePreview?.grid ?? builtinCompressed;
 
   const sweep = useMemo(
     () =>
@@ -229,10 +217,11 @@ export function DownsampleExplorer({
       bounds,
       on,
       total,
-      region,
+      region: imageFromLists(region),
+      majority: builtinCompressed.cells[selectedCell.cy * width + selectedCell.cx],
       output: compressed.cells[selectedCell.cy * width + selectedCell.cx],
     };
-  }, [member, width, height, selectedCell, compressed]);
+  }, [member, width, height, selectedCell, compressed, builtinCompressed]);
 
   /** A clicked confusion pair: member A shown, diff bbox outlined on the source. */
   const inspectedPair = useMemo(() => {
@@ -292,13 +281,13 @@ export function DownsampleExplorer({
           >
             我写的 cell_value
           </button>
-          {myRuleRunning ? <span className="rule-running">运行中…</span> : null}
+          {customCode && !activePreview ? <span className="rule-running">运行中…</span> : null}
         </div>
       ) : null}
-      {useMyRule && myRuleError ? (
+      {activePreview?.error ? (
         <p className="rule-error" role="alert">
-          {myRuleError}
-          {myGrid ? "" : "（预览暂用内置规则）"}
+          {activePreview.error}
+          {activePreview.grid ? "" : "（预览暂用内置规则）"}
         </p>
       ) : null}
 
@@ -322,7 +311,7 @@ export function DownsampleExplorer({
           </div>
 
           <table className="sweep-table">
-            <caption>扫掠表：这组信号在各分辨率下，接收端还能分清多少张</caption>
+            <caption>按内置多数规则，各分辨率能分清多少张</caption>
             <thead>
               <tr>
                 <th>分辨率</th>
@@ -368,7 +357,7 @@ export function DownsampleExplorer({
           {pairs.length > 0 ? (
             <div className="confusion-callout" role="note">
               <strong>
-                在 {width}×{height} 下接收端会分不清这 {pairs.length} 对：
+                按内置规则，{width}×{height} 时有 {pairs.length} 对会撞脸：
               </strong>
               <ul>
                 {pairs.slice(0, 5).map((pair) => {
@@ -398,7 +387,7 @@ export function DownsampleExplorer({
               )}
             </div>
           ) : (
-            <p className="confusion-clear">当前分辨率下，图谱里每一张接收端都能认出。</p>
+            <p className="confusion-clear">按内置规则，当前分辨率能分清图谱里的每一张。</p>
           )}
         </div>
 
@@ -434,23 +423,56 @@ export function DownsampleExplorer({
               />
               <figcaption>
                 接收端所见 {width}×{height}
-                {useMyRule ? "（你的规则）" : ""}（点一个格子看它怎么决定）
+                {activePreview?.grid ? " · 你的规则" : " · 内置多数规则"}
               </figcaption>
             </figure>
           </div>
 
           {inspection ? (
             <div className="cell-inspector" role="status">
-              <strong>
-                格子 ({selectedCell!.cx}, {selectedCell!.cy})：
-              </strong>
-              覆盖原图区域 x∈[{inspection.bounds.x0}, {inspection.bounds.x1}), y∈[
-              {inspection.bounds.y0}, {inspection.bounds.y1})，共 {inspection.total} 个像素， 其中{" "}
-              {inspection.on} 个是图形 → {Math.round((inspection.on / inspection.total) * 100)}% ≥
-              50% → 收到 <strong>{inspection.output}</strong>
+              <BitmapCanvas
+                ariaLabel="选中格子覆盖的原图像素"
+                image={inspection.region}
+                pixelSize={Math.max(
+                  2,
+                  Math.floor(80 / Math.max(inspection.region.width, inspection.region.height)),
+                )}
+                grid
+              />
+              <div>
+                <strong>
+                  格子 ({selectedCell!.cx}, {selectedCell!.cy})
+                </strong>
+                <p>
+                  原图第 {inspection.bounds.x0}–{inspection.bounds.x1 - 1} 列，第{" "}
+                  {inspection.bounds.y0}–{inspection.bounds.y1 - 1} 行（从 0 数）。
+                </p>
+                <p>
+                  黑色占 {inspection.on} / {inspection.total}，
+                  {inspection.on * 2 === inspection.total
+                    ? "刚好一半"
+                    : inspection.majority
+                      ? "超过一半"
+                      : "不到一半"}
+                  。内置规则发 <strong>{inspection.majority}</strong>。
+                </p>
+                {activePreview?.grid ? (
+                  <p>
+                    {activePreview.invalid.has(selectedCell!.cy * width + selectedCell!.cx) ? (
+                      "你的规则在这一格返回了无效值，暂按 0 显示。"
+                    ) : (
+                      <>
+                        你的规则发 <strong>{inspection.output}</strong>。
+                      </>
+                    )}
+                  </p>
+                ) : null}
+              </div>
             </div>
           ) : (
-            <p className="cell-inspector-hint">点接收端图里的格子，看它盖住了原图的哪一块。</p>
+            <p className="cell-inspector-hint">
+              点接收端任一格，数数它盖住了多少黑色像素。用键盘时，聚焦格子图后按方向键探索。
+            </p>
           )}
         </div>
       </div>
