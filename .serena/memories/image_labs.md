@@ -23,6 +23,11 @@
   Gallery recognition and collision probes always use built-in majority,
   including ties. Keep those results explicitly distinguished from the
   displayed member's per-cell student outputs and invalid-value fallbacks.
+- Stage 1's optional receiver practice also uses built-in majority, but its
+  candidate set is exactly two public badges. Retransmission changes only
+  resolution; replay starts the same packet again for classroom comparison.
+  Its choices and evidence are local and independent of the submitted atlas
+  resolution, drafts, and stage progress.
 - Quantization (pick stages only): student `nearest_toner` runs over
   `SOURCE_COLORS` against `[PAPER, ...loadedRgbs]`; result indices map back
   to toner slots (0→-1) to form the effective table feeding
