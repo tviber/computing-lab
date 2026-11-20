@@ -1,7 +1,7 @@
 # Backend Core
 
 - `server/` is the Node API for authentication, drafts, judging, class dashboards, and administration; entrypoint is `server/index.ts`.
-- Production API and frontend share the webhook's exact archive SHA. The static build stages before the API switch and activates only after API health and route checks. DB migrations run during API startup, so a code-only rollback across a migration can leave the old API incompatible with stored data. See `docs/deployment.md`.
+- Production API and frontend share the exact successful `main` CI archive sent via restricted SSH. Static build stages before the API switch and activates only after API health and route checks. DB migrations run during API startup, so a code-only rollback across a migration can leave the old API incompatible with stored data. See `docs/deployment.md`.
 - Lab project/draft/judge routes use the shared thin pipeline in `server/routes/labRoutes.ts`; route-specific setup stays in `server/routes/`.
 - Draft writes are server-versioned optimistic concurrency: PUT validates `expectedRevision` (400 invalid-revision), `saveStageDraft` compares against `draft_revisions[stage]` inside `withTransaction` and assigns `stored+1` (`applied:false` + stored revision on mismatch). `GET /project` returns `draftRevisions` so clients seed their next expectation. `draft_revisions` stores bare numbers; `toDraftRevisions` still reads legacy `{revision, saveToken}` objects. An omitted `expectedRevision` in `saveStageDraft` is an unconditional write — internal callers only; the route always validates.
 - Hidden judging cases and fixtures stay under `server/judge/`; never expose them to browser code.
