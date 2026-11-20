@@ -86,6 +86,41 @@ test("field guide fits a narrow screen and opens a class experiment", async ({
   await expect(page).toHaveURL(/\/classes\/[^/]+\/labs\//);
 });
 
+test("ALU stage drawer stays on the shared page edge", async ({ page }, testInfo) => {
+  const failures = collectFailures(page);
+  await page.goto("login");
+  await page.getByLabel("学号").fill("teacher");
+  await page.getByLabel("密码").fill("teacher-dev-password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  const card = page
+    .getByRole("article")
+    .filter({ has: page.getByRole("heading", { name: "实现ALU" }) });
+  await card.getByRole("link", { name: "开始实验" }).click();
+  await expect(page.getByRole("main", { name: "计算器实验区" })).toBeVisible();
+  const skip = page.getByRole("button", { name: "跳过引导", exact: true });
+  if (await skip.isVisible()) await skip.click();
+
+  for (const [width, inset] of [
+    [1440, 48],
+    [390, 8],
+  ]) {
+    await page.setViewportSize({ width, height: 900 });
+    const toggle = page.locator(".lab-rail-toggle");
+    const initial = await toggle.getAttribute("aria-expanded");
+    for (const expanded of [initial, String(initial !== "true")]) {
+      if (expanded !== initial) await toggle.click();
+      await expect(toggle).toHaveAttribute("aria-expanded", expanded!);
+      for (const selector of [".app-brand-mark", ".lab-rail-zone"]) {
+        const box = await page.locator(selector).boundingBox();
+        expect(box?.x).toBe(inset);
+      }
+      if (expanded === "true")
+        await page.screenshot({ path: testInfo.outputPath(`alu-${width}.png`) });
+    }
+  }
+  expect(failures).toEqual([]);
+});
+
 test("browser back leaves a lab and forward reopens it without a redirect loop", async ({
   page,
 }) => {

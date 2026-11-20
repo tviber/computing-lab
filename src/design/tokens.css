@@ -50,8 +50,8 @@
   --radius-control: 8px;
   --radius-panel: 12px;
   --radius-pill: 999px;
-  --page-max: 1240px;
-  --page-gutter: 24px;
+  --page-max: 1368px;
+  --page-gutter: 12px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -63,6 +63,6 @@
 
 @media (max-width: 680px) {
   :root {
-    --page-gutter: 16px;
+    --page-gutter: 8px;
   }
 }

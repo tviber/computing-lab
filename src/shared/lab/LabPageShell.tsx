@@ -173,7 +173,7 @@ export function LabPageShell({
   rail,
   collapsedLabel,
   railWidth = 240,
-  contentClassName = "page-content",
+  contentClassName,
   forceExpand = false,
   resetControls,
   children,
@@ -201,7 +201,7 @@ export function LabPageShell({
 
   return (
     <div
-      className={`lab-page-grid ${contentClassName}${effective ? " is-collapsed" : ""}${forceExpand ? " is-forced" : ""}`}
+      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${effective ? " is-collapsed" : ""}${forceExpand ? " is-forced" : ""}`}
       style={{ "--rail-w": `${railWidth}px` } as CSSProperties}
     >
       <div className="lab-rail-zone">
