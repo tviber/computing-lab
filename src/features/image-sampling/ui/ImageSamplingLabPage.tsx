@@ -89,6 +89,7 @@ export function ImageSamplingLabPage() {
     resetting,
     saveGeneration,
     resetControls,
+    flushPreservedDrafts,
   } = useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>({
     classId,
     labId: "image-sampling",
@@ -132,6 +133,8 @@ export function ImageSamplingLabPage() {
     });
 
   useAutosaveDraft<StageDraft>({
+    flushPreservedDrafts,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
     classId,
     labId: "image-sampling",
     saveStatus:

@@ -99,6 +99,7 @@ export function LogisticRegressionLabPage() {
     resetting,
     saveGeneration,
     resetControls,
+    flushPreservedDrafts,
   } = useLabProject<
     LogisticRegressionDraft,
     LogisticRegressionProjectExtras,
@@ -142,6 +143,8 @@ export function LogisticRegressionLabPage() {
     });
 
   useAutosaveDraft<LogisticRegressionDraft>({
+    flushPreservedDrafts,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
     classId,
     labId: "logistic-regression",
     saveStatus:

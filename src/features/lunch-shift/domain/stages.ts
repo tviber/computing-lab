@@ -1,16 +1,3 @@
-/**
- * Stage table for the lunch-shift lab. Four stages for one class period:
- * walk one order by hand → AI semantic intake on practice orders, where
- * need_confirm() learns to price uncertainty → fix queueing by writing
- * priority() (a function) → run the whole restaurant: AI intake plus
- * queueing on hidden orders, under a confirmation budget and a service
- * deadline. Stage 5 is an optional bonus that rides the stage-3 slot.
- *
- * Each stage keeps one task sentence. The judging method and the takeaway
- * are only shown after the stage is passed; `hints` are the three
- * self-opened levels (direction → first code line → observation question).
- */
-
 export type LunchStageDef = {
   index: number;
   id: string;
@@ -18,7 +5,6 @@ export type LunchStageDef = {
   task: string;
   judgeNote: string;
   takeaway: string;
-  /** Self-opened hint levels — omitted where the task needs none. */
   hints?: [string, string, string];
 };
 
@@ -95,35 +81,25 @@ export function getLunchStage(index: number): LunchStageDef | undefined {
   return LUNCH_STAGES.find((stage) => stage.index === index);
 }
 
-/**
- * AI-intake pass lines, shared by the judge and the result views.
- * Confirmed orders always record correctly (the customer restated) but
- * cost one intake tick each. Measured on both order sets, the
- * clause-level model flags its misses at low similarity/margin, so an
- * honest need_confirm passes with 2–4 confirmations while always-confirm
- * (12) and never-confirm both fail. Stage 2 grades intake alone; stage
- * 4 additionally requires the queue run to serve ≥11 tickets both
- * correctly and on time — confirmations stall intake and can cost a
- * delivery.
- */
 export const AI_PASS_CORRECT = 12;
 export const AI_CONFIRM_BUDGET = 4;
 export const AI_SERVED_MIN = 11;
 
-/**
- * Stage-3 pass line: probes passed out of QUEUE_PROBES. One miss of
- * slack is allowed; single-axis tables can't reach it — urgent-first
- * wins only the 3 加急要快 probes, FIFO/wait-only win the 9 wait probes
- * but lose all 3 urgent ones (queueProbes.ts, locked by engine.test.ts).
- */
 export const QUEUE_PASS = 11;
 
-/** Linear unlock: a stage opens once the previous one passed. */
+function lunchStagePrerequisite(index: number): number {
+  return index === 5 ? 3 : index - 1;
+}
+
 export function lunchStageUnlocked(passedStages: readonly number[], index: number): boolean {
-  // 附加挑战 rides alongside the formal challenge: passing priority is
-  // all it needs.
-  if (index === 5) return passedStages.includes(3);
-  return index === 1 || passedStages.includes(index - 1);
+  return index === 1 || passedStages.includes(lunchStagePrerequisite(index));
+}
+
+export function lunchStageAffectedByReset(fromStage: number, stageIndex: number): boolean {
+  for (let index = stageIndex; index > 0; index = lunchStagePrerequisite(index)) {
+    if (index === fromStage) return true;
+  }
+  return false;
 }
 
 export function nextLunchStage(passedStages: readonly number[]): number {

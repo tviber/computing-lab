@@ -480,7 +480,7 @@ describe("LogisticRegressionLabPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
     await waitFor(() => expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled());
     expect(screen.getByRole("heading", { name: "从短信到数字" })).toBeInTheDocument();
-    expect(resets).toEqual([{ scope: "stage", stageIndex: 2 }]);
+    expect(resets).toEqual([{ scope: "stage", stageIndex: 2, expectedGeneration: 0 }]);
   });
 
   it("drops a pre-reset in-flight judge verdict that resolves after reset", async () => {

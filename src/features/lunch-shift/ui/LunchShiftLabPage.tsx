@@ -23,7 +23,7 @@ import type {
   TrainingDraft,
 } from "../domain/protocol.ts";
 import { INTAKE_SCENARIO } from "../domain/scenarios.ts";
-import { LUNCH_STAGES, type LunchStageDef } from "../domain/stages.ts";
+import { LUNCH_STAGES, lunchStageAffectedByReset, type LunchStageDef } from "../domain/stages.ts";
 import {
   createLunchLessonState,
   draftOf,
@@ -81,11 +81,13 @@ export function LunchShiftLabPage() {
     resetting,
     saveGeneration,
     resetControls,
+    flushPreservedDrafts,
   } = useLabProject<LunchDraft, LunchProjectExtras, LunchLessonAction>({
     classId,
     labId: "lunch-shift",
     ready: status === "authenticated",
     stageIndex: state.stageIndex,
+    stageAffectedByReset: lunchStageAffectedByReset,
     onResetSuccess: () => {
       setSubmitError(null);
       setJudgedStage(null);
@@ -126,6 +128,8 @@ export function LunchShiftLabPage() {
     });
 
   useAutosaveDraft<LunchDraft>({
+    flushPreservedDrafts,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
     classId,
     labId: "lunch-shift",
     saveStatus:
@@ -133,22 +137,6 @@ export function LunchShiftLabPage() {
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
         : "idle",
     stageIndex: state.stageIndex,
-    draftOf: (index) => draftOf(state, index),
-    deps: [state.drafts],
-    expectedGeneration: projectGeneration,
-    resetVersion: saveGeneration,
-    expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
-    onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-    onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-    onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-    onConflict: (s) => reconcileConflict(s),
-  });
-
-  useAutosaveDraft<LunchDraft>({
-    classId,
-    labId: "lunch-shift",
-    saveStatus: projectLoaded && !resetting ? statusForStage(state.saveStatusByStage, 5) : "idle",
-    stageIndex: 5,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
     expectedGeneration: projectGeneration,

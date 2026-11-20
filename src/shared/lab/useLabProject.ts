@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { api, ApiError, describeApiError, type LabProjectPayload } from "../api/client";
 import type { LabResetControlsProps, LabResetScope } from "./LabPageShell";
+import type { FlushPreservedDrafts } from "./useAutosaveDraft";
 
 export type JudgeSubmissionResult<TOutcome> =
   | { status: "applied"; outcome: TOutcome }
@@ -15,6 +16,7 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
   labId: string;
   ready: boolean;
   stageIndex: number;
+  stageAffectedByReset?: (fromStage: number, stageIndex: number) => boolean;
   onResetSuccess?: () => void;
   toAction: (project: LabProjectPayload<TDraft> & TExtras, meta?: { isReset?: boolean }) => TAction;
   dispatch: (action: TAction) => void;
@@ -34,8 +36,9 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
   projectGeneration: number;
   saveGeneration: number;
   resetControls: LabResetControlsProps;
+  flushPreservedDrafts: { current: FlushPreservedDrafts | null };
 } {
-  const { classId, labId, ready, stageIndex, toAction, dispatch } = options;
+  const { classId, labId, ready, stageIndex, stageAffectedByReset, toAction, dispatch } = options;
   const [projectLoaded, setProjectLoaded] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [resetting, setResetting] = useState(false);
@@ -50,8 +53,10 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
   const judgeSeq = useRef(0);
   const projectGenerationRef = useRef(0);
   const resettingRef = useRef(false);
+  const postingReset = useRef(false);
   const resetCallbackRef = useRef(options.onResetSuccess);
   const toActionRef = useRef(toAction);
+  const flushPreservedDrafts = useRef<FlushPreservedDrafts | null>(null);
 
   useEffect(() => {
     resetCallbackRef.current = options.onResetSuccess;
@@ -64,6 +69,7 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
     const ctx = contextSeq.current;
     const resetTicket = resetSeq.current;
     resettingRef.current = false;
+    postingReset.current = false;
     judgeSeq.current += 1;
     projectGenerationRef.current = 0;
     setProjectGeneration(0);
@@ -106,6 +112,7 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
       contextSeq.current += 1;
       judgeSeq.current += 1;
       resettingRef.current = false;
+      postingReset.current = false;
     };
   }, [classId, labId, ready]);
 
@@ -122,19 +129,17 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
         if (
           contextSeq.current !== ctx ||
           resetSeq.current !== resetAtStart ||
-          resettingRef.current
+          postingReset.current
         ) {
           resetSupersededFetches.add(pending);
           return null;
         }
         const nextGen = project.projectGeneration ?? 0;
-        if (
-          nextGen < projectGenerationRef.current ||
-          (startedDuringReset && nextGen > genAtStart)
-        ) {
+        if (nextGen < projectGenerationRef.current) {
           resetSupersededFetches.add(pending);
           return null;
         }
+        if (startedDuringReset && nextGen > genAtStart) return null;
         if (requestSeq.current !== ticket) return null;
         if (nextGen > projectGenerationRef.current) {
           projectGenerationRef.current = nextGen;
@@ -178,9 +183,21 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
       setResetting(true);
       setResetError(null);
       try {
+        const expectedGeneration = projectGenerationRef.current;
+        if (scope.scope === "stage" && flushPreservedDrafts.current) {
+          const preservesStage = (stage: number) =>
+            !(stageAffectedByReset?.(scope.stageIndex, stage) ?? stage >= scope.stageIndex);
+          const saved = await flushPreservedDrafts.current(preservesStage);
+          if (contextSeq.current !== ctx || resetSeq.current !== resetTicket) return false;
+          if (!saved) {
+            setResetError("保留关卡的草稿尚未保存。请先解决保存问题，再重试。");
+            return false;
+          }
+        }
+        postingReset.current = true;
         const fresh = await api.post<LabProjectPayload<TDraft> & TExtras>(
           `/api/classes/${classId}/labs/${labId}/reset`,
-          scope,
+          { ...scope, expectedGeneration },
         );
         if (contextSeq.current !== ctx || resetSeq.current !== resetTicket) return false;
         const nextGen = fresh.projectGeneration ?? projectGenerationRef.current + 1;
@@ -200,11 +217,12 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
       } finally {
         if (contextSeq.current === ctx && resetSeq.current === resetTicket) {
           resettingRef.current = false;
+          postingReset.current = false;
           setResetting(false);
         }
       }
     },
-    [classId, labId, ready, dispatch],
+    [classId, labId, ready, dispatch, stageAffectedByReset],
   );
 
   const postJudge = useCallback(
@@ -267,6 +285,7 @@ export function useLabProject<TDraft, TExtras, TAction>(options: {
     resetError,
     projectGeneration,
     saveGeneration,
+    flushPreservedDrafts,
     resetControls: {
       stageIndex,
       canReset: Boolean(classId && ready && projectLoaded && !loadError),

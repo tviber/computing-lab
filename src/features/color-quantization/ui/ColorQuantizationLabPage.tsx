@@ -87,6 +87,7 @@ export function ColorQuantizationLabPage() {
     resetting,
     saveGeneration,
     resetControls,
+    flushPreservedDrafts,
   } = useLabProject<StageDraft, Record<never, never>, QuantLessonAction>({
     classId,
     labId: "color-quantization",
@@ -130,6 +131,8 @@ export function ColorQuantizationLabPage() {
     });
 
   useAutosaveDraft<StageDraft>({
+    flushPreservedDrafts,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
     classId,
     labId: "color-quantization",
     saveStatus:

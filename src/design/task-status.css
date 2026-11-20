@@ -1,0 +1,30 @@
+.ts-task-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  font-size: 11px;
+  font-weight: 650;
+}
+
+.ts-task-badge.not_started,
+.ts-task-badge.in_progress {
+  background: var(--subtle);
+  color: var(--secondary);
+}
+
+.ts-task-badge.submitted {
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.ts-task-badge.reviewed {
+  background: var(--success-soft);
+  color: var(--success);
+}
+
+.ts-task-badge.returned,
+.ts-task-badge.late {
+  background: var(--danger-soft);
+  color: var(--danger);
+}

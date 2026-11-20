@@ -260,33 +260,42 @@ export function resetLabProject<TDraft = unknown>(
   db: DatabaseSync,
   projectId: string,
   fromStage: number,
-  keepSubmodules?: (library: unknown[], fromStage: number) => unknown[],
+  preservedStages: number[],
+  keepSubmodules?: (library: unknown[], preservesStage: (stage: number) => boolean) => unknown[],
 ): ProjectRow<TDraft> {
   return withTransaction(db, () => {
     const project = toProject<TDraft>(
       db.prepare("SELECT * FROM student_projects WHERE id = ?").get(projectId) as RawProject,
     );
-    const beforeReset = (key: string) => Number(key) < fromStage;
+    const preserved = new Set(preservedStages);
+    const preservesStage = (stage: number) => preserved.has(stage);
     const drafts = Object.fromEntries(
-      Object.entries(project.drafts).filter(([key]) => beforeReset(key)),
+      Object.entries(project.drafts).filter(([key]) => preservesStage(Number(key))),
     );
     const draftRevisions = Object.fromEntries(
       Object.entries(project.draftRevisions).filter(
-        ([key]) => beforeReset(key) || (fromStage > 1 && key === COMPONENTS_REVISION_KEY),
+        ([key]) =>
+          preservesStage(Number(key)) || (preserved.size > 0 && key === COMPONENTS_REVISION_KEY),
       ),
     );
-    const passedStages = project.passedStages.filter((stage) => stage < fromStage);
+    const passedStages = project.passedStages.filter(preservesStage);
     const library =
-      fromStage === 1
+      preserved.size === 0
         ? []
-        : (keepSubmodules?.(project.unlockedSubmodules, fromStage) ?? project.unlockedSubmodules);
-    db.prepare("DELETE FROM submissions WHERE project_id = ? AND stage_index >= ?").run(
+        : (keepSubmodules?.(project.unlockedSubmodules, preservesStage) ??
+          project.unlockedSubmodules);
+    const stageFilter =
+      preserved.size === 0
+        ? ""
+        : ` AND stage_index NOT IN (${preservedStages.map(() => "?").join(", ")})`;
+    db.prepare(`DELETE FROM submissions WHERE project_id = ?${stageFilter}`).run(
       projectId,
-      fromStage,
+      ...preservedStages,
     );
-    db.prepare(
-      "DELETE FROM cpu_guided_first_answers WHERE project_id = ? AND stage_index >= ?",
-    ).run(projectId, fromStage);
+    db.prepare(`DELETE FROM cpu_guided_first_answers WHERE project_id = ?${stageFilter}`).run(
+      projectId,
+      ...preservedStages,
+    );
     const row = db
       .prepare(
         `UPDATE student_projects

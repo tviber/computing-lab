@@ -3,7 +3,11 @@ import type {
   LunchJudgeResult,
   LunchTestSummary,
 } from "../../src/features/lunch-shift/domain/protocol.ts";
-import { LUNCH_STAGES, lunchStageUnlocked } from "../../src/features/lunch-shift/domain/stages.ts";
+import {
+  LUNCH_STAGES,
+  lunchStageAffectedByReset,
+  lunchStageUnlocked,
+} from "../../src/features/lunch-shift/domain/stages.ts";
 import { FINAL_PUBLIC_ORDERS } from "../judge/lunch-shift/hiddenSet.ts";
 import { sanitizeLunchDraft } from "../../src/features/lunch-shift/lesson/state.ts";
 import { trainingOrderFor } from "../../src/features/lunch-shift/domain/scenarios.ts";
@@ -20,7 +24,6 @@ const SUMMARY_STAGES: Record<number, "intake" | "queue" | "final" | "compensate"
   5: "compensate",
 };
 
-/** Latest recorded summary per graded stage, for the result views on reload. */
 function latestRunSummaries(
   db: import("node:sqlite").DatabaseSync,
   projectId: string,
@@ -54,17 +57,14 @@ function latestRunSummaries(
 }
 
 export function lunchShiftRoutes() {
-  // 20 submissions per stage per 10 minutes — retries on the hidden final
-  // stay bounded too.
   const judgeLimiter = new SlidingWindowLimiter(20, 10 * 60 * 1000);
   return labRoutes<LunchDraft, LunchJudgeResult>({
     labId: "lunch-shift",
     stageCount: LUNCH_STAGES.length,
+    stageAffectedByReset: lunchStageAffectedByReset,
     projectExtras: (db, project, { staff }) => ({
       runSummaries: latestRunSummaries(db, project.id),
       training: trainingOrderFor(project.userId),
-      // The graded orders' wording ships once stage 4 unlocks (or immediately
-      // for teachers/admins exploring freely) — expected tickets never leave hiddenSet.ts.
       aiOrders: staff || lunchStageUnlocked(project.passedStages, 4) ? FINAL_PUBLIC_ORDERS : null,
     }),
     saveDraft: (

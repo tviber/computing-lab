@@ -123,7 +123,7 @@ function LabProgressTools({
               />
               <span>
                 <strong>从本关重来</strong>
-                <small>清除第 {stageIndex} 关及后续关卡的草稿、通关和提交记录。</small>
+                <small>清除第 {stageIndex} 关及依赖它的后续关卡记录，保留不受影响的关卡。</small>
               </span>
             </label>
             <label>

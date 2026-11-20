@@ -1,39 +1,15 @@
-/**
- * Stage contracts for the Calculator Lab (progression 1–8 plus optional
- * combinational-logic side challenges 9–10).
- *
- * These are the PUBLIC contract of each stage: which named pins a correct
- * circuit must expose, which primitives are on the palette, and which
- * component name gets unlocked on a full pass. Hidden test vectors live
- * server-side only (server/judge/testcases.ts); public debug cases live in
- * the lesson layer.
- */
-
 import type { GateKind } from "./graph.ts";
 
-/** How the implied sign bit of a low-bits bus is derived from input pins. */
 export type ImplicitSign =
-  /** Always 0: the bus holds a non-negative operand. */
   | { kind: "zero" }
-  /** 1 iff any listed pin is 1 — e.g. −A is negative whenever A ≠ 0. */
   | { kind: "nonzero"; pins: string[] }
-  /** 1 iff the MSB-first number on `left` is less than the one on `right`. */
   | { kind: "lt"; left: string[]; right: string[] };
 
-/** A group of pins read together as one binary number, MSB first. */
 export type BusDef = {
-  /** Display label, e.g. "A" or "真实和（5 位）". */
   name: string;
-  /** Pin names, MSB first. Every entry must be a declared pin of the stage. */
   pins: string[];
   role: "input" | "output";
-  /** Also show the two's-complement reading next to the unsigned one. */
   signed: boolean;
-  /**
-   * Marks the bus as the low bits of a wider two's-complement value whose
-   * sign bit is implied by the inputs rather than driven by the circuit.
-   * Readings then prepend a virtual sign bit of weight −2^pins.length.
-   */
   implicitSign?: ImplicitSign;
 };
 
@@ -45,36 +21,23 @@ export type StageDef = {
   title: string;
   englishTitle: string;
   description: string;
-  /** "core" stages are the in-class main line; "challenge" is optional. */
   track: StageTrack;
-  /** Optional side challenges are shown after this mainline stage in the rail. */
   railAfter?: number;
-  /** Explicit pass prerequisites for optional side challenges. */
   unlockAfter?: number[];
-  /** Pin groups shown as whole binary numbers in the UI. */
   buses: BusDef[];
-  /** Required named input pins (order = display order). */
   inputs: string[];
-  /** Required named output pins. */
   outputs: string[];
-  /** Primitive gates on the palette for this stage. */
   primitives: GateKind[];
-  /** Gates kept available under “更多元件” — usable, but not suggested. */
   extraPrimitives?: GateKind[];
-  /** Show 常量 0/1 chips. Introduced when carry chains first need them. */
   constants?: boolean;
-  /** Deeper math/spec notes behind a “为什么？” disclosure. */
   details?: string;
-  /** Component name unlocked for later stages on full pass. */
   unlocks: string | null;
   hint: string;
-  /** One-sentence takeaway shown after the student passes this stage. */
   takeaway: string;
 };
 
 const ALL_GATES: GateKind[] = ["and", "or", "xor", "not", "nand", "nor", "buffer"];
 
-/** Visual pin order: the least-significant bit is the top pin. */
 const nib = (prefix: string) => [`${prefix}0`, `${prefix}1`, `${prefix}2`, `${prefix}3`];
 const byte = (prefix: string) => [
   `${prefix}0`,
@@ -87,7 +50,6 @@ const byte = (prefix: string) => [
   `${prefix}7`,
 ];
 
-/** Numeric readouts stay MSB first even though canvas pins run low to high. */
 const busNib = (prefix: string) => [...nib(prefix)].reverse();
 const busByte = (prefix: string) => [...byte(prefix)].reverse();
 
@@ -275,9 +237,6 @@ export const CALCULATOR_STAGES: StageDef[] = [
     buses: [
       { name: "A", pins: busNib("A"), role: "input", signed: false },
       { name: "B", pins: busNib("B"), role: "input", signed: false },
-      // The final calculator operates on unsigned operands and exposes the
-      // low 4-bit word. Keep its result unsigned; signed interpretation is
-      // taught explicitly in stage 5 rather than implied here.
       { name: "R", pins: busNib("R"), role: "output", signed: false },
     ],
     inputs: [...nib("A"), ...nib("B"), "Op0", "Op1"],
@@ -348,30 +307,28 @@ export function getStage(index: number): StageDef | undefined {
   return CALCULATOR_STAGES.find((s) => s.index === index);
 }
 
-/** In-class main line: stages 1–6. */
 export function coreStages(): StageDef[] {
   return CALCULATOR_STAGES.filter((s) => s.track === "core");
 }
 
-/** Optional challenges, including side challenges placed beside the main line. */
 export function challengeStages(): StageDef[] {
   return CALCULATOR_STAGES.filter((s) => s.track === "challenge");
 }
 
-/**
- * Return the passes needed to open a stage. Core stages are always selectable;
- * legacy challenges default to the full core track while side challenges can
- * name a smaller local prerequisite.
- */
 export function stagePrerequisites(stage: StageDef): number[] {
   if (stage.track === "core") return [];
   return stage.unlockAfter ?? coreStages().map((core) => core.index);
 }
 
-/**
- * Preserve the old currentStage meaning: it tracks the mainline only and is
- * capped just after the last core stage, so optional passes never jump it.
- */
+export function calculatorStageAffectedByReset(fromStage: number, stageIndex: number): boolean {
+  if (fromStage === stageIndex) return true;
+  if (getStage(fromStage)?.track !== "core") return false;
+  const stage = getStage(stageIndex);
+  return stage?.track === "core"
+    ? stageIndex >= fromStage
+    : stage !== undefined && stagePrerequisites(stage).some((index) => index >= fromStage);
+}
+
 export function nextMainlineStage(passedStages: readonly number[]): number {
   const highestPassedCore = coreStages().reduce(
     (highest, stage) => (passedStages.includes(stage.index) ? stage.index : highest),

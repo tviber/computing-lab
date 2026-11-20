@@ -81,6 +81,7 @@ export function useDecodingLabController({
     resetting,
     saveGeneration,
     resetControls,
+    flushPreservedDrafts,
   } = useLabProject<DecodingDraft, { payloads: Record<number, LabPayload> }, DecodingLessonAction>({
     classId,
     labId: "decoding",
@@ -117,6 +118,8 @@ export function useDecodingLabController({
     });
 
   useAutosaveDraft<DecodingDraft>({
+    flushPreservedDrafts,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
     classId,
     labId: "decoding",
     saveStatus:

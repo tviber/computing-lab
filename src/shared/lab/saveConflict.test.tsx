@@ -71,6 +71,118 @@ describe("save conflict recovery", () => {
     });
   };
 
+  it.each(["debouncing", "in flight", "save failed"])(
+    "protects a retained draft while its save is %s",
+    async (savePhase) => {
+      function Probe() {
+        const [state, dispatch] = useReducer(transitionDecodingLesson, undefined, () =>
+          createDecodingLessonState(1),
+        );
+        const {
+          projectLoaded,
+          resetProject,
+          resetError,
+          flushPreservedDrafts,
+          projectGeneration,
+          saveGeneration,
+        } = useLabProject<DecodingDraft, Record<string, never>, DecodingLessonAction>({
+          classId: "class-1",
+          labId: "decoding",
+          ready: true,
+          stageIndex: state.stageIndex,
+          toAction: (project, meta) => ({
+            type: "load-project",
+            currentStage: project.currentStage,
+            passedStages: project.passedStages,
+            drafts: project.drafts,
+            draftRevisions: project.draftRevisions,
+            payloads: {},
+            isReset: meta?.isReset,
+          }),
+          dispatch,
+        });
+        useAutosaveDraft<DecodingDraft>({
+          classId: "class-1",
+          labId: "decoding",
+          saveStatus: projectLoaded
+            ? statusForStage(state.saveStatusByStage, state.stageIndex)
+            : "idle",
+          saveStatuses: state.saveStatusByStage,
+          flushPreservedDrafts,
+          stageIndex: state.stageIndex,
+          deps: [state.drafts],
+          expectedGeneration: projectGeneration,
+          resetVersion: saveGeneration,
+          draftOf: (stage) => state.drafts[stage],
+          expectedRevisionOf: (stage) => state.draftRevisions[stage] ?? 0,
+          onSaving: (stageIndex) => dispatch({ type: "mark-saving", stageIndex }),
+          onSaved: (stageIndex, revision) => dispatch({ type: "mark-saved", stageIndex, revision }),
+          onError: (stageIndex) => dispatch({ type: "mark-save-error", stageIndex }),
+        });
+        return (
+          <>
+            <button onClick={() => dispatch({ type: "set-code", code: "retained edit" })}>
+              edit
+            </button>
+            <button onClick={() => dispatch({ type: "select-stage", stageIndex: 2 })}>
+              switch
+            </button>
+            <button onClick={() => void resetProject({ scope: "stage", stageIndex: 2 })}>
+              reset
+            </button>
+            <output>{state.drafts[1]?.code}</output>
+            {resetError ? <p role="alert">{resetError}</p> : null}
+          </>
+        );
+      }
+
+      render(<Probe />);
+      calls[0].done.resolve(
+        json({ labId: "decoding", currentStage: 1, passedStages: [1], drafts: {} }),
+      );
+      await flush();
+      fireEvent.click(screen.getByRole("button", { name: "edit" }));
+      fireEvent.click(screen.getByRole("button", { name: "switch" }));
+      if (savePhase === "in flight") {
+        await act(async () => vi.advanceTimersByTime(1500));
+        expect(calls[1].method).toBe("PUT");
+      } else {
+        expect(calls).toHaveLength(1);
+      }
+      fireEvent.click(screen.getByRole("button", { name: "reset" }));
+      expect(calls.map(({ method }) => method)).toEqual(["GET", "PUT"]);
+      expect(calls[1].body).toMatchObject({
+        stageIndex: 1,
+        draft: { code: "retained edit" },
+        expectedGeneration: 0,
+      });
+
+      if (savePhase === "save failed") {
+        calls[1].done.resolve(new Response(null, { status: 500 }));
+        await flush();
+        expect(calls).toHaveLength(2);
+        expect(screen.getByRole("alert")).toHaveTextContent("草稿尚未保存");
+      } else {
+        calls[1].done.resolve(json({ applied: true, revision: 1, projectGeneration: 0 }));
+        await flush();
+        expect(calls[2].method).toBe("POST");
+        expect(calls[2].body).toEqual({ scope: "stage", stageIndex: 2, expectedGeneration: 0 });
+        calls[2].done.resolve(
+          json({
+            labId: "decoding",
+            currentStage: 2,
+            passedStages: [1],
+            drafts: { 1: decodingDraft("retained edit") },
+            draftRevisions: { 1: 1 },
+            projectGeneration: 1,
+          }),
+        );
+        await flush();
+      }
+      expect(screen.getByRole("status")).toHaveTextContent("retained edit");
+    },
+  );
+
   it("reconciles only the conflicted stage through the real reducer", async () => {
     const exposed: { state: LabState; dispatch: Dispatch<DecodingLessonAction> | null } = {
       state: createDecodingLessonState(1),

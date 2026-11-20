@@ -29,7 +29,11 @@ type LabSpec<TDraft, TOutcome> = {
   stageCount: number;
   usesComponents?: boolean;
   staffNavigation?: boolean;
-  keepSubmodulesOnReset?: (library: unknown[], fromStage: number) => unknown[];
+  stageAffectedByReset?: (fromStage: number, stageIndex: number) => boolean;
+  keepSubmodulesOnReset?: (
+    library: unknown[],
+    preservesStage: (stage: number) => boolean,
+  ) => unknown[];
   projectExtras?: (
     db: DatabaseSync,
     project: ProjectRow<TDraft>,
@@ -116,11 +120,26 @@ export function labRoutes<TDraft, TOutcome extends object>(
     const fromStage =
       body.scope === "lab" ? 1 : typeof body.stageIndex === "number" ? stageIndexOf(body) : null;
     if (fromStage === null) return jsonError(c, 400, "invalid-stage");
+    const expectedGeneration = parseRequiredGeneration(body);
+    if (body.expectedGeneration !== undefined && expectedGeneration === null) {
+      return jsonError(c, 400, "invalid-generation");
+    }
     const db = c.get("db");
+    const project = projectOf(db, auth);
+    if (expectedGeneration !== null && expectedGeneration !== project.projectGeneration) {
+      return jsonError(c, 409, "stale-project-generation");
+    }
+    const preservedStages =
+      body.scope === "lab"
+        ? []
+        : Array.from({ length: spec.stageCount }, (_, index) => index + 1).filter(
+            (stage) => !(spec.stageAffectedByReset?.(fromStage, stage) ?? stage >= fromStage),
+          );
     const reset = resetLabProject<TDraft>(
       db,
-      projectOf(db, auth).id,
+      project.id,
       fromStage,
+      preservedStages,
       spec.keepSubmodulesOnReset,
     );
     return c.json(projectPayload(db, auth, reset));

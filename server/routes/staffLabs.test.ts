@@ -390,6 +390,122 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
     }
   });
 
+  it.each([
+    {
+      labId: "calculator",
+      fromStage: 3,
+      completed: [1, 2, 3, 4, 9, 10, 11],
+      preserved: [1, 2, 9, 10, 11],
+    },
+    { labId: "calculator", fromStage: 2, completed: [1, 2, 3, 9, 10, 11], preserved: [1, 9] },
+    {
+      labId: "calculator",
+      fromStage: 9,
+      completed: [1, 2, 3, 9, 10, 11],
+      preserved: [1, 2, 3, 10, 11],
+    },
+    { labId: "lunch-shift", fromStage: 4, completed: [1, 2, 3, 4, 5], preserved: [1, 2, 3, 5] },
+    { labId: "lunch-shift", fromStage: 3, completed: [1, 2, 3, 4, 5], preserved: [1, 2] },
+  ] satisfies {
+    labId: LabId;
+    fromStage: number;
+    completed: number[];
+    preserved: number[];
+  }[])(
+    "$labId reset at $fromStage preserves independent branches",
+    async ({ labId, fromStage, completed, preserved }) => {
+      const { db, classId, studentId, app, cookieFor } = await setupEnv();
+      const projectId = newId();
+      const drafts = Object.fromEntries(completed.map((stage) => [stage, { stage }]));
+      const revisions = Object.fromEntries(completed.map((stage) => [stage, stage + 10]));
+      db.prepare(
+        `INSERT INTO student_projects
+       (id, user_id, class_id, lab_id, current_stage, passed_stages, draft_graph, draft_revisions)
+       VALUES (?, ?, ?, ?, 5, ?, ?, ?)`,
+      ).run(
+        projectId,
+        studentId,
+        classId,
+        labId,
+        JSON.stringify(completed),
+        JSON.stringify(drafts),
+        JSON.stringify(revisions),
+      );
+      for (const stage of completed) {
+        db.prepare(
+          `INSERT INTO submissions
+         (id, project_id, user_id, lab_id, stage_index, snapshot_graph, score, total, passed, test_summary)
+         VALUES (?, ?, ?, ?, ?, '{}', 1, 1, 1, '{}')`,
+        ).run(newId(), projectId, studentId, labId, stage);
+        db.prepare(
+          "INSERT INTO cpu_guided_first_answers (project_id, stage_index, prompt_id, option_index) VALUES (?, ?, 'probe', 0)",
+        ).run(projectId, stage);
+      }
+      const response = await app.request(labUrl(classId, labId, "/reset"), {
+        method: "POST",
+        headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
+        body: JSON.stringify({ scope: "stage", stageIndex: fromStage, expectedGeneration: 0 }),
+      });
+      expect(response.status).toBe(200);
+      const project = (await response.json()) as {
+        passedStages: number[];
+        drafts: Record<string, unknown>;
+        draftRevisions: Record<string, number>;
+      };
+      expect(project.passedStages).toEqual(preserved);
+      expect(project.drafts).toEqual(
+        Object.fromEntries(preserved.map((stage) => [stage, drafts[stage]])),
+      );
+      expect(project.draftRevisions).toEqual(
+        Object.fromEntries(preserved.map((stage) => [stage, revisions[stage]])),
+      );
+      for (const table of ["submissions", "cpu_guided_first_answers"]) {
+        const records = db
+          .prepare(
+            `SELECT stage_index AS stage FROM ${table} WHERE project_id = ? ORDER BY stage_index`,
+          )
+          .all(projectId);
+        expect(records).toEqual(preserved.map((stage) => ({ stage })));
+      }
+    },
+  );
+
+  it("removes direct and nested calculator component dependencies on reset", async () => {
+    const { db, classId, studentId, app, cookieFor } = await setupEnv();
+    const component = (name: string, dependency?: string, custom = true) => ({
+      name,
+      custom,
+      graph: {
+        nodes: dependency
+          ? [{ id: "dependency", kind: "component", name: dependency, x: 0, y: 0 }]
+          : [],
+        edges: [],
+      },
+    });
+    const library = [
+      component("HalfAdder", undefined, false),
+      component("Add4", "HalfAdder", false),
+      component("Direct", "Add4"),
+      component("Nested", "Direct"),
+      component("Independent", "HalfAdder"),
+    ];
+    db.prepare(
+      `INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage, passed_stages, unlocked_submodules)
+       VALUES (?, ?, ?, 'calculator', 5, '[1,2,3,4]', ?)`,
+    ).run(newId(), studentId, classId, JSON.stringify(library));
+    const reset = (expectedGeneration: number) =>
+      app.request(labUrl(classId, "calculator", "/reset"), {
+        method: "POST",
+        headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
+        body: JSON.stringify({ scope: "stage", stageIndex: 4, expectedGeneration }),
+      });
+    const response = await reset(0);
+    expect(response.status).toBe(200);
+    const project = (await response.json()) as { unlockedSubmodules: unknown[] };
+    expect(project.unlockedSubmodules).toEqual([library[0], library[4]]);
+    expect((await reset(0)).status).toBe(409);
+  });
+
   it("lunch-shift ships final aiOrders immediately to teacher/admin before stage 4 unlocks", async () => {
     const { classId, studentId, teacherId, adminId, app, cookieFor } = await setupEnv();
 

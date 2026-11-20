@@ -10,6 +10,7 @@ import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { evaluateGraph } from "../domain/evaluate";
 import type { CircuitGraph, ComponentDef } from "../domain/graph";
 import type { CalculatorJudgeResult, CalculatorSubmission } from "../domain/protocol";
+import { calculatorStageAffectedByReset } from "../domain/stages";
 import {
   componentMap,
   createCalculatorLessonState,
@@ -52,11 +53,13 @@ export function CalculatorLabPage() {
     resetting,
     saveGeneration,
     resetControls,
+    flushPreservedDrafts,
   } = useLabProject<CircuitGraph, { unlockedSubmodules: ComponentDef[] }, CalculatorLessonAction>({
     classId,
     labId: "calculator",
     ready: status === "authenticated",
     stageIndex: state.stageIndex,
+    stageAffectedByReset: calculatorStageAffectedByReset,
     onResetSuccess: () => setSubmitError(null),
     toAction: (project, meta) => ({
       type: "load-project",
@@ -108,16 +111,6 @@ export function CalculatorLabPage() {
       onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
     });
 
-  const dirtyStages = useMemo(
-    () =>
-      Object.keys(state.saveStatusByStage)
-        .map(Number)
-        .filter(
-          (s) => s !== state.stageIndex && statusForStage(state.saveStatusByStage, s) === "dirty",
-        ),
-    [state.saveStatusByStage, state.stageIndex],
-  );
-
   useAutosaveDraft<CircuitGraph>({
     classId,
     labId: "calculator",
@@ -128,7 +121,8 @@ export function CalculatorLabPage() {
     expectedGeneration: projectGeneration,
     resetVersion: saveGeneration,
     stageIndex,
-    dirtyStages,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
+    flushPreservedDrafts,
     draftOf: (s) => graphOf(state, s),
     bodyFor: (index, draft) => ({
       stageIndex: index,

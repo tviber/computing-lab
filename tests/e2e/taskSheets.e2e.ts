@@ -1,12 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-/**
- * Task-sheet golden path through the real API: teacher authors + assigns a
- * sheet, student drafts + submits answers, auto-grading lands, and the
- * teacher sees the submitted response.
- */
-test("completes a task-sheet assignment end to end", async ({ request }) => {
-  // Admin provisions the student (matching the classroom flow).
+test("completes a task-sheet assignment end to end", async ({ baseURL, browser, request }) => {
   const adminLogin = await request.post("/api/auth/login", {
     data: { studentNo: "admin", password: "admin-dev-password" },
   });
@@ -30,7 +24,6 @@ test("completes a task-sheet assignment end to end", async ({ request }) => {
   });
   expect(createStudent.status()).toBe(201);
 
-  // Teacher: author the sheet, fill its schema, publish, assign to the class.
   const teacherLogin = await request.post("/api/auth/login", {
     data: { studentNo: "teacher", password: "teacher-dev-password" },
   });
@@ -79,11 +72,25 @@ test("completes a task-sheet assignment end to end", async ({ request }) => {
   expect(assign.status()).toBe(201);
   const { assignment } = (await assign.json()) as { assignment: { id: string } };
 
-  // Student: the public schema must not leak accepted answers.
   const studentLogin = await request.post("/api/auth/login", {
     data: { studentNo, password: "e2e-password" },
   });
   expect(studentLogin.status()).toBe(200);
+
+  const firstVisit = await browser.newContext({
+    baseURL,
+    storageState: await request.storageState(),
+  });
+  try {
+    const page = await firstVisit.newPage();
+    await page.goto("./");
+    const badge = page.getByRole("article").filter({ hasText: "E2E 任务单" }).getByText("未开始");
+    await expect(badge).toHaveCSS("display", "inline-flex");
+    await expect(badge).not.toHaveCSS("background-color", "rgba(0, 0, 0, 0)");
+    await expect(badge).toHaveCSS("border-top-left-radius", "999px");
+  } finally {
+    await firstVisit.close();
+  }
 
   const view = await request.get(
     `/api/classes/${classId}/task-assignments/${assignment.id}/response`,
@@ -116,13 +123,11 @@ test("completes a task-sheet assignment end to end", async ({ request }) => {
   expect(submit.status()).toBe(200);
   await expect(submit.json()).resolves.toMatchObject({ autoScore: 5, autoTotal: 5 });
 
-  // A second submit is locked once the first lands.
   const resubmit = await request.post(
     `/api/classes/${classId}/task-assignments/${assignment.id}/response/submit`,
   );
   expect(resubmit.status()).toBe(409);
 
-  // Teacher sees the submitted response in the class roster.
   await request.post("/api/auth/login", {
     data: { studentNo: "teacher", password: "teacher-dev-password" },
   });
