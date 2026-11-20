@@ -260,7 +260,7 @@ export function ImageSamplingLabPage() {
           ) : null}
 
           {stage ? (
-            <ReceiverExercise enabled={stage.index === 1}>
+            <ReceiverExercise canSkipPrediction={isStaff} enabled={stage.index === 1}>
               <DownsampleExplorer
                 height={previewHeight}
                 onCellPick={(cell) => dispatch({ type: "select-cell", cell })}

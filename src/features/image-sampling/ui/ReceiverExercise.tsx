@@ -15,6 +15,12 @@ import { BitmapCanvas } from "./BitmapCanvas.tsx";
 import "./receiverExercise.css";
 
 const choices = { a: "只可能甲", b: "只可能乙", both: "两枚都可能" } as const;
+const predictions = { separate: "能区分", collide: "仍不能区分" } as const;
+type Prediction = keyof typeof predictions;
+type ReceiverRun = { level: ReceiverLevel; prediction: Prediction | null };
+
+const firstRound: ReceiverRun = { level: "coarse", prediction: null };
+
 const retryHints = {
   choose: "先选一个判断，再提交。",
   point: "只选一枚时，还要指出一格：来包在这里和它相同，和另一枚不同。",
@@ -148,14 +154,21 @@ function CellProof({ round, cell }: { round: ReceiverRound; cell: ReceiverCell }
   );
 }
 
-function ReceiverTransmission({ level, onNext }: { level: ReceiverLevel; onNext: () => void }) {
+function ReceiverTransmission({
+  run: { level, prediction },
+  canSkipPrediction,
+  onNext,
+}: {
+  run: ReceiverRun;
+  canSkipPrediction: boolean;
+  onNext: (prediction: Prediction | null) => void;
+}) {
   const round = useMemo(() => createReceiverRound(level), [level]);
   const [choice, setChoice] = useState<ReceiverChoice | null>(null);
   const [cell, setCell] = useState<ReceiverCell | null>(null);
   const [verdict, setVerdict] = useState<ReturnType<typeof checkReceiverAnswer> | null>(null);
   const roundTitle = useRef<HTMLHeadingElement>(null);
   const resultTitle = useRef<HTMLHeadingElement>(null);
-  const resendButton = useRef<HTMLButtonElement>(null);
   const choiceGroupName = useId();
   const hintId = useId();
   const feedbackId = useId();
@@ -174,7 +187,6 @@ function ReceiverTransmission({ level, onNext }: { level: ReceiverLevel; onNext:
 
   useEffect(() => {
     (finished ? resultTitle : roundTitle).current?.focus();
-    resendButton.current?.scrollIntoView({ block: "nearest" });
   }, [finished]);
 
   const pick = (cx: number, cy: number) => {
@@ -208,6 +220,7 @@ function ReceiverTransmission({ level, onNext }: { level: ReceiverLevel; onNext:
           : "比对同一枚徽章重发的来包。判断来自哪一枚后，还要选出能排除另一枚的一格。"}
         两枚候选都按内置多数规则采样，黑格是 1，白格是 0。
       </p>
+      {prediction && !finished ? <p>你的预测：{predictions[prediction]}。</p> : null}
       <div className="receiver-triptych">
         {grids.map(({ label, image }) => (
           <figure key={label}>
@@ -290,20 +303,55 @@ function ReceiverTransmission({ level, onNext }: { level: ReceiverLevel; onNext:
             {message}
           </p>
           {verdict === "collision" ? (
-            <p>
-              同一枚徽章改发 {fineSize * fineSize} 格，这次能分清吗？想想原来挤在一格里的细节，
-              先说理由，再请求重发。
-            </p>
-          ) : null}
-          {verdict === "proved" && cell ? <CellProof cell={cell} round={round} /> : null}
-          {finished ? (
-            <button
-              className="button button-secondary"
-              onClick={onNext}
-              ref={verdict === "collision" ? resendButton : undefined}
-              type="button"
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const choice = new FormData(event.currentTarget).get("prediction");
+                if (choice === "separate" || choice === "collide") onNext(choice);
+              }}
             >
-              {verdict === "collision" ? `请求重发 ${fineSize}×${fineSize}` : "重玩本题"}
+              <fieldset className="receiver-judgment">
+                <legend>
+                  同一枚徽章用 {fineSize}×{fineSize} 重发后，两枚能分清吗？
+                </legend>
+                <div className="receiver-actions">
+                  {(["separate", "collide"] as const).map((option) => (
+                    <label key={option}>
+                      <input name="prediction" required type="radio" value={option} />
+                      {predictions[option]}
+                    </label>
+                  ))}
+                  <button className="button button-primary" type="submit">
+                    请求重发 {fineSize}×{fineSize}
+                  </button>
+                  {canSkipPrediction ? (
+                    <button
+                      className="button button-secondary"
+                      onClick={() => onNext(null)}
+                      type="button"
+                    >
+                      跳过预测并重发
+                    </button>
+                  ) : null}
+                </div>
+              </fieldset>
+            </form>
+          ) : null}
+          {verdict === "proved" && cell ? (
+            <>
+              {prediction ? (
+                <p>
+                  你的预测：{predictions[prediction]}。证据：第 {cell.cy + 1} 行第 {cell.cx + 1}{" "}
+                  列的值不同，8×8 可以区分这两枚徽章。
+                  {prediction === "separate" ? "结果与预测一致。" : "结果与预测不同。"}
+                </p>
+              ) : null}
+              <CellProof cell={cell} round={round} />
+            </>
+          ) : null}
+          {verdict === "proved" ? (
+            <button className="button button-secondary" onClick={() => onNext(null)} type="button">
+              重玩本题
             </button>
           ) : null}
         </div>
@@ -312,12 +360,22 @@ function ReceiverTransmission({ level, onNext }: { level: ReceiverLevel; onNext:
   );
 }
 
-export function ReceiverExercise({ enabled, children }: { enabled: boolean; children: ReactNode }) {
-  const [level, setLevel] = useState<ReceiverLevel | null>(null);
+export function ReceiverExercise({
+  enabled,
+  canSkipPrediction,
+  children,
+}: {
+  enabled: boolean;
+  canSkipPrediction: boolean;
+  children: ReactNode;
+}) {
+  const [run, setRun] = useState<ReceiverRun | null>(null);
   const titleId = useId();
   const exerciseId = useId();
 
-  if (!enabled && level !== null) setLevel(null);
+  useEffect(() => {
+    if (!enabled) setRun(null);
+  }, [enabled]);
 
   return (
     <>
@@ -325,34 +383,37 @@ export function ReceiverExercise({ enabled, children }: { enabled: boolean; chil
         <section aria-labelledby={titleId} className="receiver-exercise">
           <div className="receiver-heading">
             <div>
-              <h3 id={titleId}>{level ? "接收端挑战" : "先当一次接收员"}</h3>
-              {!level ? <p>可选练习 · 比对两枚徽章，用收到的格子判断来源。</p> : null}
+              <h3 id={titleId}>{run ? "接收端挑战" : "先当一次接收员"}</h3>
+              {!run ? <p>可选练习 · 比对两枚徽章，用收到的格子判断来源。</p> : null}
             </div>
             <button
               aria-controls={exerciseId}
-              aria-expanded={level !== null}
+              aria-expanded={run !== null}
               className="button button-secondary"
               onClick={(event) => {
                 event.currentTarget.focus();
-                setLevel(level ? null : "coarse");
+                setRun(run ? null : firstRound);
               }}
               type="button"
             >
-              {level ? "返回发送端" : "开始接收端挑战"}
+              {run ? "返回发送端" : "开始接收端挑战"}
             </button>
           </div>
-          <div hidden={!level} id={exerciseId}>
-            {level ? (
+          <div hidden={!run} id={exerciseId}>
+            {run ? (
               <ReceiverTransmission
-                key={level}
-                level={level}
-                onNext={() => setLevel(level === "coarse" ? "fine" : "coarse")}
+                canSkipPrediction={canSkipPrediction}
+                key={run.level}
+                onNext={(prediction) =>
+                  setRun(run.level === "coarse" ? { level: "fine", prediction } : firstRound)
+                }
+                run={run}
               />
             ) : null}
           </div>
         </section>
       ) : null}
-      <div className="receiver-sender-view" hidden={enabled && level !== null}>
+      <div className="receiver-sender-view" hidden={enabled && run !== null}>
         {children}
       </div>
     </>

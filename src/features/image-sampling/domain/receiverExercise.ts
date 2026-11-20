@@ -7,11 +7,16 @@ export type ReceiverLevel = keyof typeof RECEIVER_GRID_SIZE;
 export type ReceiverChoice = "a" | "b" | "both";
 export type ReceiverCell = { cx: number; cy: number };
 
+function receiverBadge(label: string): BinaryImage {
+  const badge = publicGalleryFor("invader").find((entry) => entry.label === label);
+  if (!badge) throw new Error(`Receiver exercise badge missing: ${label}`);
+  return badge.image;
+}
+
 export function createReceiverRound(level: ReceiverLevel) {
-  const gallery = publicGalleryFor("invader");
   const size = RECEIVER_GRID_SIZE[level];
   // V-00 and V-07 collide at 4×4 and separate at 8×8. V-07 is sent both times.
-  const originals = { a: gallery[0].image, b: gallery[7].image };
+  const originals = { a: receiverBadge("V-00"), b: receiverBadge("V-07") };
   const grids = {
     a: downsample(originals.a, size, size),
     b: downsample(originals.b, size, size),

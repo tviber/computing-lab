@@ -26,8 +26,9 @@
 - Stage 1's optional receiver practice also uses built-in majority, but its
   candidate set is exactly two public badges. Retransmission changes only
   resolution; replay starts the same packet again for classroom comparison.
-  Its choices and evidence are local and independent of the submitted atlas
-  resolution, drafts, and stage progress.
+  Learners commit a prediction before the second signal and see it compared
+  against their verified evidence. Staff can skip predictions for demos. All
+  responses stay local and independent of atlas resolution and stage progress.
 - Quantization (pick stages only): student `nearest_toner` runs over
   `SOURCE_COLORS` against `[PAPER, ...loadedRgbs]`; result indices map back
   to toner slots (0→-1) to form the effective table feeding

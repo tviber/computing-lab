@@ -84,7 +84,17 @@ for (const { width, asStudent } of [
     await expect(challenge.getByRole("heading", { name: "全班预测" })).toBeFocused();
     await expect(feedback).toContainText("16 格逐格都相同");
     await expect(challenge.getByRole("status", { name: "同位读数" })).toHaveCount(0);
-    await challenge.screenshot({ path: testInfo.outputPath("receiver-prediction.png") });
+    const canSeparate = challenge.getByRole("radio", { name: "能区分", exact: true });
+    const cannotSeparate = challenge.getByRole("radio", { name: "仍不能区分", exact: true });
+    const skipPrediction = challenge.getByRole("button", { name: "跳过预测并重发" });
+    await resend.press("Enter");
+    await expect(challenge.getByRole("heading", { name: /第 2 轮/ })).toHaveCount(0);
+    await expect(skipPrediction).toHaveCount(asStudent ? 0 : 1);
+    const predictionLabel = asStudent ? "仍不能区分" : "能区分";
+    await (asStudent ? cannotSeparate : canSeparate).press("Space");
+    await challenge.locator(".receiver-result").screenshot({
+      path: testInfo.outputPath("receiver-prediction.png"),
+    });
     await expect(resend).toBeInViewport({ ratio: 1 });
     await resend.press("Enter");
 
@@ -92,7 +102,36 @@ for (const { width, asStudent } of [
     await expect(challenge.getByText("8×8 · 本包 64 格")).toBeVisible();
     await expect(onlyB).not.toBeChecked();
     await expect(readout).toHaveText("尚未选格");
-    await challenge.screenshot({ path: testInfo.outputPath("receiver-fine.png") });
+    await expect(
+      challenge.getByText(`你的预测：${predictionLabel}。`, { exact: true }),
+    ).toBeVisible();
+    await expect(challenge.getByText(/8×8 可以区分这两枚徽章/)).toHaveCount(0);
+    const grids = challenge.getByRole("button", { name: /^(匿名来包|候选[甲乙])网格$/ });
+    const geometry = await grids.evaluateAll((elements) =>
+      elements.map((element) => {
+        const { x, y, width, height } = element.getBoundingClientRect();
+        return { x, y, width, height };
+      }),
+    );
+    expect(geometry).toHaveLength(3);
+    const [incomingGrid, gridA, gridB] = geometry;
+    for (const grid of geometry) {
+      expect(grid.width / 8).toBeGreaterThanOrEqual(20);
+      expect(grid.height).toBeCloseTo(grid.width, 1);
+      expect(grid.width).toBeCloseTo(gridA.width, 1);
+    }
+    expect(gridA.y).toBeCloseTo(gridB.y, 1);
+    expect(gridB.x).toBeGreaterThan(gridA.x);
+    if (asStudent) {
+      expect(gridA.y).toBeGreaterThan(incomingGrid.y + incomingGrid.height);
+      expect(incomingGrid.x).toBeCloseTo((gridA.x + gridB.x) / 2, 1);
+    } else {
+      expect(incomingGrid.y).toBeCloseTo(gridA.y, 1);
+      expect(gridA.x).toBeGreaterThan(incomingGrid.x);
+    }
+    await challenge.locator(".receiver-triptych").screenshot({
+      path: testInfo.outputPath("receiver-fine.png"),
+    });
     const rowsToggle = challenge.getByText("按行查看 0/1");
     const rows = challenge.getByRole("table", { name: /各行格值/ });
     await expect(rows).toHaveCount(0);
@@ -121,6 +160,27 @@ for (const { width, asStudent } of [
       });
     }
     await expect(readout).toHaveText("第 4 行，第 6 列 · 来包 1 · 甲 0 · 乙 1");
+    await expect
+      .poll(() =>
+        grids.evaluateAll((elements) =>
+          (elements as HTMLCanvasElement[]).map((canvas) => {
+            const ctx = canvas.getContext("2d")!;
+            const cellSize = canvas.width / 8;
+            const line = ctx.getImageData(cellSize, cellSize / 2, 1, 1).data;
+            const highlight = ctx.getImageData(5.5 * cellSize, 3 * cellSize + 1, 1, 1).data;
+            return [Array.from(line.slice(0, 3)), Array.from(highlight.slice(0, 3))];
+          }),
+        ),
+      )
+      .toEqual(
+        Array.from({ length: 3 }, () => [
+          [124, 136, 152],
+          [217, 119, 6],
+        ]),
+      );
+    await challenge.locator(".receiver-triptych").screenshot({
+      path: testInfo.outputPath("receiver-evidence-grid.png"),
+    });
     await expect(feedback).toBeEmpty();
     expect(
       await challenge.evaluate((element) => element.scrollWidth <= element.clientWidth + 1),
@@ -128,6 +188,9 @@ for (const { width, asStudent } of [
     await submit.press("Enter");
     await expect(challenge.getByRole("heading", { name: "一格证据" })).toBeFocused();
     await expect(feedback).toContainText("只可能来自乙");
+    await expect(challenge.getByText(/你的预测：.*证据：第 4 行第 6 列/)).toContainText(
+      `你的预测：${predictionLabel}。证据：第 4 行第 6 列的值不同，8×8 可以区分这两枚徽章。${asStudent ? "结果与预测不同。" : "结果与预测一致。"}`,
+    );
     await expect(challenge.getByText("黑色 32 / 64，刚好一半", { exact: false })).toBeVisible();
     await expect(challenge.getByRole("img", { name: /候选[甲乙]原图裁切/ })).toHaveCount(2);
     await challenge.locator(".receiver-result").screenshot({
@@ -138,6 +201,15 @@ for (const { width, asStudent } of [
     await expect(challenge.getByText("4×4 · 本包 16 格")).toBeVisible();
     await expect(readout).toHaveText("尚未选格");
     await expect(feedback).toBeEmpty();
+    await both.press("Space");
+    await submit.press("Enter");
+    await expect(canSeparate).not.toBeChecked();
+    await expect(cannotSeparate).not.toBeChecked();
+    if (!asStudent) {
+      await skipPrediction.press("Enter");
+      await expect(challenge.getByRole("heading", { name: /第 2 轮/ })).toBeFocused();
+      await expect(challenge.getByText(/你的预测：/)).toHaveCount(0);
+    }
     await challenge.getByRole("button", { name: "返回发送端" }).press("Enter");
     await expect(sender).toBeVisible();
     if (!asStudent) {
