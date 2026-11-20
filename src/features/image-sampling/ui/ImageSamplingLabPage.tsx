@@ -31,6 +31,7 @@ import { ChooseSizePanel } from "./ChooseSizePanel.tsx";
 import { DownsampleExplorer } from "./DownsampleExplorer.tsx";
 import { GuidedCellTask } from "./GuidedCellTask.tsx";
 import { warmPyodide } from "./pyodideRunner.ts";
+import { ReceiverExercise } from "./ReceiverExercise.tsx";
 import { RecognitionPanel } from "./RecognitionPanel.tsx";
 import "./imageSampling.css";
 
@@ -259,7 +260,7 @@ export function ImageSamplingLabPage() {
           ) : null}
 
           {stage ? (
-            <>
+            <ReceiverExercise canSkipPrediction={isStaff} enabled={stage.index === 1}>
               <DownsampleExplorer
                 height={previewHeight}
                 onCellPick={(cell) => dispatch({ type: "select-cell", cell })}
@@ -314,7 +315,7 @@ export function ImageSamplingLabPage() {
               {state.judgeOutcome ? (
                 <RecognitionPanel outcome={state.judgeOutcome} stage={stage} />
               ) : null}
-            </>
+            </ReceiverExercise>
           ) : null}
         </main>
       </LabPageShell>

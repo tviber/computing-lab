@@ -13,14 +13,15 @@ type BitmapCanvasProps = {
   image: BinaryImage;
   /** CSS px per cell; default scales the image into a ~176px box. */
   pixelSize?: number;
-  /** Draw thin grid lines between cells. */
-  grid?: boolean;
+  /** Draw grid lines between cells, optionally stronger for projection. */
+  grid?: boolean | "strong";
   /** Highlight one cell of this image (accent outline). */
   highlight?: { cx: number; cy: number } | null;
   /** Highlight a pixel-space region (dashed outline) — for the source view. */
   region?: CellRect | null;
   onCellClick?: (cx: number, cy: number) => void;
   ariaLabel?: string;
+  ariaDescribedBy?: string;
 };
 
 export function BitmapCanvas({
@@ -31,6 +32,7 @@ export function BitmapCanvas({
   region = null,
   onCellClick,
   ariaLabel,
+  ariaDescribedBy,
 }: BitmapCanvasProps) {
   const ref = useRef<HTMLCanvasElement>(null);
   const px = pixelSize ?? Math.max(2, Math.round(176 / Math.max(image.width, image.height)));
@@ -49,16 +51,18 @@ export function BitmapCanvas({
       }
     }
     if (grid && px >= 4) {
-      ctx.strokeStyle = "rgba(90, 108, 128, 0.35)";
-      ctx.lineWidth = 1;
+      const strong = grid === "strong";
+      ctx.strokeStyle = strong ? "#7c8898" : "rgba(90, 108, 128, 0.35)";
+      ctx.lineWidth = strong ? 2 : 1;
+      const offset = strong ? 0 : 0.5;
       ctx.beginPath();
       for (let x = 1; x < image.width; x += 1) {
-        ctx.moveTo(x * px + 0.5, 0);
-        ctx.lineTo(x * px + 0.5, canvas.height);
+        ctx.moveTo(x * px + offset, 0);
+        ctx.lineTo(x * px + offset, canvas.height);
       }
       for (let y = 1; y < image.height; y += 1) {
-        ctx.moveTo(0, y * px + 0.5);
-        ctx.lineTo(canvas.width, y * px + 0.5);
+        ctx.moveTo(0, y * px + offset);
+        ctx.lineTo(canvas.width, y * px + offset);
       }
       ctx.stroke();
     }
@@ -77,13 +81,20 @@ export function BitmapCanvas({
     }
     if (highlight) {
       ctx.strokeStyle = "#d97706";
-      ctx.lineWidth = 2;
-      ctx.strokeRect(highlight.cx * px + 1, highlight.cy * px + 1, px - 2, px - 2);
+      ctx.lineWidth = grid === "strong" ? 4 : 2;
+      const inset = ctx.lineWidth / 2;
+      ctx.strokeRect(
+        highlight.cx * px + inset,
+        highlight.cy * px + inset,
+        px - 2 * inset,
+        px - 2 * inset,
+      );
     }
   }, [image, px, grid, highlight, region]);
 
   return (
     <canvas
+      aria-describedby={ariaDescribedBy}
       aria-label={ariaLabel}
       className="bitmap-canvas"
       onClick={

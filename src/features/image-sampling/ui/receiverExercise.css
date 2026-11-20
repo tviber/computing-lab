@@ -1,0 +1,311 @@
+.receiver-sender-view:not([hidden]) {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.receiver-exercise {
+  container: receiver-exercise / inline-size;
+  padding: 16px 20px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+  color: var(--primary);
+  line-height: 1.6;
+}
+
+.receiver-heading,
+.receiver-round-heading {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2) var(--space-4);
+}
+
+.receiver-heading h3,
+.receiver-round h4 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.receiver-heading p,
+.receiver-round-heading span,
+.receiver-hint {
+  color: var(--secondary);
+  font-size: 14px;
+}
+
+.receiver-round {
+  display: grid;
+  gap: var(--space-3);
+  margin-block-start: var(--space-4);
+  border-block-start: 1px solid var(--border);
+  padding-block-start: var(--space-4);
+}
+
+.receiver-round-heading span {
+  padding: 2px var(--space-2);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+  font-variant-numeric: tabular-nums;
+}
+
+.receiver-triptych {
+  --receiver-grid-gap: clamp(8px, 2vw, 20px);
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--receiver-grid-gap);
+  width: min(100%, 45rem);
+  margin-inline: auto;
+}
+
+.receiver-triptych figure:first-child {
+  grid-column: 1 / -1;
+  width: calc((100% - var(--receiver-grid-gap)) / 2);
+  justify-self: center;
+}
+
+@container receiver-exercise (min-width: 31rem) {
+  .receiver-triptych {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .receiver-triptych figure:first-child {
+    grid-column: auto;
+    width: 100%;
+  }
+}
+
+.receiver-triptych figure,
+.receiver-crop {
+  margin: 0;
+  text-align: center;
+}
+
+.receiver-triptych figcaption {
+  margin-block-end: var(--space-1);
+  font-weight: 650;
+}
+
+.receiver-triptych .bitmap-canvas,
+.receiver-crop .bitmap-canvas {
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1;
+  border: 0;
+  border-radius: 0;
+  outline: 1px solid var(--border-strong);
+}
+
+.receiver-triptych canvas[role="button"] {
+  cursor: crosshair;
+}
+
+.receiver-triptych .bitmap-canvas:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.receiver-readout,
+.receiver-coordinates,
+.receiver-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.receiver-readout {
+  background: var(--subtle);
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-3);
+  font-variant-numeric: tabular-nums;
+}
+
+.receiver-coordinates label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+}
+
+.receiver-coordinates select {
+  min-width: 54px;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  padding-inline: var(--space-1);
+  background-color: var(--surface);
+  color: inherit;
+}
+
+.receiver-row-comparison {
+  min-inline-size: 0;
+  width: min(100%, 45rem);
+  justify-self: center;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+}
+
+.receiver-row-comparison summary {
+  padding: 10px var(--space-3);
+  color: var(--accent-ink);
+  font-weight: 650;
+  line-height: 24px;
+}
+
+.receiver-table-scroll {
+  overflow-x: auto;
+}
+
+.receiver-row-table {
+  width: 100%;
+  min-inline-size: 20rem;
+  border-collapse: collapse;
+  table-layout: fixed;
+  text-align: center;
+  font-size: clamp(0.75rem, 1.6vw, 0.875rem);
+}
+
+.receiver-row-table caption {
+  padding: 0 var(--space-3) var(--space-1);
+  color: var(--secondary);
+  text-align: left;
+}
+
+.receiver-row-table th,
+.receiver-row-table td {
+  border-block-start: 1px solid var(--border);
+  padding: var(--space-1) 3px;
+}
+
+.receiver-row-table th:first-child {
+  width: 1.75rem;
+}
+
+.receiver-row-table thead {
+  background: var(--subtle);
+}
+
+.receiver-row-table code {
+  font-family: var(--font-mono);
+  white-space: nowrap;
+  word-spacing: -0.22em;
+}
+
+.receiver-judgment {
+  min-inline-size: 0;
+  margin: 0;
+  border: 0;
+  padding: 0;
+}
+
+.receiver-judgment legend {
+  padding: 0 0 var(--space-2);
+  font-weight: 650;
+}
+
+.receiver-actions {
+  column-gap: var(--space-2);
+}
+
+.receiver-actions label {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-height: 42px;
+  padding: 0 var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.receiver-actions label:has(:checked) {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+}
+
+.receiver-actions input {
+  flex: none;
+  margin: 0;
+}
+
+.receiver-feedback:not(:empty) {
+  color: var(--warning-ink);
+}
+
+.receiver-judgment + div .receiver-feedback:not(:empty) {
+  margin-block-start: var(--space-2);
+}
+
+.receiver-result {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-control);
+  background: var(--accent-soft);
+}
+
+.receiver-result .receiver-feedback {
+  color: var(--primary);
+  font-weight: 650;
+}
+
+.receiver-result form {
+  width: 100%;
+}
+
+.receiver-counts {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+  width: min(100%, 33rem);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.receiver-counts li {
+  padding: var(--space-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-variant-numeric: tabular-nums;
+}
+
+.receiver-crop figcaption {
+  display: grid;
+  gap: var(--space-1);
+  margin-block-end: var(--space-2);
+}
+
+.receiver-crop figcaption span {
+  font-size: 0.875rem;
+  font-weight: 400;
+}
+
+.receiver-crop .bitmap-canvas {
+  width: min(100%, 11rem);
+  margin-inline: auto;
+}
+
+@media (max-width: 520px) {
+  .receiver-exercise {
+    padding: 12px;
+  }
+
+  .receiver-actions .button {
+    flex-basis: 100%;
+  }
+}
+
+@media (pointer: coarse) {
+  .receiver-actions label,
+  .receiver-actions .button,
+  .receiver-coordinates select {
+    min-height: 44px;
+  }
+}
