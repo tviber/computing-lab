@@ -65,6 +65,26 @@ test("admin dropdown opens account, class, and lab management as separate pages"
   await expect(page.getByRole("tab")).toHaveCount(0);
 });
 
+test("field guide fits a narrow screen and opens a class experiment", async ({
+  page,
+}, testInfo) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await page.goto(".");
+  await page.getByRole("link", { name: "登录", exact: true }).click();
+  await page.getByLabel("学号").fill("teacher");
+  await page.getByLabel("密码").fill("teacher-dev-password");
+  await page.getByRole("button", { name: "登录", exact: true }).click();
+  const firstCard = page.locator("#lab-catalog article").first();
+  await expect(firstCard).toBeVisible();
+  const layout = page.locator(".page-layout-content");
+  expect(await layout.evaluate((el) => el.scrollWidth <= el.clientWidth)).toBe(true);
+  await page.screenshot({ path: testInfo.outputPath("field-guide-mobile.png") });
+  await page.setViewportSize({ width: 1280, height: 940 });
+  await page.screenshot({ path: testInfo.outputPath("field-guide-desktop.png") });
+  await firstCard.getByRole("link").click();
+  await expect(page).toHaveURL(/\/classes\/[^/]+\/labs\//);
+});
+
 test("browser back leaves a lab and forward reopens it without a redirect loop", async ({
   page,
 }) => {

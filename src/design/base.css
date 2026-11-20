@@ -6,6 +6,8 @@
     ui-sans-serif,
     -apple-system,
     BlinkMacSystemFont,
+    "PingFang SC",
+    "Microsoft YaHei",
     "Segoe UI",
     sans-serif;
   font-synthesis: none;
@@ -177,7 +179,7 @@ p {
 .context-label,
 .context-value,
 .category-label {
-  font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+  font-family: var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }

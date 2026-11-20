@@ -10,6 +10,13 @@
   --accent-soft: #edf5ff;
   --focus: #79afea;
   --focus-ring: var(--accent);
+  --topic-architecture: #1769d2;
+  --topic-encoding: #0f766e;
+  --topic-systems: #a1520a;
+  --topic-ai: #5b48a2;
+  --ink-cyan: #58b4c9;
+  --ink-magenta: #d9789d;
+  --ink-yellow: #edc859;
   --success: #17845b;
   --success-soft: #f0fdf4;
   --success-fill: #dcfce7;
@@ -36,6 +43,7 @@
   --scrim-deep: rgb(0 0 0 / 60%);
   --marker: #fde8a8;
   --paper: #e8ddc7;
+  --font-mono: "SFMono-Regular", ui-monospace, Menlo, Consolas, "Liberation Mono", monospace;
   --shadow-sm: 0 4px 14px rgb(23 40 61 / 5%);
   --shadow-md: 0 16px 40px rgb(23 40 61 / 8%);
   --radius-mini: 4px;

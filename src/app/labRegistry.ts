@@ -19,7 +19,6 @@ export type DashboardStage = {
 export type AppLabEntry = {
   dashboardStages: readonly DashboardStage[];
   homeProgressStages: number | null;
-  primaryCard?: true;
   supportsCanvasPreview?: true;
   component: ReturnType<typeof lazyRouteComponent>;
 };
@@ -28,7 +27,6 @@ export const APP_LABS = {
   calculator: {
     dashboardStages: CALCULATOR_STAGES,
     homeProgressStages: coreStages().length,
-    primaryCard: true,
     supportsCanvasPreview: true,
     component: lazyRouteComponent(
       () => import("../features/calculator/ui/CalculatorLabPage"),
