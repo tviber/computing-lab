@@ -838,15 +838,13 @@
 }
 
 .node-collapse-toggle-icon {
-  fill: var(--muted);
-  font-size: 13px;
-  font-weight: 700;
+  color: var(--muted);
   pointer-events: none;
 }
 
 .node-collapse-toggle:hover .node-collapse-toggle-icon,
 .node-collapse-toggle:focus .node-collapse-toggle-icon {
-  fill: var(--primary);
+  color: var(--primary);
 }
 
 .test-note {
@@ -1308,11 +1306,6 @@ path.wire.coach-focus {
   font-family: "SFMono-Regular", Consolas, monospace;
   font-size: 11px;
   font-weight: 600;
-  list-style: none;
-}
-
-.palette-more > summary::-webkit-details-marker {
-  display: none;
 }
 
 .palette-more > summary:hover {

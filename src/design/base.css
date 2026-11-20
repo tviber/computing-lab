@@ -323,12 +323,54 @@ p {
   font-size: 13px;
 }
 
+details > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+details > summary::-webkit-details-marker {
+  display: none;
+}
+
+details > summary::before,
+.disclosure-trigger::before {
+  content: "";
+  display: inline-block;
+  width: 16px;
+  height: 16px;
+  flex: none;
+  vertical-align: -3px;
+  background-color: currentColor;
+  mask: url("../shared/ui/select-chevron.svg") center / contain no-repeat;
+  forced-color-adjust: none;
+  rotate: -90deg;
+}
+
+details > summary::before {
+  margin-inline-end: var(--space-1);
+}
+
+details[open] > summary::before,
+.disclosure-trigger[aria-expanded="true"]::before {
+  rotate: 0deg;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  details > summary::before,
+  .disclosure-trigger::before {
+    transition: rotate 140ms ease-out;
+  }
+}
+
 .hint-disclosure {
   margin-top: 10px;
 }
 
 .hint-disclosure-trigger,
 .hint-disclosure-action {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   border: 0;
   background: transparent;
   color: var(--accent);

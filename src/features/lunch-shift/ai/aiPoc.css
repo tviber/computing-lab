@@ -50,12 +50,6 @@
 
 .ai-order summary {
   padding: var(--space-2) var(--space-3);
-  cursor: pointer;
-  list-style: none;
-}
-
-.ai-order summary::-webkit-details-marker {
-  display: none;
 }
 
 .ai-mark {

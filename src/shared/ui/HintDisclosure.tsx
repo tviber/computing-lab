@@ -20,7 +20,8 @@ export function HintDisclosure({ children }: HintDisclosureProps) {
         <div className="hint-disclosure-heading">
           <span className="hint-disclosure-label">提示</span>
           <button
-            className="hint-disclosure-action"
+            aria-expanded={true}
+            className="hint-disclosure-action disclosure-trigger"
             onClick={() => setState("closed")}
             type="button"
           >
@@ -59,7 +60,8 @@ export function HintDisclosure({ children }: HintDisclosureProps) {
   return (
     <div className="hint-disclosure">
       <button
-        className="hint-disclosure-trigger"
+        aria-expanded={false}
+        className="hint-disclosure-trigger disclosure-trigger"
         onClick={() => setState("confirming")}
         type="button"
       >

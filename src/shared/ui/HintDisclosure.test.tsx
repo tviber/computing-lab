@@ -8,7 +8,7 @@ describe("HintDisclosure", () => {
     const user = userEvent.setup();
     render(<HintDisclosure>先连接低位，再传递进位。</HintDisclosure>);
 
-    expect(screen.getByRole("button", { name: "查看提示" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "查看提示", expanded: false })).toBeInTheDocument();
     expect(screen.queryByText("先连接低位，再传递进位。")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "查看提示" }));
@@ -30,7 +30,7 @@ describe("HintDisclosure", () => {
     await user.click(screen.getByRole("button", { name: "查看提示" }));
     await user.click(screen.getByRole("button", { name: "确定查看" }));
     expect(screen.getByText("使用两个半加器级联。")).toBeInTheDocument();
-    await user.click(screen.getByRole("button", { name: "隐藏提示" }));
+    await user.click(screen.getByRole("button", { name: "隐藏提示", expanded: true }));
     expect(screen.queryByText("使用两个半加器级联。")).not.toBeInTheDocument();
   });
 

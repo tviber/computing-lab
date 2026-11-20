@@ -5,6 +5,7 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from "react";
+import { Icon } from "../../../shared/ui/Icon";
 import { inspectComponentSelection } from "../domain/componentize";
 import { GATE_LABEL, type Bit, type CircuitGraph, type CircuitNode } from "../domain/graph";
 import {
@@ -401,6 +402,7 @@ export function CircuitCanvas({
                     </text>
                     {node.kind === "component" ? (
                       <g
+                        aria-expanded={!collapsedOf(node)}
                         aria-label={
                           collapsedOf(node)
                             ? `展开组件 ${nodeLabel(node)}`
@@ -443,15 +445,15 @@ export function CircuitCanvas({
                           x={size.width - 21}
                           y={3}
                         />
-                        <text
+                        <g
                           className="node-collapse-toggle-icon"
-                          dominantBaseline="central"
-                          textAnchor="middle"
-                          x={size.width - 13}
-                          y={11}
+                          transform={`translate(${size.width - 21} 3)`}
                         >
-                          {collapsedOf(node) ? "+" : "−"}
-                        </text>
+                          <Icon
+                            name={collapsedOf(node) ? "chevron-right" : "chevron-down"}
+                            size={16}
+                          />
+                        </g>
                       </g>
                     ) : null}
                     {!collapsedOf(node) &&
