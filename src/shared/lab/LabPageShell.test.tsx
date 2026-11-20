@@ -29,6 +29,7 @@ describe("LabPageShell", () => {
 
     const toggle = screen.getByRole("button", { name: "收起关卡栏" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    expect(toggle.querySelector("svg path")?.getAttribute("d")).toContain("m10-12-3 3 3 3");
 
     await user.click(toggle);
     expect(grid.className).toContain("is-collapsed");
@@ -36,6 +37,7 @@ describe("LabPageShell", () => {
       "aria-expanded",
       "false",
     );
+    expect(toggle.querySelector("svg path")?.getAttribute("d")).toContain("m6-12 3 3-3 3");
     expect(screen.getByText("关卡列表")).toBeInTheDocument();
   });
 
@@ -60,7 +62,7 @@ describe("LabPageShell", () => {
     );
   });
 
-  it("shows the collapsed label and forceExpand keeps the rail open", async () => {
+  it("lets the learner collapse a rail temporarily forced open by the coach", async () => {
     const user = userEvent.setup();
     const { container, rerender } = render(
       <LabPageShell collapsedLabel="第 3 关" labId="logistic-regression" rail={<nav>关卡列表</nav>}>
@@ -85,9 +87,24 @@ describe("LabPageShell", () => {
     expect(grid.className).toContain("is-forced");
     const forcedToggle = screen.getByRole("button", { name: "收起关卡栏" });
     expect(forcedToggle).toHaveAttribute("aria-expanded", "true");
-    expect(forcedToggle).toBeDisabled();
+    expect(forcedToggle).toBeEnabled();
 
     await user.click(forcedToggle);
+    expect(grid.className).toContain("is-collapsed");
+    expect(grid.className).not.toContain("is-forced");
+    const collapsedToggle = screen.getByRole("button", { name: "展开关卡栏" });
+    expect(collapsedToggle).toHaveAttribute("aria-expanded", "false");
+
+    await user.click(collapsedToggle);
+    expect(grid.className).not.toContain("is-collapsed");
+    expect(grid.className).toContain("is-forced");
+
+    rerender(
+      <LabPageShell collapsedLabel="第 3 关" labId="logistic-regression" rail={<nav>关卡列表</nav>}>
+        <main>工作区</main>
+      </LabPageShell>,
+    );
+    expect(grid.className).toContain("is-collapsed");
     expect(localStorage.getItem("computing-lab:lab-rail:logistic-regression")).toBe("1");
   });
 

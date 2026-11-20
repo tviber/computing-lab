@@ -1,4 +1,5 @@
 import {
+  useEffect,
   useId,
   useRef,
   useState,
@@ -180,12 +181,22 @@ export function LabPageShell({
 }: LabPageShellProps) {
   const [desktopCollapsed, setDesktopCollapsed] = useState(() => readCollapsed(labId));
   const [mobileCollapsed, setMobileCollapsed] = useState(true);
+  const [forceCollapsed, setForceCollapsed] = useState(false);
   const narrow = useSyncExternalStore(subscribeToNarrowRail, isNarrowRail);
-  const effective = !forceExpand && (narrow ? mobileCollapsed : desktopCollapsed);
+  const forcedOpen = forceExpand && !forceCollapsed;
+  const effective = !forcedOpen && (narrow ? mobileCollapsed : desktopCollapsed);
   const scrollId = useId();
   const scrollRef = useScrollEdges<HTMLDivElement>();
 
+  useEffect(() => {
+    if (forceExpand) setForceCollapsed(false);
+  }, [forceExpand]);
+
   const toggle = () => {
+    if (forceExpand) {
+      setForceCollapsed((collapsed) => !collapsed);
+      return;
+    }
     if (narrow) {
       setMobileCollapsed((prev) => !prev);
       return;
@@ -201,7 +212,7 @@ export function LabPageShell({
 
   return (
     <div
-      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${effective ? " is-collapsed" : ""}${forceExpand ? " is-forced" : ""}`}
+      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${effective ? " is-collapsed" : ""}${forcedOpen ? " is-forced" : ""}`}
       style={{ "--rail-w": `${railWidth}px` } as CSSProperties}
     >
       <div className="lab-rail-zone">
@@ -211,13 +222,20 @@ export function LabPageShell({
             aria-expanded={!effective}
             aria-label={effective ? "展开关卡栏" : "收起关卡栏"}
             className="lab-rail-toggle"
-            disabled={forceExpand}
             onClick={toggle}
             title={effective ? "展开关卡栏" : "收起关卡栏"}
             type="button"
           >
             <Icon
-              name={effective ? "chevron-right" : narrow ? "chevron-down" : "chevron-left"}
+              name={
+                narrow
+                  ? effective
+                    ? "chevron-down"
+                    : "chevron-up"
+                  : effective
+                    ? "panel-left-open"
+                    : "panel-left-close"
+              }
               size={18}
             />
             {narrow ? <span>{collapsedLabel ?? "关卡"}</span> : null}
