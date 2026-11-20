@@ -45,7 +45,7 @@
     "onnxruntime-web": "1.31.0-dev.20260914-8d85527a0",
     "pyodide": "314.0.5",
     "react": "^19.1.1",
-    "react-dom": "^19.1.1"
+    "react-dom": "^19.3.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.39.5",
@@ -55,7 +55,7 @@
     "@testing-library/react": "^16.3.2",
     "@testing-library/user-event": "^14.6.4",
     "@types/react": "^19.1.1",
-    "@types/react-dom": "^19.1.1",
+    "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^5.2.0",
     "eslint": "^9.39.5",
     "eslint-config-prettier": "^10.1.1",
