@@ -9,10 +9,11 @@ import {
   useParams,
   type RouterHistory,
 } from "@tanstack/react-router";
-import { Suspense } from "react";
+import { Suspense, useEffect } from "react";
 import { normalizeBasePath } from "../shared/basePath";
-import { useAuth } from "../shared/auth";
+import { isStaffRole, useAuth } from "../shared/auth";
 import { LabAccessGate } from "../shared/lab/LabGate";
+import { rememberRecentLab } from "../shared/lab/recentLab";
 import { useLabCatalog } from "../shared/lab/labs";
 import { LAB_IDS, labMetadata, type LabId } from "../shared/lab/labMetadata";
 import { APP_LABS } from "./labRegistry";
@@ -45,9 +46,16 @@ export const passThroughSearch = (search: Record<string, unknown>): Record<strin
 
 function GuardedLabRoute({ labId }: { labId: LabId }) {
   const { classId } = useParams({ strict: false }) as { classId?: string };
-  const { status, role } = useAuth();
+  const { status, role, session } = useAuth();
   const catalog = useLabCatalog(status === "authenticated");
+  const visibleClass = classId && catalog?.get(labId)?.visibleClassIds?.includes(classId);
+  const studentId = !isStaffRole(role) ? session?.user.id : undefined;
   const Component = APP_LABS[labId].component;
+  useEffect(() => {
+    if (studentId && classId && visibleClass) {
+      rememberRecentLab(studentId, { labId, classId });
+    }
+  }, [studentId, classId, visibleClass, labId]);
   return (
     <LabAccessGate
       checkingAccess={status === "authenticated" && role !== "admin" && catalog === null}

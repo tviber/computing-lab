@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import { wireGraph } from "../../src/features/calculator/domain/fixtures.ts";
+import { LAB_IDS } from "../../src/shared/lab/labMetadata.ts";
 
 function collectFailures(page: Page): string[] {
   const failures: string[] = [];
@@ -131,6 +132,60 @@ test("browser back leaves a lab and forward reopens it without a redirect loop",
   await verifyUndo();
   await page.goBack();
   await expect(page).toHaveURL(homeUrl);
+  expect(failures, failures.join("\n")).toEqual([]);
+});
+
+test("student field guide fits six labs above assigned work on desktop", async ({
+  page,
+}, testInfo) => {
+  const failures = collectFailures(page);
+  await page.setViewportSize({ width: 1280, height: 940 });
+  await page.route("**/api/auth/me", (route) =>
+    route.fulfill({
+      json: {
+        user: { id: "student", studentNo: "20260101", name: "测试学生", role: "user" },
+        memberships: [{ classId: "c1", className: "高一信息技术一班", role: "student" }],
+      },
+    }),
+  );
+  await page.route("**/api/labs", (route) =>
+    route.fulfill({
+      json: { labs: LAB_IDS.map((id) => ({ id, visible: true, visibleClassIds: ["c1"] })) },
+    }),
+  );
+  await page.route("**/api/classes/c1/labs/*/project", (route) =>
+    route.fulfill({ json: { currentStage: 2, passedStages: [1], drafts: {} } }),
+  );
+  await page.route("**/api/classes/c1/task-assignments", (route) =>
+    route.fulfill({
+      json: {
+        assignments: [
+          {
+            id: "assignment",
+            title: "课堂实验记录",
+            status: "not_started",
+            dueAt: null,
+            finalScore: null,
+            finalTotal: null,
+          },
+        ],
+      },
+    }),
+  );
+
+  const root = await page.goto(".");
+  expect(root?.status()).toBe(200);
+  await expect(page.getByRole("heading", { name: "实验课程" })).toBeVisible();
+  await expect(page.getByRole("link", { name: /继续未完成实验/ })).toBeVisible();
+  const assignment = page.getByRole("link", { name: "开始作答：课堂实验记录" });
+  await expect(assignment).toBeVisible();
+  const cards = page.locator("#lab-catalog article");
+  await expect(cards).toHaveCount(6);
+  for (const card of await cards.all()) {
+    await expect(card).toBeInViewport({ ratio: 1 });
+  }
+  await page.screenshot({ path: testInfo.outputPath("student-field-guide-desktop.png") });
+  await expect(assignment).toHaveAttribute("href", /\/classes\/c1\/tasks\/assignment$/);
   expect(failures, failures.join("\n")).toEqual([]);
 });
 

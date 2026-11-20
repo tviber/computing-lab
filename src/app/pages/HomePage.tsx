@@ -11,6 +11,7 @@ import {
   type LabId,
   type LabMetadataEntry,
 } from "../../shared/lab/labMetadata";
+import { getRecentLab } from "../../shared/lab/recentLab";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { Icon } from "../../shared/ui/Icon";
 import { APP_LABS, type AppLabEntry } from "../labRegistry";
@@ -188,13 +189,15 @@ function StageProgress({ done, total }: { done: number; total: number }) {
 }
 
 function ClassroomHome() {
-  const { status, primaryMembership, role } = useAuth();
+  const { status, primaryMembership, role, session } = useAuth();
   const catalog = useLabCatalog(status === "authenticated");
   const [projects, setProjects] = useState<Record<string, ProjectSummary | null>>({});
   const [activeCategory, setActiveCategory] = useState<LabCategory | "all">("all");
   const classId = primaryMembership?.classId;
   const isStaff = isStaffRole(role);
   const isAdmin = role === "admin";
+  const studentId = !isStaff ? session?.user.id : undefined;
+  const recentVisit = studentId ? getRecentLab(studentId) : null;
   const entryOf = (labId: LabId) => catalog?.get(labId);
   const cardVisible = (lab: (typeof HOME_LABS)[number]) => {
     if (isAdmin) return true;
@@ -223,31 +226,56 @@ function ClassroomHome() {
       ? visibleLabs
       : visibleLabs.filter((lab) => lab.category === effectiveCategory);
 
-  const resumeTarget =
-    !isStaff && classId
-      ? (visibleLabs
-          .map((lab) => {
-            const project = projects[lab.id];
-            if (!project || lab.stages === null) return null;
-            const done = Math.max(0, Math.min(project.currentStage - 1, lab.stages));
-            if (done === 0 || done >= lab.stages) return null;
-            return { lab, done, total: lab.stages };
-          })
-          .find((item) => item !== null) ?? null)
+  const recentClassId =
+    recentVisit && entryOf(recentVisit.labId)?.visibleClassIds?.includes(recentVisit.classId)
+      ? recentVisit.classId
+      : undefined;
+  const recentLab = recentClassId
+    ? visibleLabs.find((lab) => lab.id === recentVisit?.labId)
+    : undefined;
+  const recentLabId = recentLab?.id;
+  const labLink = (labId: LabId) =>
+    labId === recentLabId && recentClassId
+      ? { to: `/classes/$classId/labs/${labId}` as const, params: { classId: recentClassId } }
+      : { to: `/labs/${labId}` as const };
+  const progressOf = (lab: (typeof HOME_LABS)[number]) => {
+    const project = projects[lab.id];
+    if (isStaff || !project || lab.stages === null) return null;
+    return { done: Math.max(0, Math.min(project.currentStage - 1, lab.stages)), total: lab.stages };
+  };
+  const recentProgress = recentLab ? progressOf(recentLab) : null;
+  const resumeRecent =
+    recentLab &&
+    (recentLab.stages === null || (recentProgress && recentProgress.done < recentProgress.total))
+      ? recentLab
       : null;
+  const pendingRecent = recentLab && projects[recentLab.id] === undefined;
+  const resumeLab =
+    !isStaff && classId
+      ? (resumeRecent ??
+        (!pendingRecent &&
+          visibleLabs.find((lab) => {
+            const progress = progressOf(lab);
+            return progress && progress.done > 0 && progress.done < progress.total;
+          })))
+      : null;
+  const resumeProgress = resumeLab ? progressOf(resumeLab) : null;
 
   useEffect(() => {
     if (!classId || isStaff || catalog === null) return;
     for (const lab of HOME_LABS) {
       const entry = entryOf(lab.id);
       if (lab.stages === null || !cardVisible(lab)) continue;
-      const projectClassId = entry?.visibleClassIds?.[0] ?? classId;
+      const projectClassId =
+        (lab.id === recentLabId ? recentClassId : undefined) ??
+        entry?.visibleClassIds?.[0] ??
+        classId;
       void api
         .get<ProjectSummary>(`/api/classes/${projectClassId}/labs/${lab.id}/project`)
         .then((project) => setProjects((current) => ({ ...current, [lab.id]: project })))
         .catch(() => setProjects((current) => ({ ...current, [lab.id]: null })));
     }
-  }, [classId, isStaff, catalog]);
+  }, [classId, isStaff, catalog, recentLabId, recentClassId]);
 
   return (
     <AppPageLayout className="home-page" topbarProps={{ showHomeLink: false }}>
@@ -267,18 +295,22 @@ function ClassroomHome() {
             </div>
           </div>
 
-          {resumeTarget ? (
+          {resumeLab ? (
             <Link
               className="home-resume-card"
-              data-category={resumeTarget.lab.category}
-              to={`/labs/${resumeTarget.lab.id}` as `/labs/${LabId}`}
+              data-category={resumeLab.category}
+              {...labLink(resumeLab.id)}
             >
               <div className="home-resume-meta">
-                <span className="home-resume-label">继续上次实验</span>
-                <strong>{resumeTarget.lab.title}</strong>
-                <span>
-                  已通过 {resumeTarget.done} / {resumeTarget.total} 关
+                <span className="home-resume-label">
+                  {resumeRecent ? "继续上次实验" : "继续未完成实验"}
                 </span>
+                <strong>{resumeLab.title}</strong>
+                {resumeProgress ? (
+                  <span>
+                    已通过 {resumeProgress.done} / {resumeProgress.total} 关
+                  </span>
+                ) : null}
               </div>
               <span className="home-resume-cta">
                 继续 <Icon name="arrow-right" size={14} />
@@ -325,13 +357,7 @@ function ClassroomHome() {
               {displayedLabs.map((lab) => {
                 const project = projects[lab.id];
                 const badge = adminBadge(lab.id);
-                const stageProgress =
-                  !isStaff && project && lab.stages !== null
-                    ? {
-                        done: Math.max(0, Math.min(project.currentStage - 1, lab.stages)),
-                        total: lab.stages,
-                      }
-                    : null;
+                const stageProgress = progressOf(lab);
                 const completed =
                   stageProgress !== null && stageProgress.done >= stageProgress.total;
 
@@ -370,8 +396,12 @@ function ClassroomHome() {
                       <StageProgress done={stageProgress.done} total={stageProgress.total} />
                     ) : null}
                     {classId ? (
-                      <Link className="lab-card-action" to={`/labs/${lab.id}` as `/labs/${LabId}`}>
-                        <span>{project && project.currentStage > 1 ? "继续" : "开始实验"}</span>
+                      <Link className="lab-card-action" {...labLink(lab.id)}>
+                        <span>
+                          {lab.id === recentLabId || (project && project.currentStage > 1)
+                            ? "继续"
+                            : "开始实验"}
+                        </span>
                         <Icon name="arrow-right" size={14} />
                       </Link>
                     ) : (
