@@ -385,7 +385,6 @@ function ClassroomHome() {
         ) : null}
 
         <div className="home-content-grid">
-          {classId && !isStaff ? <StudentTasks key={classId} classId={classId} /> : null}
           <section aria-labelledby="current-title" className="current-lab-section" id="lab-catalog">
             <div className="lab-card-grid lab-catalog-grid">
               {displayedLabs.map((lab) => {
@@ -455,6 +454,7 @@ function ClassroomHome() {
               <p className="home-empty">当前没有开放的实验，等管理员开放后再来。</p>
             ) : null}
           </section>
+          {classId && !isStaff ? <StudentTasks key={classId} classId={classId} /> : null}
         </div>
       </main>
     </AppPageLayout>

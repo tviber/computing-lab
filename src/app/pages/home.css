@@ -742,6 +742,7 @@
   }
   .home-task-notice {
     grid-column: 1 / -1;
+    grid-row: 1;
   }
   .home-content-grid:has(.home-tasks-panel) .current-lab-section {
     grid-area: 1 / 1;

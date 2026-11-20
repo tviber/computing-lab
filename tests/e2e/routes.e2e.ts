@@ -186,11 +186,21 @@ test("student field guide aligns progress and reserves a sidebar only for assign
       .locator(".lab-catalog-grid")
       .evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
   expect(await columns()).toBe(2);
-  const bars = page.getByRole("progressbar");
-  const barTop = async (index: number) => (await bars.nth(index).boundingBox())?.y;
-  expect(await barTop(0)).toEqual(await barTop(1));
+  const leftBar = cards.nth(0).getByRole("progressbar");
+  const rightBar = cards.nth(1).getByRole("progressbar");
+  await expect(leftBar).toBeVisible();
+  await expect(rightBar).toBeVisible();
+  const top = (element: Element) => element.getBoundingClientRect().top;
+  await expect
+    .poll(async () => (await leftBar.evaluate(top)) - (await rightBar.evaluate(top)))
+    .toBe(0);
   await page.screenshot({ path: testInfo.outputPath("student-field-guide-desktop.png") });
   await expect(assignment).toHaveAttribute("href", /\/classes\/c1\/tasks\/assignment$/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: /计算机组成/ }).click();
+  await expect(cards).toHaveCount(1);
+  expect(await cards.first().evaluate(top)).toBeLessThan(await assignment.evaluate(top));
+  await page.setViewportSize({ width: 1280, height: 940 });
   await page.route("**/api/classes/c1/task-assignments", (route) =>
     route.fulfill({ json: { assignments: [] } }),
   );
