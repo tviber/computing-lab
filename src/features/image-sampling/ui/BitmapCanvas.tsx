@@ -100,6 +100,33 @@ export function BitmapCanvas({
       }
       ref={ref}
       role={onCellClick ? "button" : "img"}
+      tabIndex={onCellClick ? 0 : undefined}
+      onKeyDown={
+        onCellClick
+          ? (event) => {
+              const column = highlight?.cx ?? 0;
+              const row = highlight?.cy ?? 0;
+              if (event.key === "Enter" || event.key === " ") {
+                event.preventDefault();
+                onCellClick(column, row);
+                return;
+              }
+              const offsets: Record<string, [number, number]> = {
+                ArrowLeft: [-1, 0],
+                ArrowRight: [1, 0],
+                ArrowUp: [0, -1],
+                ArrowDown: [0, 1],
+              };
+              const step = offsets[event.key];
+              if (!step) return;
+              event.preventDefault();
+              const nextColumn = Math.max(0, Math.min(image.width - 1, column + step[0]));
+              const nextRow = Math.max(0, Math.min(image.height - 1, row + step[1]));
+              if (!highlight || column !== nextColumn || row !== nextRow)
+                onCellClick(nextColumn, nextRow);
+            }
+          : undefined
+      }
       style={{ imageRendering: "pixelated" }}
     />
   );

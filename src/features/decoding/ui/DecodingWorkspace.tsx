@@ -52,7 +52,11 @@ export function DecodingWorkspace({ model, actions, resetControls }: DecodingWor
               />
             ) : editor && output ? (
               <div className="decoder-console">
-                <BytePanel key={payload.kind} payload={payload} />
+                <BytePanel
+                  key={stage.id}
+                  payload={payload}
+                  allowHeightPractice={stage.id === "rescue-bmp"}
+                />
                 <DecodeEditor
                   code={editor.template}
                   fills={editor.fills}

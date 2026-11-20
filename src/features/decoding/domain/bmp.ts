@@ -21,6 +21,11 @@ export const BMP_PROFILE = {
   compression: 0,
 } as const;
 
+export const BMP_FIELD_OFFSETS = { pixelOffset: 10, width: 18, height: 22 } as const;
+
+export type HeightReadingResult =
+  "pick-start" | "picked-width" | "wrong-start" | "enter-height" | "wrong-height" | "correct";
+
 function writeU32(bytes: number[], offset: number, value: number): void {
   bytes[offset] = value & 0xff;
   bytes[offset + 1] = (value >>> 8) & 0xff;
@@ -35,6 +40,21 @@ function readU32(bytes: readonly number[], offset: number): number {
     ((bytes[offset + 2] | 0) << 16) +
     ((bytes[offset + 3] | 0) << 24)
   );
+}
+
+export function checkBmpHeightReading(
+  bytes: readonly number[],
+  start: number | null,
+  answer: string,
+): HeightReadingResult {
+  if (start === null) return "pick-start";
+  if (start === BMP_FIELD_OFFSETS.width) return "picked-width";
+  if (start !== BMP_FIELD_OFFSETS.height) return "wrong-start";
+  const count = Number(answer);
+  if (!/^\d+$/.test(answer.trim()) || !Number.isSafeInteger(count) || count < 1) {
+    return "enter-height";
+  }
+  return count === readU32(bytes, start) ? "correct" : "wrong-height";
 }
 
 export function encodeBmp(pixels: PixelMatrix): number[] {
@@ -52,14 +72,14 @@ export function encodeBmp(pixels: PixelMatrix): number[] {
   bytes[0] = 66; // 'B'
   bytes[1] = 77; // 'M'
   writeU32(bytes, 2, fileSize);
-  writeU32(bytes, 10, BMP_PROFILE.pixelOffset);
+  writeU32(bytes, BMP_FIELD_OFFSETS.pixelOffset, BMP_PROFILE.pixelOffset);
 
   // BITMAPINFOHEADER (40 bytes)
   writeU32(bytes, 14, BMP_PROFILE.dibSize);
-  writeU32(bytes, 18, width);
-  writeU32(bytes, 22, height); // positive height = bottom-up row order
-  bytes[26] = 1; // planes = 1 (u16)
-  bytes[28] = BMP_PROFILE.bitsPerPixel; // bpp = 24 (u16)
+  writeU32(bytes, BMP_FIELD_OFFSETS.width, width);
+  writeU32(bytes, BMP_FIELD_OFFSETS.height, height);
+  bytes[26] = 1;
+  bytes[28] = BMP_PROFILE.bitsPerPixel;
   writeU32(bytes, 34, imageSize);
 
   let i = BMP_PROFILE.pixelOffset;
@@ -80,9 +100,9 @@ export function encodeBmp(pixels: PixelMatrix): number[] {
  * bottom-up order, and present them as top-down [r,g,b] rows.
  */
 export function decodeBmp(bytes: readonly number[]): PixelMatrix {
-  const width = readU32(bytes, 18);
-  const height = readU32(bytes, 22);
-  const offset = readU32(bytes, 10);
+  const width = readU32(bytes, BMP_FIELD_OFFSETS.width);
+  const height = readU32(bytes, BMP_FIELD_OFFSETS.height);
+  const offset = readU32(bytes, BMP_FIELD_OFFSETS.pixelOffset);
   const pixels: PixelMatrix = [];
   for (let y = 0; y < height; y += 1) {
     const row: Pixel[] = [];

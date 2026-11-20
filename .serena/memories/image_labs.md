@@ -20,6 +20,9 @@
   and offer a toggle: built-in rule vs 我写的规则.
 - Sampling: student `cell_value` runs over every cell region of the shown
   member (one `runCellValue` call, debounced) to build the received grid.
+  Gallery recognition and collision probes always use built-in majority,
+  including ties. Keep those results explicitly distinguished from the
+  displayed member's per-cell student outputs and invalid-value fallbacks.
 - Quantization (pick stages only): student `nearest_toner` runs over
   `SOURCE_COLORS` against `[PAPER, ...loadedRgbs]`; result indices map back
   to toner slots (0→-1) to form the effective table feeding
