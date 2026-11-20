@@ -43,6 +43,10 @@ select {
   font: inherit;
 }
 
+select {
+  border: 0;
+}
+
 button {
   color: inherit;
 }
@@ -89,7 +93,7 @@ p {
   min-width: 0;
   min-height: 38px;
   padding: 6px 34px 6px 11px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-control);
   background: var(--surface) url("../shared/ui/select-chevron.svg") no-repeat right 10px center /
     14px;
@@ -98,14 +102,6 @@ p {
   font-size: 13px;
   white-space: nowrap;
   text-overflow: ellipsis;
-}
-
-.field-select select:hover:not(:disabled) {
-  border-color: var(--border-strong);
-}
-
-.field-select select:focus-visible {
-  border-color: var(--focus);
 }
 
 .field-select select:disabled {

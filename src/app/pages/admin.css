@@ -62,7 +62,7 @@
 .admin-grid .profile-form select {
   min-height: 42px;
   padding: 8px 12px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--primary);
@@ -195,7 +195,7 @@
   height: 36px;
   min-height: 36px;
   padding: 6px 28px 6px 10px;
-  border: 1px solid var(--border);
+  border: 0;
   border-radius: var(--radius-control);
   background: var(--surface);
   font-size: 13px;
