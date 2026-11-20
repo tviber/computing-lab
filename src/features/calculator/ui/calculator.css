@@ -36,7 +36,7 @@
 
 .calculator-layout {
   flex: 1;
-  padding: 0 var(--page-gutter);
+  padding-block: 0;
 }
 
 /* Stage progression rail */

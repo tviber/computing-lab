@@ -64,8 +64,8 @@ spacing:
   space-6: 24px
   space-8: 32px
 layout:
-  page-max: 1240px
-  page-gutter: 24px # 16px below 680px viewport
+  page-max: 1368px
+  page-gutter: 12px # 8px at viewport widths up to 680px
 components:
   page-shell: AppPageLayout
   content-container: .page-content
@@ -87,7 +87,7 @@ components:
 ┌──────────────────────────────────────────┐
 │ .app-topbar        (surface, 底边分隔线) │
 ├──────────────────────────────────────────┤
-│        .page-content (居中, ≤1240px)      │
+│        .page-content (居中, ≤1368px)     │
 │                                          │
 │   <—— 页面自己的 main/section 在这里 ——> │
 │                                          │
@@ -98,14 +98,14 @@ components:
   **禁止**直接渲染 `<AppTopbar>` 或自建页面外壳。
 - 顶栏定制通过 `topbarProps`（title/subtitle/showAccount）和 `topbar`
   slot（右侧自定义内容，如保存状态指示器）完成。
-- 内容容器一律挂 `.page-content`，它提供居中、最大宽度 `1240px`、
-  统一的上下左右内边距。页面类（如 `.profile-main`）只可**收窄**
+- 内容容器一律挂 `.page-content`，它提供居中、最大宽度 `1368px`、统一内边距。
+  页面类（如 `.profile-main`）只可**收窄**
   `max-width` 或调整 `padding-top`，不得重复定义水平 padding/margin。
 
 ### 硬规则：不许贴边
 
 - `.app-topbar` 和 `.page-content` 的左右内边距来自 `--page-gutter`
-  （桌面 24px，≤680px 视口降为 16px）。**任何页面内容不得直接接触
+  （桌面 12px，≤680px 视口降为 8px）。**任何页面内容不得直接接触
   视口左右边缘**——贴边是 bug，不是风格。
 - 需要不同 gutter 时改 `--page-gutter` token，不要在页面里写死像素值。
 - `main`/容器元素永远先写 `className="page-content"` 再叠加页面自己的类。
