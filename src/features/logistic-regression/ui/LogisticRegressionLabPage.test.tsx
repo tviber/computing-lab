@@ -69,7 +69,7 @@ describe("LogisticRegressionLabPage", () => {
 
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
 
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
     await screen.findByRole("group", { name: "中奖 倾向设置" });
     for (const word of STRATEGY_WORDS) {
       expect(screen.getByRole("group", { name: `${word} 倾向设置` })).toBeInTheDocument();
@@ -97,7 +97,7 @@ describe("LogisticRegressionLabPage", () => {
         }),
     );
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
-    await screen.findByRole("heading", { name: "用新短信试试模型" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 用新短信试试模型" });
     expect(screen.getByText(/学习率 0.16 · 14 轮 · 系统阈值/)).toBeInTheDocument();
     expect(screen.queryByText("概念检查")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /误报与漏报/ })).not.toBeInTheDocument();
@@ -133,7 +133,7 @@ describe("LogisticRegressionLabPage", () => {
     );
 
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "训练模型" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 训练模型" });
 
     expect(screen.getByText(/训练集的 1,400 条短信用于更新权重/)).toBeInTheDocument();
     expect(screen.getByText(/每读一条，模型更新一次权重/)).toBeInTheDocument();
@@ -162,7 +162,7 @@ describe("LogisticRegressionLabPage", () => {
     const fetchSpy = stubLogisticRegressionFetch(makeProject(), () => json(passResult));
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
 
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
     await screen.findByRole("group", { name: "中奖 倾向设置" });
 
     const results = within(screen.getByRole("list", { name: "6 条短信的分类结果" }));
@@ -210,7 +210,7 @@ describe("LogisticRegressionLabPage", () => {
     expect(stage2Nav).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: /进入下一关/ }));
-    await screen.findByRole("heading", { name: "从短信到数字" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 从短信到数字" });
   });
 
   it("keeps stage 2 locked and displays verdict details on failed submission", async () => {
@@ -236,7 +236,7 @@ describe("LogisticRegressionLabPage", () => {
 
     stubLogisticRegressionFetch(makeProject(), () => json(failResult));
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
 
     fireEvent.click(
       within(await screen.findByRole("group", { name: "中奖 倾向设置" })).getByRole("button", {
@@ -273,7 +273,7 @@ describe("LogisticRegressionLabPage", () => {
     const fetchSpy = stubLogisticRegressionFetch(project, () => json({}));
 
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
 
     const prizeGroup = await screen.findByRole("group", { name: "中奖 倾向设置" });
     expect(within(prizeGroup).getByRole("button", { name: "+1 偏垃圾" })).toHaveAttribute(
@@ -311,7 +311,7 @@ describe("LogisticRegressionLabPage", () => {
     stubLogisticRegressionFetch(project, () => json({}));
 
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "从分数到概率" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 从分数到概率" });
 
     const chart = screen.getByLabelText("Sigmoid 曲线与当前模型定位");
     expect(chart).toBeInTheDocument();
@@ -334,7 +334,7 @@ describe("LogisticRegressionLabPage", () => {
     );
 
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "训练模型" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 训练模型" });
 
     const beforeAfter = screen.getByLabelText("训练前后验证短信表现对比");
     expect(beforeAfter).toBeInTheDocument();
@@ -423,7 +423,7 @@ describe("LogisticRegressionLabPage", () => {
     await renderAppAt("/classes/c1/labs/logistic-regression?classroom=1&stage=1", {
       auth: studentAuthState,
     });
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
     expect(screen.getByRole("button", { name: /用新短信试试模型/ })).toBeDisabled();
   });
 
@@ -439,7 +439,7 @@ describe("LogisticRegressionLabPage", () => {
     await renderAppAt("/classes/c1/labs/logistic-regression?classroom=1", {
       auth: studentAuthState,
     });
-    await screen.findByRole("heading", { name: "训练模型" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 训练模型" });
   });
 
   it.each([studentAuthState, teacherAuthState, adminAuthState])(
@@ -447,7 +447,7 @@ describe("LogisticRegressionLabPage", () => {
     async (auth) => {
       stubLogisticRegressionFetch(makeProject(), () => json({}));
       await renderAppAt("/classes/c1/labs/logistic-regression?classroom=1&stage=4", { auth });
-      await screen.findByRole("heading", { name: "给 10 个词打分" });
+      await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
       expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled();
       expect(screen.queryByRole("button", { name: /课堂模式/ })).not.toBeInTheDocument();
     },
@@ -472,14 +472,14 @@ describe("LogisticRegressionLabPage", () => {
     vi.stubGlobal("fetch", fetchSpy);
 
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
-    await screen.findByRole("heading", { name: "训练模型" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 训练模型" });
 
     fireEvent.click(screen.getByRole("button", { name: /从短信到数字/ }));
     fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
     expect(resets).toEqual([]);
     fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
     await waitFor(() => expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled());
-    expect(screen.getByRole("heading", { name: "从短信到数字" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "逻辑回归 - 从短信到数字" })).toBeInTheDocument();
     expect(resets).toEqual([{ scope: "stage", stageIndex: 2, expectedGeneration: 0 }]);
   });
 
@@ -515,7 +515,7 @@ describe("LogisticRegressionLabPage", () => {
     vi.stubGlobal("fetch", fetchSpy);
 
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
-    await screen.findByRole("heading", { name: "训练模型" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 训练模型" });
 
     for (const prompt of LOGISTIC_REGRESSION_STAGES[3].prompts) {
       fireEvent.click(
@@ -530,7 +530,7 @@ describe("LogisticRegressionLabPage", () => {
     fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
     fireEvent.click(screen.getByRole("radio", { name: /重置整个实验/ }));
     fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
-    await screen.findByRole("heading", { name: "给 10 个词打分" });
+    await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
 
     resolveJudge(
       json({
@@ -544,6 +544,6 @@ describe("LogisticRegressionLabPage", () => {
       }),
     );
     await waitFor(() => expect(screen.queryByText("通过本关判定")).not.toBeInTheDocument());
-    expect(screen.getByRole("heading", { name: "给 10 个词打分" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "逻辑回归 - 给 10 个词打分" })).toBeInTheDocument();
   });
 });

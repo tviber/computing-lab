@@ -92,7 +92,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
 
   await page.goto("labs/logistic-regression", { waitUntil: "networkidle" });
   await expect(page.getByRole("main", { name: "逻辑回归实验区" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 给 10 个词打分", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: /从短信到数字/ })).toBeDisabled();
 
   const prizeStrongSpam = page
@@ -125,7 +127,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(page.getByText("已保存")).toBeVisible();
 
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 给 10 个词打分", exact: true }),
+  ).toBeVisible();
   await expect(prizeStrongSpam).toHaveAttribute("aria-pressed", "true");
 
   const s1Tiers: Record<string, string> = {
@@ -156,7 +160,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   expect((await s1RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "从短信到数字", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 从短信到数字", exact: true }),
+  ).toBeVisible();
 
   await expectTokenChoicesToFit(page);
   let freeSeen = 0;
@@ -181,7 +187,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   expect((await s2RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "从分数到概率", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 从分数到概率", exact: true }),
+  ).toBeVisible();
 
   const draftSavePromise = page.waitForResponse((res) => {
     if (
@@ -204,7 +212,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(page.getByText("已保存")).toBeVisible();
 
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "从分数到概率", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 从分数到概率", exact: true }),
+  ).toBeVisible();
   await expect(page.locator("#logistic-regression-w-免费")).toHaveValue("2.2");
 
   await page.locator("#logistic-regression-bias-slider").fill("-1");
@@ -235,7 +245,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   expect((await s3RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "训练模型", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 训练模型", exact: true }),
+  ).toBeVisible();
 
   const beforeAfter = page.getByLabel("训练前后验证短信表现对比");
   await expect(beforeAfter).toBeVisible();
@@ -293,7 +305,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   expect((await s4RespPromise).status()).toBe(200);
   await expect(page.getByText("通过本关判定")).toBeVisible();
   await page.getByRole("button", { name: /进入下一关/ }).click();
-  await expect(page.getByRole("heading", { name: "用新短信试试模型", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 用新短信试试模型", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/学习率 0.1 · 12 轮 · 系统阈值/)).toBeVisible();
   await expect(page.getByText("概念检查", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "完成体验" })).toBeDisabled();
@@ -365,7 +379,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   expect(await completionResponse.json()).toMatchObject({ passedStages: [1, 2, 3, 4, 5] });
   await expect(page.getByText("已完成短信分类体验")).toBeVisible();
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "用新短信试试模型", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 用新短信试试模型", exact: true }),
+  ).toBeVisible();
   await expect(page.getByText(/学习率 0.1 · 12 轮 · 系统阈值/)).toBeVisible();
   await expect(page.getByText("已完成短信分类体验")).toBeVisible();
 
@@ -381,7 +397,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   expect(await (await partialReset).json()).toMatchObject({ currentStage: 2, passedStages: [1] });
   await expect(resetDialog).not.toBeVisible();
   await page.reload({ waitUntil: "networkidle" });
-  await expect(page.getByRole("heading", { name: "从短信到数字", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 从短信到数字", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: /从分数到概率/ })).toBeDisabled();
 
   await page.getByRole("button", { name: "重置进度" }).click();
@@ -396,7 +414,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await page.goto(`classes/${classId}/labs/logistic-regression?classroom=1&stage=4`, {
     waitUntil: "networkidle",
   });
-  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 给 10 个词打分", exact: true }),
+  ).toBeVisible();
 
   expect(failures, failures.join("\n")).toEqual([]);
 });
@@ -553,7 +573,9 @@ test("teacher follows sequential unlocks and uses the shared reset dialog", asyn
     .filter({ has: page.getByRole("heading", { name: "逻辑回归" }) });
   await logisticRegressionCard.getByRole("link", { name: "开始实验" }).click();
 
-  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 给 10 个词打分", exact: true }),
+  ).toBeVisible();
   await expect(page.getByRole("button", { name: "课堂模式：先看后面关卡" })).toHaveCount(0);
 
   await expect(page.getByRole("button", { name: /训练模型/ })).toBeDisabled();
@@ -567,7 +589,9 @@ test("teacher follows sequential unlocks and uses the shared reset dialog", asyn
   await expect(expandRail).toHaveAttribute("aria-expanded", "false");
   await expect(expandRail).toHaveText("第 1 关");
   await expect(page.getByRole("button", { name: /训练模型/ })).toBeHidden();
-  await expect(page.getByRole("heading", { name: "给 10 个词打分", exact: true })).toBeInViewport();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 给 10 个词打分", exact: true }),
+  ).toBeInViewport();
   await expandRail.click();
   await expect(page.getByRole("button", { name: /训练模型/ })).toBeDisabled();
   await page.getByRole("button", { name: "收起关卡栏" }).click();

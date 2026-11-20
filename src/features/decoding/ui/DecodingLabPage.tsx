@@ -12,7 +12,7 @@
 import { useParams, useSearch } from "@tanstack/react-router";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
-import { labMetadata } from "../../../shared/lab/labMetadata";
+import { labStageTitle } from "../../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { useDecodingLabController } from "../controller/useDecodingLabController.ts";
 import { DecodingWorkspace } from "./DecodingWorkspace.tsx";
@@ -52,9 +52,7 @@ export function DecodingLabPage() {
       }
       topbarProps={{
         subtitle: model.stage?.englishTitle,
-        title: model.stage
-          ? `${String(model.stage.index).padStart(2, "0")} ${model.stage.title}`
-          : labMetadata.decoding.title,
+        title: labStageTitle("decoding", model.stage?.title),
       }}
     >
       <DecodingWorkspace {...controller} />

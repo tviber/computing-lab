@@ -3,7 +3,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
-import { labMetadata } from "../../../shared/lab/labMetadata";
+import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
@@ -213,7 +213,7 @@ export function ColorQuantizationLabPage() {
       }
       topbarProps={{
         subtitle: stage?.englishTitle,
-        title: stage?.title ?? labMetadata["color-quantization"].title,
+        title: labStageTitle("color-quantization", stage?.title),
       }}
     >
       <LabPageShell

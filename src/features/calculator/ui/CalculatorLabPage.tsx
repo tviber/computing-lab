@@ -2,7 +2,7 @@ import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useReducer, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
-import { labMetadata } from "../../../shared/lab/labMetadata";
+import { labStageTitle } from "../../../shared/lab/labMetadata";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
@@ -213,7 +213,7 @@ export function CalculatorLabPage() {
       }
       topbarProps={{
         subtitle: stage ? <AnnotatedText text={stage.englishTitle} /> : undefined,
-        title: stage?.title ?? labMetadata.calculator.title,
+        title: labStageTitle("calculator", stage?.title),
       }}
     >
       <CalculatorLabWorkspace

@@ -1,5 +1,6 @@
 import { LabPreviewPage } from "../../../devtools/lab-preview/LabPreviewPage";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
+import { labStageTitle } from "../../../shared/lab/labMetadata";
 import { DecodingWorkspace } from "../ui/DecodingWorkspace.tsx";
 import { createDecodingPreviewActions, decodingPreviewFixtures } from "./fixtures.ts";
 
@@ -12,7 +13,7 @@ export function DecodingPreviewPage() {
       frameTopbar={(scene) => <SaveIndicator status={scene.model.feedback.saveStatus} />}
       frameTopbarProps={(scene) => ({
         subtitle: scene.model.stage?.englishTitle,
-        title: scene.model.stage?.title,
+        title: labStageTitle("decoding", scene.model.stage?.title),
       })}
       renderWorkspace={(scene, actions) => (
         <DecodingWorkspace model={scene.model} actions={actions} />

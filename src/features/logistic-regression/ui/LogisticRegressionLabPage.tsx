@@ -4,7 +4,7 @@ import { useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { labMetadata } from "../../../shared/lab/labMetadata";
+import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
@@ -216,7 +216,7 @@ export function LogisticRegressionLabPage() {
         />
       }
       topbarProps={{
-        title: stage?.title ?? labMetadata["logistic-regression"].title,
+        title: labStageTitle("logistic-regression", stage?.title),
       }}
     >
       <LabPageShell
