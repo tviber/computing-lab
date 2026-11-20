@@ -331,7 +331,7 @@ export function TeacherDashboardPage() {
   }
 
   return (
-    <AppPageLayout className="dashboard-page">
+    <AppPageLayout>
       <main aria-label="学生进度矩阵" className="page-content">
         <div className="dashboard-heading">
           <div className="dashboard-heading-copy">
@@ -343,82 +343,91 @@ export function TeacherDashboardPage() {
                 : "按关卡查看当前班级每位学生的最新提交结果。"}
             </p>
           </div>
-          <div className="dashboard-controls">
-            {(session?.memberships.length ?? 0) > 0 ? (
-              <label className="field-select" htmlFor="dashboard-class-select">
-                <span>班级</span>
-                <select
-                  aria-label="选择班级"
-                  id="dashboard-class-select"
-                  onChange={(event) => selectClass(event.target.value)}
-                  value={classId ?? ""}
-                >
-                  {session?.memberships.map((membership) => (
-                    <option key={membership.classId} value={membership.classId}>
-                      {membership.className}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : null}
-            <label className="field-select" htmlFor="dashboard-kind-select">
-              <span>分类</span>
+        </div>
+        <div className="dashboard-controls">
+          {(session?.memberships.length ?? 0) > 0 ? (
+            <label
+              className="field-select dashboard-class-control"
+              htmlFor="dashboard-class-select"
+            >
+              <span>班级</span>
               <select
-                aria-label="看板分类"
-                id="dashboard-kind-select"
-                onChange={(event) => selectKind(event.target.value as DashKind)}
-                value={kind}
+                aria-label="选择班级"
+                id="dashboard-class-select"
+                onChange={(event) => selectClass(event.target.value)}
+                value={classId ?? ""}
               >
-                <option value="lab">实验</option>
-                <option value="task">任务单</option>
+                {session?.memberships.map((membership) => (
+                  <option key={membership.classId} value={membership.classId}>
+                    {membership.className}
+                  </option>
+                ))}
               </select>
             </label>
-            {classId ? (
-              <Link
-                className="button button-ghost"
-                params={{ classId }}
-                to="/classes/$classId/members"
+          ) : null}
+          <label className="field-select dashboard-kind-control" htmlFor="dashboard-kind-select">
+            <span>分类</span>
+            <select
+              aria-label="看板分类"
+              id="dashboard-kind-select"
+              onChange={(event) => selectKind(event.target.value as DashKind)}
+              value={kind}
+            >
+              <option value="lab">实验</option>
+              <option value="task">任务单</option>
+            </select>
+          </label>
+          {kind === "lab" ? (
+            <label
+              className="field-select dashboard-subject-control"
+              htmlFor="dashboard-lab-select"
+            >
+              <span>实验</span>
+              <select
+                aria-label="选择实验"
+                id="dashboard-lab-select"
+                onChange={(event) => selectLab(event.target.value)}
+                value={lab.id}
               >
-                成员管理
-              </Link>
-            ) : null}
-            {kind === "lab" ? (
-              <label className="field-select" htmlFor="dashboard-lab-select">
-                <span>实验</span>
-                <select
-                  aria-label="选择实验"
-                  id="dashboard-lab-select"
-                  onChange={(event) => selectLab(event.target.value)}
-                  value={lab.id}
-                >
-                  {labOptions.map((option) => (
-                    <option key={option.id} value={option.id}>
-                      {option.title}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            ) : (
-              <label className="field-select" htmlFor="dashboard-assignment-select">
-                <span>任务单</span>
-                <select
-                  aria-label="选择任务单"
-                  disabled={assignments.length === 0}
-                  id="dashboard-assignment-select"
-                  onChange={(event) => selectAssignment(event.target.value)}
-                  value={assignment?.id ?? ""}
-                >
-                  {assignments.length === 0 ? <option value="">尚未布置</option> : null}
-                  {assignments.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.title}
-                      {a.archived ? "（已归档）" : ""}
-                    </option>
-                  ))}
-                </select>
-              </label>
-            )}
-          </div>
+                {labOptions.map((option) => (
+                  <option key={option.id} value={option.id}>
+                    {option.title}
+                  </option>
+                ))}
+              </select>
+            </label>
+          ) : (
+            <label
+              className="field-select dashboard-subject-control"
+              htmlFor="dashboard-assignment-select"
+            >
+              <span>任务单</span>
+              <select
+                aria-label="选择任务单"
+                disabled={assignments.length === 0}
+                id="dashboard-assignment-select"
+                onChange={(event) => selectAssignment(event.target.value)}
+                value={assignment?.id ?? ""}
+              >
+                {assignments.length === 0 ? <option value="">尚未布置</option> : null}
+                {assignments.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.title}
+                    {a.archived ? "（已归档）" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          {classId ? (
+            <Link
+              className="button button-secondary dashboard-member-control"
+              params={{ classId }}
+              to="/classes/$classId/members"
+            >
+              成员管理
+            </Link>
+          ) : null}
         </div>
         {error ? (
           <p className="test-error" role="alert">

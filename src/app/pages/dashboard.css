@@ -12,20 +12,55 @@
 }
 
 .dashboard-controls {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: 10px 16px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 0.7fr) minmax(0, 1.2fr) auto;
+  grid-template-areas: "class kind subject members";
+  align-items: end;
+  gap: var(--space-3) var(--space-4);
+  max-width: 52rem;
+  margin-bottom: var(--space-5);
 }
 
-.dashboard-controls .field-select {
-  flex: 1 1 112px;
-  min-width: 0;
-  max-width: min(220px, 100%);
+.dashboard-controls select {
+  width: 100%;
+  min-height: 42px;
 }
 
-.dashboard-controls .field-select:has(#dashboard-class-select) {
-  flex-basis: 180px;
+.dashboard-class-control {
+  grid-area: class;
+}
+
+.dashboard-kind-control {
+  grid-area: kind;
+}
+
+.dashboard-subject-control {
+  grid-area: subject;
+}
+
+.dashboard-member-control {
+  grid-area: members;
+  justify-self: end;
+  white-space: nowrap;
+}
+
+@media (max-width: 760px) {
+  .dashboard-controls {
+    grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+    grid-template-areas:
+      "class kind"
+      "subject members";
+  }
+}
+
+@media (max-width: 520px) {
+  .dashboard-controls {
+    grid-template-columns: minmax(0, 0.7fr) minmax(0, 1fr);
+    grid-template-areas:
+      "class class"
+      "kind subject"
+      "members members";
+  }
 }
 
 .dashboard-heading h1 {
