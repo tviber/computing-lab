@@ -1,5 +1,7 @@
 # Conventions
 
+- Inline disclosures inherit the shared chevron from `details > summary`; custom HTML buttons opt in with `.disclosure-trigger` and `aria-expanded`. Do not add a second marker in feature CSS.
+
 - Follow `AGENTS.md`; it is the source of truth for ownership, layout, and engineering constraints.
 - Keep domain calculations, fixtures, and lesson semantics inside `src/features/<lab>/domain`; lab composition belongs in `ui` and lesson content in `lesson`.
 - `src/app` owns routing/page composition. Shared modules contain only infrastructure with live consumers.

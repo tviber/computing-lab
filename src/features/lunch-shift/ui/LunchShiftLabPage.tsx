@@ -4,7 +4,7 @@ import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { StageLink } from "../../../shared/lab/StageRail";
-import { labMetadata } from "../../../shared/lab/labMetadata";
+import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
@@ -197,7 +197,7 @@ export function LunchShiftLabPage() {
         />
       }
       topbarProps={{
-        title: stage?.title ?? labMetadata["lunch-shift"].title,
+        title: labStageTitle("lunch-shift", stage?.title),
       }}
     >
       <LabPageShell

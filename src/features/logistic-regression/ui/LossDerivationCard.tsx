@@ -36,7 +36,7 @@ export function LossDerivationCard() {
         <button
           aria-controls={appendixId}
           aria-expanded={showMathAppendix}
-          className="button button-ghost logistic-regression-toggle-btn"
+          className="button button-ghost logistic-regression-toggle-btn disclosure-trigger"
           onClick={() => setShowMathAppendix((v) => !v)}
           type="button"
         >

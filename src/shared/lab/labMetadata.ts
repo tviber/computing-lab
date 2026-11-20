@@ -66,4 +66,9 @@ export const labMetadata = {
 
 export type LabId = keyof typeof labMetadata;
 
+export function labStageTitle(labId: LabId, stageTitle?: string) {
+  const labTitle = labMetadata[labId].title;
+  return stageTitle ? `${labTitle} - ${stageTitle}` : labTitle;
+}
+
 export const LAB_IDS = Object.keys(labMetadata) as LabId[];

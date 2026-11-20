@@ -256,13 +256,10 @@
 .stage-branch-summary {
   display: flex;
   align-items: center;
-  justify-content: space-between;
-  gap: 8px;
-  padding: 6px 10px 6px 22px;
+  padding: 6px 10px;
   color: var(--muted);
   cursor: pointer;
   font-size: 10px;
-  list-style-position: inside;
 }
 
 .stage-branch-summary:hover {
@@ -270,6 +267,9 @@
 }
 
 .stage-branch-summary span:last-child {
+  margin-inline-start: auto;
+  padding-inline-start: var(--space-1);
+  white-space: nowrap;
   color: var(--accent);
   font-family: "SFMono-Regular", Consolas, monospace;
   font-weight: 700;
@@ -588,10 +588,6 @@
     color: var(--primary);
     font-size: 13px;
     font-weight: 650;
-  }
-
-  .lab-rail-toggle[aria-expanded="true"] svg {
-    rotate: 180deg;
   }
 
   .lab-progress-tools {

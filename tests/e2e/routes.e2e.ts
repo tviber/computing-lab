@@ -114,8 +114,16 @@ test("ALU stage drawer stays on the shared page edge", async ({ page }, testInfo
         const box = await page.locator(selector).boundingBox();
         expect(box?.x).toBe(inset);
       }
-      if (expanded === "true")
+      if (expanded === "true") {
+        const branch = page.locator(".stage-branch-summary").first();
+        const indicator = () => branch.evaluate((el) => getComputedStyle(el, "::before").rotate);
+        await expect.poll(indicator).toBe("-90deg");
+        await branch.press("Enter");
+        await expect.poll(indicator).toBe("0deg");
+        await branch.press("Space");
+        await expect.poll(indicator).toBe("-90deg");
         await page.screenshot({ path: testInfo.outputPath(`alu-${width}.png`) });
+      }
     }
   }
   expect(failures).toEqual([]);

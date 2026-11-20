@@ -102,8 +102,7 @@ describe("CircuitCanvas", () => {
     );
 
     expect(screen.getAllByRole("button", { name: /连线/ })).toHaveLength(1);
-    const toggle = screen.getByRole("button", { name: "展开组件 HalfAdder" });
-    expect(toggle).toHaveTextContent("+");
+    const toggle = screen.getByRole("button", { name: "展开组件 HalfAdder", expanded: false });
     expect(screen.getByText("HalfAdder")).toBeInTheDocument();
     expect(container.querySelector(".circuit-node.is-collapsed .node-body")).toHaveAttribute(
       "height",

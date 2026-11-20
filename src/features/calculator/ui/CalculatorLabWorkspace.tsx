@@ -291,7 +291,8 @@ export function CalculatorLabWorkspace({
                 ) : null}
                 {selectedNode?.kind === "component" ? (
                   <button
-                    className="button button-ghost"
+                    aria-expanded={!selectedNode.collapsed}
+                    className="button button-ghost disclosure-trigger"
                     onClick={() => dispatch({ type: "toggle-collapse-node", id: selectedNode.id })}
                     type="button"
                   >

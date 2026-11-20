@@ -216,7 +216,10 @@ export function LabPageShell({
             title={effective ? "展开关卡栏" : "收起关卡栏"}
             type="button"
           >
-            <Icon name={narrow ? "chevron-down" : "panel-left"} size={18} />
+            <Icon
+              name={effective ? "chevron-right" : narrow ? "chevron-down" : "chevron-left"}
+              size={18}
+            />
             {narrow ? <span>{collapsedLabel ?? "关卡"}</span> : null}
           </button>
           {!narrow && effective && collapsedLabel ? (

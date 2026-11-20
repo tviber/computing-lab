@@ -456,7 +456,7 @@ export function TrainPanel({
           <button
             aria-controls={slicePanelId}
             aria-expanded={showSliceExplorer}
-            className="button button-ghost"
+            className="button button-ghost disclosure-trigger"
             onClick={() => setShowSliceExplorer((v) => !v)}
             type="button"
           >
