@@ -17,6 +17,13 @@ colors:
   focus: "#79afea"
   focus-ring: "#1769d2"
   border-strong: "#b8c3ce"
+  topic-architecture: "#1769d2"
+  topic-encoding: "#0f766e"
+  topic-systems: "#a1520a"
+  topic-ai: "#5b48a2"
+  ink-cyan: "#58b4c9"
+  ink-magenta: "#d9789d"
+  ink-yellow: "#edc859"
   success: "#17845b"
   success-soft: "#f0fdf4"
   success-fill: "#dcfce7"
@@ -72,6 +79,8 @@ components:
 
 ## Layout contract
 
+首页采用现代工程实验手册风格（清爽浅蓝白渐变画布 + 学科图版 + 无衬线标题 + `--font-mono` 技术注脚）。未登录页展示交互式实验图版预览与登录入口；已登录页直接呈现紧凑的课堂导览栏（含学生「继续上次实验」快捷入口）、按主题筛选条与可见实验图鉴卡片。`AtlasPlate` 以学科主题为默认图版并按稳定实验 ID 覆盖专属图版，新增同主题课程无需单独制作封面。
+
 所有页面共用同一个外壳，页面只渲染 content：
 
 ```
@@ -121,27 +130,29 @@ rail 的竖向分隔线画在网格内部（`border-right`），内容仍然受 
 
 颜色只按角色使用，不按字面含义：
 
-| Token                                                                 | 用途                                    |
-| --------------------------------------------------------------------- | --------------------------------------- |
-| `--canvas`                                                            | 页面背景（topbar/卡片之外的区域）       |
-| `--surface`                                                           | 卡片、面板、topbar、弹层                |
-| `--subtle`                                                            | 次级填充：hover 底、图表槽位、禁用态    |
-| `--border`                                                            | 所有描边、分隔线                        |
-| `--primary`                                                           | 正文标题、重要文字                      |
-| `--secondary`                                                         | 说明文字                                |
-| `--muted`                                                             | 弱化提示、placeholder 级文字            |
-| `--accent` / `--accent-soft`                                          | 主交互色及其浅底（按钮、当前态）        |
-| `--focus` / `--focus-ring`                                            | hover 边框 / `:focus-visible` 描边      |
-| `--success`/`--warning`/`--danger`                                    | 状态语义色，仅用于状态                  |
-| `--success-soft`/`--success-border`/`--danger-soft`/`--danger-border` | 状态提示条的底色与描边                  |
-| `--success-fill`/`--warning-soft`                                     | 状态徽章、图例的实底（比 -soft 深一档） |
-| `--success-ink`/`--warning-ink`/`--danger-ink`                        | 状态浅底上的 AA 文字色                  |
-| `--accent-ink`/`--accent-line`                                        | 深一号主色文字 / accent 族浅描边        |
-| `--border-strong`                                                     | 比 `--border` 深一级的灰线、禁用底      |
-| `--code-surface`/`--code-line`/`--code-ink`/`--code-accent`           | 深色代码面板的底、描边、文字、高亮      |
-| `--error-surface`/`--error-ink`                                       | 深色错误终端面板                        |
-| `--scrim`/`--scrim-deep`                                              | 色块描边 / 色块内文字阴影               |
-| `--marker`/`--paper`                                                  | 领域色：高亮标记、小票纸                |
+| Token                                                                    | 用途                                     |
+| ------------------------------------------------------------------------ | ---------------------------------------- |
+| `--canvas`                                                               | 页面背景（topbar/卡片之外的区域）        |
+| `--surface`                                                              | 卡片、面板、topbar、弹层                 |
+| `--subtle`                                                               | 次级填充：hover 底、图表槽位、禁用态     |
+| `--border`                                                               | 所有描边、分隔线                         |
+| `--primary`                                                              | 正文标题、重要文字                       |
+| `--secondary`                                                            | 说明文字                                 |
+| `--muted`                                                                | 弱化提示、placeholder 级文字             |
+| `--accent` / `--accent-soft`                                             | 主交互色及其浅底（按钮、当前态）         |
+| `--focus` / `--focus-ring`                                               | hover 边框 / `:focus-visible` 描边       |
+| `--success`/`--warning`/`--danger`                                       | 状态语义色，仅用于状态                   |
+| `--success-soft`/`--success-border`/`--danger-soft`/`--danger-border`    | 状态提示条的底色与描边                   |
+| `--success-fill`/`--warning-soft`                                        | 状态徽章、图例的实底（比 -soft 深一档）  |
+| `--success-ink`/`--warning-ink`/`--danger-ink`                           | 状态浅底上的 AA 文字色                   |
+| `--accent-ink`/`--accent-line`                                           | 深一号主色文字 / accent 族浅描边         |
+| `--border-strong`                                                        | 比 `--border` 深一级的灰线、禁用底       |
+| `--code-surface`/`--code-line`/`--code-ink`/`--code-accent`              | 深色代码面板的底、描边、文字、高亮       |
+| `--error-surface`/`--error-ink`                                          | 深色错误终端面板                         |
+| `--scrim`/`--scrim-deep`                                                 | 色块描边 / 色块内文字阴影                |
+| `--marker`/`--paper`                                                     | 领域色：高亮标记、小票纸                 |
+| `--topic-architecture`/`--topic-encoding`/`--topic-systems`/`--topic-ai` | 学科主题点缀色（图版、主题标签、筛选条） |
+| `--ink-cyan`/`--ink-magenta`/`--ink-yellow`                              | 印刷三原色墨粉（颜色量化图版）           |
 
 `--muted` 在 canvas/surface/subtle/accent-soft 上均满足 WCAG AA 4.5:1 对比度要求。与 `--secondary` 的层级主要靠字号/字重区分。
 

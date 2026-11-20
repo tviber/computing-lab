@@ -24,6 +24,7 @@
   gap: 20px;
   min-height: 64px;
   padding: 12px var(--page-gutter);
+  padding-inline: max(var(--page-gutter), calc((100% - var(--page-max)) / 2 + var(--page-gutter)));
   border-bottom: 1px solid var(--border);
   background: var(--surface);
 }
@@ -71,7 +72,7 @@
   width: 32px;
   height: 32px;
   border: 1px solid var(--accent-line);
-  border-radius: var(--radius-panel);
+  border-radius: var(--radius-mini);
   background: var(--accent-soft);
   color: var(--accent);
   font-size: 20px;
@@ -111,8 +112,9 @@
 
 .app-brand-name {
   color: var(--primary);
-  font-size: 14px;
-  font-weight: 750;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
   white-space: nowrap;
 }
 
@@ -606,5 +608,18 @@
     width: 100%;
     justify-content: space-between;
     flex-wrap: wrap;
+  }
+
+  .app-topbar:not(:has(.app-home-link)) {
+    align-items: center;
+  }
+
+  .app-topbar:not(:has(.app-home-link)) .app-topbar-actions {
+    width: auto;
+  }
+
+  .app-topbar:not(:has(.app-home-link)) .account-menu-popover {
+    right: 0;
+    left: auto;
   }
 }

@@ -1,5 +1,8 @@
 # Frontend Core
 
+- Signed-in `HomePage` derives topic counts, topic filters, student resume shortcut, and course cards from the visible catalog; anonymous landing uses interactive `AtlasPlate` previews. `AtlasPlate` uses category defaults plus optional lab-ID overrides and must stay decoupled from lazy lesson modules.
+- Student resume uses the browser-local last class/lab visit per account, recorded on the guarded class route and rechecked against the current class catalog. A first-stage visit counts; inferred progress is explicitly labeled as a fallback, never as the last visit. Keep task assignments below the catalog so they do not reduce the desktop card column count.
+
 - `src/app` owns TanStack Router setup, route loaders/errors, and page composition; see `src/app/router.tsx`.
 - Active labs are declared centrally via `LAB_IDS` / `labMetadata` (`src/shared/lab/labMetadata.ts`) and wired in `APP_LABS` (`src/app/labRegistry.ts`). `router.tsx` auto-generates `/labs/<id>` (`LabRedirectPage`) and `/classes/$classId/labs/<id>` (`GuardedLabRoute` + `LabAccessGate`), while `HomePage` and `TeacherDashboardPage` derive lab entries and stage headers from the registry.
 - Keep the initial module graph limited to home and entry/error pages. `APP_LABS` imports stage metadata directly from `domain/stages` and lazily loads lab UI; secondary routes including student calculator preview are lazy too. Route-only CSS must be imported by its consumers so direct visits render independently of previous routes.

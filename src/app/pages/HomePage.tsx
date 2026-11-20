@@ -7,12 +7,15 @@ import {
   LAB_IDS,
   LAB_CATEGORY_LABELS,
   labMetadata,
+  type LabCategory,
   type LabId,
   type LabMetadataEntry,
 } from "../../shared/lab/labMetadata";
+import { getRecentLab } from "../../shared/lab/recentLab";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { Icon } from "../../shared/ui/Icon";
 import { APP_LABS, type AppLabEntry } from "../labRegistry";
+import { AtlasPlate } from "../atlas/AtlasPlate";
 import "./home.css";
 
 type ProjectSummary = { currentStage: number };
@@ -26,14 +29,28 @@ type StudentTask = {
   finalTotal: number | null;
 };
 
-const HOME_LABS = LAB_IDS.map((id) => {
+const CATEGORY_ORDER: readonly LabCategory[] = [
+  "computer-architecture",
+  "data-encoding",
+  "information-systems",
+  "artificial-intelligence",
+];
+
+const SHOWCASE_LABS: readonly LabId[] = [
+  "image-sampling",
+  "calculator",
+  "lunch-shift",
+  "logistic-regression",
+];
+
+const HOME_LABS = LAB_IDS.map((id, index) => {
   const meta: LabMetadataEntry = labMetadata[id];
   const appLab: AppLabEntry = APP_LABS[id];
   return {
     id,
+    index: index + 1,
     ...meta,
     stages: appLab.homeProgressStages,
-    primary: appLab.primaryCard,
     defaultHidden: meta.defaultHidden ?? false,
   };
 });
@@ -59,68 +76,93 @@ function StudentTasks({ classId }: { classId: string }) {
   if (!tasks || tasks.length === 0) return null;
   const pending = tasks.filter((task) => task.status !== "reviewed").length;
   return (
-    <section aria-labelledby="tasks-title" className="home-tasks-panel">
-      <div className="section-heading">
-        <div>
-          <p className="eyebrow">班级作业</p>
-          <h2 id="tasks-title">任务单</h2>
-        </div>
+    <aside aria-labelledby="tasks-title" className="home-tasks-panel">
+      <div className="home-tasks-heading">
+        <h2 id="tasks-title">任务单</h2>
         <span className="home-count">{pending} 待完成</span>
       </div>
       <div className="home-task-list">
-        {tasks.map((task) => (
-          <article className="home-task" key={task.id}>
-            <div className="home-task-copy">
-              <span className={`ts-task-badge ${task.status}`}>{TASK_STATUS[task.status]}</span>
-              <h3>{task.title}</h3>
-              <p>
-                {task.dueAt
-                  ? `截止 ${new Date(task.dueAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-                  : "无截止时间"}
-                {task.status === "reviewed" && task.finalScore !== null
-                  ? ` · ${task.finalScore}/${task.finalTotal} 分`
-                  : ""}
-              </p>
-            </div>
-            <Link
-              aria-label={`${task.status === "reviewed" ? "查看批改" : task.status === "submitted" ? "查看提交" : task.status === "in_progress" ? "继续作答" : task.status === "returned" ? "重新作答" : "开始作答"}：${task.title}`}
-              className="home-task-action"
-              params={{ assignmentId: task.id, classId }}
-              to="/classes/$classId/tasks/$assignmentId"
-            >
-              {task.status === "reviewed"
-                ? "查看批改"
-                : task.status === "submitted"
-                  ? "查看提交"
-                  : task.status === "in_progress"
-                    ? "继续作答"
-                    : task.status === "returned"
-                      ? "重新作答"
-                      : "开始作答"}
-              <Icon name="arrow-right" size={14} />
-            </Link>
-          </article>
-        ))}
+        {tasks.map((task) => {
+          const actionText =
+            task.status === "reviewed"
+              ? "查看批改"
+              : task.status === "submitted"
+                ? "查看提交"
+                : task.status === "in_progress"
+                  ? "继续作答"
+                  : task.status === "returned"
+                    ? "重新作答"
+                    : "开始作答";
+          return (
+            <article className="home-task" key={task.id}>
+              <div className="home-task-copy">
+                <span className={`ts-task-badge ${task.status}`}>{TASK_STATUS[task.status]}</span>
+                <h3>{task.title}</h3>
+                <p>
+                  {task.dueAt
+                    ? `截止 ${new Date(task.dueAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                    : "无截止时间"}
+                  {task.status === "reviewed" && task.finalScore !== null
+                    ? ` · ${task.finalScore}/${task.finalTotal} 分`
+                    : ""}
+                </p>
+              </div>
+              <Link
+                aria-label={`${actionText}：${task.title}`}
+                className="home-task-action"
+                params={{ assignmentId: task.id, classId }}
+                to="/classes/$classId/tasks/$assignmentId"
+              >
+                {actionText}
+                <Icon name="arrow-right" size={14} />
+              </Link>
+            </article>
+          );
+        })}
       </div>
-    </section>
+    </aside>
   );
 }
 
 function AnonymousLanding() {
+  const [previewLab, setPreviewLab] = useState<LabId>(SHOWCASE_LABS[0]);
+
   return (
     <AppPageLayout className="home-page" topbarProps={{ showAccount: false, showHomeLink: false }}>
       <main className="page-content">
-        <section className="home-hero" aria-labelledby="home-title">
+        <section aria-labelledby="home-title" className="home-hero">
           <div className="home-hero-copy">
             <p className="eyebrow">校内信息技术实验</p>
             <h1 id="home-title">计算实验室</h1>
             <p className="home-lede">
-              用逻辑门亲手搭出一个能做加减乘的计算器。每一关都由服务器判定，通过后解锁下一关。
+              搭一段逻辑电路、拆开一张位图文件头、训练一个垃圾短信分类器——在浏览器里亲手观察计算机如何处理眼前的信息。
             </p>
             <div className="home-hero-actions">
               <Link className="button button-primary" to="/login">
                 登录 <Icon name="arrow-right" size={14} />
               </Link>
+            </div>
+          </div>
+          <div className="home-hero-showcase">
+            <AtlasPlate featured labId={previewLab} />
+            <div aria-label="切换实验示意" className="home-specimen-tabs" role="group">
+              {SHOWCASE_LABS.map((labId) => {
+                const meta = labMetadata[labId];
+                const active = previewLab === labId;
+                return (
+                  <button
+                    aria-pressed={active}
+                    className={`home-specimen-tab${active ? " is-active" : ""}`}
+                    data-category={meta.category}
+                    key={labId}
+                    onClick={() => setPreviewLab(labId)}
+                    type="button"
+                  >
+                    <span aria-hidden="true" className="topic-dot" />
+                    {meta.title}
+                  </button>
+                );
+              })}
             </div>
           </div>
         </section>
@@ -129,8 +171,7 @@ function AnonymousLanding() {
   );
 }
 
-function StageProgress({ currentStage, total }: { currentStage: number; total: number }) {
-  const done = Math.max(0, Math.min(currentStage - 1, total));
+function StageProgress({ done, total }: { done: number; total: number }) {
   return (
     <div className="progress-block">
       <div
@@ -143,23 +184,20 @@ function StageProgress({ currentStage, total }: { currentStage: number; total: n
       >
         <span className="progress-fill" style={{ width: `${(done / total) * 100}%` }} />
       </div>
-      <p className="progress-caption">
-        已通过 {done} / {total} 关
-      </p>
     </div>
   );
 }
 
 function ClassroomHome() {
-  const { status, primaryMembership, role } = useAuth();
+  const { status, primaryMembership, role, session } = useAuth();
   const catalog = useLabCatalog(status === "authenticated");
   const [projects, setProjects] = useState<Record<string, ProjectSummary | null>>({});
+  const [activeCategory, setActiveCategory] = useState<LabCategory | "all">("all");
   const classId = primaryMembership?.classId;
   const isStaff = isStaffRole(role);
   const isAdmin = role === "admin";
-  // Labs closed to this user (hidden, or scoped to other classes) drop off
-  // non-admin surfaces; admins still see the cards (badged) so they can
-  // preview and adjust visibility.
+  const studentId = !isStaff ? session?.user.id : undefined;
+  const recentVisit = studentId ? getRecentLab(studentId) : null;
   const entryOf = (labId: LabId) => catalog?.get(labId);
   const cardVisible = (lab: (typeof HOME_LABS)[number]) => {
     if (isAdmin) return true;
@@ -168,70 +206,216 @@ function ClassroomHome() {
     return entry?.visible !== false;
   };
   const adminBadge = (labId: LabId) => {
-    if (!isAdmin) return "";
+    if (!isAdmin) return null;
     const entry = entryOf(labId);
-    if (entry?.hidden) return " · 已隐藏";
-    if (entry?.openClassIds) return ` · ${entry.openClassIds.length} 个班可见`;
-    return "";
+    if (entry?.hidden) return { label: "已隐藏", tone: "hidden" as const };
+    if (entry?.openClassIds) {
+      return { label: `${entry.openClassIds.length} 个班可见`, tone: "scoped" as const };
+    }
+    return null;
   };
-  const hasVisibleLab = HOME_LABS.some((lab) => cardVisible(lab));
+
+  const visibleLabs = catalog ? HOME_LABS.filter(cardVisible) : [];
+  const presentCategories = CATEGORY_ORDER.filter((category) =>
+    visibleLabs.some((lab) => lab.category === category),
+  );
+  const effectiveCategory =
+    activeCategory !== "all" && presentCategories.includes(activeCategory) ? activeCategory : "all";
+  const displayedLabs =
+    effectiveCategory === "all"
+      ? visibleLabs
+      : visibleLabs.filter((lab) => lab.category === effectiveCategory);
+
+  const recentClassId =
+    recentVisit && entryOf(recentVisit.labId)?.visibleClassIds?.includes(recentVisit.classId)
+      ? recentVisit.classId
+      : undefined;
+  const recentLab = recentClassId
+    ? visibleLabs.find((lab) => lab.id === recentVisit?.labId)
+    : undefined;
+  const recentLabId = recentLab?.id;
+  const labLink = (labId: LabId) =>
+    labId === recentLabId && recentClassId
+      ? { to: `/classes/$classId/labs/${labId}` as const, params: { classId: recentClassId } }
+      : { to: `/labs/${labId}` as const };
+  const progressOf = (lab: (typeof HOME_LABS)[number]) => {
+    const project = projects[lab.id];
+    if (isStaff || !project || lab.stages === null) return null;
+    return { done: Math.max(0, Math.min(project.currentStage - 1, lab.stages)), total: lab.stages };
+  };
+  const recentProgress = recentLab ? progressOf(recentLab) : null;
+  const resumeRecent =
+    recentLab &&
+    (recentLab.stages === null || (recentProgress && recentProgress.done < recentProgress.total))
+      ? recentLab
+      : null;
+  const pendingRecent = recentLab && projects[recentLab.id] === undefined;
+  const resumeLab =
+    !isStaff && classId
+      ? (resumeRecent ??
+        (!pendingRecent &&
+          visibleLabs.find((lab) => {
+            const progress = progressOf(lab);
+            return progress && progress.done > 0 && progress.done < progress.total;
+          })))
+      : null;
+  const resumeProgress = resumeLab ? progressOf(resumeLab) : null;
 
   useEffect(() => {
     if (!classId || isStaff || catalog === null) return;
     for (const lab of HOME_LABS) {
       const entry = entryOf(lab.id);
-      if (lab.stages === null || entry?.visible === false) continue;
-      const projectClassId = entry?.visibleClassIds?.[0] ?? classId;
+      if (lab.stages === null || !cardVisible(lab)) continue;
+      const projectClassId =
+        (lab.id === recentLabId ? recentClassId : undefined) ??
+        entry?.visibleClassIds?.[0] ??
+        classId;
       void api
         .get<ProjectSummary>(`/api/classes/${projectClassId}/labs/${lab.id}/project`)
         .then((project) => setProjects((current) => ({ ...current, [lab.id]: project })))
         .catch(() => setProjects((current) => ({ ...current, [lab.id]: null })));
     }
-  }, [classId, isStaff, catalog]);
+  }, [classId, isStaff, catalog, recentLabId, recentClassId]);
 
   return (
     <AppPageLayout className="home-page" topbarProps={{ showHomeLink: false }}>
       <main className="page-content">
-        <div className="home-content-grid">
-          <section className="current-lab-section" aria-labelledby="current-title" id="lab-catalog">
-            <div className="section-heading">
-              <div>
-                <p className="eyebrow">动手探索</p>
-                <h1 id="current-title">实验课程</h1>
-              </div>
-              <span className="home-count">{HOME_LABS.filter(cardVisible).length} 项实验</span>
+        <div className="home-header">
+          <div className="home-header-main">
+            {primaryMembership ? (
+              <p className="home-context">{primaryMembership.className}</p>
+            ) : null}
+            <div className="home-title-row">
+              <h1 id="current-title">实验课程</h1>
+              {catalog ? (
+                <span className="home-count">
+                  {visibleLabs.length} 项实验 · {presentCategories.length} 个主题
+                </span>
+              ) : null}
             </div>
+          </div>
 
+          {resumeLab ? (
+            <Link
+              className="home-resume-card"
+              data-category={resumeLab.category}
+              {...labLink(resumeLab.id)}
+            >
+              <div className="home-resume-meta">
+                <span className="home-resume-label">
+                  {resumeRecent ? "继续上次实验" : "继续未完成实验"}
+                </span>
+                <strong>{resumeLab.title}</strong>
+                {resumeProgress ? (
+                  <span>
+                    已通过 {resumeProgress.done} / {resumeProgress.total} 关
+                  </span>
+                ) : null}
+              </div>
+              <span className="home-resume-cta">
+                继续 <Icon name="arrow-right" size={14} />
+              </span>
+            </Link>
+          ) : null}
+        </div>
+
+        {catalog && presentCategories.length > 1 ? (
+          <div aria-label="按主题筛选" className="home-filter-bar" role="group">
+            <button
+              aria-pressed={effectiveCategory === "all"}
+              className={`home-filter-pill${effectiveCategory === "all" ? " is-active" : ""}`}
+              onClick={() => setActiveCategory("all")}
+              type="button"
+            >
+              全部
+              <span className="home-filter-count">{visibleLabs.length}</span>
+            </button>
+            {presentCategories.map((category) => {
+              const count = visibleLabs.filter((lab) => lab.category === category).length;
+              const active = effectiveCategory === category;
+              return (
+                <button
+                  aria-pressed={active}
+                  className={`home-filter-pill${active ? " is-active" : ""}`}
+                  data-category={category}
+                  key={category}
+                  onClick={() => setActiveCategory(category)}
+                  type="button"
+                >
+                  <span aria-hidden="true" className="topic-dot" />
+                  {LAB_CATEGORY_LABELS[category]}
+                  <span className="home-filter-count">{count}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
+
+        <div className="home-content-grid">
+          <section aria-labelledby="current-title" className="current-lab-section" id="lab-catalog">
             <div className="lab-card-grid lab-catalog-grid">
-              {HOME_LABS.map((lab, index) => {
+              {displayedLabs.map((lab) => {
                 const project = projects[lab.id];
-                return cardVisible(lab) ? (
-                  <article className={`lab-card${lab.primary ? " is-primary" : ""}`} key={lab.id}>
+                const badge = adminBadge(lab.id);
+                const stageProgress = progressOf(lab);
+                const completed =
+                  stageProgress !== null && stageProgress.done >= stageProgress.total;
+
+                return (
+                  <article
+                    className={`lab-card${classId ? " is-interactive" : ""}`}
+                    data-category={lab.category}
+                    key={lab.id}
+                  >
+                    <AtlasPlate labId={lab.id} />
                     <div className="lab-card-topline">
-                      <span className="lab-card-index">{String(index + 1).padStart(2, "0")}</span>
-                      <span className="category-label">{LAB_CATEGORY_LABELS[lab.category]}</span>
+                      <div className="lab-card-meta">
+                        <span className="lab-card-index">{String(lab.index).padStart(2, "0")}</span>
+                        <span aria-hidden="true" className="topic-dot" />
+                        <span className="category-label">{LAB_CATEGORY_LABELS[lab.category]}</span>
+                      </div>
+                      {badge ? (
+                        <span className={`lab-card-badge is-${badge.tone}`}>{badge.label}</span>
+                      ) : stageProgress ? (
+                        <span
+                          className={`lab-card-badge${completed ? " is-done" : stageProgress.done > 0 ? " is-progress" : ""}`}
+                        >
+                          {completed ? (
+                            <>
+                              <Icon name="check" size={11} /> 已通关
+                            </>
+                          ) : (
+                            `${stageProgress.done} / ${stageProgress.total} 关`
+                          )}
+                        </span>
+                      ) : null}
                     </div>
                     <h3>{lab.title}</h3>
-                    <p>{lab.description}</p>
-                    {isAdmin && adminBadge(lab.id) ? (
-                      <span className="home-admin-note">{adminBadge(lab.id).trim()}</span>
-                    ) : null}
-                    {!isStaff && project && lab.stages !== null ? (
-                      <StageProgress currentStage={project.currentStage} total={lab.stages} />
+                    <p className="lab-card-desc">{lab.description}</p>
+                    {stageProgress ? (
+                      <StageProgress done={stageProgress.done} total={stageProgress.total} />
                     ) : null}
                     {classId ? (
-                      <Link className="lab-card-action" to={`/labs/${lab.id}` as `/labs/${LabId}`}>
-                        {project && project.currentStage > 1 ? "继续" : "开始实验"}
+                      <Link className="lab-card-action" {...labLink(lab.id)}>
+                        <span>
+                          {lab.id === recentLabId || (project && project.currentStage > 1)
+                            ? "继续"
+                            : "开始实验"}
+                        </span>
                         <Icon name="arrow-right" size={14} />
                       </Link>
                     ) : (
-                      <p>请先加入班级，再开始实验。</p>
+                      <p className="lab-card-locked">请先加入班级，再开始实验。</p>
                     )}
                   </article>
-                ) : null;
+                );
               })}
             </div>
-            {!hasVisibleLab ? (
+            {!catalog ? (
+              <p className="home-status" role="status">
+                正在载入实验目录…
+              </p>
+            ) : !visibleLabs.length ? (
               <p className="home-empty">当前没有开放的实验，等管理员开放后再来。</p>
             ) : null}
           </section>

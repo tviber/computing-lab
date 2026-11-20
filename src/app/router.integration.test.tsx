@@ -1,10 +1,12 @@
 import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LAB_IDS } from "../shared/lab/labMetadata";
+import { getRecentLab } from "../shared/lab/recentLab";
 import {
   adminAuthState,
   anonymousAuthState,
   renderAppAt,
+  studentAuthState,
   teacherAuthState,
 } from "../test/router-test-helpers";
 
@@ -137,6 +139,38 @@ describe("application router integration", () => {
     await act(async () => history.forward());
     await waitFor(() => expect(router.state.location.pathname).toBe("/classes/c1/labs/calculator"));
     expect(history.length).toBe(2);
+  });
+
+  it("records student lab visits through direct class routes", async () => {
+    if (studentAuthState.status !== "authenticated") throw new Error("Expected a student session");
+    const { id: studentId } = studentAuthState.session.user;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/api/labs")) {
+        return Response.json({
+          labs: [{ id: "logistic-regression", visible: true, visibleClassIds: ["c1"] }],
+        });
+      }
+      return Response.json({ currentStage: 1, passedStages: [], drafts: {} });
+    });
+
+    const { router } = await renderAppAt("/classes/c1/labs/logistic-regression", {
+      auth: studentAuthState,
+    });
+
+    try {
+      await waitFor(() =>
+        expect(getRecentLab(studentId)).toEqual({
+          labId: "logistic-regression",
+          classId: "c1",
+        }),
+      );
+      await act(async () => router.navigate({ to: "/" }));
+      const resume = await screen.findByRole("link", { name: /继续上次实验/ });
+      expect(resume).toHaveAttribute("href", "/classes/c1/labs/logistic-regression");
+    } finally {
+      localStorage.clear();
+    }
   });
 
   it("replaces an anonymous lab entry with login without trapping back navigation", async () => {
