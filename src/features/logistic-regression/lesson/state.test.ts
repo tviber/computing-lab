@@ -13,8 +13,9 @@ describe("logistic-regression lesson state", () => {
     expect(logisticRegressionStageUnlocked([], 1)).toBe(true);
     expect(logisticRegressionStageUnlocked([], 2)).toBe(false);
     expect(logisticRegressionStageUnlocked([1], 2)).toBe(true);
-    expect(logisticRegressionStageUnlocked([2, 3], 2)).toBe(true);
-    expect(logisticRegressionStageUnlocked([2, 3], 4)).toBe(true);
+    expect(logisticRegressionStageUnlocked([2, 3], 2)).toBe(false);
+    expect(logisticRegressionStageUnlocked([2, 3], 4)).toBe(false);
+    expect(logisticRegressionStageUnlocked([1, 2, 3], 4)).toBe(true);
     expect(logisticRegressionStageUnlocked([1, 2, 3, 4], 5)).toBe(true);
     expect(logisticRegressionStageUnlocked([1, 2, 3, 4, 5], 6)).toBe(false);
     expect(nextLogisticRegressionStage([])).toBe(1);
@@ -89,23 +90,10 @@ describe("logistic-regression lesson state", () => {
     state = transitionLogisticRegressionLesson(state, { type: "select-stage", stageIndex: 2 });
     expect(state.stageIndex).toBe(1);
 
-    state = transitionLogisticRegressionLesson(state, {
-      type: "set-classroom-mode",
-      enabled: true,
-    });
-    expect(isStageUnlocked(state, 4)).toBe(true);
-    state = transitionLogisticRegressionLesson(state, { type: "select-stage", stageIndex: 4 });
-    expect(state.stageIndex).toBe(4);
-
-    state = transitionLogisticRegressionLesson(state, {
-      type: "set-classroom-mode",
-      enabled: false,
-    });
-    expect(state.stageIndex).toBe(1);
     expect(isStageUnlocked(state, 4)).toBe(false);
   });
 
-  it("preserves explicit stage=1 in classroom URL across load-project while defaulting omitted stage to server progress", () => {
+  it("honors unlocked requested stages and otherwise opens the next available stage", () => {
     const serverProject = {
       type: "load-project" as const,
       currentStage: 4,
@@ -114,13 +102,13 @@ describe("logistic-regression lesson state", () => {
     };
 
     const pinnedFirstStage = transitionLogisticRegressionLesson(
-      createLogisticRegressionLessonState(1, true),
+      createLogisticRegressionLessonState(1),
       serverProject,
     );
     expect(pinnedFirstStage.stageIndex).toBe(1);
 
     const omittedStage = transitionLogisticRegressionLesson(
-      createLogisticRegressionLessonState(null, true),
+      createLogisticRegressionLessonState(),
       serverProject,
     );
     expect(omittedStage.stageIndex).toBe(4);
@@ -136,28 +124,24 @@ describe("logistic-regression lesson state", () => {
     expect(afterConflictReload.stageIndex).toBe(2);
   });
 
-  it("keeps staffMode permanently unlocked and returns to stage 1 on isReset", () => {
-    let staff = transitionLogisticRegressionLesson(createLogisticRegressionLessonState(null), {
+  it("clears the pinned stage and opens the server's restart point on reset", () => {
+    const loaded = transitionLogisticRegressionLesson(createLogisticRegressionLessonState(5), {
       type: "load-project",
-      currentStage: 1,
-      passedStages: [],
+      currentStage: 6,
+      passedStages: [1, 2, 3, 4, 5],
       drafts: {},
-      staffMode: true,
     });
-    expect(isStageUnlocked(staff, 5)).toBe(true);
-    staff = transitionLogisticRegressionLesson(staff, { type: "select-stage", stageIndex: 5 });
-    expect(staff.stageIndex).toBe(5);
+    expect(loaded.stageIndex).toBe(5);
 
-    const reset = transitionLogisticRegressionLesson(staff, {
+    const reset = transitionLogisticRegressionLesson(loaded, {
       type: "load-project",
-      currentStage: 1,
-      passedStages: [],
+      currentStage: 3,
+      passedStages: [1, 2],
       drafts: {},
-      staffMode: true,
       isReset: true,
     });
-    expect(reset.stageIndex).toBe(1);
-    expect(reset.staffMode).toBe(true);
-    expect(isStageUnlocked(reset, 5)).toBe(true);
+    expect(reset.stageIndex).toBe(3);
+    expect(reset.pinnedStage).toBeNull();
+    expect(isStageUnlocked(reset, 5)).toBe(false);
   });
 });

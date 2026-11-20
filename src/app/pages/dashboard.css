@@ -18,6 +18,16 @@
   gap: 10px 16px;
 }
 
+.dashboard-controls .field-select {
+  flex: 1 1 112px;
+  min-width: 0;
+  max-width: min(220px, 100%);
+}
+
+.dashboard-controls .field-select:has(#dashboard-class-select) {
+  flex-basis: 180px;
+}
+
 .dashboard-heading h1 {
   color: var(--primary);
   font-size: clamp(28px, 4vw, 40px);
@@ -123,7 +133,6 @@ button.cell-pass:hover {
   font-size: 13px;
 }
 
-/* Failure-detail drawer */
 .drawer-scrim {
   position: fixed;
   inset: 0;
@@ -143,6 +152,38 @@ button.cell-pass:hover {
   background: var(--surface);
   box-shadow: var(--shadow-md);
   overflow-y: auto;
+}
+
+.submission-dialog {
+  position: fixed;
+  inset: 0 0 0 auto;
+  max-width: none;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-inline-start: 1px solid var(--border);
+  color: var(--primary);
+}
+
+.submission-dialog:not([open]) {
+  display: none;
+}
+
+.submission-dialog::backdrop {
+  background: var(--scrim);
+}
+
+.submission-dialog-content {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 14px;
+  padding: 24px;
+}
+
+.submission-dialog-content > :is(header, [role]) {
+  padding-inline-end: 32px;
 }
 
 .drawer h2 {

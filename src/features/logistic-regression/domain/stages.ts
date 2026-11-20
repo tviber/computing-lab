@@ -388,7 +388,9 @@ export function logisticRegressionStageUnlocked(
   index: number,
 ): boolean {
   if (!getLogisticRegressionStage(index)) return false;
-  return index === 1 || passedStages.includes(index) || passedStages.includes(index - 1);
+  return LOGISTIC_REGRESSION_STAGES.every(
+    (stage) => stage.index >= index || passedStages.includes(stage.index),
+  );
 }
 
 export function nextLogisticRegressionStage(passedStages: readonly number[]): number {

@@ -9,9 +9,7 @@ afterEach(() => {
   vi.unstubAllGlobals();
   try {
     window.localStorage.clear?.();
-  } catch {
-    // Bun's test runtime may expose a read-only localStorage stub.
-  }
+  } catch {}
 });
 
 describe("CalculatorLabPage autosave", () => {
@@ -70,16 +68,12 @@ describe("CalculatorLabPage coach", () => {
 
     await renderAppAt("/classes/c1/labs/calculator");
 
-    // The tour continues on stage 2 after the first-wire stage is passed.
     fireEvent.click(await screen.findByRole("button", { name: /半加器/ }));
     expect(await screen.findByText("先认识信号")).toBeInTheDocument();
 
-    // Toggling A advances the tour to the "what 0/1 means" beat.
     fireEvent.click(screen.getByRole("button", { name: "切换 A，当前 0" }));
     expect(await screen.findByText("0 和 1")).toBeInTheDocument();
 
-    // Past the ports beat the tour asks for the first wire — and the XOR the
-    // learner needs is already on the canvas.
     fireEvent.click(screen.getByRole("button", { name: "继续" }));
     fireEvent.click(await screen.findByRole("button", { name: "继续" }));
     expect(await screen.findByText("第一根导线")).toBeInTheDocument();
@@ -137,7 +131,6 @@ describe("CalculatorLabPage coach", () => {
     fireEvent.click(screen.getByRole("button", { name: "跳过引导" }));
     fireEvent.click(await screen.findByRole("button", { name: /半加器/ }));
 
-    // Skipping stage 1 must not turn off the independent stage-2 guide.
     expect(await screen.findByText("先认识信号")).toBeInTheDocument();
   });
 });
@@ -191,10 +184,6 @@ describe("CalculatorLabPage takeaway", () => {
   });
 
   it("drops a pre-reset in-flight judge outcome and disables submit while resetting", async () => {
-    vi.stubGlobal(
-      "confirm",
-      vi.fn(() => true),
-    );
     let resolveJudge!: (value: Response) => void;
     let resolveReset!: (value: Response) => void;
     vi.stubGlobal(
@@ -233,9 +222,10 @@ describe("CalculatorLabPage takeaway", () => {
     await renderAppAt("/classes/c1/labs/calculator");
     await screen.findByRole("button", { name: /半加器/ });
 
-    // Start judge, then immediately trigger staff reset.
     fireEvent.click(screen.getByRole("button", { name: "提交" }));
-    fireEvent.click(screen.getByRole("button", { name: "重置我的进度" }));
+    fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
+    fireEvent.click(screen.getByRole("radio", { name: /重置整个实验/ }));
+    fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
     expect(screen.getByRole("button", { name: /提交|判定中/ })).toBeDisabled();
 
     resolveReset(
@@ -252,7 +242,6 @@ describe("CalculatorLabPage takeaway", () => {
     );
     await screen.findByText(/用一根导线把输入 A 连到输出 Y/);
 
-    // Delayed judge returns passed=true from pre-reset — must be dropped cleanly.
     resolveJudge(
       new Response(
         JSON.stringify({

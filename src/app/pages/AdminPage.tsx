@@ -319,20 +319,27 @@ export function AdminPage() {
                     </td>
                     <td>
                       {resetTarget === user.id ? (
-                        <span className="admin-reset-form">
+                        <form
+                          className="admin-reset-form"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            if (!busy && resetPassword.length >= (isStaffRole(user.role) ? 8 : 4)) {
+                              submitReset(user);
+                            }
+                          }}
+                        >
                           <input
                             aria-label={`${user.name} 的新密码`}
                             autoComplete="new-password"
                             className="admin-reset-input"
                             disabled={busy}
                             onChange={(e) => setResetPassword(e.target.value)}
-                            onKeyDown={(e) => {
+                            onKeyDown={({ key, nativeEvent }) => {
                               if (
-                                e.key === "Enter" &&
-                                resetPassword.length >= (isStaffRole(user.role) ? 8 : 4)
+                                key === "Escape" &&
+                                !nativeEvent.isComposing &&
+                                nativeEvent.keyCode !== 229
                               ) {
-                                submitReset(user);
-                              } else if (e.key === "Escape") {
                                 cancelReset();
                               }
                             }}
@@ -345,8 +352,7 @@ export function AdminPage() {
                             disabled={
                               busy || resetPassword.length < (isStaffRole(user.role) ? 8 : 4)
                             }
-                            onClick={() => submitReset(user)}
-                            type="button"
+                            type="submit"
                           >
                             确定
                           </button>
@@ -358,7 +364,7 @@ export function AdminPage() {
                           >
                             取消
                           </button>
-                        </span>
+                        </form>
                       ) : (
                         <span className="admin-actions">
                           <button

@@ -1,9 +1,3 @@
-/**
- * Thin fetch wrapper for the lab API. Cookies carry the session, so every
- * request is `credentials: "same-origin"`; failures surface as ApiError with
- * the server's machine-readable code.
- */
-
 export class ApiError extends Error {
   constructor(
     readonly status: number,
@@ -14,27 +8,16 @@ export class ApiError extends Error {
   }
 }
 
-/** Shared lab /project envelope — every lab returns this shape plus extras. */
 export type LabProjectPayload<TDraft> = {
   labId: string;
   currentStage: number;
   passedStages: number[];
-  /** Per-stage drafts keyed by stage index (`draft_graph` column). */
   drafts: Record<string, TDraft>;
-  /** Server-assigned revision of the latest applied write per stage — the
-   *  client's next PUT sends it back as `expectedRevision` (compare-and-swap). */
   draftRevisions?: Record<string, number>;
-  /** Monotonic counter bumped on every server reset; echoed on draft/judge calls. */
   projectGeneration?: number;
-  /** True when the signed-in caller has teacher/admin free-navigation rights. */
   staffFreeNavigation?: boolean;
 };
 
-/** Autosave lifecycle flags shared by every lab's lesson state. "conflict"
- * settles a save the server rejected for a newer write it already holds —
- * the page reloads the project so the student sees the winning draft.
- * "sync-error" means the reload after a rejection itself failed: the local
- * draft is still there and the stage stays fenced until a retry syncs it. */
 export type SaveStatus =
   "idle" | "dirty" | "saving" | "saved" | "error" | "conflict" | "sync-error";
 
@@ -74,6 +57,7 @@ export const API_ERROR_MESSAGES: Record<string, string> = {
   "missing-run": "先在页面里运行代码，拿到可提交的结果后再提交。",
   "invalid-activity": "请重新选一条示例短信，查看分类结果后再提交。",
   "invalid-stage": "关卡编号无效。",
+  "invalid-reset-scope": "请选择要重置的进度范围。",
   "unknown-stage": "关卡不存在。",
   "invalid-resolution": "分辨率无效（宽和高需在 2～64 之间）。",
   "square-resolution-required": "这一关要求正方形分辨率（宽 = 高）。",
@@ -140,8 +124,6 @@ async function request<T>(method: string, path: string, body?: unknown): Promise
     try {
       payload = JSON.parse(text);
     } catch {
-      // Non-JSON body (proxy error page, truncated response): never surface a
-      // bare SyntaxError to callers.
       throw new ApiError(response.status, response.ok ? "invalid-response" : "internal-error");
     }
   }

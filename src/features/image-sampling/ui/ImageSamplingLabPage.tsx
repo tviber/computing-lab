@@ -77,8 +77,6 @@ export function ImageSamplingLabPage() {
   const stage = stageOf(state);
   const draft = draftOf(state);
 
-  // Start downloading the Python runtime as soon as the lab opens,
-  // so the first run doesn't spend its load budget on the fetch itself.
   useEffect(() => warmPyodide(), []);
 
   const {
@@ -90,12 +88,13 @@ export function ImageSamplingLabPage() {
     projectGeneration,
     resetting,
     saveGeneration,
-    staffControls,
+    resetControls,
+    flushPreservedDrafts,
   } = useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>({
     classId,
     labId: "image-sampling",
     ready: status === "authenticated",
-    staff: isStaff,
+    stageIndex: state.stageIndex,
     onResetSuccess: () => setSubmitError(null),
     toAction: (project, meta) => ({
       type: "load-project",
@@ -111,20 +110,14 @@ export function ImageSamplingLabPage() {
     dispatch,
   });
 
-  // Apply a shared scenario (?stage=&w=&h=) once, after the project loads.
   useEffect(() => {
     if (scenarioApplied.current || !projectLoaded) return;
     scenarioApplied.current = true;
     const scenario = parseSamplingScenario(search);
     const actions = samplingScenarioActions(state, scenario);
     actions.forEach((action) => dispatch(action));
-    // A shared scenario link is a starting point, not a live binding to the URL.
-    // projectLoaded flips in the same batch as load-project, so `state` is fresh.
   }, [projectLoaded]);
 
-  // Reconcile one conflicted stage against the server's copy — also used by
-  // the explicit retry the sync-error state offers; a failed refetch flags
-  // sync-error and keeps the local draft, never a fake "已载入最新进度".
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
       fetchProject,
@@ -140,10 +133,10 @@ export function ImageSamplingLabPage() {
     });
 
   useAutosaveDraft<StageDraft>({
+    flushPreservedDrafts,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
     classId,
     labId: "image-sampling",
-    // While the (new class's) project is loading the flags on screen still
-    // belong to the previous context — nothing may schedule writes for it.
     saveStatus:
       projectLoaded && !resetting
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
@@ -157,9 +150,6 @@ export function ImageSamplingLabPage() {
     onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
     onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
     onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-    // The server dropped this write because a newer one already exists
-    // elsewhere: refetch so local state reconciles to the winning draft,
-    // then flag the conflict briefly on the stage.
     onConflict: (s) => reconcileConflict(s),
   });
 
@@ -249,9 +239,9 @@ export function ImageSamplingLabPage() {
             unlocked={(item) => isStageUnlocked(state, item.index)}
           />
         }
-        staffControls={staffControls}
+        resetControls={resetControls}
       >
-        <main aria-label="图像采样实验区" className="sampling-workspace">
+        <main aria-label="图像采样实验区" className="sampling-workspace" key={saveGeneration}>
           {stage ? <StageBrief stage={stage} /> : null}
 
           {state.message ? (

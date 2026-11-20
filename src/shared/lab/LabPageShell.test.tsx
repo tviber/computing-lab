@@ -36,7 +36,6 @@ describe("LabPageShell", () => {
       "aria-expanded",
       "false",
     );
-    // The rail subtree stays mounted — only the scroll area is hidden via CSS.
     expect(screen.getByText("关卡列表")).toBeInTheDocument();
   });
 
@@ -84,8 +83,6 @@ describe("LabPageShell", () => {
     const grid = container.querySelector(".lab-page-grid")!;
     expect(grid.className).not.toContain("is-collapsed");
     expect(grid.className).toContain("is-forced");
-    // While forced open the toggle is disabled — clicking it would silently
-    // rewrite the stored preference without any visible effect.
     const forcedToggle = screen.getByRole("button", { name: "收起关卡栏" });
     expect(forcedToggle).toHaveAttribute("aria-expanded", "true");
     expect(forcedToggle).toBeDisabled();
@@ -94,52 +91,42 @@ describe("LabPageShell", () => {
     expect(localStorage.getItem("computing-lab:lab-rail:logistic-regression")).toBe("1");
   });
 
-  it("renders staff controls only when provided and gates reset behind confirm", async () => {
+  it("confirms scoped resets and omits the controls from read-only workspaces", async () => {
     const user = userEvent.setup();
-    const confirmMock = vi.fn(() => false);
-    vi.stubGlobal("confirm", confirmMock);
-    const onReset = vi.fn();
+    const onReset = vi.fn(async () => true);
 
     const { rerender } = renderShell();
-    expect(screen.queryByText("教师视角 · 自由切关")).toBeNull();
-    expect(screen.queryByRole("button", { name: "重置我的进度" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "重置进度" })).toBeNull();
 
     rerender(
       <LabPageShell
         labId="decoding"
         rail={<nav>关卡列表</nav>}
-        staffControls={{ freeNavigation: true, onReset }}
-      >
-        <main>工作区</main>
-      </LabPageShell>,
-    );
-
-    expect(screen.getByText("教师视角 · 自由切关")).toBeInTheDocument();
-    const resetBtn = screen.getByRole("button", { name: "重置我的进度" });
-    await user.click(resetBtn);
-    expect(confirmMock).toHaveBeenCalledTimes(1);
-    expect(onReset).not.toHaveBeenCalled();
-
-    confirmMock.mockReturnValueOnce(true);
-    await user.click(resetBtn);
-    expect(onReset).toHaveBeenCalledTimes(1);
-
-    rerender(
-      <LabPageShell
-        labId="decoding"
-        rail={<nav>关卡列表</nav>}
-        staffControls={{
-          freeNavigation: true,
+        resetControls={{
+          stageIndex: 3,
+          canReset: true,
+          resetting: false,
+          resetError: null,
           onReset,
-          resetting: true,
-          resetError: "重置失败",
         }}
       >
         <main>工作区</main>
       </LabPageShell>,
     );
-    expect(screen.getByRole("button", { name: "重置中…" })).toBeDisabled();
-    expect(screen.getByRole("alert")).toHaveTextContent("重置失败");
-    vi.unstubAllGlobals();
+
+    const resetBtn = screen.getByRole("button", { name: "重置进度" });
+    await user.click(resetBtn);
+    expect(screen.getByRole("dialog", { name: "重置实验进度" })).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "取消" }));
+    expect(onReset).not.toHaveBeenCalled();
+
+    await user.click(resetBtn);
+    await user.click(screen.getByRole("button", { name: "确认重置" }));
+    expect(onReset).toHaveBeenLastCalledWith({ scope: "stage", stageIndex: 3 });
+
+    await user.click(resetBtn);
+    await user.click(screen.getByRole("radio", { name: /重置整个实验/ }));
+    await user.click(screen.getByRole("button", { name: "确认重置" }));
+    expect(onReset).toHaveBeenLastCalledWith({ scope: "lab" });
   });
 });

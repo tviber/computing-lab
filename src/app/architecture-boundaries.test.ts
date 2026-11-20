@@ -34,8 +34,8 @@ function isWithin(path: string, root: string): boolean {
 
 const importsCache = new Map<string, string[]>();
 
-function importedPaths(file: string, runtimeOnly = false): string[] {
-  const key = `${file}:${runtimeOnly}`;
+function importedPaths(file: string, runtimeOnly = false, includeDynamic = true): string[] {
+  const key = `${file}:${runtimeOnly}:${includeDynamic}`;
   const cached = importsCache.get(key);
   if (cached) return cached;
   const source = ts.createSourceFile(
@@ -44,12 +44,16 @@ function importedPaths(file: string, runtimeOnly = false): string[] {
     ts.ScriptTarget.Latest,
     true,
   );
-  const specifiers = dependencySpecifiers(source, runtimeOnly);
+  const specifiers = dependencySpecifiers(source, runtimeOnly, includeDynamic);
   importsCache.set(key, specifiers);
   return specifiers;
 }
 
-function dependencySpecifiers(source: ts.SourceFile, runtimeOnly: boolean): string[] {
+function dependencySpecifiers(
+  source: ts.SourceFile,
+  runtimeOnly: boolean,
+  includeDynamic = true,
+): string[] {
   const specifiers: string[] = [];
   function visit(node: ts.Node) {
     if (
@@ -57,8 +61,6 @@ function dependencySpecifiers(source: ts.SourceFile, runtimeOnly: boolean): stri
       node.moduleSpecifier &&
       ts.isStringLiteral(node.moduleSpecifier)
     ) {
-      // Node erases whole type-only declarations, but inline type specifiers
-      // leave an empty import/export that still loads the target module.
       if (
         runtimeOnly &&
         ((ts.isImportDeclaration(node) && node.importClause?.isTypeOnly) ||
@@ -77,7 +79,7 @@ function dependencySpecifiers(source: ts.SourceFile, runtimeOnly: boolean): stri
     }
     if (
       ts.isCallExpression(node) &&
-      (node.expression.kind === ts.SyntaxKind.ImportKeyword ||
+      ((includeDynamic && node.expression.kind === ts.SyntaxKind.ImportKeyword) ||
         (ts.isIdentifier(node.expression) && node.expression.text === "require")) &&
       node.arguments[0] &&
       ts.isStringLiteralLike(node.arguments[0])
@@ -129,6 +131,7 @@ describe("architecture boundaries", () => {
       "./inline-type-export",
       ...runtime,
     ]);
+    expect(dependencySpecifiers(source, true, false)).not.toContain("./dynamic");
     expect(dependencySpecifiers(source, false)).toEqual([
       "./type-import",
       "./inline-type-import",
@@ -239,11 +242,14 @@ describe("architecture boundaries", () => {
   });
 });
 
-/** Resolve runtime edges; only whole type-only declarations and import types are erased. */
-function runtimeDependencies(entry: string, seen = new Set<string>()): Set<string> {
+function runtimeDependencies(
+  entry: string,
+  includeDynamic = true,
+  seen = new Set<string>(),
+): Set<string> {
   if (seen.has(entry)) return seen;
   seen.add(entry);
-  for (const specifier of importedPaths(entry, true)) {
+  for (const specifier of importedPaths(entry, true, includeDynamic)) {
     const path = resolveImport(entry, specifier);
     if (!path) continue;
     const resolved = [
@@ -253,10 +259,22 @@ function runtimeDependencies(entry: string, seen = new Set<string>()): Set<strin
       join(path, "index.ts"),
       join(path, "index.tsx"),
     ].find((p) => /\.tsx?$/.test(p) && existsSync(p));
-    if (resolved) runtimeDependencies(resolved, seen);
+    if (resolved) runtimeDependencies(resolved, includeDynamic, seen);
   }
   return seen;
 }
+
+it("does not load feature UI or secondary route pages in the initial module graph", () => {
+  const dependencies = runtimeDependencies(join(srcRoot, "main.tsx"), false);
+  const initialPages = new Set(["HomePage", "NotFoundPage", "LabErrorPage", "LabRedirectPage"]);
+  const unexpected = [...dependencies]
+    .map((file) => relative(srcRoot, file).split(sep))
+    .filter(([root, folder, file, layer]) => {
+      if (root === "features") return layer !== undefined && file !== "domain";
+      return root === "app" && folder === "pages" && !initialPages.has(file.replace(/\.tsx$/, ""));
+    });
+  expect(unexpected).toEqual([]);
+});
 
 it("keeps the real decoding workspace independent of controller execution, lesson state and backend", () => {
   const dependencies = runtimeDependencies(join(featuresRoot, "decoding/ui/DecodingWorkspace.tsx"));

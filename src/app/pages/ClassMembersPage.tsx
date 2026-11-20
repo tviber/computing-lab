@@ -17,18 +17,10 @@ type MembersPayload = {
 
 type RemoveTarget = { label: string; description: string; userId: string };
 
-/** Banners are tagged with the class they belong to so a slow response or an
- * in-flight action from a previous class can never surface on the new one. */
 type Banner = { classId: string; text: string };
 
 const MIN_STUDENT_PASSWORD = 4;
 
-/**
- * 班级管理 for the class's own teachers — enroll, rename, reset passwords,
- * and remove students of classes they teach. Co-teacher seats, account
- * deletion and record wipes stay in /admin. The server re-checks the same
- * membership on every call; the client gate below is only for UX.
- */
 export function ClassMembersPage() {
   const { classId } = useParams({ strict: false }) as { classId?: string };
   const navigate = useNavigate();
@@ -64,8 +56,6 @@ export function ClassMembersPage() {
       });
   }, [classId]);
 
-  // Class switch: drop the previous roster and any open dialog so a stale row
-  // can never be renamed/reset/removed under the new classId.
   useEffect(() => {
     setPayload(null);
     setError(null);
@@ -196,8 +186,6 @@ export function ClassMembersPage() {
     );
   }
 
-  // Only render a roster that matches the current route — a response for the
-  // previous class may still land after a switch.
   const current = payload !== null && payload.classId === classId ? payload : null;
   const students = current?.students ?? [];
   const teachers = current?.teachers ?? [];
@@ -355,16 +343,24 @@ export function ClassMembersPage() {
                     <td>{member.studentNo}</td>
                     <td>
                       {renameTarget === member.userId ? (
-                        <span className="admin-reset-form">
+                        <form
+                          className="admin-reset-form"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            if (!busy && renameValue.trim() !== "") submitRename(member);
+                          }}
+                        >
                           <input
                             aria-label={`${member.name} 的新姓名`}
                             className="admin-reset-input"
                             disabled={busy}
                             onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter" && renameValue.trim() !== "") {
-                                submitRename(member);
-                              } else if (e.key === "Escape") {
+                            onKeyDown={({ key, nativeEvent }) => {
+                              if (
+                                key === "Escape" &&
+                                !nativeEvent.isComposing &&
+                                nativeEvent.keyCode !== 229
+                              ) {
                                 setRenameTarget(null);
                                 setRenameValue("");
                               }
@@ -375,8 +371,7 @@ export function ClassMembersPage() {
                           <button
                             className="button button-ghost admin-inline-button"
                             disabled={busy || renameValue.trim() === ""}
-                            onClick={() => submitRename(member)}
-                            type="button"
+                            type="submit"
                           >
                             确定
                           </button>
@@ -391,27 +386,34 @@ export function ClassMembersPage() {
                           >
                             取消
                           </button>
-                        </span>
+                        </form>
                       ) : (
                         member.name
                       )}
                     </td>
                     <td>
                       {resetTarget === member.userId ? (
-                        <span className="admin-reset-form">
+                        <form
+                          className="admin-reset-form"
+                          onSubmit={(event) => {
+                            event.preventDefault();
+                            if (!busy && resetPassword.length >= MIN_STUDENT_PASSWORD) {
+                              submitReset(member);
+                            }
+                          }}
+                        >
                           <input
                             aria-label={`${member.name} 的新密码`}
                             autoComplete="new-password"
                             className="admin-reset-input"
                             disabled={busy}
                             onChange={(e) => setResetPassword(e.target.value)}
-                            onKeyDown={(e) => {
+                            onKeyDown={({ key, nativeEvent }) => {
                               if (
-                                e.key === "Enter" &&
-                                resetPassword.length >= MIN_STUDENT_PASSWORD
+                                key === "Escape" &&
+                                !nativeEvent.isComposing &&
+                                nativeEvent.keyCode !== 229
                               ) {
-                                submitReset(member);
-                              } else if (e.key === "Escape") {
                                 setResetTarget(null);
                                 setResetPassword("");
                               }
@@ -423,8 +425,7 @@ export function ClassMembersPage() {
                           <button
                             className="button button-ghost admin-inline-button"
                             disabled={busy || resetPassword.length < MIN_STUDENT_PASSWORD}
-                            onClick={() => submitReset(member)}
-                            type="button"
+                            type="submit"
                           >
                             确定
                           </button>
@@ -439,7 +440,7 @@ export function ClassMembersPage() {
                           >
                             取消
                           </button>
-                        </span>
+                        </form>
                       ) : renameTarget === member.userId ? null : (
                         <span className="admin-actions">
                           <button

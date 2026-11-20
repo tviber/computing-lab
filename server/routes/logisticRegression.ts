@@ -56,6 +56,7 @@ export function logisticRegressionRoutes() {
   return labRoutes<LogisticRegressionDraft, LogisticRegressionJudgeResult>({
     labId: "logistic-regression",
     stageCount: LOGISTIC_REGRESSION_STAGES.length,
+    staffNavigation: false,
     projectExtras: (db, project) => {
       const trainedSettings = latestPassedTraining(db, project.id);
       return {
@@ -84,13 +85,11 @@ export function logisticRegressionRoutes() {
         },
       );
     },
-    judge: (db, project, stageIndex, body, { staff }) => {
+    judge: (db, project, stageIndex, body) => {
       const key = `${project.userId}|logistic-regression|${stageIndex}`;
       if (judgeLimiter.exceeded(key)) return { error: "rate-limited", status: 429 };
       judgeLimiter.hit(key);
-      return judgeLogisticRegressionSubmission(db, project, stageIndex, body.draft, {
-        bypassLock: staff,
-      });
+      return judgeLogisticRegressionSubmission(db, project, stageIndex, body.draft);
     },
   });
 }

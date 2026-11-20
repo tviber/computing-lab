@@ -46,12 +46,14 @@ button {
 }
 
 :focus-visible {
-  outline: none;
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 2px;
 }
 
 input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):focus-visible,
 textarea:focus-visible {
   border-color: var(--focus);
+  outline-offset: 0;
 }
 
 h1,
@@ -69,9 +71,10 @@ p {
 
 .field-select {
   display: inline-grid;
-  gap: 4px;
-  color: var(--muted);
-  font-size: 10px;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 5px;
+  color: var(--secondary);
+  font-size: 12px;
   font-weight: 650;
 }
 
@@ -80,18 +83,94 @@ p {
 }
 
 .field-select select {
-  min-height: 36px;
-  padding: 6px 30px 6px 10px;
+  appearance: none;
+  min-width: 0;
+  min-height: 38px;
+  padding: 6px 34px 6px 11px;
   border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  background: var(--surface);
+  background: var(--surface) url("../shared/ui/select-chevron.svg") no-repeat right 10px center /
+    14px;
   color: var(--primary);
   cursor: pointer;
-  font-size: 12px;
+  font-size: 13px;
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
-.field-select select:hover {
+.field-select select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
+.field-select select:focus-visible {
   border-color: var(--focus);
+}
+
+.field-select select:disabled {
+  background-color: var(--subtle);
+  color: var(--muted);
+  cursor: default;
+}
+
+@supports (appearance: base-select) and selector(::picker(select)) {
+  .field-select select,
+  .field-select select::picker(select) {
+    appearance: base-select;
+  }
+
+  .field-select select {
+    align-items: center;
+    gap: 8px;
+    padding-right: 11px;
+    background-image: none;
+  }
+
+  .field-select select::picker-icon {
+    content: url("../shared/ui/select-chevron.svg");
+    flex-shrink: 0;
+    width: 14px;
+    height: 14px;
+    margin-left: auto;
+  }
+
+  .field-select select:open::picker-icon {
+    rotate: 180deg;
+  }
+
+  .field-select select::picker(select) {
+    margin-top: 4px;
+    padding: 4px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius-control);
+    background: var(--surface);
+    color: var(--primary);
+    box-shadow: var(--shadow-md);
+  }
+
+  .field-select option {
+    gap: 10px;
+    min-height: 34px;
+    padding: 5px 8px;
+    border-radius: var(--radius-mini);
+    font-size: 13px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .field-select option:checked {
+    background: var(--accent-soft);
+    color: var(--accent-ink);
+  }
+
+  .field-select option:hover,
+  .field-select option:focus-visible {
+    background: var(--subtle);
+  }
+
+  .field-select option::checkmark {
+    order: 1;
+    margin-left: auto;
+  }
 }
 
 .eyebrow,
@@ -192,7 +271,14 @@ p {
   color: var(--primary);
 }
 
-/* Status banners shared by lab, dashboard, and task-sheet pages. */
+.auth-error {
+  padding: 8px 12px;
+  border-radius: var(--radius-control);
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+}
+
 .test-error {
   display: flex;
   align-items: flex-start;
@@ -231,15 +317,9 @@ p {
   line-height: 1.5;
 }
 
-/* Stage briefs share one body size across lab pages; labs that need other
-   colors or line-heights override locally. :where() keeps this at (0,1,1)
-   so .stage-takeaway stays owned by the rule above. */
 .stage-brief p:where(:not(.stage-takeaway)) {
   font-size: 13px;
 }
-
-/* Hint disclosure (src/shared/ui/HintDisclosure): the expand / confirm /
-   hide chrome shared by lab stage briefs. */
 
 .hint-disclosure {
   margin-top: 10px;
@@ -322,7 +402,6 @@ p {
   font-size: 12px;
 }
 
-/* Available to screen readers only; keeps table captions off-screen. */
 .sr-only {
   position: absolute;
   width: 1px;
@@ -334,8 +413,6 @@ p {
   clip-path: inset(50%);
   white-space: nowrap;
 }
-
-/* ---- scenario link (staff-only lab share button) ----------------------- */
 
 .scenario-link {
   display: inline-flex;

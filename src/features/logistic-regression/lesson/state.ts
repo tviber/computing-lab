@@ -241,8 +241,6 @@ export type LogisticRegressionLessonState = {
   pinnedStage: number | null;
   currentStage: number;
   passedStages: number[];
-  staffMode: boolean;
-  classroomMode: boolean;
   drafts: Record<number, LogisticRegressionDraft>;
   conflictedLocalDrafts: Record<number, LogisticRegressionDraft>;
   draftRevisions: Record<number, number>;
@@ -263,11 +261,9 @@ export type LogisticRegressionLessonAction =
       draftRevisions?: Record<number, number>;
       runSummaries?: LogisticRegressionProjectExtras["runSummaries"];
       trainedSettings?: TrainingSettings;
-      staffMode?: boolean;
       isReset?: boolean;
     }
   | { type: "select-stage"; stageIndex: number }
-  | { type: "set-classroom-mode"; enabled: boolean }
   | { type: "update-stage1"; draft: StrategyDraft }
   | { type: "update-stage2"; draft: TokenizeDraft }
   | { type: "update-stage3"; draft: ScoreDraft }
@@ -306,19 +302,14 @@ const SUMMARY_KEYS: Record<number, keyof LogisticRegressionProjectExtras["runSum
 
 export function createLogisticRegressionLessonState(
   initialStage: number | null = null,
-  classroomMode = false,
-  staffMode = false,
 ): LogisticRegressionLessonState {
   const pinnedStage =
     initialStage !== null && getLogisticRegressionStage(initialStage) ? initialStage : null;
-  const stageIndex = pinnedStage ?? 1;
   return {
-    stageIndex,
+    stageIndex: 1,
     pinnedStage,
     currentStage: 1,
     passedStages: [],
-    staffMode,
-    classroomMode,
     drafts: {
       1: defaultStrategyDraft(),
       2: defaultTokenizeDraft(),
@@ -342,12 +333,7 @@ export function stageOf(
 }
 
 export function isStageUnlocked(state: LogisticRegressionLessonState, stageIndex: number): boolean {
-  return (
-    Boolean(getLogisticRegressionStage(stageIndex)) &&
-    (state.staffMode ||
-      state.classroomMode ||
-      logisticRegressionStageUnlocked(state.passedStages, stageIndex))
-  );
+  return logisticRegressionStageUnlocked(state.passedStages, stageIndex);
 }
 
 export function draftOf(
@@ -406,26 +392,17 @@ export function transitionLogisticRegressionLesson(
         const s = Number(key);
         if (s >= 1 && s <= 4) drafts[s] = sanitizeLogisticRegressionDraft(s, draft);
       }
-      const staffMode = action.staffMode ?? state.staffMode;
       const pinnedStage = action.isReset ? null : state.pinnedStage;
       const serverStage = Math.min(action.currentStage, LOGISTIC_REGRESSION_STAGES.length);
-      const candidate = action.isReset
-        ? 1
-        : staffMode || state.classroomMode
-          ? pinnedStage !== null
-            ? pinnedStage
-            : serverStage
-          : logisticRegressionStageUnlocked(action.passedStages, serverStage)
-            ? serverStage
-            : logisticRegressionStageUnlocked(action.passedStages, state.stageIndex)
-              ? state.stageIndex
-              : 1;
-      const stageIndex = getLogisticRegressionStage(candidate)
+      const candidate = pinnedStage ?? serverStage;
+      const stageIndex = logisticRegressionStageUnlocked(action.passedStages, candidate)
         ? candidate
-        : LOGISTIC_REGRESSION_STAGES.length;
+        : Math.min(
+            nextLogisticRegressionStage(action.passedStages),
+            LOGISTIC_REGRESSION_STAGES.length,
+          );
       return {
         ...state,
-        staffMode,
         pinnedStage,
         stageIndex,
         currentStage: action.currentStage,
@@ -447,31 +424,9 @@ export function transitionLogisticRegressionLesson(
       return {
         ...state,
         stageIndex: action.stageIndex,
-        pinnedStage: state.staffMode || state.classroomMode ? action.stageIndex : state.pinnedStage,
+        pinnedStage: action.stageIndex,
         judgeOutcome: null,
       };
-
-    case "set-classroom-mode": {
-      if (action.enabled === state.classroomMode) return state;
-      if (action.enabled || logisticRegressionStageUnlocked(state.passedStages, state.stageIndex)) {
-        return {
-          ...state,
-          classroomMode: action.enabled,
-          pinnedStage: null,
-        };
-      }
-      const fallback = nextLogisticRegressionStage(state.passedStages);
-      const stageIndex = getLogisticRegressionStage(fallback)
-        ? fallback
-        : LOGISTIC_REGRESSION_STAGES.length;
-      return {
-        ...state,
-        classroomMode: false,
-        pinnedStage: null,
-        stageIndex,
-        judgeOutcome: null,
-      };
-    }
 
     case "update-stage1":
       return state.stageIndex === 1 ? withDraft(state, 1, action.draft) : state;

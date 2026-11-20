@@ -10,6 +10,8 @@ export type IconName =
   | "circle"
   | "copy"
   | "lock"
+  | "panel-left"
+  | "rotate-ccw"
   | "user"
   | "warning"
   | "x";
@@ -37,6 +39,18 @@ const PATHS: Record<IconName, ReactNode> = {
     <>
       <rect height="10" rx="2" width="16" x="4" y="11" />
       <path d="M8 11V7a4 4 0 0 1 8 0v4" />
+    </>
+  ),
+  "panel-left": (
+    <>
+      <rect height="16" rx="3" width="18" x="3" y="4" />
+      <path d="M9 4v16" />
+    </>
+  ),
+  "rotate-ccw": (
+    <>
+      <path d="M3 11a9 9 0 1 1 2 7" />
+      <path d="M3 4v7h7" />
     </>
   ),
   user: (

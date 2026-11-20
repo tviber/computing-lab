@@ -91,12 +91,9 @@ export function judgeLogisticRegressionSubmission(
   project: ProjectRow<unknown>,
   stageIndex: number,
   rawDraft: unknown,
-  options?: { bypassLock?: boolean },
 ): LogisticRegressionJudgeResult | LabJudgeError {
-  const gated = gateStage(
-    getLogisticRegressionStage(stageIndex),
-    (item) => logisticRegressionStageUnlocked(project.passedStages, item.index),
-    options,
+  const gated = gateStage(getLogisticRegressionStage(stageIndex), (item) =>
+    logisticRegressionStageUnlocked(project.passedStages, item.index),
   );
   if ("error" in gated) return gated;
   const { stage } = gated;

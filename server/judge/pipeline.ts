@@ -1,27 +1,8 @@
-/**
- * Shared lab judge pipeline. Every lab judge runs the same authority chain —
- * the lab plugs in its stage table, sanitizer, and hidden judgement; the
- * surrounding record-keeping lives here once:
- *
- *   gate the stage → sanitize the submission → run hidden judgement →
- *   record the submission row → advance stage progress
- *
- * The client only ever runs public cases; grading authority is server-side
- * and a submission row plus the project progress update commit as one write
- * unit — a crash between them would record a pass the student never got
- * credit for.
- */
-
 import type { DatabaseSync } from "node:sqlite";
 import { newId, parseJsonColumn, withTransaction } from "../db/client.ts";
 
-/** Machine-readable failure returned by any lab judge before grading starts. */
 export type LabJudgeError = { error: string; status: number };
 
-/**
- * `student_projects` row decoded into camelCase. `drafts` is typed per-lab via
- * `TDraft` — the column stores whatever shape the lab's draft type defines.
- */
 export type ProjectRow<TDraft = unknown> = {
   id: string;
   userId: string;
@@ -29,24 +10,12 @@ export type ProjectRow<TDraft = unknown> = {
   labId: string;
   currentStage: number;
   passedStages: number[];
-  /** Lab-defined submodule payload (e.g. calculator component defs). */
   unlockedSubmodules: unknown[];
   drafts: Record<string, TDraft>;
-  /** Server-assigned revision of the latest applied write per stage. Draft
-   *  saves are compare-and-swap on this counter: the client sends the
-   *  revision it last saw applied (`expectedRevision`) and the server only
-   *  applies the write when it still matches, assigning `stored + 1`. */
   draftRevisions: Record<string, number>;
-  /** Monotonic counter bumped on every server reset so pre-reset saves and
-   *  judges cannot land even after `draftRevisions` clears back to `{}`. */
   projectGeneration: number;
 };
 
-/** Outcome of a compare-and-swap draft write: `revision` is the newly
- *  assigned revision when applied, or the current stored one when refused.
- *  `componentsRevision` is set when the write carried the component library
- *  (calculator): the newly assigned library revision, or the stored one on
- *  a refused compare. */
 export type DraftSaveResult = {
   applied: boolean;
   revision: number;
@@ -54,9 +23,6 @@ export type DraftSaveResult = {
   componentsRevision?: number;
 };
 
-/** The calculator component library's OCC counter lives in draft_revisions
- *  under this reserved non-stage key — it shares the same transaction and
- *  needs no column of its own. */
 export const COMPONENTS_REVISION_KEY = "components";
 
 type RawProject = {
@@ -89,9 +55,6 @@ function toProject<TDraft>(row: RawProject): ProjectRow<TDraft> {
   };
 }
 
-/** Rows pre-dating server revisions stored a bare number, and the short-lived
- *  client-clock protocol stored `{revision, saveToken}` objects — read every
- *  shape as a plain counter. */
 function toDraftRevisions(
   raw: Record<string, number | { revision?: unknown }>,
 ): Record<string, number> {
@@ -109,8 +72,6 @@ export function getOrCreateProject<TDraft = unknown>(
   classId: string,
   labId: string,
 ): ProjectRow<TDraft> {
-  // INSERT OR IGNORE makes the get-or-create atomic under (user_id, lab_id);
-  // a concurrent insert wins and is returned instead of a UNIQUE crash.
   db.prepare(
     "INSERT OR IGNORE INTO student_projects (id, user_id, class_id, lab_id) VALUES (?, ?, ?, ?)",
   ).run(newId(), userId, classId, labId);
@@ -120,12 +81,6 @@ export function getOrCreateProject<TDraft = unknown>(
   return toProject<TDraft>(row);
 }
 
-/**
- * Stage gate shared by every lab judge: the stage must exist and the lab's
- * own unlock rule must hold (linear for the image labs, prerequisite list
- * for the calculator). Returns the narrowed stage on success so callers can
- * keep `stage` typed after the gate.
- */
 export function gateStage<TStage>(
   stage: TStage | undefined,
   unlocked: (stage: TStage) => boolean,
@@ -136,22 +91,6 @@ export function gateStage<TStage>(
   return { stage };
 }
 
-/**
- * Persists one stage's already-sanitized draft into the project's drafts map
- * via optimistic concurrency: the write applies only when
- * `extras.expectedRevision` still equals the stage's stored revision, and is
- * then assigned `stored + 1` — client clocks never order writes, so a stale
- * device can never resurrect an older draft, and a normal device is never
- * locked out by another device's fast clock. A refused write reports the
- * current stored revision so the caller can reconcile.
- *
- * The compare and the write run inside one IMMEDIATE transaction and the
- * stored row is re-read inside it, so two writes racing the same stage
- * serialize deterministically: the loser sees the winner's revision and is
- * refused. `extras.unlockedSubmodules` additionally rewrites the component
- * library in the same update (calculator autosaves learner-made components
- * with drafts).
- */
 export function saveStageDraft<TDraft>(
   db: DatabaseSync,
   project: ProjectRow<TDraft>,
@@ -165,9 +104,6 @@ export function saveStageDraft<TDraft>(
   },
 ): DraftSaveResult {
   const key = String(stageIndex);
-  // Route callers always pass a validated number; an absent expectedRevision
-  // means an unconditional write — only internal callers (judge tests, seeds)
-  // use it that way.
   const expected = extras?.expectedRevision;
   return withTransaction(db, () => {
     const row = db
@@ -202,10 +138,6 @@ export function saveStageDraft<TDraft>(
         ...(carriesLibrary ? { componentsRevision: storedComponents } : {}),
       };
     }
-    // The library compare rides the same transaction as the stage compare:
-    // a stale component list bounces the WHOLE write — the stage graph may
-    // reference the components it was written against, so applying the
-    // draft alone would corrupt consistency.
     if (
       carriesLibrary &&
       (extras?.expectedComponentsRevision === undefined ||
@@ -244,13 +176,6 @@ export function saveStageDraft<TDraft>(
   });
 }
 
-/**
- * The component library's revision must move on EVERY unlocked_submodules
- * write, not only draft saves — a judgement that merges learner components
- * rewrites the library without CAS; bumping the counter keeps a concurrent
- * save's compare honest instead of silently clobbering the judge's merge.
- * Call inside the writer's own transaction. Returns the new revision.
- */
 export function bumpComponentsRevision(db: DatabaseSync, projectId: string): number {
   const row = db
     .prepare("SELECT draft_revisions FROM student_projects WHERE id = ?")
@@ -267,10 +192,6 @@ export function bumpComponentsRevision(db: DatabaseSync, projectId: string): num
   return next;
 }
 
-/**
- * Writes the submissions row and returns its id. Callers wrap this with the
- * progress update in one `withTransaction` so the two never diverge.
- */
 export function insertSubmission(
   db: DatabaseSync,
   entry: {
@@ -305,12 +226,6 @@ export function insertSubmission(
   return submissionId;
 }
 
-/**
- * Records a passed stage: merges it into the sorted, deduplicated
- * passedStages set and asks the lab's own `nextStage` where the student's
- * pointer goes. `extras.unlockedSubmodules` additionally rewrites the
- * component library in the same update (calculator component unlocks).
- */
 export function advanceStage<TDraft>(
   db: DatabaseSync,
   project: ProjectRow<TDraft>,
@@ -318,7 +233,6 @@ export function advanceStage<TDraft>(
   nextStage: (passedStages: readonly number[]) => number,
   extras?: { unlockedSubmodules?: unknown[] },
 ): { currentStage: number; passedStages: number[] } {
-  // Passes may arrive out of order; keep the set sorted and deduplicated.
   const passedStages = [...new Set([...project.passedStages, stageIndex])].sort((a, b) => a - b);
   const currentStage = nextStage(passedStages);
   if (extras?.unlockedSubmodules === undefined) {
@@ -342,32 +256,66 @@ export function advanceStage<TDraft>(
   return { currentStage, passedStages };
 }
 
-/**
- * Resets the caller's own lab project row and clears its submission history so
- * teachers and admins can cleanly replay or demo the lab from stage 1 without
- * disturbing any other user's data.
- */
 export function resetLabProject<TDraft = unknown>(
   db: DatabaseSync,
   projectId: string,
+  fromStage: number,
+  preservedStages: number[],
+  keepSubmodules?: (library: unknown[], preservesStage: (stage: number) => boolean) => unknown[],
 ): ProjectRow<TDraft> {
   return withTransaction(db, () => {
-    db.prepare("DELETE FROM submissions WHERE project_id = ?").run(projectId);
-    db.prepare("DELETE FROM cpu_guided_first_answers WHERE project_id = ?").run(projectId);
-    db.prepare(
-      `UPDATE student_projects
-       SET current_stage = 1,
-           passed_stages = '[]',
-           unlocked_submodules = '[]',
-           draft_graph = '{}',
-           draft_revisions = '{}',
+    const project = toProject<TDraft>(
+      db.prepare("SELECT * FROM student_projects WHERE id = ?").get(projectId) as RawProject,
+    );
+    const preserved = new Set(preservedStages);
+    const preservesStage = (stage: number) => preserved.has(stage);
+    const drafts = Object.fromEntries(
+      Object.entries(project.drafts).filter(([key]) => preservesStage(Number(key))),
+    );
+    const draftRevisions = Object.fromEntries(
+      Object.entries(project.draftRevisions).filter(
+        ([key]) =>
+          preservesStage(Number(key)) || (preserved.size > 0 && key === COMPONENTS_REVISION_KEY),
+      ),
+    );
+    const passedStages = project.passedStages.filter(preservesStage);
+    const library =
+      preserved.size === 0
+        ? []
+        : (keepSubmodules?.(project.unlockedSubmodules, preservesStage) ??
+          project.unlockedSubmodules);
+    const stageFilter =
+      preserved.size === 0
+        ? ""
+        : ` AND stage_index NOT IN (${preservedStages.map(() => "?").join(", ")})`;
+    db.prepare(`DELETE FROM submissions WHERE project_id = ?${stageFilter}`).run(
+      projectId,
+      ...preservedStages,
+    );
+    db.prepare(`DELETE FROM cpu_guided_first_answers WHERE project_id = ?${stageFilter}`).run(
+      projectId,
+      ...preservedStages,
+    );
+    const row = db
+      .prepare(
+        `UPDATE student_projects
+       SET current_stage = ?,
+           passed_stages = ?,
+           unlocked_submodules = ?,
+           draft_graph = ?,
+           draft_revisions = ?,
            project_generation = project_generation + 1,
            updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-       WHERE id = ?`,
-    ).run(projectId);
-    const row = db
-      .prepare("SELECT * FROM student_projects WHERE id = ?")
-      .get(projectId) as RawProject;
+       WHERE id = ? RETURNING *`,
+      )
+      .get(
+        Math.min(project.currentStage, fromStage),
+        JSON.stringify(passedStages),
+        JSON.stringify(library),
+        JSON.stringify(drafts),
+        JSON.stringify(draftRevisions),
+        projectId,
+      ) as RawProject;
     return toProject<TDraft>(row);
   });
 }

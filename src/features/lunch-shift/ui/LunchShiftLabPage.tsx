@@ -1,10 +1,3 @@
-/**
- * Lunch-shift lab page: stage rail plus four stage panels — 订单旅程,
- * 智能接单, 修排队, 晚餐高峰. Same wiring as the other labs: project load →
- * autosaved drafts → server judge. The Pyodide worker is warmed as soon as
- * the project loads so the stage-2 run doesn't wait on the download.
- */
-
 import { useParams } from "@tanstack/react-router";
 import { Fragment, useCallback, useEffect, useReducer, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
@@ -30,7 +23,7 @@ import type {
   TrainingDraft,
 } from "../domain/protocol.ts";
 import { INTAKE_SCENARIO } from "../domain/scenarios.ts";
-import { LUNCH_STAGES, type LunchStageDef } from "../domain/stages.ts";
+import { LUNCH_STAGES, lunchStageAffectedByReset, type LunchStageDef } from "../domain/stages.ts";
 import {
   createLunchLessonState,
   draftOf,
@@ -74,8 +67,6 @@ export function LunchShiftLabPage() {
     createLunchLessonState(1, isStaff),
   );
   const [submitError, setSubmitError] = useState<string | null>(null);
-  // Which stage the latest judge outcome belongs to — the outcome itself
-  // carries no stageIndex.
   const [judgedStage, setJudgedStage] = useState<number | null>(null);
 
   const stage = stageOf(state);
@@ -89,12 +80,14 @@ export function LunchShiftLabPage() {
     projectGeneration,
     resetting,
     saveGeneration,
-    staffControls,
+    resetControls,
+    flushPreservedDrafts,
   } = useLabProject<LunchDraft, LunchProjectExtras, LunchLessonAction>({
     classId,
     labId: "lunch-shift",
     ready: status === "authenticated",
-    staff: isStaff,
+    stageIndex: state.stageIndex,
+    stageAffectedByReset: lunchStageAffectedByReset,
     onResetSuccess: () => {
       setSubmitError(null);
       setJudgedStage(null);
@@ -116,7 +109,6 @@ export function LunchShiftLabPage() {
     dispatch,
   });
 
-  // Warm the Python worker while the student is still on 订单旅程.
   useEffect(() => {
     if (projectLoaded) warmPyodide();
   }, [projectLoaded]);
@@ -136,6 +128,8 @@ export function LunchShiftLabPage() {
     });
 
   useAutosaveDraft<LunchDraft>({
+    flushPreservedDrafts,
+    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
     classId,
     labId: "lunch-shift",
     saveStatus:
@@ -143,23 +137,6 @@ export function LunchShiftLabPage() {
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
         : "idle",
     stageIndex: state.stageIndex,
-    draftOf: (index) => draftOf(state, index),
-    deps: [state.drafts],
-    expectedGeneration: projectGeneration,
-    resetVersion: saveGeneration,
-    expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
-    onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-    onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-    onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-    onConflict: (s) => reconcileConflict(s),
-  });
-
-  // The bonus challenge lives on the stage-3 page but saves under slot 5.
-  useAutosaveDraft<LunchDraft>({
-    classId,
-    labId: "lunch-shift",
-    saveStatus: projectLoaded && !resetting ? statusForStage(state.saveStatusByStage, 5) : "idle",
-    stageIndex: 5,
     draftOf: (index) => draftOf(state, index),
     deps: [state.drafts],
     expectedGeneration: projectGeneration,
@@ -261,9 +238,9 @@ export function LunchShiftLabPage() {
             </ol>
           </aside>
         }
-        staffControls={staffControls}
+        resetControls={resetControls}
       >
-        <main aria-label="设计餐馆系统实验区" className="lunch-workspace">
+        <main aria-label="设计餐馆系统实验区" className="lunch-workspace" key={saveGeneration}>
           {stage ? <StageBrief stage={stage} passed={passedStages.includes(stage.index)} /> : null}
 
           {state.message ? (

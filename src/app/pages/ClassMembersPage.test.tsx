@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthState } from "../../shared/auth";
@@ -105,6 +105,31 @@ describe("ClassMembersPage", () => {
     );
   });
 
+  it("keeps Chinese composition in the name field and submits the committed name once", async () => {
+    const fetchMock = mockMembersApi();
+    const user = userEvent.setup();
+
+    await renderAppAt("/classes/c1/members", { auth: teacherAuthState });
+    await user.click(await screen.findByRole("button", { name: "改名" }));
+    const name = screen.getByLabelText("张三 的新姓名");
+    await user.clear(name);
+    await user.type(name, "李四");
+
+    fireEvent.keyDown(name, { key: "Enter", isComposing: true });
+    fireEvent.keyDown(name, { key: "Escape", keyCode: 229 });
+    expect(name).toHaveFocus();
+    expect(fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH")).toHaveLength(0);
+
+    await user.keyboard("{Enter}");
+    const patches = fetchMock.mock.calls.filter(([, init]) => init?.method === "PATCH");
+    expect(patches).toEqual([
+      [
+        "/api/classes/c1/members/u-s1",
+        expect.objectContaining({ body: JSON.stringify({ name: "李四" }) }),
+      ],
+    ]);
+  });
+
   it("drops the previous roster and dialogs while the new class loads", async () => {
     const twoClassTeacher: AuthState = {
       status: "authenticated",
@@ -138,7 +163,6 @@ describe("ClassMembersPage", () => {
 
     await user.selectOptions(screen.getByLabelText("选择班级"), "c2");
 
-    // c1's roster must not be actionable under the c2 route while c2 loads.
     await waitFor(() => expect(releaseC2).not.toBeNull());
     expect(screen.queryByText("张三")).not.toBeInTheDocument();
     expect(screen.getByText("正在加载名单…")).toBeInTheDocument();

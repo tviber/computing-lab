@@ -14,7 +14,7 @@ type Params = {
   classId: string | undefined;
   labId: string;
   ready: boolean;
-  staff?: boolean;
+  stageIndex: number;
   onResetSuccess?: () => void;
   toAction: (
     project: Payload,
@@ -27,6 +27,7 @@ const base = (over: Partial<Params> = {}): Params => ({
   classId: "class-1",
   labId: "lab",
   ready: true,
+  stageIndex: 2,
   toAction: (project, meta) => ({
     type: "load",
     project,
@@ -100,12 +101,10 @@ describe("useLabProject", () => {
     rerender(base({ classId: "class-2", dispatch }));
     expect(calls).toHaveLength(2);
 
-    // 新请求先回来。
     calls[1].done.resolve(payload("lab"));
     await flush();
     expect(dispatch).toHaveBeenCalledTimes(1);
 
-    // 旧 classId 的迟到响应被丢弃，不得覆盖新班级状态。
     calls[0].done.resolve(payload("lab"));
     await flush();
     expect(dispatch).toHaveBeenCalledTimes(1);
@@ -138,8 +137,6 @@ describe("useLabProject", () => {
       fetched = await pending;
     });
     expect(calls[1].url).toBe("/api/classes/class-1/labs/lab/project");
-    // 冲突调和只把原始 payload 交给调用方 —— 不重复 dispatch load-project，
-    // 其他关卡的本地状态因此不受影响。
     expect(dispatch).toHaveBeenCalledTimes(1);
     expect(fetched).toMatchObject({ labId: "lab", currentStage: 2 });
   });
@@ -155,17 +152,14 @@ describe("useLabProject", () => {
     });
     expect(calls).toHaveLength(2);
 
-    // 重取发起后，先发的那个响应作废。
     calls[0].done.resolve(payload("lab"));
     await flush();
     expect(dispatch).not.toHaveBeenCalled();
     calls[1].done.resolve(payload("lab"));
     await flush();
-    // fetchProject 不 dispatch；迟到或失败时resolve为 null。
     expect(dispatch).not.toHaveBeenCalled();
     await expect(fetched).resolves.toMatchObject({ labId: "lab" });
 
-    // 再发一次 fetchProject 把它顶掉：被取代的请求响应到达时 resolve null。
     let stale: Promise<unknown> = Promise.resolve();
     await act(async () => {
       stale = result.current.fetchProject();
@@ -211,23 +205,22 @@ describe("useLabProject", () => {
     expect(result.current.loadError).toBe("你不在这个班级里。");
   });
 
-  it("exposes staffControls only when staff=true and resets via POST /reset", async () => {
+  it("enables reset once the project loads", async () => {
     const dispatch = vi.fn();
     const onResetSuccess = vi.fn();
-    const { result, rerender } = renderHook((p: Params) => useLabProject(p), {
-      initialProps: base({ dispatch, staff: false, onResetSuccess }),
+    const { result } = renderHook((p: Params) => useLabProject(p), {
+      initialProps: base({ dispatch, onResetSuccess }),
     });
-    expect(result.current.staffControls).toBeUndefined();
+    expect(result.current.resetControls.canReset).toBe(false);
     calls[0].done.resolve(payload("lab"));
     await flush();
 
-    rerender(base({ dispatch, staff: true, onResetSuccess }));
-    expect(result.current.staffControls?.freeNavigation).toBe(true);
+    expect(result.current.resetControls.canReset).toBe(true);
     expect(result.current.saveGeneration).toBe(0);
 
     let resetPromise!: Promise<boolean>;
     await act(async () => {
-      resetPromise = result.current.resetProject();
+      resetPromise = result.current.resetProject({ scope: "stage", stageIndex: 2 });
     });
     expect(result.current.resetting).toBe(true);
     expect(calls[1].url).toBe("/api/classes/class-1/labs/lab/reset");
@@ -260,14 +253,14 @@ describe("useLabProject", () => {
     const dispatch = vi.fn();
     const onResetSuccess = vi.fn();
     const { result } = renderHook((p: Params) => useLabProject(p), {
-      initialProps: base({ dispatch, staff: true, onResetSuccess }),
+      initialProps: base({ dispatch, onResetSuccess }),
     });
     calls[0].done.resolve(payload("lab"));
     await flush();
 
     let resetPromise!: Promise<boolean>;
     await act(async () => {
-      resetPromise = result.current.resetProject();
+      resetPromise = result.current.resetProject({ scope: "lab" });
     });
     calls[1].done.resolve(
       new Response(JSON.stringify({ error: "teacher-required" }), { status: 403 }),
@@ -288,7 +281,7 @@ describe("useLabProject", () => {
     const dispatch = vi.fn();
     const onResetSuccess = vi.fn();
     const { result } = renderHook((p: Params) => useLabProject(p), {
-      initialProps: base({ dispatch, staff: true, onResetSuccess }),
+      initialProps: base({ dispatch, onResetSuccess }),
     });
     calls[0].done.resolve(
       new Response(
@@ -305,7 +298,6 @@ describe("useLabProject", () => {
     await flush();
     expect(result.current.projectGeneration).toBe(2);
 
-    // Start judge request (sends expectedGeneration: 2), then start reset mid-flight.
     let judgePromise!: ReturnType<typeof result.current.postJudge>;
     await act(async () => {
       judgePromise = result.current.postJudge({ stageIndex: 3, draft: {} });
@@ -315,18 +307,17 @@ describe("useLabProject", () => {
 
     let resetPromise!: Promise<boolean>;
     await act(async () => {
-      resetPromise = result.current.resetProject();
+      resetPromise = result.current.resetProject({ scope: "lab" });
     });
     expect(result.current.submittingJudge).toBe(false);
     expect(result.current.resetting).toBe(true);
 
-    // Submitting while reset is in-flight is rejected synchronously as stale.
     let blockedWhileResetting!: Awaited<ReturnType<typeof result.current.postJudge>>;
     await act(async () => {
       blockedWhileResetting = await result.current.postJudge({ stageIndex: 1, draft: {} });
     });
     expect(blockedWhileResetting).toEqual({ status: "stale" });
-    expect(calls).toHaveLength(3); // no extra fetch issued
+    expect(calls).toHaveLength(3);
 
     calls[2].done.resolve(
       new Response(
@@ -345,7 +336,6 @@ describe("useLabProject", () => {
     });
     expect(result.current.projectGeneration).toBe(3);
 
-    // Pre-reset judge response finally lands with passedStages=[1,2,3] — must return stale!
     calls[1].done.resolve(
       new Response(JSON.stringify({ passed: true, passedStages: [1, 2, 3] }), {
         status: 200,
@@ -364,7 +354,7 @@ describe("useLabProject", () => {
     const dispatch = vi.fn();
     const onResetSuccess = vi.fn();
     const { result } = renderHook((p: Params) => useLabProject(p), {
-      initialProps: base({ dispatch, staff: true, onResetSuccess }),
+      initialProps: base({ dispatch, onResetSuccess }),
     });
     calls[0].done.resolve(
       new Response(
@@ -380,7 +370,6 @@ describe("useLabProject", () => {
     );
     await flush();
 
-    // Another tab reset the project (generation 0 -> 1); this tab posts judge and gets 409.
     let judgePromise!: ReturnType<typeof result.current.postJudge>;
     await act(async () => {
       judgePromise = result.current.postJudge({ stageIndex: 4 });
@@ -415,7 +404,6 @@ describe("useLabProject", () => {
       isReset: true,
     });
 
-    // Cross-tab reset also reconciles cleanly inside reconcileConflictedStage (generation 1 -> 2).
     const onResolved = vi.fn();
     const onSyncError = vi.fn();
     await act(async () => {
@@ -449,7 +437,7 @@ describe("useLabProject", () => {
   it("settles resetting even when a conflict refetch overlaps an in-flight reset", async () => {
     const dispatch = vi.fn();
     const { result } = renderHook((p: Params) => useLabProject(p), {
-      initialProps: base({ dispatch, staff: true }),
+      initialProps: base({ dispatch }),
     });
     const body = (gen: number) =>
       new Response(
@@ -467,7 +455,7 @@ describe("useLabProject", () => {
 
     let resetPromise!: Promise<boolean>;
     await act(async () => {
-      resetPromise = result.current.resetProject();
+      resetPromise = result.current.resetProject({ scope: "lab" });
     });
     expect(result.current.resetting).toBe(true);
 

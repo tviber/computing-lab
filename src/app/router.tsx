@@ -19,18 +19,7 @@ import { APP_LABS } from "./labRegistry";
 import { HomePage } from "./pages/HomePage";
 import { LabErrorPage } from "./pages/LabErrorPage";
 import { LabRedirectPage } from "./pages/LabRedirectPage";
-import { LoginPage } from "./pages/LoginPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-import { TeacherDashboardPage } from "./pages/TeacherDashboardPage";
-import { ClassMembersPage } from "./pages/ClassMembersPage";
-import { StudentLabPreviewPage } from "./pages/StudentLabPreviewPage";
-import { TaskSheetListPage } from "./pages/TaskSheetListPage";
-import { TaskAssignmentPage } from "./pages/TaskAssignmentPage";
-import { ProfilePage } from "./pages/ProfilePage";
-import { AdminPage } from "./pages/AdminPage";
-import { AdminClassesPage } from "./pages/AdminClassesPage";
-import { AdminLabsPage } from "./pages/AdminLabsPage";
-import { TeacherLabsPage } from "./pages/TeacherLabsPage";
 
 function RootLayout() {
   return <Outlet />;
@@ -87,44 +76,39 @@ const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", com
 const loginRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/login",
-  component: LoginPage,
+  component: lazyRouteComponent(() => import("./pages/LoginPage"), "LoginPage"),
 });
 const profileRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/profile",
-  component: ProfilePage,
+  component: lazyRouteComponent(() => import("./pages/ProfilePage"), "ProfilePage"),
 });
 const adminRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin",
-  component: AdminPage,
+  component: lazyRouteComponent(() => import("./pages/AdminPage"), "AdminPage"),
 });
 const adminLabsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/labs",
-  component: AdminLabsPage,
+  component: lazyRouteComponent(() => import("./pages/AdminLabsPage"), "AdminLabsPage"),
 });
 const adminClassesRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/admin/classes",
-  component: AdminClassesPage,
+  component: lazyRouteComponent(() => import("./pages/AdminClassesPage"), "AdminClassesPage"),
 });
 
-/** Teacher-scoped lab management: per-own-class open switches only. */
 const teacherLabsRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/teacher/labs",
-  component: TeacherLabsPage,
+  component: lazyRouteComponent(() => import("./pages/TeacherLabsPage"), "TeacherLabsPage"),
 });
 
 function createLabRoutePair<TId extends LabId>(id: TId) {
-  const labComponent = APP_LABS[id].component as {
-    (props: object): React.ReactNode;
-    preload?: () => Promise<void> | undefined;
-  };
+  const labComponent = APP_LABS[id].component;
   const guardedComponent = Object.assign(() => <GuardedLabRoute labId={id} />, {
     preload: (): Promise<void> | undefined => {
-      // Start the lab chunk early without delaying the gate's catalog request.
       void labComponent.preload?.();
       return undefined;
     },
@@ -185,43 +169,41 @@ const dashboardRoute = createRoute({
       });
     }
   },
-  component: TeacherDashboardPage,
+  component: lazyRouteComponent(
+    () => import("./pages/TeacherDashboardPage"),
+    "TeacherDashboardPage",
+  ),
   errorComponent: LabErrorPage,
 });
 
-/** Teacher-scoped roster management: enroll/rename/reset/remove students of
- * classes the caller teaches. */
 const classMembersRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/classes/$classId/members",
-  component: ClassMembersPage,
+  component: lazyRouteComponent(() => import("./pages/ClassMembersPage"), "ClassMembersPage"),
   errorComponent: LabErrorPage,
 });
 
-/**
- * Admin-only replay of a student's calculator lab — deliberately separate
- * from the student's own /classes/$classId/labs/calculator route so a
- * preview URL can never be mistaken for (or overwrite) the real thing.
- */
 const studentLabPreviewRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/classes/$classId/students/$userId/labs/calculator",
   validateSearch: passThroughSearch,
-  component: StudentLabPreviewPage,
+  component: lazyRouteComponent(
+    () => import("./pages/StudentLabPreviewPage"),
+    "StudentLabPreviewPage",
+  ),
   errorComponent: LabErrorPage,
 });
 
 const taskSheetListRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tasks",
-  component: TaskSheetListPage,
+  component: lazyRouteComponent(() => import("./pages/TaskSheetListPage"), "TaskSheetListPage"),
   errorComponent: LabErrorPage,
 });
 
 const taskSheetEditorRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/tasks/$sheetId/edit",
-  // Lazy: the editor stays out of the student-facing main bundle.
   component: lazyRouteComponent(() => import("./pages/TaskSheetEditorPage"), "TaskSheetEditorPage"),
   errorComponent: LabErrorPage,
 });
@@ -229,11 +211,10 @@ const taskSheetEditorRoute = createRoute({
 const taskAssignmentRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: "/classes/$classId/tasks/$assignmentId",
-  component: TaskAssignmentPage,
+  component: lazyRouteComponent(() => import("./pages/TaskAssignmentPage"), "TaskAssignmentPage"),
   errorComponent: LabErrorPage,
 });
 
-// Vite erases this branch and its lazy import from production builds.
 const devRoutes = import.meta.env.DEV
   ? [
       createRoute({
