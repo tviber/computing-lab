@@ -508,9 +508,7 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   await expect(page).toHaveURL(/dashboard\?lab=logistic-regression$/);
   await expect(page.getByRole("combobox", { name: "选择实验" })).toHaveValue("logistic-regression");
   for (const stage of LOGISTIC_REGRESSION_STAGES) {
-    await expect(
-      page.getByRole("columnheader", { name: stage.englishTitle ?? stage.title }),
-    ).toBeVisible();
+    await expect(page.getByRole("columnheader", { name: stage.title })).toBeVisible();
   }
 
   const studentRow = page.getByRole("row", { name: new RegExp(studentNo) });

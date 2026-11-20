@@ -65,16 +65,49 @@ const TASK_STATUS: Record<StudentTask["status"], string> = {
 
 function StudentTasks({ classId }: { classId: string }) {
   const [tasks, setTasks] = useState<StudentTask[] | null>(null);
+  const [failed, setFailed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
+    let active = true;
     void api
       .get<{ assignments: StudentTask[] }>(`/api/classes/${classId}/task-assignments`)
-      .then((p) => setTasks(p.assignments))
-      .catch(() => setTasks([]));
-  }, [classId]);
+      .then((p) => {
+        if (active) setTasks(p.assignments);
+      })
+      .catch(() => {
+        if (active) setFailed(true);
+      });
+    return () => {
+      active = false;
+    };
+  }, [classId, attempt]);
 
-  if (!tasks || tasks.length === 0) return null;
-  const pending = tasks.filter((task) => task.status !== "reviewed").length;
+  if (failed)
+    return (
+      <div className="home-task-notice">
+        <span role="alert">任务单暂时无法载入。</span>
+        <button
+          className="button button-secondary"
+          type="button"
+          onClick={() => {
+            setFailed(false);
+            setAttempt((value) => value + 1);
+          }}
+        >
+          重试任务单
+        </button>
+      </div>
+    );
+  if (!tasks || tasks.length === 0)
+    return (
+      <p className="home-task-notice" role="status">
+        {tasks ? "老师尚未布置任务单。" : "正在载入任务单…"}
+      </p>
+    );
+  const pending = tasks.filter(
+    (task) => task.status !== "reviewed" && task.status !== "submitted",
+  ).length;
   return (
     <aside aria-labelledby="tasks-title" className="home-tasks-panel">
       <div className="home-tasks-heading">
@@ -392,21 +425,23 @@ function ClassroomHome() {
                     </div>
                     <h3>{lab.title}</h3>
                     <p className="lab-card-desc">{lab.description}</p>
-                    {stageProgress ? (
-                      <StageProgress done={stageProgress.done} total={stageProgress.total} />
-                    ) : null}
-                    {classId ? (
-                      <Link className="lab-card-action" {...labLink(lab.id)}>
-                        <span>
-                          {lab.id === recentLabId || (project && project.currentStage > 1)
-                            ? "继续"
-                            : "开始实验"}
-                        </span>
-                        <Icon name="arrow-right" size={14} />
-                      </Link>
-                    ) : (
-                      <p className="lab-card-locked">请先加入班级，再开始实验。</p>
-                    )}
+                    <div className="lab-card-footer">
+                      {stageProgress ? (
+                        <StageProgress done={stageProgress.done} total={stageProgress.total} />
+                      ) : null}
+                      {classId ? (
+                        <Link className="lab-card-action" {...labLink(lab.id)}>
+                          <span>
+                            {lab.id === recentLabId || (project && project.currentStage > 1)
+                              ? "继续"
+                              : "开始实验"}
+                          </span>
+                          <Icon name="arrow-right" size={14} />
+                        </Link>
+                      ) : (
+                        <p className="lab-card-locked">请先加入班级，再开始实验。</p>
+                      )}
+                    </div>
                   </article>
                 );
               })}
@@ -419,8 +454,7 @@ function ClassroomHome() {
               <p className="home-empty">当前没有开放的实验，等管理员开放后再来。</p>
             ) : null}
           </section>
-
-          {classId && !isStaff ? <StudentTasks classId={classId} /> : null}
+          {classId && !isStaff ? <StudentTasks key={classId} classId={classId} /> : null}
         </div>
       </main>
     </AppPageLayout>

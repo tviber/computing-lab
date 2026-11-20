@@ -7,6 +7,7 @@ import {
   type ReactNode,
 } from "react";
 import { Icon } from "../ui/Icon";
+import { useScrollEdges } from "../ui/scrollEdges";
 
 export type LabResetScope = { scope: "stage"; stageIndex: number } | { scope: "lab" };
 
@@ -182,6 +183,7 @@ export function LabPageShell({
   const narrow = useSyncExternalStore(subscribeToNarrowRail, isNarrowRail);
   const effective = !forceExpand && (narrow ? mobileCollapsed : desktopCollapsed);
   const scrollId = useId();
+  const scrollRef = useScrollEdges<HTMLDivElement>();
 
   const toggle = () => {
     if (narrow) {
@@ -221,7 +223,7 @@ export function LabPageShell({
             <span className="lab-rail-bar-label">{collapsedLabel}</span>
           ) : null}
         </div>
-        <div className="lab-rail-scroll" hidden={effective} id={scrollId}>
+        <div className="lab-rail-scroll" hidden={effective} id={scrollId} ref={scrollRef}>
           {rail}
         </div>
         {resetControls ? <LabProgressTools {...resetControls} /> : null}

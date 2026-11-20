@@ -135,7 +135,7 @@ test("browser back leaves a lab and forward reopens it without a redirect loop",
   expect(failures, failures.join("\n")).toEqual([]);
 });
 
-test("student field guide fits six labs above assigned work on desktop", async ({
+test("student field guide aligns progress and reserves a sidebar only for assigned work", async ({
   page,
 }, testInfo) => {
   const failures = collectFailures(page);
@@ -181,11 +181,32 @@ test("student field guide fits six labs above assigned work on desktop", async (
   await expect(assignment).toBeVisible();
   const cards = page.locator("#lab-catalog article");
   await expect(cards).toHaveCount(6);
-  for (const card of await cards.all()) {
-    await expect(card).toBeInViewport({ ratio: 1 });
-  }
+  const columns = () =>
+    page
+      .locator(".lab-catalog-grid")
+      .evaluate((grid) => getComputedStyle(grid).gridTemplateColumns.split(" ").length);
+  expect(await columns()).toBe(2);
+  const leftBar = cards.nth(0).getByRole("progressbar");
+  const rightBar = cards.nth(1).getByRole("progressbar");
+  await expect(leftBar).toBeVisible();
+  await expect(rightBar).toBeVisible();
+  const top = (element: Element) => element.getBoundingClientRect().top;
+  await expect
+    .poll(async () => (await leftBar.evaluate(top)) - (await rightBar.evaluate(top)))
+    .toBe(0);
   await page.screenshot({ path: testInfo.outputPath("student-field-guide-desktop.png") });
   await expect(assignment).toHaveAttribute("href", /\/classes\/c1\/tasks\/assignment$/);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await page.getByRole("button", { name: /计算机组成/ }).click();
+  await expect(cards).toHaveCount(1);
+  expect(await cards.first().evaluate(top)).toBeLessThan(await assignment.evaluate(top));
+  await page.setViewportSize({ width: 1280, height: 940 });
+  await page.route("**/api/classes/c1/task-assignments", (route) =>
+    route.fulfill({ json: { assignments: [] } }),
+  );
+  await page.reload();
+  await expect(page.getByText("老师尚未布置任务单。")).toBeVisible();
+  expect(await columns()).toBe(3);
   expect(failures, failures.join("\n")).toEqual([]);
 });
 

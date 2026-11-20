@@ -99,6 +99,42 @@ describe("TeacherDashboardPage", () => {
     expect(screen.getByText("第 1 个字符不符")).toBeInTheDocument();
   });
 
+  it("shows concise Chinese stage names and keeps preview separate from destructive actions", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      String(input).endsWith("/api/labs")
+        ? Response.json({ labs: [] })
+        : Response.json({
+            classId: "c11",
+            className: "示范班",
+            rows: [
+              {
+                userId: "u1",
+                studentNo: "001",
+                name: "学生",
+                currentStage: 1,
+                cells: {
+                  1: {
+                    stageIndex: 1,
+                    score: 1,
+                    total: 2,
+                    passed: false,
+                    submissionId: "s1",
+                    submittedAt: "2026-01-01",
+                  },
+                },
+                lastActiveAt: null,
+              },
+            ],
+          }),
+    );
+    await renderAppAt("/classes/c11/dashboard?lab=calculator", { auth: multiClassTeacher });
+    expect(screen.getByRole("columnheader", { name: /连接导线/ })).toBeVisible();
+    expect(screen.queryByRole("columnheader", { name: "First Wire" })).toBeNull();
+    expect(await screen.findByRole("button", { name: "1/2" })).toHaveClass("cell-score");
+    expect(screen.getByRole("button", { name: "预览画布" })).toHaveClass("matrix-action");
+    expect(screen.getByRole("button", { name: "清空记录" })).toHaveClass("is-destructive");
+  });
+
   it("lists all labs and marks the five-stage logistic regression experience completed", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);
@@ -170,9 +206,7 @@ describe("TeacherDashboardPage", () => {
     }
 
     for (const stage of LOGISTIC_REGRESSION_STAGES) {
-      expect(
-        screen.getByRole("columnheader", { name: stage.englishTitle ?? stage.title }),
-      ).toBeInTheDocument();
+      expect(screen.getByRole("columnheader", { name: stage.title })).toBeInTheDocument();
     }
 
     const studentRow = await screen.findByRole("row", { name: /20260101.*张三/ });

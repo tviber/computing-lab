@@ -349,6 +349,22 @@
   scrollbar-width: thin;
 }
 
+.lab-rail-scroll[data-more-above] {
+  --top-alpha: 0.4;
+}
+.lab-rail-scroll[data-more-below] {
+  --bottom-alpha: 0.4;
+}
+.lab-rail-scroll:is([data-more-above], [data-more-below]) {
+  mask-image: linear-gradient(
+    to bottom,
+    rgb(0 0 0 / var(--top-alpha, 1)),
+    black 10px,
+    black calc(100% - 10px),
+    rgb(0 0 0 / var(--bottom-alpha, 1))
+  );
+}
+
 .lab-rail-bar {
   display: flex;
   align-items: center;
