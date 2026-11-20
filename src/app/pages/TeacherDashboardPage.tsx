@@ -7,6 +7,7 @@ import { useLabCatalog } from "../../shared/lab/labs";
 import { LAB_IDS, labMetadata, type LabId } from "../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { Icon } from "../../shared/ui/Icon";
+import { useScrollEdges } from "../../shared/ui/scrollEdges";
 import { APP_LABS, type AppLabEntry, type DashboardStage } from "../labRegistry";
 import "./dashboard.css";
 import "../../features/task-sheets/ui/taskSheets.css";
@@ -163,6 +164,7 @@ export function TeacherDashboardPage() {
   const detailDialog = useRef<HTMLDialogElement>(null);
   const detailTrigger = useRef<HTMLButtonElement | null>(null);
   const detailSeqRef = useRef(0);
+  const matrixScrollRef = useScrollEdges<HTMLDivElement>();
   const backdropPressed = useRef(false);
   const isAdmin = role === "admin";
 
@@ -447,7 +449,12 @@ export function TeacherDashboardPage() {
             onAssignmentsChanged={loadAssignments}
           />
         ) : (
-          <div aria-label="学生进度横向滚动区" className="matrix-scroll" tabIndex={0}>
+          <div
+            aria-label="学生进度横向滚动区"
+            className="matrix-scroll"
+            ref={matrixScrollRef}
+            tabIndex={0}
+          >
             <table className="matrix-table">
               <caption className="sr-only">按关卡显示每位学生的最新提交结果</caption>
               <thead>
@@ -455,8 +462,11 @@ export function TeacherDashboardPage() {
                   <th scope="col">学号</th>
                   <th scope="col">姓名</th>
                   {lab.stages.map((stage) => (
-                    <th key={stage.index} scope="col" title={stage.title}>
-                      {stage.englishTitle ?? stage.title}
+                    <th key={stage.index} scope="col" title={stage.englishTitle}>
+                      <span className="matrix-stage-index" aria-hidden="true">
+                        {String(stage.index).padStart(2, "0")}
+                      </span>
+                      {stage.title}
                     </th>
                   ))}
                   <th scope="col">最后活动</th>
@@ -496,7 +506,7 @@ export function TeacherDashboardPage() {
                         <div className="matrix-row-actions">
                           {lab.supportsCanvasPreview ? (
                             <button
-                              className="cell-score"
+                              className="matrix-action"
                               onClick={() => openPreview(row)}
                               title="模拟该学生看到的画布（仅前端预览，刷新还原）"
                               type="button"
@@ -505,7 +515,7 @@ export function TeacherDashboardPage() {
                             </button>
                           ) : null}
                           <button
-                            className="cell-score"
+                            className="matrix-action is-destructive"
                             onClick={() => clearRecords(row)}
                             title="删除该学生的全部提交和关卡进度"
                             type="button"
@@ -567,6 +577,7 @@ export function TeacherDashboardPage() {
                 <h2>
                   第 {detail.stageIndex} 关 · {detail.score} / {detail.total}
                 </h2>
+                <p>{lab.stages.find((stage) => stage.index === detail.stageIndex)?.englishTitle}</p>
               </header>
               {detail.testSummary.error ? (
                 <p className="test-error">{detail.testSummary.error}</p>

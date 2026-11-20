@@ -544,6 +544,21 @@
   margin-top: var(--space-1);
 }
 
+.lab-card-footer {
+  display: grid;
+  gap: var(--space-2);
+  margin-top: auto;
+}
+
+.home-task-notice {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--secondary);
+  font-size: 13px;
+}
+
 .progress-track {
   height: 4px;
   overflow: hidden;
@@ -563,7 +578,7 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2);
-  margin: auto 0 -4px;
+  margin: 0 0 -4px;
   padding-top: var(--space-2);
   border-top: 1px solid var(--border);
   color: var(--accent-ink);
@@ -716,6 +731,24 @@
 }
 
 @media (width > 960px) {
+  .home-content-grid:has(.home-tasks-panel) {
+    grid-template-columns: minmax(0, 1fr) minmax(240px, 25%);
+  }
+  .home-content-grid:has(.home-tasks-panel) .lab-catalog-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .home-content-grid:has(.home-task-notice) {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .home-task-notice {
+    grid-column: 1 / -1;
+  }
+  .home-content-grid:has(.home-tasks-panel) .current-lab-section {
+    grid-area: 1 / 1;
+  }
+  .home-tasks-panel {
+    grid-area: 1 / 2;
+  }
   .lab-catalog-grid .atlas-drawing {
     max-block-size: 80px;
   }
