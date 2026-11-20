@@ -17,7 +17,7 @@ stage="$(mktemp -d /var/lib/computing-lab-release/.upload.XXXXXXXX)"
 trap 'rm -rf -- "$stage"' EXIT
 archive="$stage/source.tar.gz"
 limit=268435456
-timeout 180 head -c "$((limit + 1))" >"$archive" || die 'upload timed out'
+timeout 1200 head -c "$((limit + 1))" >"$archive" || die 'upload timed out'
 size="$(stat -c %s "$archive")"
 ((size > 0 && size <= limit)) || die 'invalid archive size'
 digest="$(sha256sum <"$archive")"
