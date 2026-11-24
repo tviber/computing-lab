@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import type { LogisticRegressionTestSummary, StrategyDraft } from "../domain/protocol.ts";
 import type { LogisticRegressionStageDef } from "../domain/stages.ts";
 import {
@@ -79,7 +80,9 @@ export function StrategyPanel({
     onChange({ ...draft, weights: zeroW });
   };
 
-  const activeTerms = example.contributions.filter((c) => c.present === 1);
+  const scoreTerms = example.contributions
+    .filter((term) => term.present === 1)
+    .map((term) => String.raw`\text{${term.word}}(${fmtSigned(term.weight)})\times 1`);
 
   return (
     <div className="logistic-regression-stage-stack">
@@ -176,7 +179,7 @@ export function StrategyPanel({
                   <p className="logistic-regression-triage-text">{item.message.text}</p>
                   <div className="logistic-regression-strategy-meter-row">
                     <span className="logistic-regression-mono logistic-regression-strategy-score-tag">
-                      w·x = {fmtSigned(item.score)}
+                      <MathFormula>{String.raw`w\cdot x = ${fmtSigned(item.score)}`}</MathFormula>
                     </span>
                     <div aria-hidden="true" className="logistic-regression-strategy-meter">
                       <span className="logistic-regression-strategy-meter-zero" />
@@ -221,7 +224,9 @@ export function StrategyPanel({
             </thead>
             <tbody>
               <tr>
-                <th scope="row">是否出现 xᵢ</th>
+                <th scope="row">
+                  是否出现 <MathFormula>x_i</MathFormula>
+                </th>
                 {example.contributions.map((c) => (
                   <td
                     className={`logistic-regression-mono ${c.present === 1 ? "is-hit" : "is-miss"}`}
@@ -232,7 +237,9 @@ export function StrategyPanel({
                 ))}
               </tr>
               <tr>
-                <th scope="row">设定分值 wᵢ</th>
+                <th scope="row">
+                  设定分值 <MathFormula>w_i</MathFormula>
+                </th>
                 {example.contributions.map((c) => (
                   <td
                     className={`logistic-regression-mono ${c.weight > 0 ? "is-pos" : c.weight < 0 ? "is-neg" : "is-zero"}`}
@@ -243,7 +250,9 @@ export function StrategyPanel({
                 ))}
               </tr>
               <tr>
-                <th scope="row">单项得分 wᵢ·xᵢ</th>
+                <th scope="row">
+                  单项得分 <MathFormula>{String.raw`w_i\cdot x_i`}</MathFormula>
+                </th>
                 {example.contributions.map((c) => (
                   <td
                     className={`logistic-regression-mono ${
@@ -261,12 +270,7 @@ export function StrategyPanel({
 
         <div className="logistic-regression-strategy-formula">
           <p className="logistic-regression-mono">
-            w · x ={" "}
-            {activeTerms.length > 0
-              ? activeTerms.map((c) => `${c.word}(${fmtSigned(c.weight)})×1`).join(" + ")
-              : "0"}
-            {" = "}
-            <strong>{fmtSigned(example.score)}</strong>
+            <MathFormula>{String.raw`w\cdot x = ${scoreTerms.join(" + ") || "0"} = ${fmtSigned(example.score)}`}</MathFormula>
           </p>
           <p className="logistic-regression-muted-note">
             这里直接用总分分类。第 3 关会用 Sigmoid 函数，根据分数估计垃圾短信的概率。

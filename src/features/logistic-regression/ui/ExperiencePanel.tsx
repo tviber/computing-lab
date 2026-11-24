@@ -1,4 +1,5 @@
 import { useId, useMemo, useState } from "react";
+import { StageTask } from "../../../shared/lab/StageTask";
 import { createExperienceClassifier, EXPERIENCE_EXAMPLES } from "../domain/experience.ts";
 import type { ExperienceSubmission, TrainingSettings } from "../domain/protocol.ts";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
@@ -34,13 +35,10 @@ export function ExperiencePanel({
       aria-label="短信分类体验"
       className="logistic-regression-panel logistic-regression-experience"
     >
+      <StageTask title="试一条短信">
+        选一条例子，或写一条自己的短信。改几个字，再看分类是否变化。
+      </StageTask>
       <div className="logistic-regression-panel-head">
-        <div>
-          <h3>试一条短信</h3>
-          <p className="logistic-regression-muted-note">
-            选一条例子，或写一条自己的短信。改几个字，再看分类是否变化。
-          </p>
-        </div>
         <button className="button button-ghost" onClick={onReviewTraining} type="button">
           返回训练模型
         </button>

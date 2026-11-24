@@ -174,13 +174,6 @@
   padding: 20px 24px 40px;
 }
 
-.stage-brief {
-  padding: 14px 16px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  background: var(--surface);
-}
-
 .calculator-term-guide {
   margin-top: 14px;
   border-top: 1px solid var(--border);
@@ -223,26 +216,18 @@
   text-underline-offset: 3px;
 }
 
-/* Status banners (.stage-takeaway) are styled only by design/base.css; :where()
-   keeps this rule at (0,1,1) so the other brief paragraphs cascade as before. */
-.stage-brief p:where(:not(.stage-takeaway)) {
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 20px;
-}
-
-.stage-brief details {
+.calculator-workspace .stage-brief > details:not(.hint-disclosure) {
   margin-top: 8px;
 }
 
-.stage-brief summary {
+.calculator-workspace .stage-brief > details:not(.hint-disclosure) > summary {
   color: var(--accent);
   cursor: pointer;
   font-size: 12px;
   font-weight: 600;
 }
 
-.stage-brief details p {
+.calculator-workspace .stage-details p {
   margin-top: 6px;
   font-size: 12px;
 }

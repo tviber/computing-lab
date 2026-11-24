@@ -56,50 +56,9 @@
 
 /* ---- stage brief: mission / task / hint ---- */
 
-.stage-brief {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  padding: var(--space-3);
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-/* Status banners (.stage-takeaway) are styled only by design/base.css; :where()
-   keeps this rule at (0,1,1) so the other brief paragraphs cascade as before. */
-.stage-brief p:where(:not(.stage-takeaway)) {
-  font-size: var(--font-size-sm);
-  line-height: 1.6;
-}
-
-.stage-mission {
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-  border-radius: var(--radius-control);
-  padding: var(--space-2) var(--space-3);
-}
-
-.stage-task {
-  font-weight: 600;
-}
-
 .submit-note {
   color: var(--muted);
   font-size: var(--font-size-xs);
-}
-
-.stage-details summary {
-  cursor: pointer;
-  color: var(--accent);
-  font-size: var(--font-size-xs);
-  font-weight: 600;
-}
-
-.stage-details p {
-  margin-top: var(--space-2);
-  font-size: var(--font-size-xs);
-  color: var(--muted);
 }
 
 /* ---- shared panel bits ---- */

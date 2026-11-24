@@ -1,0 +1,14 @@
+.math-formula-block {
+  display: block;
+  max-inline-size: 100%;
+  overflow-x: auto;
+  padding-block: 0.25em;
+}
+
+.math-formula-block > .katex-display {
+  margin: 0;
+}
+
+.math-formula-block > .katex-display.fleqn > .katex {
+  padding-left: 0;
+}

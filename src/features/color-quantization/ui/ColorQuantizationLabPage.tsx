@@ -3,6 +3,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
+import { StageTask } from "../../../shared/lab/StageTask";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -10,6 +11,7 @@ import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveSt
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { Icon } from "../../../shared/ui/Icon";
+import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import type { QuantJudgeResult, QuantSubmission } from "../domain/protocol.ts";
 import { COLOR_QUANT_STAGES, type QuantStageDef } from "../domain/stages.ts";
 import {
@@ -36,8 +38,8 @@ import "./colorQuantization.css";
 
 function StageBrief({ stage }: { stage: QuantStageDef }) {
   return (
-    <section className="quant-brief">
-      <p className="quant-mission">{stage.mission}</p>
+    <section className="stage-brief">
+      <StageTask>{stage.mission}</StageTask>
       <p>{stage.description}</p>
       <p className="quant-submit-note">
         判定方式：图谱里每台机器人（包括你没见过的隐藏成员）都按你的选择印一遍发出去，
@@ -53,10 +55,7 @@ function StageBrief({ stage }: { stage: QuantStageDef }) {
         这是为了检查你的方法是真的理解了规则，而不只是记住了这几张图的答案——
         在公开图谱上全对，不代表隐藏成员也能分开。
       </p>
-      <details className="quant-details">
-        <summary>提示</summary>
-        <p>{stage.hint}</p>
-      </details>
+      <HintDisclosure key={stage.id}>{stage.hint}</HintDisclosure>
     </section>
   );
 }

@@ -3,6 +3,7 @@ import { Fragment, useCallback, useEffect, useReducer, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
+import { StageTask } from "../../../shared/lab/StageTask";
 import { StageLink } from "../../../shared/lab/StageRail";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -42,10 +43,7 @@ import "./lunchShift.css";
 function StageBrief({ stage, passed }: { stage: LunchStageDef; passed: boolean }) {
   return (
     <section className="stage-brief">
-      <p className="lunch-task">
-        <strong>任务：</strong>
-        {stage.task}
-      </p>
+      <StageTask>{stage.task}</StageTask>
       {passed ? (
         <>
           <p className="submit-note">判题方式：{stage.judgeNote}</p>
@@ -54,7 +52,9 @@ function StageBrief({ stage, passed }: { stage: LunchStageDef; passed: boolean }
       ) : null}
       {passed
         ? null
-        : stage.hints?.map((hint, index) => <HintDisclosure key={index}>{hint}</HintDisclosure>)}
+        : stage.hints?.map((hint, index) => (
+            <HintDisclosure key={`${stage.id}-${index}`}>{hint}</HintDisclosure>
+          ))}
     </section>
   );
 }

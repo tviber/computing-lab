@@ -1,4 +1,5 @@
 import { useMemo } from "react";
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import {
   evaluateManualWeights,
@@ -228,9 +229,9 @@ function SigmoidCurveSvg({
         })}
       </svg>
       <p className="logistic-regression-muted-note">
-        只看偏置时，z=b=<strong>{bias >= 0 ? `+${bias.toFixed(1)}` : bias.toFixed(1)}</strong> 对应{" "}
-        <strong>{(emptyProb * 100).toFixed(1)}%</strong>；选中「{selectedTag}」z=
-        <strong>{selectedZ >= 0 ? `+${selectedZ.toFixed(2)}` : selectedZ.toFixed(2)}</strong> →{" "}
+        只看偏置时，<MathFormula>{`z=b=${bias >= 0 ? "+" : ""}${bias.toFixed(1)}`}</MathFormula>{" "}
+        对应 <strong>{(emptyProb * 100).toFixed(1)}%</strong>；选中「{selectedTag}」
+        <MathFormula>{`z=${selectedZ >= 0 ? "+" : ""}${selectedZ.toFixed(2)}`}</MathFormula> →{" "}
         <strong>{(selectedProb * 100).toFixed(1)}%</strong>
       </p>
     </div>
@@ -301,7 +302,7 @@ export function ScorePanel({
             </button>
           </div>
           <p className="logistic-regression-muted-note">
-            起始模型只给广告常用词设置了正权重，偏置是 <strong>b = +0.4</strong>。
+            起始模型只给广告常用词设置了正权重，偏置是 <MathFormula>b=+0.4</MathFormula>。
             因此，即使短信里没有已知词，模型估计的垃圾概率也超过 50%。你可以先调低
             <strong>偏置 b</strong>，再给「同学」「明天」「一起」设置负权重，检查正常短信能否分对。
           </p>
@@ -406,7 +407,8 @@ export function ScorePanel({
                       <span
                         className={`logistic-regression-mono logistic-regression-triage-prob ${ev.correct ? "is-ok" : "is-bad"}`}
                       >
-                        p = {(ev.probability * 100).toFixed(1)}% ·{" "}
+                        <MathFormula>{String.raw`p = ${(ev.probability * 100).toFixed(1)}\%`}</MathFormula>{" "}
+                        ·{" "}
                         {ev.correct
                           ? "判对了"
                           : ev.pred === 1

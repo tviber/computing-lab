@@ -23,10 +23,22 @@ function collectFailures(page: Page): string[] {
   return failures;
 }
 
-async function expectTokenChoicesToFit(page: Page) {
+async function expectTokenizeLayoutToFit(page: Page) {
   const originalViewport = page.viewportSize();
   for (const width of [1440, 1024, 390, 320]) {
     await page.setViewportSize({ width, height: 900 });
+    const task = page.locator(".lab-stage-task");
+    await expect(task.getByRole("heading", { name: "本关任务", level: 2 })).toBeVisible();
+    await expect(task).toContainText(LOGISTIC_REGRESSION_STAGES[1].task);
+    expect(
+      await task.evaluate((el) => {
+        const bounds = el.getBoundingClientRect();
+        return (
+          bounds.left >= 0 && bounds.right <= window.innerWidth && el.scrollWidth <= el.clientWidth
+        );
+      }),
+      `task overflows at ${width}px`,
+    ).toBe(true);
     const overflowing = await page.locator(".logistic-regression-puzzle-list").evaluate((list) => {
       const bounds = list.getBoundingClientRect();
       return Array.from(
@@ -121,7 +133,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await prizeStrongSpam.click();
   await expect(prizeStrongSpam).toHaveAttribute("aria-pressed", "true");
   await expect(firstResult.getByText("正确拦截")).toBeVisible();
-  await expect(firstResult.getByText("w·x = +2")).toBeVisible();
+  await expect(firstResult.locator(".katex-html")).toHaveText(/w⋅x=\+2/);
   const s1SaveRes = await s1DraftSave;
   expect(s1SaveRes.status()).toBe(200);
   await expect(page.getByText("已保存")).toBeVisible();
@@ -164,7 +176,16 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     page.getByRole("heading", { name: "逻辑回归 - 从短信到数字", exact: true }),
   ).toBeVisible();
 
-  await expectTokenChoicesToFit(page);
+  const hints = page.locator(".stage-brief details.hint-disclosure");
+  const firstHint = hints.first();
+  const trigger = firstHint.locator("summary");
+  await expect(trigger).toHaveText("提示");
+  await trigger.click();
+  await expect(firstHint.getByText(LOGISTIC_REGRESSION_STAGES[1].hints[0])).toBeVisible();
+  await expect(hints.nth(1)).not.toHaveAttribute("open", "");
+  await trigger.press("Enter");
+  await expect(firstHint).not.toHaveAttribute("open", "");
+  await expectTokenizeLayoutToFit(page);
   let freeSeen = 0;
   for (const item of TOKENIZE_PUZZLE_ITEMS) {
     const label = `片段 ${item.text} 的处理方式`;
@@ -233,9 +254,8 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   }
   await expect(page.getByText("分对 6 / 6")).toBeVisible();
   for (const prompt of LOGISTIC_REGRESSION_STAGES[2].prompts) {
-    await page
-      .getByRole("button", { name: prompt.options[prompt.correct].label, exact: true })
-      .click();
+    const label = prompt.options[prompt.correct].label.split("$")[0].trim();
+    await page.getByRole("button", { name: new RegExp(`^${label}`) }).click();
   }
   const s3RespPromise = page.waitForResponse(
     (res) =>
@@ -255,12 +275,17 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(beforeAfter.getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/)).toBeVisible();
   await expect(beforeAfter.getByText(/按训练集垃圾占比/)).toBeVisible();
   await expect(beforeAfter.getByText(/BCE Loss 0\.6931 →/)).toBeVisible();
-  await expect(page.getByText(/损失 = −ln/)).toBeVisible();
+  await expect(
+    page.locator(".logistic-regression-formula-conclusion .katex-html").first(),
+  ).toBeVisible();
   await expect(page.getByLabel("预测概率与损失")).toBeVisible();
-  const appendixToggle = page.getByRole("button", { name: /数学推导/ });
+  const appendixToggle = page.getByRole("button", { name: "数学推导", exact: true });
   await expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
   await appendixToggle.click();
-  await expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: "收起数学推导", exact: true })).toHaveAttribute(
+    "aria-expanded",
+    "true",
+  );
 
   const advancedToggle = page.getByRole("button", { name: /进阶探索：单维权重切片图/ });
   await expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
@@ -275,6 +300,16 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   const stage4Viewport = page.viewportSize();
   for (const width of [1440, 1024, 390]) {
     await page.setViewportSize({ width, height: 900 });
+    const appendix = page.locator(".logistic-regression-appendix-grid");
+    await expect(appendix.locator(".katex-error")).toHaveCount(0);
+    await expect(appendix.locator("math[display=block]")).toHaveCount(6);
+    expect(
+      await appendix.evaluate(
+        (el) =>
+          el.scrollWidth <= el.clientWidth + 1 &&
+          el.getBoundingClientRect().right <= innerWidth + 1,
+      ),
+    ).toBe(true);
     const baselineOverflow = await beforeAfter.evaluate((el) => {
       const box = el.getBoundingClientRect();
       return box.right > window.innerWidth + 1 || el.scrollWidth > el.clientWidth + 1;

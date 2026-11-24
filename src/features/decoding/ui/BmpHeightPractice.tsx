@@ -1,4 +1,5 @@
 import { useId, useState } from "react";
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { BMP_PROFILE, checkBmpHeightReading, type HeightReadingResult } from "../domain/bmp.ts";
 import { ByteTable } from "./ByteTable.tsx";
 
@@ -18,6 +19,9 @@ export function BmpHeightPractice({ bytes }: { bytes: readonly number[] }) {
   const result = checked ? checkBmpHeightReading(bytes, start, answer) : null;
   const numberError = result === "enter-height" || result === "wrong-height";
   const selected = start === null ? [] : bytes.slice(start, start + 4);
+
+  const placeValues = ["1", "256", "256^2", "256^3"];
+  const terms = selected.map((byte, index) => String.raw`${byte}\times ${placeValues[index]}`);
 
   return (
     <form
@@ -84,12 +88,7 @@ export function BmpHeightPractice({ bytes }: { bytes: readonly number[] }) {
         {result === "correct" ? (
           <>
             读对了。
-            <code>
-              {selected
-                .map((byte, index) => `${byte} × ${["1", "256", "256²", "256³"][index]}`)
-                .join(" + ")}{" "}
-              = {Number(answer)}
-            </code>
+            <MathFormula>{`${terms.join(" + ")} = ${Number(answer)}`}</MathFormula>
             。解码器要还原 {Number(answer)} 行像素。
           </>
         ) : result ? (

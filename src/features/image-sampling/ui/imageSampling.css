@@ -206,14 +206,6 @@
   font-size: 12px;
 }
 
-.stage-mission {
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-  border-radius: var(--radius-control);
-  font-weight: 500;
-  padding: 10px 12px;
-}
-
 .preview-pair {
   align-items: flex-start;
   display: flex;

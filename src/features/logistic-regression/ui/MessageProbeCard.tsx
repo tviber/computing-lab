@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import type { MessageInspection } from "../domain/tokenizer.ts";
 import { TOKEN_STATUS_LABELS } from "./tokenStatusLabels.ts";
 
@@ -77,8 +78,8 @@ export function MessageProbeCard({
       <div className="logistic-regression-probe-grid">
         <div className="logistic-regression-waterfall">
           <p className="logistic-regression-subhead">
-            这些词的分数怎样相加（总分 z ={" "}
-            <strong className="logistic-regression-mono">{inspection.rawZ.toFixed(2)}</strong>）
+            这些词的分数怎样相加（总分{" "}
+            <MathFormula>{String.raw`z=${inspection.rawZ.toFixed(2)}`}</MathFormula>）
           </p>
           <ul className="logistic-regression-waterfall-list">
             {inspection.terms.map((term, idx) => {
@@ -118,7 +119,8 @@ export function MessageProbeCard({
 
         <div className="logistic-regression-sigmoid-box">
           <p className="logistic-regression-subhead">
-            把总分换成概率（分类阈值 τ = {safeThreshold.toFixed(2)}）
+            把总分换成概率（分类阈值{" "}
+            <MathFormula>{String.raw`\tau=${safeThreshold.toFixed(2)}`}</MathFormula>）
           </p>
           <svg
             aria-label="Sigmoid 概率曲线"

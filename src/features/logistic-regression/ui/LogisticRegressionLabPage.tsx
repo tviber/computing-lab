@@ -1,8 +1,10 @@
 import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useReducer, useState } from "react";
+import { MathText } from "../../../shared/ui/MathFormula";
 import { useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
+import { StageTask } from "../../../shared/lab/StageTask";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
@@ -45,20 +47,27 @@ import "./logisticRegression.css";
 function StageBrief({ stage, passed }: { stage: LogisticRegressionStageDef; passed: boolean }) {
   return (
     <section className="stage-brief">
-      <p className="logistic-regression-desc">{stage.description}</p>
-      <p className="stage-task">
-        <strong>任务：</strong>
-        {stage.task}
+      <StageTask>
+        <MathText>{stage.task}</MathText>
+      </StageTask>
+      <p>
+        <MathText>{stage.description}</MathText>
       </p>
       {passed ? (
         <>
-          <p className="submit-note">判题方式：{stage.judgeNote}</p>
-          <p className="stage-takeaway">本关收获：{stage.takeaway}</p>
+          <p className="submit-note">
+            判题方式：<MathText>{stage.judgeNote}</MathText>
+          </p>
+          <p className="stage-takeaway">
+            本关收获：<MathText>{stage.takeaway}</MathText>
+          </p>
         </>
       ) : (
         <div className="logistic-regression-hints-list">
           {stage.hints.map((hint, index) => (
-            <HintDisclosure key={index}>{hint}</HintDisclosure>
+            <HintDisclosure key={`${stage.id}-${index}`}>
+              <MathText>{hint}</MathText>
+            </HintDisclosure>
           ))}
         </div>
       )}
