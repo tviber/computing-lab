@@ -43,10 +43,10 @@ URL 可复现固定场景；非法参数回退到初始场景与桌面。
 
 ## 验证
 
-本机命令必须串行执行，并遵守 `.codex/AGENTS.md` 的单 worker 限制：
+本机命令必须串行执行，并遵守根 `AGENTS.md` 的单 worker 限制：
 
 ```sh
-nice -n 10 bun run vitest run src/features/decoding --maxWorkers=1 --minWorkers=1
+nice -n 10 bun run vitest run src/features/decoding --maxWorkers=1
 nice -n 10 bun run playwright test --config playwright.preview.config.ts --workers=1
 ```
 

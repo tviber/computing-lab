@@ -11,6 +11,9 @@ bun.lockb
 logs/
 .DS_Store
 .workbuddy/
+/.codex/
+/.devin/
+/.serena/
 
 # Lab runtime local data
 data/

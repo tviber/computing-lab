@@ -229,7 +229,7 @@ export function stepSliceWeight(
   const descentSide: "left" | "right" | "zero" =
     from.grad > 1e-4 ? "left" : from.grad < -1e-4 ? "right" : "zero";
 
-  let rawDelta = 0;
+  let rawDelta: number;
   if (direction === "descent") {
     rawDelta = -safeEta * from.grad;
   } else if (direction === "left") {

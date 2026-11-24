@@ -1,3 +1,4 @@
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/react/collapsible";
 import {
   useId,
   useRef,
@@ -180,15 +181,14 @@ export function LabPageShell({
   const [mobileCollapsed, setMobileCollapsed] = useState(true);
   const narrow = useSyncExternalStore(subscribeToNarrowRail, isNarrowRail);
   const effective = narrow ? mobileCollapsed : desktopCollapsed;
-  const scrollId = useId();
   const scrollRef = useScrollEdges<HTMLDivElement>();
 
-  const toggle = () => {
+  const onOpenChange = (open: boolean) => {
+    const next = !open;
     if (narrow) {
-      setMobileCollapsed((prev) => !prev);
+      setMobileCollapsed(next);
       return;
     }
-    const next = !desktopCollapsed;
     setDesktopCollapsed(next);
     try {
       localStorage.setItem(storageKey(labId), next ? "1" : "0");
@@ -202,14 +202,11 @@ export function LabPageShell({
       className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${effective ? " is-collapsed" : ""}`}
       style={{ "--rail-w": `${railWidth}px` } as CSSProperties}
     >
-      <div className="lab-rail-zone">
+      <Collapsible className="lab-rail-zone" open={!effective} onOpenChange={onOpenChange}>
         <div className="lab-rail-bar">
-          <button
-            aria-controls={scrollId}
-            aria-expanded={!effective}
+          <CollapsibleTrigger
             aria-label={effective ? "展开关卡栏" : "收起关卡栏"}
             className="lab-rail-toggle"
-            onClick={toggle}
             title={effective ? "展开关卡栏" : "收起关卡栏"}
             type="button"
           >
@@ -226,16 +223,16 @@ export function LabPageShell({
               size={18}
             />
             {narrow ? <span>{collapsedLabel ?? "关卡"}</span> : null}
-          </button>
+          </CollapsibleTrigger>
           {!narrow && effective && collapsedLabel ? (
             <span className="lab-rail-bar-label">{collapsedLabel}</span>
           ) : null}
         </div>
-        <div className="lab-rail-scroll" hidden={effective} id={scrollId} ref={scrollRef}>
+        <CollapsiblePanel className="lab-rail-scroll" keepMounted ref={scrollRef}>
           {rail}
-        </div>
+        </CollapsiblePanel>
         {resetControls ? <LabProgressTools {...resetControls} /> : null}
-      </div>
+      </Collapsible>
       {children}
     </div>
   );

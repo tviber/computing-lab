@@ -59,7 +59,7 @@ bun run test:caddy
 - `src/app` 只负责路由和页面编排；每门实验的课程语义在
   `src/features/<lab>/{domain,lesson,ui}` 内闭合，任务单在
   `src/features/task-sheets` 内闭合。
-- `server/` 是 Node ≥22.13 单进程，负责认证、草稿、判题和班级看板；隐藏用例只在
+- CI 和开发推荐 Node 24 LTS（至少 24.15）及 Bun 1.2.17。`server/` 使用 Node 单进程，负责认证、草稿、判题和班级看板；隐藏用例只在
   `server/`；各实验的 project/draft/judge 走 `server/routes/labRoutes.ts`
   的共用薄管线，判题协议类型由 `src/features/<lab>/domain` 共享给服务端。
 - `src/shared/{auth,api,layout,lab}` 只保留认证、请求、应用顶栏和实验页

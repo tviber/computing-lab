@@ -52,7 +52,7 @@ function evaluateStage(
     const mseOk = fit.mse <= LINEAR_MSE_THRESHOLD;
     const qOk = stage.question ? d.answer === stage.question.correct : true;
     const passed = mseOk && qOk;
-    let feedback = "";
+    let feedback: string;
     if (!mseOk) {
       feedback = `当前均方误差 MSE = ${roundTo(fit.mse, 2)}，还需要降到 ${LINEAR_MSE_THRESHOLD} 以下。试着微调斜率 w（约 3.2）和截距 b（约 -22）。`;
     } else if (!qOk) {
@@ -82,7 +82,7 @@ function evaluateStage(
     const qOk = stage.question ? d.answer === stage.question.correct : true;
     const passed = ok1 && ok2 && ok3 && qOk;
 
-    let feedback = "";
+    let feedback: string;
     if (!ok1 || !ok2 || !ok3) {
       const missing: string[] = [];
       if (!ok1) missing.push("P(真下雨)");
@@ -110,7 +110,7 @@ function evaluateStage(
     const pOk = isNearCoinMLE(d.p);
     const qOk = stage.question ? d.answer === stage.question.correct : true;
     const passed = pOk && qOk;
-    let feedback = "";
+    let feedback: string;
     if (!pOk) {
       feedback = `当前猜测 p = ${roundTo(d.p, 2)} 还没有到达似然曲线的最高点（负对数似然最低点），继续拖动滑块寻找峰顶！`;
     } else if (!qOk) {
@@ -135,7 +135,7 @@ function evaluateStage(
   const accOk = fit.accuracy >= SIGMOID_ACCURACY_THRESHOLD;
   const lossOk = fit.logLoss <= SIGMOID_LOGLOSS_THRESHOLD;
   const passed = d.curveMode === "sigmoid" && accOk && lossOk;
-  let feedback = "";
+  let feedback: string;
   if (d.curveMode !== "sigmoid") {
     feedback = "请先切换到 Sigmoid 曲线，再检查分类准确率和平均对数损失。";
   } else if (!accOk) {

@@ -6,4 +6,5 @@ test-results/
 bun.lock
 bun.lockb
 .workbuddy/
+local/
 public/vendor/
