@@ -1,3 +1,12 @@
+import { Field, FieldLabel } from "@ui-sdk/react/field";
+import {
+  Slider,
+  SliderControl,
+  SliderIndicator,
+  SliderThumb,
+  SliderTrack,
+  SliderValue,
+} from "@ui-sdk/react/slider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { ConceptQuestion } from "./ConceptQuestion.tsx";
 import type { LinearRegressionDraft } from "../domain/protocol.ts";
@@ -23,13 +32,12 @@ type Props = {
 const SVG_W = 540;
 const SVG_H = 320;
 const PAD = { left: 52, right: 24, top: 20, bottom: 44 };
-const X_MIN = 14;
 const X_MAX = 32;
-const Y_MIN = 10;
+const Y_MIN = LINEAR_INTERCEPT_MIN;
 const Y_MAX = 90;
 
 function mapX(temp: number): number {
-  return PAD.left + ((temp - X_MIN) / (X_MAX - X_MIN)) * (SVG_W - PAD.left - PAD.right);
+  return PAD.left + (temp / X_MAX) * (SVG_W - PAD.left - PAD.right);
 }
 
 function mapY(cups: number): number {
@@ -38,15 +46,50 @@ function mapY(cups: number): number {
 
 const optimal = computeOptimalLinearFit();
 
+function FitSlider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <Field>
+      <Slider
+        className="sf-slider-group"
+        value={value}
+        min={min}
+        max={max}
+        step={step}
+        onValueChange={onChange}
+      >
+        <div className="sf-slider-head">
+          <FieldLabel>{label}</FieldLabel>
+          <SliderValue className="sf-mono" />
+        </div>
+        <SliderControl className="sf-fit-slider-control">
+          <SliderTrack>
+            <SliderIndicator />
+            <SliderThumb />
+          </SliderTrack>
+        </SliderControl>
+      </Slider>
+    </Field>
+  );
+}
+
 export function LinearRegressionPanel({ draft, question, passed, onChange }: Props) {
   const fit = evaluateLinearFit(draft.slope, draft.intercept);
 
   const mseGood = fit.mse <= LINEAR_MSE_THRESHOLD;
-
-  const lineX1 = X_MIN;
-  const lineY1 = fit.slope * lineX1 + fit.intercept;
-  const lineX2 = X_MAX;
-  const lineY2 = fit.slope * lineX2 + fit.intercept;
 
   return (
     <div className="sf-panel">
@@ -64,7 +107,9 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
             y = {roundTo(fit.slope, 2)}x {fit.intercept >= 0 ? "+" : "−"}{" "}
             {Math.abs(roundTo(fit.intercept, 1))}
           </strong>
-          <span className="sf-metric-sub">w 是斜率，b 是截距</span>
+          <span className="sf-metric-sub">
+            调斜率 w，直线绕 (0, b) 旋转；调截距 b，直线上下平移
+          </span>
         </div>
         <div className="sf-metric-card">
           <span className="sf-metric-label">预测 30°C 销量</span>
@@ -94,7 +139,7 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
             viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           >
             {/* Grid lines */}
-            {[20, 40, 60, 80].map((yVal) => (
+            {[-40, -20, 0, 20, 40, 60, 80].map((yVal) => (
               <g key={`gy-${yVal}`}>
                 <line
                   className="sf-grid-line"
@@ -108,7 +153,7 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
                 </text>
               </g>
             ))}
-            {[16, 20, 24, 28, 30].map((xVal) => (
+            {[0, 5, 10, 15, 20, 25, 30].map((xVal) => (
               <g key={`gx-${xVal}`}>
                 <line
                   className="sf-grid-line"
@@ -128,8 +173,8 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
               className="sf-axis-line"
               x1={PAD.left}
               x2={SVG_W - PAD.right}
-              y1={SVG_H - PAD.bottom}
-              y2={SVG_H - PAD.bottom}
+              y1={mapY(0)}
+              y2={mapY(0)}
             />
             <line
               className="sf-axis-line"
@@ -187,12 +232,15 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
               {/* Fitted line */}
               <line
                 className="sf-fit-line"
-                x1={mapX(lineX1)}
-                x2={mapX(lineX2)}
-                y1={mapY(lineY1)}
-                y2={mapY(lineY2)}
+                x1={mapX(0)}
+                x2={mapX(X_MAX)}
+                y1={mapY(fit.intercept)}
+                y2={mapY(fit.slope * X_MAX + fit.intercept)}
               />
             </g>
+            <circle className="sf-marker-dot" cx={mapX(0)} cy={mapY(fit.intercept)} r={5}>
+              <title>截距 (0, {fit.intercept})</title>
+            </circle>
             {/* Data points */}
             {fit.residuals.map((pt) => (
               <circle
@@ -212,37 +260,22 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
 
         <div className="sf-controls-card">
           <h3>动手调直线</h3>
-          <div className="sf-slider-group">
-            <div className="sf-slider-head">
-              <label htmlFor="sf-slope">斜率 w（每升高 1°C 多卖几杯）</label>
-              <span className="sf-mono">{roundTo(draft.slope, 2)}</span>
-            </div>
-            <input
-              id="sf-slope"
-              max={LINEAR_SLOPE_MAX}
-              min={LINEAR_SLOPE_MIN}
-              onChange={(e) => onChange({ ...draft, slope: Number(e.target.value) })}
-              step={0.1}
-              type="range"
-              value={draft.slope}
-            />
-          </div>
-
-          <div className="sf-slider-group">
-            <div className="sf-slider-head">
-              <label htmlFor="sf-intercept">截距 b（基准偏移量）</label>
-              <span className="sf-mono">{roundTo(draft.intercept, 1)}</span>
-            </div>
-            <input
-              id="sf-intercept"
-              max={LINEAR_INTERCEPT_MAX}
-              min={LINEAR_INTERCEPT_MIN}
-              onChange={(e) => onChange({ ...draft, intercept: Number(e.target.value) })}
-              step={1}
-              type="range"
-              value={draft.intercept}
-            />
-          </div>
+          <FitSlider
+            label="斜率 w（每升高 1°C 多卖几杯）"
+            value={draft.slope}
+            min={LINEAR_SLOPE_MIN}
+            max={LINEAR_SLOPE_MAX}
+            step={0.1}
+            onChange={(slope) => onChange({ ...draft, slope })}
+          />
+          <FitSlider
+            label="截距 b（基准偏移量）"
+            value={draft.intercept}
+            min={LINEAR_INTERCEPT_MIN}
+            max={LINEAR_INTERCEPT_MAX}
+            step={1}
+            onChange={(intercept) => onChange({ ...draft, intercept })}
+          />
 
           <div className="sf-note-box">
             <strong>小发现：</strong>

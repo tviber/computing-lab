@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt, studentAuthState } from "../../../test/router-test-helpers";
 
 const route = "/classes/c1/labs/stats-foundations";
-function mockProject(project: Response, nextClasses: string[]) {
+function mockProject(project: Response) {
   return vi.spyOn(globalThis, "fetch").mockImplementation(async (url) => {
     if (String(url).endsWith("/api/labs")) {
       return Response.json({
@@ -11,8 +11,8 @@ function mockProject(project: Response, nextClasses: string[]) {
           { id: "stats-foundations", visible: true, visibleClassIds: ["c1"] },
           {
             id: "logistic-regression",
-            visible: nextClasses.length > 0,
-            visibleClassIds: nextClasses,
+            visible: true,
+            visibleClassIds: ["c1"],
           },
         ],
       });
@@ -24,7 +24,7 @@ function mockProject(project: Response, nextClasses: string[]) {
 describe("统计基础实验访问与保存", () => {
   afterEach(() => vi.restoreAllMocks());
   it("keeps all editing controls closed after the project request fails", async () => {
-    const fetch = mockProject(Response.json({ error: "internal-error" }, { status: 500 }), ["c1"]);
+    const fetch = mockProject(Response.json({ error: "internal-error" }, { status: 500 }));
     await renderAppAt(route, { auth: studentAuthState });
     expect(await screen.findByRole("alert")).toHaveTextContent("服务器出错");
     expect(screen.queryByRole("slider")).toBeNull();
@@ -32,18 +32,10 @@ describe("统计基础实验访问与保存", () => {
     expect(fetch.mock.calls.every(([, init]) => !init?.method || init.method === "GET")).toBe(true);
   });
 
-  it.each([
-    { classes: ["c2"], open: false },
-    { classes: [], open: false },
-    { classes: ["c1"], open: true },
-  ])("checks next lesson access for $classes", async ({ classes, open }) => {
-    mockProject(
-      Response.json({ currentStage: 4, passedStages: [1, 2, 3, 4], drafts: {} }),
-      classes,
-    );
+  it("stays in the statistics lab after the final stage even when the next lab is available", async () => {
+    mockProject(Response.json({ currentStage: 4, passedStages: [1, 2, 3, 4], drafts: {} }));
     await renderAppAt(route, { auth: studentAuthState });
-    expect(await screen.findByRole("button", { name: "提交检查本关" })).toBeVisible();
-    if (open) expect(await screen.findByRole("link", { name: /前往下一课/ })).toBeVisible();
-    else expect(screen.queryByRole("link", { name: /前往下一课/ })).toBeNull();
+    expect(await screen.findByRole("button", { name: "Sigmoid 曲线" })).toBeVisible();
+    expect(screen.queryByRole("link", { name: /逻辑回归/ })).toBeNull();
   });
 });
