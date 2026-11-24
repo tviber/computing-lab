@@ -12,6 +12,7 @@ import { decodingRoutes } from "./decoding.ts";
 import { imageSamplingRoutes } from "./imageSampling.ts";
 import { lunchShiftRoutes } from "./lunchShift.ts";
 import { logisticRegressionRoutes } from "./logisticRegression.ts";
+import { statsFoundationsRoutes } from "./statsFoundations.ts";
 
 type LabCase = {
   labId: LabId;
@@ -60,6 +61,22 @@ const LAB_CASES: LabCase[] = [
       stageIndex: 3,
       expectedGeneration: 0,
       draft: { code: "def priority(u, w, c): return u", priority: null },
+    },
+  },
+  {
+    labId: "stats-foundations",
+    mount: statsFoundationsRoutes,
+    gatedStage: 3,
+    draftBody: {
+      stageIndex: 1,
+      expectedRevision: 0,
+      expectedGeneration: 0,
+      draft: { slope: 3.2, intercept: -22, showSquares: true, answer: 0 },
+    },
+    judgeBody: {
+      stageIndex: 3,
+      expectedGeneration: 0,
+      draft: { p: 0.7, viewMode: "likelihood", answer: 0 },
     },
   },
   {
@@ -156,7 +173,7 @@ async function setupEnv() {
 const labUrl = (classId: string, labId: LabId, path: string) =>
   `http://lab.test/api/classes/${classId}/labs/${labId}${path}`;
 
-describe("shared staff privilege abstraction across all 6 labs", () => {
+describe("shared staff privilege abstraction across all registered labs", () => {
   it("covers every registered LAB_ID", () => {
     expect(LAB_CASES.map((c) => c.labId).sort()).toEqual([...LAB_IDS].sort());
   });

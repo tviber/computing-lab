@@ -8,6 +8,7 @@ import {
   LOGISTIC_REGRESSION_CORE_STAGES,
   LOGISTIC_REGRESSION_STAGES,
 } from "../features/logistic-regression/domain/stages";
+import { STATS_FOUNDATIONS_STAGES } from "../features/stats-foundations/domain/stages";
 import type { LabId } from "../shared/lab/labMetadata";
 
 export type DashboardStage = {
@@ -47,6 +48,14 @@ export const APP_LABS = {
     component: lazyRouteComponent(
       () => import("../features/lunch-shift/ui/LunchShiftLabPage"),
       "LunchShiftLabPage",
+    ),
+  },
+  "stats-foundations": {
+    dashboardStages: STATS_FOUNDATIONS_STAGES,
+    homeProgressStages: STATS_FOUNDATIONS_STAGES.length,
+    component: lazyRouteComponent(
+      () => import("../features/stats-foundations/ui/StatsFoundationsLabPage"),
+      "StatsFoundationsLabPage",
     ),
   },
   "logistic-regression": {

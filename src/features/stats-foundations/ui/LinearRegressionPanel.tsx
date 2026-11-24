@@ -1,0 +1,267 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
+import { ConceptQuestion } from "./ConceptQuestion.tsx";
+import type { LinearRegressionDraft } from "../domain/protocol.ts";
+import type { StatsConceptQuestion } from "../domain/stages.ts";
+import {
+  computeOptimalLinearFit,
+  evaluateLinearFit,
+  LINEAR_INTERCEPT_MAX,
+  LINEAR_INTERCEPT_MIN,
+  LINEAR_MSE_THRESHOLD,
+  LINEAR_SLOPE_MAX,
+  LINEAR_SLOPE_MIN,
+  roundTo,
+} from "../domain/statsMath.ts";
+
+type Props = {
+  draft: LinearRegressionDraft;
+  question?: StatsConceptQuestion;
+  passed: boolean;
+  onChange: (next: LinearRegressionDraft) => void;
+};
+
+const SVG_W = 540;
+const SVG_H = 320;
+const PAD = { left: 52, right: 24, top: 20, bottom: 44 };
+const X_MIN = 14;
+const X_MAX = 32;
+const Y_MIN = 10;
+const Y_MAX = 90;
+
+function mapX(temp: number): number {
+  return PAD.left + ((temp - X_MIN) / (X_MAX - X_MIN)) * (SVG_W - PAD.left - PAD.right);
+}
+
+function mapY(cups: number): number {
+  return SVG_H - PAD.bottom - ((cups - Y_MIN) / (Y_MAX - Y_MIN)) * (SVG_H - PAD.top - PAD.bottom);
+}
+
+const optimal = computeOptimalLinearFit();
+
+export function LinearRegressionPanel({ draft, question, passed, onChange }: Props) {
+  const fit = evaluateLinearFit(draft.slope, draft.intercept);
+
+  const mseGood = fit.mse <= LINEAR_MSE_THRESHOLD;
+
+  const lineX1 = X_MIN;
+  const lineY1 = fit.slope * lineX1 + fit.intercept;
+  const lineX2 = X_MAX;
+  const lineY2 = fit.slope * lineX2 + fit.intercept;
+
+  return (
+    <div className="sf-panel">
+      <div className="sf-metrics-row">
+        <div className={`sf-metric-card ${mseGood ? "is-good" : ""}`}>
+          <span className="sf-metric-label">均方误差 MSE</span>
+          <strong className="sf-metric-value">{roundTo(fit.mse, 2)}</strong>
+          <span className="sf-metric-sub">
+            目标 ≤ {LINEAR_MSE_THRESHOLD}（理论最优 ≈ {roundTo(optimal.mse, 2)}）
+          </span>
+        </div>
+        <div className="sf-metric-card">
+          <span className="sf-metric-label">当前直线公式</span>
+          <strong className="sf-metric-value sf-mono">
+            y = {roundTo(fit.slope, 2)}x {fit.intercept >= 0 ? "+" : "−"}{" "}
+            {Math.abs(roundTo(fit.intercept, 1))}
+          </strong>
+          <span className="sf-metric-sub">w 是斜率，b 是截距</span>
+        </div>
+        <div className="sf-metric-card">
+          <span className="sf-metric-label">预测 30°C 销量</span>
+          <strong className="sf-metric-value">{Math.round(fit.predictAt30)} 杯</strong>
+          <span className="sf-metric-sub">实际 30°C 那天卖了 76 杯</span>
+        </div>
+      </div>
+
+      <div className="sf-workspace-grid">
+        <div className="sf-chart-card">
+          <div className="sf-chart-header">
+            <h3>气温 (°C) vs 冰奶茶销量 (杯)</h3>
+            <label className="sf-toggle">
+              <input
+                checked={draft.showSquares}
+                onChange={(e) => onChange({ ...draft, showSquares: e.target.checked })}
+                type="checkbox"
+              />
+              <span>显示残差方块（面积 = 误差²）</span>
+            </label>
+          </div>
+
+          <svg
+            role="img"
+            aria-label="线性回归散点图与残差方块"
+            className="sf-svg"
+            viewBox={`0 0 ${SVG_W} ${SVG_H}`}
+          >
+            {/* Grid lines */}
+            {[20, 40, 60, 80].map((yVal) => (
+              <g key={`gy-${yVal}`}>
+                <line
+                  className="sf-grid-line"
+                  x1={PAD.left}
+                  x2={SVG_W - PAD.right}
+                  y1={mapY(yVal)}
+                  y2={mapY(yVal)}
+                />
+                <text className="sf-axis-tick" textAnchor="end" x={PAD.left - 8} y={mapY(yVal) + 4}>
+                  {yVal}
+                </text>
+              </g>
+            ))}
+            {[16, 20, 24, 28, 30].map((xVal) => (
+              <g key={`gx-${xVal}`}>
+                <line
+                  className="sf-grid-line"
+                  x1={mapX(xVal)}
+                  x2={mapX(xVal)}
+                  y1={PAD.top}
+                  y2={SVG_H - PAD.bottom}
+                />
+                <text className="sf-axis-tick" textAnchor="middle" x={mapX(xVal)} y={SVG_H - 22}>
+                  {xVal}°C
+                </text>
+              </g>
+            ))}
+
+            {/* Axes */}
+            <line
+              className="sf-axis-line"
+              x1={PAD.left}
+              x2={SVG_W - PAD.right}
+              y1={SVG_H - PAD.bottom}
+              y2={SVG_H - PAD.bottom}
+            />
+            <line
+              className="sf-axis-line"
+              x1={PAD.left}
+              x2={PAD.left}
+              y1={PAD.top}
+              y2={SVG_H - PAD.bottom}
+            />
+            <text className="sf-axis-label" textAnchor="middle" x={SVG_W / 2} y={SVG_H - 4}>
+              当天最高气温 (°C)
+            </text>
+            <text
+              className="sf-axis-label"
+              textAnchor="middle"
+              transform={`rotate(-90 16 ${SVG_H / 2})`}
+              x={16}
+              y={SVG_H / 2}
+            >
+              冰奶茶销量 (杯)
+            </text>
+
+            <defs>
+              <clipPath id="sf-fit-plot">
+                <rect
+                  x={PAD.left}
+                  y={PAD.top}
+                  width={SVG_W - PAD.left - PAD.right}
+                  height={SVG_H - PAD.top - PAD.bottom}
+                />
+              </clipPath>
+            </defs>
+            <g clipPath="url(#sf-fit-plot)">
+              {fit.residuals.map((pt) => {
+                const cx = mapX(pt.temp);
+                const cyActual = mapY(pt.cups);
+                const cyPred = mapY(pt.predicted);
+                const side = Math.abs(cyActual - cyPred);
+                const topY = Math.min(cyActual, cyPred);
+                return (
+                  <g key={`res-${pt.day}`}>
+                    {draft.showSquares && side > 1 && (
+                      <rect
+                        className="sf-residual-square"
+                        height={side}
+                        width={side}
+                        x={cx}
+                        y={topY}
+                      />
+                    )}
+                    <line className="sf-residual-line" x1={cx} x2={cx} y1={cyActual} y2={cyPred} />
+                  </g>
+                );
+              })}
+
+              {/* Fitted line */}
+              <line
+                className="sf-fit-line"
+                x1={mapX(lineX1)}
+                x2={mapX(lineX2)}
+                y1={mapY(lineY1)}
+                y2={mapY(lineY2)}
+              />
+            </g>
+            {/* Data points */}
+            {fit.residuals.map((pt) => (
+              <circle
+                className="sf-data-dot"
+                cx={mapX(pt.temp)}
+                cy={mapY(pt.cups)}
+                key={`pt-${pt.day}`}
+                r={5}
+              >
+                <title>
+                  第 {pt.day} 天：{pt.temp}°C，实际 {pt.cups} 杯，预测 {roundTo(pt.predicted, 1)} 杯
+                </title>
+              </circle>
+            ))}
+          </svg>
+        </div>
+
+        <div className="sf-controls-card">
+          <h3>动手调直线</h3>
+          <div className="sf-slider-group">
+            <div className="sf-slider-head">
+              <label htmlFor="sf-slope">斜率 w（每升高 1°C 多卖几杯）</label>
+              <span className="sf-mono">{roundTo(draft.slope, 2)}</span>
+            </div>
+            <input
+              id="sf-slope"
+              max={LINEAR_SLOPE_MAX}
+              min={LINEAR_SLOPE_MIN}
+              onChange={(e) => onChange({ ...draft, slope: Number(e.target.value) })}
+              step={0.1}
+              type="range"
+              value={draft.slope}
+            />
+          </div>
+
+          <div className="sf-slider-group">
+            <div className="sf-slider-head">
+              <label htmlFor="sf-intercept">截距 b（基准偏移量）</label>
+              <span className="sf-mono">{roundTo(draft.intercept, 1)}</span>
+            </div>
+            <input
+              id="sf-intercept"
+              max={LINEAR_INTERCEPT_MAX}
+              min={LINEAR_INTERCEPT_MIN}
+              onChange={(e) => onChange({ ...draft, intercept: Number(e.target.value) })}
+              step={1}
+              type="range"
+              value={draft.intercept}
+            />
+          </div>
+
+          <div className="sf-note-box">
+            <strong>小发现：</strong>
+            每个红色正方形的边长就是「实际销量 − 预测销量」的绝对值，面积就是误差的平方。把 10
+            个正方形的面积加起来再除以 10，就是{" "}
+            <MathFormula>{String.raw`\mathrm{MSE}=\frac{1}{10}\sum_{i=1}^{10}(y_i-\hat y_i)^2`}</MathFormula>
+            。
+          </div>
+        </div>
+      </div>
+
+      {question && (
+        <ConceptQuestion
+          question={question}
+          answer={draft.answer}
+          passed={passed}
+          onAnswer={(answer) => onChange({ ...draft, answer })}
+        />
+      )}
+    </div>
+  );
+}

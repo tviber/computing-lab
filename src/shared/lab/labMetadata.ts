@@ -47,6 +47,11 @@ export const labMetadata = {
       "送对一张订单，教 AI 听懂顾客的各种说法、写函数排出先做哪张——12 张订单全对全准时才算真本事。",
     category: "information-systems",
   },
+  "stats-foundations": {
+    title: "统计基础",
+    description: "拟合奶茶销量、核对天气预报、估计硬币正面概率，最后用 Sigmoid 预测测验结果。",
+    category: "artificial-intelligence",
+  },
   "logistic-regression": {
     title: "逻辑回归",
     description: "从给词语打分开始，训练一个垃圾短信分类器，再用自己写的短信试试它。",

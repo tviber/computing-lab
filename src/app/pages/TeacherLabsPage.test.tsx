@@ -198,7 +198,7 @@ describe("TeacherLabsPage", () => {
     await renderAppAt("/teacher/labs", { auth: teacherAuthState });
 
     expect(await screen.findByText("逻辑回归")).toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(7);
+    expect(screen.getAllByRole("row")).toHaveLength(8);
     expect(
       screen.getByText(new RegExp(`服务器尚未注册：.*${labMetadata["logistic-regression"].title}`)),
     ).toBeInTheDocument();
