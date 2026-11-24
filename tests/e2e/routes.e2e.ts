@@ -97,8 +97,6 @@ test("ALU stage drawer stays on the shared page edge", async ({ page }, testInfo
     .filter({ has: page.getByRole("heading", { name: "实现ALU" }) });
   await card.getByRole("link", { name: "开始实验" }).click();
   await expect(page.getByRole("main", { name: "计算器实验区" })).toBeVisible();
-  const skip = page.getByRole("button", { name: "跳过引导", exact: true });
-  if (await skip.isVisible()) await skip.click();
 
   for (const [width, inset] of [
     [1440, 48],
@@ -149,8 +147,6 @@ test("browser back leaves a lab and forward reopens it without a redirect loop",
   expect(labUrl).toMatch(/\/classes\/[^/]+\/labs\/calculator/);
 
   const verifyUndo = async () => {
-    const skip = page.getByRole("button", { name: "跳过引导", exact: true });
-    if (await skip.isVisible()) await skip.click();
     const input = page.getByRole("button", { name: /^切换 A，当前 [01]$/ });
     const before = await input.getAttribute("aria-label");
     await input.click();

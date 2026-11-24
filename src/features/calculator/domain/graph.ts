@@ -92,6 +92,25 @@ export function gateOutputPorts(node: CircuitNode): string[] {
   return [];
 }
 
+/** Generated nodes, wires and their derived split/pack IDs share one numeric namespace. */
+export function availableGraphSequence(graph: CircuitGraph, first: number): number {
+  const used = new Set<string>();
+  for (const { id } of [...graph.nodes, ...graph.edges]) {
+    const match = /^[ne](\d+)(?:-|$)/.exec(id);
+    if (match) used.add(match[1]);
+  }
+  let next = first;
+  while (used.has(String(next))) next++;
+  return next;
+}
+
+export function withoutNodes(graph: CircuitGraph, removed: ReadonlySet<string>): CircuitGraph {
+  return {
+    nodes: graph.nodes.filter((node) => !removed.has(node.id)),
+    edges: graph.edges.filter((edge) => !removed.has(edge.from.node) && !removed.has(edge.to.node)),
+  };
+}
+
 export function emptyGraph(): CircuitGraph {
   return { nodes: [], edges: [] };
 }

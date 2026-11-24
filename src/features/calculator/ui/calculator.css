@@ -247,23 +247,6 @@
   font-size: 12px;
 }
 
-.stage-guide-trigger {
-  display: block;
-  margin-top: 10px;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--accent);
-  cursor: pointer;
-  font-size: 12px;
-  font-weight: 650;
-}
-
-.stage-guide-trigger:hover {
-  color: var(--focus-ring);
-  text-decoration: underline;
-}
-
 .palette {
   display: flex;
   align-items: center;
@@ -1138,155 +1121,34 @@
   line-height: 16px;
 }
 
-/* Coach: the first-run guided tour */
-.coach-card {
-  padding: 14px 16px;
-  border: 1px solid var(--accent-line);
+.full-adder-guide {
+  flex: none;
+  align-self: flex-start;
+  box-sizing: border-box;
+  width: min(21rem, calc(100% - 2rem));
+  max-height: 40dvh;
+  overflow: auto;
+  margin: 0 0 max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-inline-start: 3px solid var(--accent);
   border-radius: var(--radius-panel);
-  background: var(--accent-soft);
-}
-
-.coach-card-head {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 12px;
-}
-
-.coach-skip-all {
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: var(--muted);
-  cursor: pointer;
-  font-size: 11px;
-  text-decoration: underline;
-}
-
-.coach-skip-all:hover {
-  color: var(--primary);
-}
-
-.coach-title {
-  margin-top: 4px;
-  font-size: 14px;
-  font-weight: 700;
-}
-
-.coach-body {
-  margin-top: 6px;
-  color: var(--secondary);
-  font-size: 13px;
-  line-height: 20px;
-}
-
-.coach-rows {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 10px 0 0;
-  padding: 0;
-  list-style: none;
-}
-
-.coach-rows li {
-  padding: 4px 8px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  font-size: 11px;
-}
-
-.coach-rows code {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-weight: 700;
-}
-
-.coach-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-}
-
-.coach-explorer {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: 8px;
-  margin-top: 12px;
-  padding: 10px 12px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-}
-
-.coach-bit {
-  padding: 5px 10px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
   background: var(--surface);
   color: var(--primary);
-  cursor: pointer;
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 11px;
-  font-weight: 700;
+  box-shadow: var(--shadow-md);
 }
 
-.coach-bit.is-high {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-  color: var(--accent);
+.full-adder-guide h2 {
+  font-size: 1rem;
 }
 
-.coach-explorer-out {
-  font-family: "SFMono-Regular", Consolas, monospace;
-  font-size: 12px;
-  font-weight: 700;
+.calculator-lab:has(.custom-component-dialog) .full-adder-guide {
+  display: none;
 }
 
-/* Spotlight: pulse whichever element the current step points at. */
-@keyframes coach-pulse {
-  0%,
-  100% {
-    box-shadow:
-      0 0 0 2px var(--accent-soft),
-      0 0 0 4px color-mix(in srgb, var(--accent) 55%, transparent);
-  }
-  50% {
-    box-shadow:
-      0 0 0 4px var(--accent-soft),
-      0 0 0 7px color-mix(in srgb, var(--accent) 75%, transparent);
-  }
-}
-
-.coach-focus {
-  animation: coach-pulse 1.6s ease-in-out infinite;
-  border-radius: var(--radius-control);
-}
-
-g.circuit-node.coach-focus {
-  animation: none;
-  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 55%, transparent));
-}
-
-g.circuit-node.coach-focus .node-body,
-g.circuit-node.coach-focus .pin-body {
-  stroke: var(--accent);
-  stroke-width: 2.5;
-}
-
-circle.port.coach-focus {
-  animation: none;
-  fill: var(--accent);
-  stroke: var(--accent);
-  stroke-width: 3;
-}
-
-path.wire.coach-focus {
-  animation: none;
-  stroke: var(--accent);
-  stroke-width: 3.5;
+.full-adder-guide p {
+  margin: 0.5rem 0 0.75rem;
+  line-height: 1.6;
 }
 
 /* “更多元件” disclosure inside the palette row */

@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
-export const SCHEMA_VERSION = 21;
+export const SCHEMA_VERSION = 22;
 
 export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
 
@@ -451,6 +451,13 @@ export function migrate(db: DatabaseSync): void {
         SET snapshot_graph = json_remove(snapshot_graph, '$.probeText')
         WHERE lab_id = 'logistic-regression' AND stage_index BETWEEN 5 AND 7
           AND json_valid(snapshot_graph);
+      `);
+    }
+    if (version < 22) {
+      db.exec(`
+        CREATE TABLE IF NOT EXISTS calculator_full_adder_guide_acknowledgements (
+          user_id TEXT PRIMARY KEY NOT NULL REFERENCES users (id) ON DELETE CASCADE
+        );
       `);
     }
     if (version < SCHEMA_VERSION) db.exec(`PRAGMA user_version = ${SCHEMA_VERSION}`);

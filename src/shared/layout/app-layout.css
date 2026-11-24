@@ -409,11 +409,6 @@
   background: transparent;
 }
 
-.lab-page-grid.is-forced .lab-rail-zone {
-  position: static;
-  max-height: none;
-}
-
 .lab-page-grid.is-collapsed {
   grid-template-columns: 50px minmax(0, 1fr);
 }

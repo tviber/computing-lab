@@ -56,8 +56,10 @@ export function AppPageLayout({
   className,
   topbar,
   topbarProps,
+  footer,
 }: {
   children: ReactNode;
+  footer?: ReactNode;
   className?: string;
   topbar?: ReactNode;
   topbarProps?: Omit<AppTopbarProps, "children">;
@@ -66,6 +68,7 @@ export function AppPageLayout({
     <div className={`page-layout${className ? ` ${className}` : ""}`}>
       <AppTopbar {...topbarProps}>{topbar}</AppTopbar>
       <div className="page-layout-content">{children}</div>
+      {footer}
     </div>
   );
 }

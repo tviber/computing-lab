@@ -5,6 +5,7 @@ import { useAuth } from "../../shared/auth";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { CreateClassForm } from "./AdminForms";
 import type { AdminClass } from "./AdminTypes";
+import { AdminConfirmDialog } from "./AdminConfirmDialog";
 import "./admin.css";
 
 type DeleteTarget = { label: string; description: string; endpoint: string };
@@ -13,7 +14,6 @@ export function AdminClassesPage() {
   const { status, role } = useAuth();
   const [classes, setClasses] = useState<AdminClass[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const reload = useCallback(() => {
@@ -30,16 +30,9 @@ export function AdminClassesPage() {
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
     setError(null);
-    setBusy(true);
-    try {
-      await api.del(deleteTarget.endpoint);
-      setDeleteTarget(null);
-      reload();
-    } catch (caught) {
-      setError(describeApiError(caught));
-    } finally {
-      setBusy(false);
-    }
+    await api.del(deleteTarget.endpoint);
+    setDeleteTarget(null);
+    reload();
   }, [deleteTarget, reload]);
 
   if (status === "loading") {
@@ -103,7 +96,7 @@ export function AdminClassesPage() {
                     <td>
                       <button
                         className="button button-ghost admin-inline-button"
-                        disabled={busy || klass.memberCount > 0}
+                        disabled={klass.memberCount > 0}
                         onClick={() =>
                           setDeleteTarget({
                             label: `班级「${klass.name}」`,
@@ -130,36 +123,14 @@ export function AdminClassesPage() {
         </div>
 
         {deleteTarget ? (
-          <div className="admin-modal-backdrop" role="presentation">
-            <section
-              aria-labelledby="admin-delete-title"
-              aria-modal="true"
-              className="admin-modal"
-              role="dialog"
-            >
-              <p className="eyebrow">确认操作</p>
-              <h2 id="admin-delete-title">确定删除{deleteTarget.label}？</h2>
-              <p>{deleteTarget.description}</p>
-              <div className="admin-modal-actions">
-                <button
-                  className="button button-secondary"
-                  disabled={busy}
-                  onClick={() => setDeleteTarget(null)}
-                  type="button"
-                >
-                  取消
-                </button>
-                <button
-                  className="button button-danger"
-                  disabled={busy}
-                  onClick={() => void confirmDelete()}
-                  type="button"
-                >
-                  {busy ? "删除中…" : "确认删除"}
-                </button>
-              </div>
-            </section>
-          </div>
+          <AdminConfirmDialog
+            title={`确定删除${deleteTarget.label}？`}
+            description={deleteTarget.description}
+            pendingLabel="删除中…"
+            confirmLabel="确认删除"
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={confirmDelete}
+          />
         ) : null}
       </main>
     </AppPageLayout>

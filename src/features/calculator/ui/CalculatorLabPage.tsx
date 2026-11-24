@@ -7,12 +7,14 @@ import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
-import { evaluateGraph } from "../domain/evaluate";
-import type { CircuitGraph, ComponentDef } from "../domain/graph";
-import type { CalculatorJudgeResult, CalculatorSubmission } from "../domain/protocol";
+import type { CircuitGraph } from "../domain/graph";
+import type {
+  CalculatorJudgeResult,
+  CalculatorProjectPayload,
+  CalculatorSubmission,
+} from "../domain/protocol";
 import { calculatorStageAffectedByReset } from "../domain/stages";
 import {
-  componentMap,
   createCalculatorLessonState,
   graphOf,
   stageOf,
@@ -20,10 +22,15 @@ import {
   type CalculatorLessonAction,
 } from "../lesson/state";
 import { CalculatorLabWorkspace } from "./CalculatorLabWorkspace";
-import { useCalculatorCoach } from "./CoachCard";
+import { FullAdderGuide } from "./FullAdderGuide";
 import { AnnotatedText } from "./CalculatorTerms";
 
 export function CalculatorLabPage() {
+  const { session } = useAuth();
+  return <CalculatorProjectPage key={session?.user.id} />;
+}
+
+function CalculatorProjectPage() {
   const { classId } = useParams({ from: "/classes/$classId/labs/calculator" });
   const search = useSearch({ from: "/classes/$classId/labs/calculator" });
   const navigate = useNavigate();
@@ -39,7 +46,6 @@ export function CalculatorLabPage() {
   const [submitError, setSubmitError] = useState<string | null>(null);
 
   const graph = graphOf(state);
-  const components = useMemo(() => componentMap(state), [state.unlockedSubmodules]);
   const stage = stageOf(state);
   const stageIndex = state.stageIndex;
 
@@ -54,7 +60,7 @@ export function CalculatorLabPage() {
     saveGeneration,
     resetControls,
     flushPreservedDrafts,
-  } = useLabProject<CircuitGraph, { unlockedSubmodules: ComponentDef[] }, CalculatorLessonAction>({
+  } = useLabProject<CircuitGraph, CalculatorProjectPayload, CalculatorLessonAction>({
     classId,
     labId: "calculator",
     ready: status === "authenticated",
@@ -65,6 +71,8 @@ export function CalculatorLabPage() {
       type: "load-project",
       currentStage: project.currentStage,
       passedStages: project.passedStages,
+      guideAcknowledged: project.fullAdderGuideAcknowledged,
+      draftNotice: project.draftNotices?.join(" "),
       unlockedSubmodules: project.unlockedSubmodules,
       draftRevisions: project.draftRevisions,
       componentsRevision: project.draftRevisions?.components ?? 0,
@@ -92,11 +100,8 @@ export function CalculatorLabPage() {
     });
   }, [classId, navigate, projectLoaded, requestedStage, state.stageIndex]);
 
-  const preview = useMemo(() => evaluateGraph(graph, {}, components), [graph, components]);
-  const coach = useCalculatorCoach(state, preview.pins, projectLoaded, dispatch);
-
   const reconcileConflict = (s: number) =>
-    reconcileConflictedStage<CircuitGraph, { unlockedSubmodules: ComponentDef[] }>({
+    reconcileConflictedStage<CircuitGraph, CalculatorProjectPayload>({
       fetchProject,
       stageIndex: s,
       onResolved: (stageIndex, project) =>
@@ -187,6 +192,20 @@ export function CalculatorLabPage() {
   return (
     <AppPageLayout
       className="calculator-lab"
+      footer={
+        projectLoaded &&
+        stage?.id === "full-adder" &&
+        state.passedStages.includes(2) &&
+        !state.guideAcknowledged &&
+        state.unlockedSubmodules.some(
+          (component) => component.name === "HalfAdder" && !component.custom,
+        ) ? (
+          <FullAdderGuide
+            classId={classId}
+            onAcknowledged={() => dispatch({ type: "acknowledge-full-adder-guide" })}
+          />
+        ) : null
+      }
       topbar={
         <div className="calculator-status">
           <SaveIndicator
@@ -217,12 +236,10 @@ export function CalculatorLabPage() {
       }}
     >
       <CalculatorLabWorkspace
-        coach={coach}
         dispatch={dispatch}
         error={loadError ?? submitError}
         freeNavigation={isStaff}
         onSubmit={() => void onSubmit()}
-        projectLoaded={projectLoaded}
         resetControls={resetControls}
         state={state}
         submitting={submittingJudge || resetting}

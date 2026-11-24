@@ -30,6 +30,27 @@ export function nodeSize(
   return { width: NODE_WIDTH, height: HEADER_HEIGHT + rows * PORT_SPACING + 8 };
 }
 
+/** Find the first free slot in the insertion column, accounting for moved and resized nodes. */
+export function nodeDropPosition(
+  node: Pick<CircuitNode, "kind" | "name">,
+  graph: CircuitGraph,
+  components: ComponentCatalog,
+) {
+  const x = node.kind === "const" ? 120 : 320;
+  let y = 80;
+  const gap = 20;
+  const { width, height } = nodeSize({ ...node, id: "", x, y }, components);
+  const occupied = graph.nodes
+    .map((node) => ({ x: node.x, y: node.y, ...nodeSize(node, components) }))
+    .filter((box) => box.x < x + width + gap && box.x + box.width + gap > x)
+    .sort((a, b) => a.y - b.y);
+  for (const box of occupied) {
+    if (y + height + gap <= box.y) break;
+    y = Math.max(y, box.y + box.height + gap);
+  }
+  return { x, y };
+}
+
 /** Anchor point of one port, in canvas coordinates. */
 export function portAnchor(
   node: CircuitNode,

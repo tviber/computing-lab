@@ -10,10 +10,12 @@ import {
 } from "../http/context.ts";
 import {
   getOrCreateProject,
+  loadRepairedProject,
   resetLabProject,
   type DraftSaveResult,
   type LabJudgeError,
   type ProjectRow,
+  type ReconcileDrafts,
 } from "../judge/pipeline.ts";
 import { canAccessLab } from "../labs.ts";
 
@@ -34,6 +36,7 @@ type LabSpec<TDraft, TOutcome> = {
     library: unknown[],
     preservesStage: (stage: number) => boolean,
   ) => unknown[];
+  reconcileDrafts?: ReconcileDrafts<TDraft>;
   projectExtras?: (
     db: DatabaseSync,
     project: ProjectRow<TDraft>,
@@ -107,7 +110,13 @@ export function labRoutes<TDraft, TOutcome extends object>(
     const auth = requireAccess(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
     const db = c.get("db");
-    return c.json(projectPayload(db, auth, projectOf(db, auth)));
+    const load = () => projectOf(db, auth);
+    if (!spec.reconcileDrafts) return c.json(projectPayload(db, auth, load()));
+    const { project, notices } = loadRepairedProject(db, load, spec.reconcileDrafts);
+    return c.json({
+      ...projectPayload(db, auth, project),
+      ...(notices.length ? { draftNotices: notices } : {}),
+    });
   });
 
   app.post("/reset", async (c) => {
@@ -141,8 +150,12 @@ export function labRoutes<TDraft, TOutcome extends object>(
       fromStage,
       preservedStages,
       spec.keepSubmodulesOnReset,
+      spec.reconcileDrafts,
     );
-    return c.json(projectPayload(db, auth, reset));
+    return c.json({
+      ...projectPayload(db, auth, reset),
+      ...(reset.draftNotices.length ? { draftNotices: reset.draftNotices } : {}),
+    });
   });
 
   app.put("/draft", async (c) => {
