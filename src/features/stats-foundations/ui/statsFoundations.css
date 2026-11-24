@@ -1,13 +1,22 @@
 .sf-page-content {
-  --sf-accent: var(--primary);
+  --sf-accent: var(--accent);
+  accent-color: var(--sf-accent);
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
 }
 
-.sf-page-content[data-stage="linear-regression"] {
-  --sf-accent: var(--accent);
-  accent-color: var(--sf-accent);
+.sf-page-content .stage-brief {
+  --accent-soft: color-mix(in srgb, var(--sf-accent) 8%, var(--surface));
+  --accent-line: color-mix(in srgb, var(--sf-accent) 28%, var(--border));
+}
+
+.sf-page-content .lab-stage-task > h2 {
+  color: var(--sf-accent);
+}
+
+.sf-page-content .lab-stage-task > p {
+  color: var(--sf-accent);
 }
 
 .sf-panel {
