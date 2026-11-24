@@ -42,6 +42,38 @@ test("the full-adder guide stays in the lower left until acknowledged and stays 
     expect(box.x + box.width).toBeLessThanOrEqual(width);
     expect(800 - box.y - box.height).toBeCloseTo(16, 0);
   }
+  await page.setViewportSize({ width: 1280, height: 900 });
+  const shelfButton = page.getByRole("button", { name: "HalfAdder", exact: true });
+  await shelfButton.click();
+  await shelfButton.click();
+  const halves = page.locator(".circuit-node.kind-component").filter({ hasText: "HalfAdder" });
+  await expect(halves).toHaveCount(2);
+  const first = halves.first();
+  const bodies = halves.locator(".node-body");
+  const [a, b] = await bodies.evaluateAll((nodes) =>
+    nodes.map((node) => node.getBoundingClientRect().toJSON()),
+  );
+  expect(a.bottom <= b.top || b.bottom <= a.top || a.right <= b.left || b.right <= a.left).toBe(
+    true,
+  );
+
+  await first.getByRole("button", { name: "HalfAdder 输出 Sum", exact: true }).click();
+  await halves.last().getByRole("button", { name: "HalfAdder 输入 A", exact: true }).click();
+  await first.locator(".node-body").click();
+  await page.getByRole("button", { name: "封装为自定义组件" }).click();
+  const create = page.getByRole("dialog", { name: "把框选部分变成组件" });
+  await expect(create).toBeVisible();
+  await expect(confirm).toBeHidden();
+  await create.getByLabel("组件名称").fill("FirstHalf");
+  await create.getByRole("button", { name: "封装并替换" }).click();
+  await expect(confirm).toBeVisible();
+
+  await page.getByRole("button", { name: "编辑自定义组件 FirstHalf" }).click();
+  const edit = page.getByRole("dialog", { name: "编辑自定义组件" });
+  await expect(edit).toBeVisible();
+  await expect(confirm).toBeHidden();
+  await edit.getByRole("button", { name: "取消" }).click();
+  await expect(confirm).toBeVisible();
   await page.reload();
   await expect(confirm).toBeVisible();
   await confirm.press("Enter");

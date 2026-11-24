@@ -14,13 +14,8 @@ export function FullAdderGuide({
   const [error, setError] = useState("");
 
   useEffect(() => {
-    const element = card.current;
     if (document.activeElement instanceof HTMLElement)
       previousFocus.current = document.activeElement;
-    if (element && typeof element.showPopover === "function") {
-      element.popover = "manual";
-      element.showPopover();
-    }
   }, []);
 
   async function acknowledge() {

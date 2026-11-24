@@ -1122,14 +1122,13 @@
 }
 
 .full-adder-guide {
-  position: fixed;
-  inset: auto auto max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
-  z-index: 5;
+  flex: none;
+  align-self: flex-start;
   box-sizing: border-box;
   width: min(21rem, calc(100% - 2rem));
-  max-height: calc(100dvh - 2rem);
+  max-height: 40dvh;
   overflow: auto;
-  margin: 0;
+  margin: 0 0 max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
   padding: 1rem;
   border: 1px solid var(--border);
   border-inline-start: 3px solid var(--accent);
@@ -1141,6 +1140,10 @@
 
 .full-adder-guide h2 {
   font-size: 1rem;
+}
+
+.calculator-lab:has(.custom-component-dialog) .full-adder-guide {
+  display: none;
 }
 
 .full-adder-guide p {

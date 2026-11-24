@@ -191,6 +191,20 @@ function CalculatorProjectPage() {
   return (
     <AppPageLayout
       className="calculator-lab"
+      footer={
+        projectLoaded &&
+        stage?.id === "full-adder" &&
+        state.passedStages.includes(2) &&
+        !state.guideAcknowledged &&
+        state.unlockedSubmodules.some(
+          (component) => component.name === "HalfAdder" && !component.custom,
+        ) ? (
+          <FullAdderGuide
+            classId={classId}
+            onAcknowledged={() => dispatch({ type: "acknowledge-full-adder-guide" })}
+          />
+        ) : null
+      }
       topbar={
         <div className="calculator-status">
           <SaveIndicator
@@ -229,15 +243,6 @@ function CalculatorProjectPage() {
         state={state}
         submitting={submittingJudge || resetting}
       />
-      {projectLoaded &&
-      stage?.id === "full-adder" &&
-      state.passedStages.includes(2) &&
-      !state.guideAcknowledged ? (
-        <FullAdderGuide
-          classId={classId}
-          onAcknowledged={() => dispatch({ type: "acknowledge-full-adder-guide" })}
-        />
-      ) : null}
     </AppPageLayout>
   );
 }

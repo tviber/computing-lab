@@ -2,6 +2,7 @@ import { act, fireEvent, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt } from "../../../test/router-test-helpers";
 import type { CircuitGraph } from "../domain/graph";
+import { halfAdderGraph } from "../domain/fixtures";
 
 afterEach(() => {
   vi.clearAllTimers();
@@ -48,22 +49,34 @@ describe("CalculatorLabPage autosave", () => {
 });
 
 describe("CalculatorLabPage full-adder guide", () => {
-  it("requires a half-adder pass even when navigating directly to the full adder", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Response.json({
-          currentStage: 2,
-          passedStages: [1],
-          unlockedSubmodules: [],
-          drafts: {},
-        }),
-      ),
-    );
-    await renderAppAt("/classes/c1/labs/calculator?stage=3");
-    expect(await screen.findByRole("heading", { name: "实现ALU - 全加器" })).toBeVisible();
-    expect(screen.queryByRole("button", { name: "我知道了" })).toBeNull();
-  });
+  const halfAdder = { name: "HalfAdder", graph: halfAdderGraph() };
+  it.each([
+    { reason: "missing pass", passedStages: [1], unlockedSubmodules: [halfAdder] },
+    { reason: "missing shelf component", passedStages: [1, 2], unlockedSubmodules: [] },
+    {
+      reason: "custom namesake",
+      passedStages: [1, 2],
+      unlockedSubmodules: [{ ...halfAdder, custom: true }],
+    },
+  ])(
+    "skips the full-adder guide on direct entry with $reason",
+    async ({ passedStages, unlockedSubmodules }) => {
+      vi.stubGlobal(
+        "fetch",
+        vi.fn(async () =>
+          Response.json({
+            currentStage: 2,
+            passedStages,
+            unlockedSubmodules,
+            drafts: {},
+          }),
+        ),
+      );
+      await renderAppAt("/classes/c1/labs/calculator?stage=3");
+      expect(await screen.findByRole("heading", { name: "实现ALU - 全加器" })).toBeVisible();
+      expect(screen.queryByRole("button", { name: "我知道了" })).toBeNull();
+    },
+  );
 
   it("lets the learner retry if saving the acknowledgement fails", async () => {
     let attempts = 0;
@@ -79,7 +92,7 @@ describe("CalculatorLabPage full-adder guide", () => {
         return Response.json({
           currentStage: 3,
           passedStages: [1, 2],
-          unlockedSubmodules: [],
+          unlockedSubmodules: [halfAdder],
           drafts: {},
           fullAdderGuideAcknowledged: false,
         });

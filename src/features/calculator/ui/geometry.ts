@@ -30,6 +30,23 @@ export function nodeSize(
   return { width: NODE_WIDTH, height: HEADER_HEIGHT + rows * PORT_SPACING + 8 };
 }
 
+/** Find the first free slot in the shelf's drop column, accounting for moved and resized nodes. */
+export function shelfDropPosition(name: string, graph: CircuitGraph, components: ComponentCatalog) {
+  const x = 320;
+  let y = 80;
+  const gap = 20;
+  const { height } = nodeSize({ id: "", kind: "component", name, x, y }, components);
+  const occupied = graph.nodes
+    .map((node) => ({ x: node.x, y: node.y, ...nodeSize(node, components) }))
+    .filter((box) => box.x < x + NODE_WIDTH + gap && box.x + box.width + gap > x)
+    .sort((a, b) => a.y - b.y);
+  for (const box of occupied) {
+    if (y + height + gap <= box.y) break;
+    y = Math.max(y, box.y + box.height + gap);
+  }
+  return { x, y };
+}
+
 /** Anchor point of one port, in canvas coordinates. */
 export function portAnchor(
   node: CircuitNode,

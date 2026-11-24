@@ -14,6 +14,7 @@ import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/La
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { BusReadout } from "./BusReadout";
 import { CircuitCanvas } from "./CircuitCanvas";
+import { shelfDropPosition } from "./geometry";
 import { StageRail } from "./StageRail";
 import { TestPanel } from "./TestPanel";
 import { AnnotatedText, CalculatorTermGuide } from "./CalculatorTerms";
@@ -80,7 +81,12 @@ export function CalculatorLabWorkspace({
             freeNavigation={freeNavigation}
             passedStages={state.passedStages}
             onPlaceComponent={(name) =>
-              dispatch({ type: "add-node", kind: "component", name, x: 320, y: 80 })
+              dispatch({
+                type: "add-node",
+                kind: "component",
+                name,
+                ...shelfDropPosition(name, graph, componentDefinitions),
+              })
             }
             onEditCustomComponent={setEditingComponentName}
             onDeleteCustomComponent={(name) => dispatch({ type: "delete-custom-component", name })}
