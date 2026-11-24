@@ -6,10 +6,6 @@
   gap: var(--space-4);
 }
 
-.lunch-task strong {
-  font-weight: 650;
-}
-
 .lunch-note {
   color: var(--secondary);
   font-size: 13px;

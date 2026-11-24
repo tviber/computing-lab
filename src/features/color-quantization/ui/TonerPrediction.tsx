@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import {
   colorDist2,
   PAPER,
@@ -21,13 +22,11 @@ export const practiceCandidates = rack.map((color) => color.rgb);
 
 function Distance({ source, candidate }: { source: RGB; candidate: number }) {
   const { rgb, name } = rack[candidate];
+  const terms = source.map((value, channel) => `(${value}-${rgb[channel]})^2`);
   return (
     <p>
       <strong>{name}</strong> ·{" "}
-      <code>
-        {source.map((value, channel) => `(${value} − ${rgb[channel]})²`).join(" + ")} ={" "}
-        {colorDist2(source, rgb)}
-      </code>
+      <MathFormula>{`${terms.join(" + ")} = ${colorDist2(source, rgb)}`}</MathFormula>
     </p>
   );
 }

@@ -10,6 +10,7 @@ import {
   type CalculatorLessonState,
 } from "../lesson/state";
 import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/LabPageShell";
+import { StageTask } from "../../../shared/lab/StageTask";
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { BusReadout } from "./BusReadout";
 import { CircuitCanvas } from "./CircuitCanvas";
@@ -94,7 +95,11 @@ export function CalculatorLabWorkspace({
       >
         <main aria-label="计算器实验区" className="calculator-workspace">
           <section className="stage-brief">
-            <p>{stage ? <AnnotatedText text={stage.description} /> : null}</p>
+            {stage ? (
+              <StageTask>
+                <AnnotatedText text={stage.description} />
+              </StageTask>
+            ) : null}
             {stage?.details ? (
               <details className="stage-details">
                 <summary>为什么？</summary>

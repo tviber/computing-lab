@@ -170,7 +170,9 @@ describe("LogisticRegressionLabPage", () => {
     expect(results.queryByRole("button")).not.toBeInTheDocument();
     const firstResult = within(results.getAllByRole("listitem")[0]);
     expect(firstResult.getByText("漏拦")).toBeInTheDocument();
-    expect(firstResult.getByText("w·x = 0")).toBeInTheDocument();
+    expect(
+      firstResult.getByText(String.raw`w\cdot x = 0`, { selector: "annotation" }).closest("math"),
+    ).not.toBeNull();
 
     const tierSelections: Record<string, string> = {
       中奖: "+2 强垃圾",
@@ -188,7 +190,9 @@ describe("LogisticRegressionLabPage", () => {
 
     expect(screen.getByText("判对 6 / 6")).toBeInTheDocument();
     expect(firstResult.getByText("正确拦截")).toBeInTheDocument();
-    expect(firstResult.getByText("w·x = +4")).toBeInTheDocument();
+    expect(
+      firstResult.getByText(String.raw`w\cdot x = +4`, { selector: "annotation" }).closest("math"),
+    ).not.toBeNull();
 
     for (const prompt of LOGISTIC_REGRESSION_STAGES[0].prompts) {
       const btn = await screen.findByRole("button", { name: prompt.options[prompt.correct].label });
@@ -348,12 +352,14 @@ describe("LogisticRegressionLabPage", () => {
     expect(within(beforeAfter).getByText(/准确率：已超过 86\.0% 多数类基线/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/BCE Loss 0\.6931 →/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/优于训练集固定先验基线/)).toBeInTheDocument();
-    expect(screen.getByText(/损失 = −ln/)).toBeInTheDocument();
+    expect(
+      screen.getByText(/模型给真实标签的概率/, { selector: "mtext" }).closest("math"),
+    ).not.toBeNull();
     expect(screen.getByText("梯度与权重更新")).toBeInTheDocument();
     expect(screen.getByLabelText("预测概率与损失")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "权重改变量" })).toBeInTheDocument();
 
-    const appendixToggle = screen.getByRole("button", { name: /数学推导（选读，不考查）/ });
+    const appendixToggle = screen.getByRole("button", { name: "数学推导" });
     expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByText("从极大似然到最小化交叉熵")).not.toBeInTheDocument();
 
@@ -361,6 +367,10 @@ describe("LogisticRegressionLabPage", () => {
     expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("从极大似然到最小化交叉熵")).toBeInTheDocument();
     expect(screen.getByText(/相乘时约掉这一项/)).toBeInTheDocument();
+    const appendix = document.getElementById(appendixToggle.getAttribute("aria-controls")!)!;
+    expect(appendix.querySelectorAll("math[display=block]")).toHaveLength(6);
+    expect(appendix.querySelector("mfrac")).not.toBeNull();
+    expect(appendix.querySelector(".katex-error")).toBeNull();
     expect(screen.getByText("链式法则如何化简权重梯度")).toBeInTheDocument();
     expect(screen.queryByText("概念检查")).not.toBeInTheDocument();
 

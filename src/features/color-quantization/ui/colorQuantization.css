@@ -16,21 +16,11 @@
 .quant-explorer,
 .quant-guided,
 .quant-panel,
-.quant-result,
-.quant-brief {
+.quant-result {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   padding: 16px 20px;
-}
-
-.quant-details {
-  font-size: 13px;
-}
-
-.quant-details summary {
-  color: var(--accent-ink);
-  cursor: pointer;
 }
 
 .quant-hidden-note {
@@ -280,14 +270,6 @@
   color: var(--warning-ink);
   font-size: 12px;
   margin: 6px 0 0;
-}
-
-.quant-mission {
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-  border-radius: var(--radius-control);
-  font-weight: 500;
-  padding: 10px 12px;
 }
 
 .quant-guided-next {

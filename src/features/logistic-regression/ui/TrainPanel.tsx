@@ -1,4 +1,5 @@
 import { useDeferredValue, useId, useMemo, useState } from "react";
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import {
   binaryLogLoss,
   BLIND_GUESS_LOSS,
@@ -366,7 +367,7 @@ export function TrainPanel({
         <div className="logistic-regression-panel-head">
           <h3>一条短信如何更新权重</h3>
           <span className="logistic-regression-mono logistic-regression-muted-note">
-            Δwⱼ = −η · (p − y) · xⱼ
+            <MathFormula>{String.raw`\Delta w_j=-\eta\,(p-y)\,x_j`}</MathFormula>
           </span>
         </div>
         <div className="logistic-regression-micro-controls">
@@ -414,7 +415,9 @@ export function TrainPanel({
             </small>
           </div>
           <div className="logistic-regression-stat-box">
-            <span>偏差信号 (p − y)</span>
+            <span>
+              偏差信号 <MathFormula>p-y</MathFormula>
+            </span>
             <strong className="logistic-regression-mono">
               {stepDemo.errorSignal >= 0 ? "+" : ""}
               {stepDemo.errorSignal.toFixed(2)}
@@ -422,7 +425,9 @@ export function TrainPanel({
             <small>{stepTrueY === 1 ? "低估了垃圾概率" : "高估了垃圾概率"}</small>
           </div>
           <div className="logistic-regression-stat-box">
-            <span>出现词的权重改变量（xⱼ = 1）</span>
+            <span>
+              出现词的权重改变量（<MathFormula>x_j=1</MathFormula>）
+            </span>
             <strong
               className={`logistic-regression-mono ${stepDemo.deltaW >= 0 ? "is-pos" : "is-neg"}`}
             >

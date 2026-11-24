@@ -3,6 +3,7 @@ import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
+import { StageTask } from "../../../shared/lab/StageTask";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -10,6 +11,7 @@ import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveSt
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { Icon } from "../../../shared/ui/Icon";
+import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import type { SamplingJudgeResult, SamplingSubmission } from "../domain/protocol.ts";
 import { IMAGE_SAMPLING_STAGES, type SamplingStageDef } from "../domain/stages.ts";
 import {
@@ -45,7 +47,7 @@ function StageBrief({ stage }: { stage: SamplingStageDef }) {
         : "本关宽和高可以不同。";
   return (
     <section className="stage-brief">
-      <p className="stage-mission">{stage.mission}</p>
+      <StageTask>{stage.mission}</StageTask>
       <p>{stage.description}</p>
       <p className="submit-note">
         判定方式：{resolutionSource} {stage.mode === "square" ? "n×n" : "宽×高"}
@@ -56,10 +58,7 @@ function StageBrief({ stage }: { stage: SamplingStageDef }) {
           ? `本关必须先写并运行 choose_size(images)，不能手动指定分辨率。${axisNote}`
           : axisNote}
       </p>
-      <details className="stage-details">
-        <summary>提示</summary>
-        <p>{stage.hint}</p>
-      </details>
+      <HintDisclosure key={stage.id}>{stage.hint}</HintDisclosure>
     </section>
   );
 }

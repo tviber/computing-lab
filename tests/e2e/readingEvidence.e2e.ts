@@ -6,6 +6,11 @@ for (const width of [1440, 390]) {
   }, testInfo) => {
     test.setTimeout(30_000);
     const errors: string[] = [];
+    const mathAssets: string[] = [];
+    page.on("request", (req) => {
+      const path = new URL(req.url()).pathname;
+      if (/\/assets\/(?:MathFormula-|KaTeX_)/.test(path)) mathAssets.push(path);
+    });
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(message.text());
@@ -58,6 +63,7 @@ for (const width of [1440, 390]) {
     await reader.getByRole("button", { name: /展开其余/ }).click();
     await expect(table.getByRole("cell").last()).toHaveAttribute("title", "data[245]");
 
+    expect(mathAssets).toEqual([]);
     await reader.getByRole("button", { name: "试读图像高度" }).click();
     const practice = reader.getByRole("form", { name: "试读图像高度" });
     const source = practice.getByRole("radio", { name: /^从 #18 开始/ });
@@ -72,6 +78,8 @@ for (const width of [1440, 390]) {
     await expect(practice.getByRole("radio", { name: /^从 #22 开始/ })).toBeChecked();
     await practice.getByRole("button", { name: "核对读数" }).click();
     await expect(practice.getByRole("status")).toContainText("还原 8 行像素");
+    await expect(practice.locator(".katex-html")).toBeVisible();
+    expect(mathAssets.some((path) => path.endsWith(".js"))).toBe(true);
     await expect(practice.locator("td.is-field")).toHaveCount(4);
     await reader.screenshot({ path: testInfo.outputPath("height-practice.png") });
     await reader.getByRole("button", { name: "返回字段导览" }).click();

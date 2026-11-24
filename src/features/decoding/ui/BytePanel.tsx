@@ -1,9 +1,10 @@
-import { useId, useState } from "react";
+import { lazy, Suspense, useId, useState } from "react";
 import { BMP_FIELD_OFFSETS, BMP_PROFILE } from "../domain/bmp.ts";
 import { bitsToByte, CHAR_TABLE } from "../domain/encoding.ts";
 import type { LabPayload } from "../domain/protocol.ts";
-import { BmpHeightPractice } from "./BmpHeightPractice.tsx";
 import { ByteTable } from "./ByteTable.tsx";
+
+const BmpHeightPractice = lazy(() => import("./BmpHeightPractice.tsx"));
 
 const BMP_FIELDS = [
   {
@@ -81,7 +82,9 @@ function BmpBytes({
       </div>
       <div id={readerId}>
         {practicing ? (
-          <BmpHeightPractice bytes={bytes} />
+          <Suspense fallback={<p role="status">正在加载读数练习…</p>}>
+            <BmpHeightPractice bytes={bytes} />
+          </Suspense>
         ) : (
           <>
             <div id={tableId}>

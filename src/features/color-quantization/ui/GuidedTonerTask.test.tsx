@@ -11,8 +11,8 @@ it("lets students compare two actual distances, retry, and revisit a color", () 
   expect(within(rack).getAllByRole("button")).toHaveLength(9);
   fireEvent.click(within(rack).getByRole("button", { name: /black/ }));
   expect(screen.getByText(/你选了 black，red 更近/)).toBeVisible();
-  expect(screen.getByText(/= 24464$/)).toBeVisible();
-  expect(screen.getByText(/= 300$/)).toBeVisible();
+  expect(screen.getByText("24464", { selector: ".katex-html .mord" })).toBeVisible();
+  expect(screen.getByText("300", { selector: ".katex-html .mord" })).toBeVisible();
   fireEvent.click(within(rack).getByRole("button", { name: /red/ }));
   expect(screen.getByText(/猜中了/)).toBeVisible();
   fireEvent.click(screen.getByRole("button", { name: "navy" }));

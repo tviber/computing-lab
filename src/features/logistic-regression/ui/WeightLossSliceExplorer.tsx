@@ -1,4 +1,5 @@
 import { useMemo, useRef, useState, type KeyboardEvent, type PointerEvent } from "react";
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import {
   buildWordSliceDataset,
@@ -371,8 +372,9 @@ export function WeightLossSliceExplorer({ trainedModel }: { trainedModel: Traine
 
       <p className="logistic-regression-data-guide">
         真实模型有几千个词，画不出来全貌。我们先把其他词权重固定住，只单独调「{selectedWord}
-        」的权重：不含该词的短信（x<sub>j</sub>=0）不会受这个词影响，所以这里只统计包含该词的{" "}
-        {dataset.totalCount} 条短信，观察权重怎么顺着坡度滑进最低点。
+        」的权重：不含该词的短信（<MathFormula>x_j=0</MathFormula>
+        ）不会受这个词影响，所以这里只统计包含该词的 {dataset.totalCount}{" "}
+        条短信，观察权重怎么顺着坡度滑进最低点。
       </p>
 
       <div className="logistic-regression-slice-toolbar">

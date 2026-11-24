@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { MathText } from "../../../shared/ui/MathFormula";
 import { Icon } from "../../../shared/ui/Icon.tsx";
 import type { ConceptAnswers } from "../domain/protocol.ts";
 import type { ConceptPrompt } from "../domain/stages.ts";
@@ -51,10 +52,12 @@ export function ConceptChecklist({
                     <Icon name="check" size={13} />
                   </span>
                 ) : null}
-                {prompt.prompt}
+                <MathText>{prompt.prompt}</MathText>
               </p>
               {isDone ? (
-                <p className="logistic-regression-guide-reveal">{prompt.reveal}</p>
+                <p className="logistic-regression-guide-reveal">
+                  <MathText>{prompt.reveal}</MathText>
+                </p>
               ) : isNext ? (
                 <div className="logistic-regression-guide-options">
                   {prompt.options.map((opt, oi) => {
@@ -66,9 +69,13 @@ export function ConceptChecklist({
                         onClick={() => handleClick(prompt, oi)}
                         type="button"
                       >
-                        <span>{opt.label}</span>
+                        <span>
+                          <MathText>{opt.label}</MathText>
+                        </span>
                         {isWrong && opt.note ? (
-                          <span className="logistic-regression-guide-note">{opt.note}</span>
+                          <span className="logistic-regression-guide-note">
+                            <MathText>{opt.note}</MathText>
+                          </span>
                         ) : null}
                       </button>
                     );

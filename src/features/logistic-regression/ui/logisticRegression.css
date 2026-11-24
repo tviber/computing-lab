@@ -30,26 +30,6 @@
   margin-bottom: var(--space-2);
 }
 
-.logistic-regression-lab .stage-brief {
-  border: 1px solid var(--border);
-  border-radius: var(--radius-panel);
-  padding: var(--space-3) var(--space-4);
-  background: var(--surface);
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.logistic-regression-lab .stage-brief p:where(:not(.stage-takeaway)) {
-  font-size: 14px;
-  line-height: 1.65;
-  margin: 0;
-}
-
-.logistic-regression-desc {
-  color: var(--secondary);
-}
-
 .logistic-regression-hints-list {
   display: flex;
   flex-direction: column;
@@ -622,7 +602,7 @@ button.logistic-regression-triage-card {
   gap: 2px;
 }
 
-.logistic-regression-stat-box span {
+.logistic-regression-stat-box > span {
   font-size: 11px;
   color: var(--muted);
 }
@@ -1391,7 +1371,7 @@ button.logistic-regression-triage-card {
   color: var(--secondary);
 }
 
-.logistic-regression-math-line {
+.logistic-regression-derivation-steps .math-formula-block {
   display: block;
   margin-top: 3px;
   padding: 4px 8px;
