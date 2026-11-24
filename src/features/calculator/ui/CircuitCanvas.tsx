@@ -325,6 +325,7 @@ export function CircuitCanvas({
             const from = portAnchor(fromNode, edge.from.port, "out", components);
             const to = portAnchor(toNode, edge.to.port, "in", components);
             const value = portValues[`${edge.from.node}#${edge.from.port}`];
+            // Each input has one driver, even in older drafts that reused wire IDs.
             return (
               <path
                 aria-label={
@@ -334,7 +335,7 @@ export function CircuitCanvas({
                 }
                 className={`wire${valueClass(value)}`}
                 d={wirePath(from, to)}
-                key={edge.id}
+                key={JSON.stringify([edge.to.node, edge.to.port])}
                 onClick={(event) => {
                   if (readOnly) return;
                   event.stopPropagation();

@@ -194,6 +194,7 @@ export function CalculatorLabWorkspace({
           {stage ? <BusReadout pins={preview.pins} stage={stage} /> : null}
 
           <CircuitCanvas
+            key={state.stageIndex}
             components={componentDefinitions}
             dispatch={dispatch}
             graph={graph}
