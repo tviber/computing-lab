@@ -5,6 +5,7 @@ import { createSession } from "../auth/session.ts";
 import { newId, openMemoryDb } from "../db/client.ts";
 import { attachDb, attachSession, type AppVariables } from "../http/context.ts";
 import { LAB_IDS, type LabId } from "../../src/shared/lab/labMetadata.ts";
+import type { CalculatorProjectPayload } from "../../src/features/calculator/domain/protocol.ts";
 import { calculatorRoutes } from "./calculator.ts";
 import { colorQuantizationRoutes } from "./colorQuantization.ts";
 import { decodingRoutes } from "./decoding.ts";
@@ -511,10 +512,36 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
       component("Nested", "Direct"),
       component("Independent", "HalfAdder"),
     ];
+    const nodes = ["Independent", "HalfAdder", "Nested", "Lost"].map((name, i) => ({
+      id: name,
+      kind: "component",
+      name,
+      x: i * 100,
+      y: 0,
+    }));
+    const edges = nodes.slice(1).map((node, i) => ({
+      id: `e${i}`,
+      from: { node: nodes[i].id, port: "out" },
+      to: { node: node.id, port: "in" },
+    }));
+    const projectId = newId();
     db.prepare(
-      `INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage, passed_stages, unlocked_submodules)
-       VALUES (?, ?, ?, 'calculator', 5, '[1,2,3,4]', ?)`,
-    ).run(newId(), studentId, classId, JSON.stringify(library));
+      `INSERT INTO student_projects (id, user_id, class_id, lab_id, current_stage, passed_stages, unlocked_submodules, draft_graph, draft_revisions)
+       VALUES (?, ?, ?, 'calculator', 5, '[1,2,3,4]', ?, ?, '{"2":7}')`,
+    ).run(
+      projectId,
+      studentId,
+      classId,
+      JSON.stringify(library),
+      JSON.stringify({ 2: { nodes, edges } }),
+    );
+    const load = () =>
+      app.request(labUrl(classId, "calculator", "/project"), {
+        headers: { cookie: cookieFor(studentId) },
+      });
+    const recovered = (await (await load()).json()) as CalculatorProjectPayload;
+    expect(recovered.drafts).toEqual({ 2: { nodes: nodes.slice(0, 3), edges: edges.slice(0, 2) } });
+    expect(recovered.draftNotices).toEqual([expect.stringContaining("Lost")]);
     const reset = (expectedGeneration: number) =>
       app.request(labUrl(classId, "calculator", "/reset"), {
         method: "POST",
@@ -523,8 +550,14 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
       });
     const response = await reset(0);
     expect(response.status).toBe(200);
-    const project = (await response.json()) as { unlockedSubmodules: unknown[] };
+    const project = (await response.json()) as CalculatorProjectPayload;
     expect(project.unlockedSubmodules).toEqual([library[0], library[4]]);
+    expect(project.drafts).toEqual({ 2: { nodes: nodes.slice(0, 2), edges: edges.slice(0, 1) } });
+    expect(project.draftRevisions).toEqual({ 2: 8 });
+    expect(project.draftNotices).toEqual([expect.stringContaining("Nested、Lost")]);
+    const reloaded = (await (await load()).json()) as CalculatorProjectPayload;
+    expect(reloaded.drafts).toEqual(project.drafts);
+    expect(reloaded.draftNotices).toBeUndefined();
     expect((await reset(0)).status).toBe(409);
   });
 

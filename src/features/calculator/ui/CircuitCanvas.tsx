@@ -227,12 +227,11 @@ export function CircuitCanvas({
   useEffect(() => {
     if (readOnly) return;
     const onKeyDown = (event: KeyboardEvent) => {
+      if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) return;
       const target = event.target;
       if (
         target instanceof Element &&
-        target.closest(
-          ".custom-component-dialog, input, textarea, select, [contenteditable='true']",
-        )
+        target.closest("input, textarea, select, [contenteditable='true']")
       ) {
         return;
       }

@@ -256,13 +256,19 @@ export function advanceStage<TDraft>(
   return { currentStage, passedStages };
 }
 
+export type ReconcileDrafts<TDraft> = (
+  drafts: Record<string, TDraft>,
+  library: unknown[],
+) => { drafts: Record<string, TDraft>; notices: string[] };
+
 export function resetLabProject<TDraft = unknown>(
   db: DatabaseSync,
   projectId: string,
   fromStage: number,
   preservedStages: number[],
   keepSubmodules?: (library: unknown[], preservesStage: (stage: number) => boolean) => unknown[],
-): ProjectRow<TDraft> {
+  reconcileDrafts?: ReconcileDrafts<TDraft>,
+): ProjectRow<TDraft> & { draftNotices: string[] } {
   return withTransaction(db, () => {
     const project = toProject<TDraft>(
       db.prepare("SELECT * FROM student_projects WHERE id = ?").get(projectId) as RawProject,
@@ -284,6 +290,10 @@ export function resetLabProject<TDraft = unknown>(
         ? []
         : (keepSubmodules?.(project.unlockedSubmodules, preservesStage) ??
           project.unlockedSubmodules);
+    const repaired = reconcileDrafts?.(drafts, library);
+    for (const [stage, draft] of Object.entries(repaired?.drafts ?? {})) {
+      if (draft !== drafts[stage]) draftRevisions[stage] = (draftRevisions[stage] ?? 0) + 1;
+    }
     const stageFilter =
       preserved.size === 0
         ? ""
@@ -312,10 +322,10 @@ export function resetLabProject<TDraft = unknown>(
         Math.min(project.currentStage, fromStage),
         JSON.stringify(passedStages),
         JSON.stringify(library),
-        JSON.stringify(drafts),
+        JSON.stringify(repaired?.drafts ?? drafts),
         JSON.stringify(draftRevisions),
         projectId,
       ) as RawProject;
-    return toProject<TDraft>(row);
+    return { ...toProject<TDraft>(row), draftNotices: repaired?.notices ?? [] };
   });
 }

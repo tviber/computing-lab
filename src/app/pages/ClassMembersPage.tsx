@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState, type FormEvent } from "react";
 import { api, describeApiError } from "../../shared/api/client";
 import { useAuth } from "../../shared/auth";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
+import { AdminConfirmDialog } from "./AdminConfirmDialog";
 import "./admin.css";
 import "./dashboard.css";
 
@@ -506,36 +507,14 @@ export function ClassMembersPage() {
         </div>
 
         {removeTarget ? (
-          <div className="admin-modal-backdrop" role="presentation">
-            <section
-              aria-labelledby="member-remove-title"
-              aria-modal="true"
-              className="admin-modal"
-              role="dialog"
-            >
-              <p className="eyebrow">确认操作</p>
-              <h2 id="member-remove-title">确定把{removeTarget.label}移出班级？</h2>
-              <p>{removeTarget.description}</p>
-              <div className="admin-modal-actions">
-                <button
-                  className="button button-secondary"
-                  disabled={busy}
-                  onClick={() => setRemoveTarget(null)}
-                  type="button"
-                >
-                  取消
-                </button>
-                <button
-                  className="button button-danger"
-                  disabled={busy}
-                  onClick={confirmRemove}
-                  type="button"
-                >
-                  {busy ? "处理中…" : "确认移出"}
-                </button>
-              </div>
-            </section>
-          </div>
+          <AdminConfirmDialog
+            title={`确定把${removeTarget.label}移出班级？`}
+            description={removeTarget.description}
+            busy={busy}
+            confirmLabel={busy ? "处理中…" : "确认移出"}
+            onCancel={() => setRemoveTarget(null)}
+            onConfirm={confirmRemove}
+          />
         ) : null}
       </main>
     </AppPageLayout>

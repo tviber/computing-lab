@@ -1,11 +1,10 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { evaluateGraph } from "../domain/evaluate";
-import { GATE_LABEL, type CircuitGraph, type GateKind } from "../domain/graph";
+import { GATE_LABEL, type CircuitGraph, type CircuitNode } from "../domain/graph";
 import {
   componentCatalog,
   componentMap,
   graphOf,
-  paletteGates,
   stageOf,
   type CalculatorLessonAction,
   type CalculatorLessonState,
@@ -14,7 +13,7 @@ import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/La
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { BusReadout } from "./BusReadout";
 import { CircuitCanvas } from "./CircuitCanvas";
-import { shelfDropPosition } from "./geometry";
+import { nodeDropPosition } from "./geometry";
 import { StageRail } from "./StageRail";
 import { TestPanel } from "./TestPanel";
 import { AnnotatedText, CalculatorTermGuide } from "./CalculatorTerms";
@@ -67,8 +66,8 @@ export function CalculatorLabWorkspace({
 
   const preview = useMemo(() => evaluateGraph(graph, {}, components), [graph, components]);
 
-  const addGate = (kind: GateKind) =>
-    dispatch({ type: "add-node", kind, x: 300, y: 60 + (state.nextId % 6) * 44 });
+  const placeNode = (node: Pick<CircuitNode, "kind" | "name" | "value">) =>
+    dispatch({ type: "add-node", ...node, ...nodeDropPosition(node, graph, componentDefinitions) });
 
   return (
     <>
@@ -80,14 +79,7 @@ export function CalculatorLabWorkspace({
           <StageRail
             freeNavigation={freeNavigation}
             passedStages={state.passedStages}
-            onPlaceComponent={(name) =>
-              dispatch({
-                type: "add-node",
-                kind: "component",
-                name,
-                ...shelfDropPosition(name, graph, componentDefinitions),
-              })
-            }
+            onPlaceComponent={(name) => placeNode({ kind: "component", name })}
             onEditCustomComponent={setEditingComponentName}
             onDeleteCustomComponent={(name) => dispatch({ type: "delete-custom-component", name })}
             onSelectStage={(index) =>
@@ -145,11 +137,11 @@ export function CalculatorLabWorkspace({
             <section aria-label="元件" className="palette">
               <p className="eyebrow">元件</p>
               <div className="palette-items">
-                {paletteGates(state).map((kind) => (
+                {stage?.primitives.map((kind) => (
                   <button
                     className="palette-chip"
                     key={kind}
-                    onClick={() => addGate(kind)}
+                    onClick={() => placeNode({ kind })}
                     type="button"
                   >
                     <AnnotatedText text={GATE_LABEL[kind]} />
@@ -163,7 +155,7 @@ export function CalculatorLabWorkspace({
                         <button
                           className="palette-chip"
                           key={kind}
-                          onClick={() => addGate(kind)}
+                          onClick={() => placeNode({ kind })}
                           type="button"
                         >
                           <AnnotatedText text={GATE_LABEL[kind]} />
@@ -176,18 +168,14 @@ export function CalculatorLabWorkspace({
                   <>
                     <button
                       className="palette-chip is-const"
-                      onClick={() =>
-                        dispatch({ type: "add-node", kind: "const", value: 1, x: 120, y: 300 })
-                      }
+                      onClick={() => placeNode({ kind: "const", value: 1 })}
                       type="button"
                     >
                       常量 1
                     </button>
                     <button
                       className="palette-chip is-const"
-                      onClick={() =>
-                        dispatch({ type: "add-node", kind: "const", value: 0, x: 120, y: 340 })
-                      }
+                      onClick={() => placeNode({ kind: "const", value: 0 })}
                       type="button"
                     >
                       常量 0

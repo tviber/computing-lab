@@ -11,6 +11,8 @@ import {
   isValidComponentIdentifier,
 } from "../domain/componentize";
 import {
+  availableGraphSequence,
+  withoutNodes,
   emptyGraph,
   gateInputPorts,
   gateOutputPorts,
@@ -19,7 +21,6 @@ import {
   type CircuitGraph,
   type CircuitNode,
   type ComponentDef,
-  type GateKind,
   type NodeKind,
   type PortRef,
 } from "../domain/graph";
@@ -134,6 +135,7 @@ export type CalculatorLessonAction =
       stageIndex?: number;
       forceStage?: boolean;
       isReset?: boolean;
+      draftNotice?: string;
     }
   | { type: "select-stage"; stageIndex: number; force?: boolean }
   | { type: "undo" }
@@ -494,12 +496,7 @@ function deleteNodes(state: CalculatorLessonState, ids: string[]): CalculatorLes
   );
   if (removable.size === 0) return state;
   return {
-    ...updateGraph(state, (current) => ({
-      nodes: current.nodes.filter((node) => !removable.has(node.id)),
-      edges: current.edges.filter(
-        (edge) => !removable.has(edge.from.node) && !removable.has(edge.to.node),
-      ),
-    })),
+    ...updateGraph(state, (current) => withoutNodes(current, removable)),
     selectedNodeId:
       state.selectedNodeId && removable.has(state.selectedNodeId) ? null : state.selectedNodeId,
     nodeMove: null,
@@ -706,6 +703,7 @@ export function transitionCalculatorLesson(
         past: [],
         nodeMove: null,
         ...(action.isReset ? { selectedNodeId: null, pendingWire: null, message: null } : null),
+        ...(action.draftNotice ? { message: action.draftNotice } : {}),
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
         runOutcome: null,
@@ -732,7 +730,8 @@ export function transitionCalculatorLesson(
     }
 
     case "add-node": {
-      const id = `n${state.nextId}`;
+      const sequence = availableGraphSequence(graphOf(state), state.nextId);
+      const id = `n${sequence}`;
       const node: CircuitNode = {
         id,
         kind: action.kind,
@@ -743,7 +742,7 @@ export function transitionCalculatorLesson(
       };
       return {
         ...updateGraph(state, (graph) => ({ ...graph, nodes: [...graph.nodes, node] })),
-        nextId: state.nextId + 1,
+        nextId: sequence + 1,
         selectedNodeId: id,
       };
     }
@@ -781,7 +780,8 @@ export function transitionCalculatorLesson(
       ) {
         return { ...state, message: `组件名称“${name}”已存在，请换一个名称。` };
       }
-      const componentNodeId = `n${state.nextId}`;
+      const sequence = availableGraphSequence(graphOf(state), state.nextId);
+      const componentNodeId = `n${sequence}`;
       const result = componentizeSelection({
         graph: graphOf(state),
         selectedIds: action.selectedIds,
@@ -791,7 +791,7 @@ export function transitionCalculatorLesson(
         inputPortKeys: action.inputPortKeys,
         outputPortKeys: action.outputPortKeys,
         componentNodeId,
-        edgeIdPrefix: `e${state.nextId}-component`,
+        edgeIdPrefix: `e${sequence}-component`,
       });
       if ("error" in result) return { ...state, message: result.error };
       const before = graphOf(state);
@@ -813,7 +813,7 @@ export function transitionCalculatorLesson(
         runOutcome: null,
         judgeOutcome: null,
         message: `已封装“${name}”，现在可以从“我的组件”中重复放置。`,
-        nextId: state.nextId + 1,
+        nextId: sequence + 1,
       };
     }
 
@@ -830,11 +830,12 @@ export function transitionCalculatorLesson(
       if (!node || node.kind !== "component" || !component) {
         return { ...state, message: "请先选中画布中的自定义组件。" };
       }
+      const sequence = availableGraphSequence(graphOf(state), state.nextId);
       const result = expandComponentNode({
         graph: graphOf(state),
         componentNodeId: action.id,
         component,
-        edgeIdPrefix: `e${state.nextId}-split`,
+        edgeIdPrefix: `e${sequence}-split`,
       });
       if ("error" in result) return { ...state, message: result.error };
       return {
@@ -842,7 +843,7 @@ export function transitionCalculatorLesson(
         selectedNodeId: null,
         pendingWire: null,
         message: `已拆分“${component.name}”，内部逻辑已恢复到画布。`,
-        nextId: state.nextId + 1,
+        nextId: sequence + 1,
       };
     }
 
@@ -926,8 +927,9 @@ export function transitionCalculatorLesson(
       const pending = state.pendingWire;
       if (!pending) return state;
       if (pending.from.node === action.to.node) return { ...state, pendingWire: null };
+      const sequence = availableGraphSequence(graphOf(state), state.nextId);
       const edge: CircuitEdge = {
-        id: `e${state.nextId}`,
+        id: `e${sequence}`,
         from: pending.from,
         to: action.to,
       };
@@ -943,7 +945,7 @@ export function transitionCalculatorLesson(
           ],
         })),
         pendingWire: null,
-        nextId: state.nextId + 1,
+        nextId: sequence + 1,
       };
     }
 
@@ -1310,9 +1312,4 @@ export function transitionCalculatorLesson(
     case "dismiss-message":
       return { ...state, message: null };
   }
-}
-
-/** Gate palette entries for the active stage. */
-export function paletteGates(state: CalculatorLessonState): GateKind[] {
-  return stageOf(state)?.primitives ?? [];
 }

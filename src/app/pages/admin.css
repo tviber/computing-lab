@@ -405,18 +405,14 @@
   border-color: var(--danger-ink);
 }
 
-.admin-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  z-index: 20;
-  display: grid;
-  place-items: center;
-  padding: 24px;
+.admin-modal::backdrop {
   background: rgb(23 40 61 / 42%);
 }
 
 .admin-modal {
-  width: min(100%, 440px);
+  width: min(440px, calc(100% - 48px));
+  max-height: calc(100dvh - 48px);
+  margin: auto;
   padding: 28px;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);

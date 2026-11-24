@@ -488,7 +488,7 @@ export function expandComponentNode(request: ExpandComponentRequest): ExpandComp
   );
   const boundaryIds = new Set([...inputNodes.values(), ...outputNodes.values()].map((n) => n.id));
   const innerNodes = innerGraph.nodes.filter((node) => !boundaryIds.has(node.id));
-  const clonedId = (id: string) => `${request.componentNodeId}-split-${id}`;
+  const clonedId = (id: string) => `${request.edgeIdPrefix}-node-${id}`;
   const cloneNode = (node: CircuitNode): CircuitNode => ({
     ...node,
     id: clonedId(node.id),

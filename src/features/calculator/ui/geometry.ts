@@ -30,15 +30,19 @@ export function nodeSize(
   return { width: NODE_WIDTH, height: HEADER_HEIGHT + rows * PORT_SPACING + 8 };
 }
 
-/** Find the first free slot in the shelf's drop column, accounting for moved and resized nodes. */
-export function shelfDropPosition(name: string, graph: CircuitGraph, components: ComponentCatalog) {
-  const x = 320;
+/** Find the first free slot in the insertion column, accounting for moved and resized nodes. */
+export function nodeDropPosition(
+  node: Pick<CircuitNode, "kind" | "name">,
+  graph: CircuitGraph,
+  components: ComponentCatalog,
+) {
+  const x = node.kind === "const" ? 120 : 320;
   let y = 80;
   const gap = 20;
-  const { height } = nodeSize({ id: "", kind: "component", name, x, y }, components);
+  const { width, height } = nodeSize({ ...node, id: "", x, y }, components);
   const occupied = graph.nodes
     .map((node) => ({ x: node.x, y: node.y, ...nodeSize(node, components) }))
-    .filter((box) => box.x < x + NODE_WIDTH + gap && box.x + box.width + gap > x)
+    .filter((box) => box.x < x + width + gap && box.x + box.width + gap > x)
     .sort((a, b) => a.y - b.y);
   for (const box of occupied) {
     if (y + height + gap <= box.y) break;

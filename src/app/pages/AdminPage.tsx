@@ -6,6 +6,7 @@ import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { Icon } from "../../shared/ui/Icon";
 import { CreateAccountForm, ImportPanel } from "./AdminForms";
 import type { AdminClass } from "./AdminTypes";
+import { AdminConfirmDialog } from "./AdminConfirmDialog";
 import "./admin.css";
 
 type AdminUser = {
@@ -461,36 +462,14 @@ export function AdminPage() {
         </div>
 
         {deleteTarget ? (
-          <div className="admin-modal-backdrop" role="presentation">
-            <section
-              aria-labelledby="admin-delete-title"
-              aria-modal="true"
-              className="admin-modal"
-              role="dialog"
-            >
-              <p className="eyebrow">确认操作</p>
-              <h2 id="admin-delete-title">确定删除{deleteTarget.label}？</h2>
-              <p>{deleteTarget.description}</p>
-              <div className="admin-modal-actions">
-                <button
-                  className="button button-secondary"
-                  disabled={busy}
-                  onClick={() => setDeleteTarget(null)}
-                  type="button"
-                >
-                  取消
-                </button>
-                <button
-                  className="button button-danger"
-                  disabled={busy}
-                  onClick={confirmDelete}
-                  type="button"
-                >
-                  {busy ? "删除中…" : "确认删除"}
-                </button>
-              </div>
-            </section>
-          </div>
+          <AdminConfirmDialog
+            title={`确定删除${deleteTarget.label}？`}
+            description={deleteTarget.description}
+            busy={busy}
+            confirmLabel={busy ? "删除中…" : "确认删除"}
+            onCancel={() => setDeleteTarget(null)}
+            onConfirm={confirmDelete}
+          />
         ) : null}
       </main>
     </AppPageLayout>

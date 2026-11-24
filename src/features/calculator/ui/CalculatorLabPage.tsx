@@ -72,6 +72,7 @@ function CalculatorProjectPage() {
       currentStage: project.currentStage,
       passedStages: project.passedStages,
       guideAcknowledged: project.fullAdderGuideAcknowledged,
+      draftNotice: project.draftNotices?.join(" "),
       unlockedSubmodules: project.unlockedSubmodules,
       draftRevisions: project.draftRevisions,
       componentsRevision: project.draftRevisions?.components ?? 0,

@@ -52,4 +52,5 @@ export type CalculatorJudgeResult = {
 export type CalculatorProjectPayload = LabProjectPayload<CircuitGraph> & {
   unlockedSubmodules: ComponentDef[];
   fullAdderGuideAcknowledged: boolean;
+  draftNotices?: string[];
 };
