@@ -219,7 +219,7 @@ test("student field guide aligns progress and reserves a sidebar only for assign
   const assignment = page.getByRole("link", { name: "开始作答：课堂实验记录" });
   await expect(assignment).toBeVisible();
   const cards = page.locator("#lab-catalog article");
-  await expect(cards).toHaveCount(6);
+  await expect(cards).toHaveCount(LAB_IDS.length);
   const columns = () =>
     page
       .locator(".lab-catalog-grid")
