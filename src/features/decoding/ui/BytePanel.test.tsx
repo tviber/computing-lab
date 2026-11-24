@@ -39,13 +39,14 @@ it("shows the sample's bottom row first and its BGR channels without changing ra
   expect(screen.getByText("不是字节列表")).toBeVisible();
 });
 
-it("lets the learner retry a field and a number independently, then return to the original view", () => {
+it("lets the learner retry a field and a number independently, then return to the original view", async () => {
   render(<BytePanel allowHeightPractice payload={{ kind: "bmp", bytes, width: 4, height: 2 }} />);
   fireEvent.click(screen.getByRole("button", { name: /^宽/ }));
   fireEvent.click(screen.getByRole("button", { name: /展开其余/ }));
   fireEvent.click(screen.getByRole("button", { name: "试读图像高度" }));
   expect(screen.queryByRole("button", { name: /^高 #/ })).toBeNull();
-  const feedback = screen.getByRole("status");
+  const practice = await screen.findByRole("form", { name: "试读图像高度" });
+  const feedback = within(practice).getByRole("status");
   const count = screen.getByRole("textbox", { name: /图像高度/ });
   const check = screen.getByRole("button", { name: "核对读数" });
   expect(feedback).toBeEmptyDOMElement();

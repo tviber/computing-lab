@@ -11,7 +11,7 @@ const hints: Record<Exclude<HeightReadingResult, "correct">, string> = {
   "wrong-height": "位置找对了，再核对行数。第一格乘 1，第二格乘 256，后面两格的权重再依次乘 256。",
 };
 
-export function BmpHeightPractice({ bytes }: { bytes: readonly number[] }) {
+export default function BmpHeightPractice({ bytes }: { bytes: readonly number[] }) {
   const [start, setStart] = useState<number | null>(null);
   const [answer, setAnswer] = useState("");
   const [checked, setChecked] = useState(false);
