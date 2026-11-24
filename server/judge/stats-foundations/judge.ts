@@ -184,7 +184,17 @@ export function judgeStatsFoundationsSubmission(
       passed,
       score: passed ? 1 : 0,
       total: 1,
-      testSummary: summary,
+      testSummary: {
+        ...summary,
+        parts: [
+          {
+            id: gated.stage.slug,
+            label: gated.stage.title,
+            ok: passed,
+            detail: `${feedback}（${summary.detail}）`,
+          },
+        ],
+      },
     });
     if (passed) {
       return advanceStage(db, project, stageIndex, () =>

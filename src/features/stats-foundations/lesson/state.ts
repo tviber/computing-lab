@@ -1,6 +1,7 @@
 import {
   markSaveStatus,
   markSyncConflict,
+  statusForStage,
   type SaveStatusByStage,
   type SyncConflictByStage,
 } from "../../../shared/lab/saveStatus.ts";
@@ -22,6 +23,7 @@ export type StatsFoundationsLessonState = {
   draftRevisions: Record<number, number>;
   saveStatusByStage: SaveStatusByStage;
   unresolvedSyncConflicts: SyncConflictByStage;
+  conflictedLocalDrafts: Partial<Record<number, StatsFoundationsDraft>>;
   lastJudge: StatsFoundationsJudgeResult | null;
 };
 
@@ -38,6 +40,7 @@ export function createStatsFoundationsLessonState(
     draftRevisions: {},
     saveStatusByStage: {},
     unresolvedSyncConflicts: {},
+    conflictedLocalDrafts: {},
     lastJudge: null,
   };
 }
@@ -59,6 +62,7 @@ export type StatsFoundationsLessonAction =
   | { type: "mark-save-error"; stageIndex: number }
   | { type: "mark-save-sync-error"; stageIndex: number }
   | { type: "resolve-save-conflict"; stageIndex: number; draft: unknown; revision?: number }
+  | { type: "restore-conflict-draft" | "discard-conflict-draft"; stageIndex: number }
   | { type: "judge-result"; result: StatsFoundationsJudgeResult };
 
 export function stageOf(state: StatsFoundationsLessonState): StatsFoundationsStageDef {
@@ -109,6 +113,7 @@ export function transitionStatsFoundationsLesson(
         draftRevisions: { ...(action.draftRevisions ?? {}) },
         saveStatusByStage: {},
         unresolvedSyncConflicts: {},
+        conflictedLocalDrafts: {},
         lastJudge: null,
       };
     }
@@ -140,6 +145,7 @@ export function transitionStatsFoundationsLesson(
       };
     }
     case "mark-saved": {
+      if (statusForStage(state.saveStatusByStage, action.stageIndex) !== "saving") return state;
       return {
         ...state,
         draftRevisions:
@@ -163,7 +169,7 @@ export function transitionStatsFoundationsLesson(
     case "mark-save-sync-error": {
       return {
         ...state,
-        saveStatusByStage: markSaveStatus(state.saveStatusByStage, action.stageIndex, "error"),
+        saveStatusByStage: markSaveStatus(state.saveStatusByStage, action.stageIndex, "sync-error"),
         unresolvedSyncConflicts: markSyncConflict(
           state.unresolvedSyncConflicts,
           action.stageIndex,
@@ -172,8 +178,15 @@ export function transitionStatsFoundationsLesson(
       };
     }
     case "resolve-save-conflict": {
+      const status = statusForStage(state.saveStatusByStage, action.stageIndex);
+      if (status !== "dirty" && status !== "saving" && status !== "sync-error") return state;
       return {
         ...state,
+        conflictedLocalDrafts: {
+          ...state.conflictedLocalDrafts,
+          [action.stageIndex]: state.drafts[action.stageIndex],
+        },
+        lastJudge: state.lastJudge?.stageIndex === action.stageIndex ? null : state.lastJudge,
         drafts: {
           ...state.drafts,
           [action.stageIndex]: sanitizeStatsFoundationsDraft(action.stageIndex, action.draft),
@@ -182,12 +195,35 @@ export function transitionStatsFoundationsLesson(
           action.revision !== undefined
             ? { ...state.draftRevisions, [action.stageIndex]: action.revision }
             : state.draftRevisions,
-        saveStatusByStage: markSaveStatus(state.saveStatusByStage, action.stageIndex, "saved"),
+        saveStatusByStage: markSaveStatus(state.saveStatusByStage, action.stageIndex, "conflict"),
         unresolvedSyncConflicts: markSyncConflict(
           state.unresolvedSyncConflicts,
           action.stageIndex,
           false,
         ),
+      };
+    }
+    case "restore-conflict-draft":
+    case "discard-conflict-draft": {
+      const local = state.conflictedLocalDrafts[action.stageIndex];
+      if (!local) return state;
+      const conflictedLocalDrafts = { ...state.conflictedLocalDrafts };
+      delete conflictedLocalDrafts[action.stageIndex];
+      if (action.type === "restore-conflict-draft") {
+        return {
+          ...state,
+          conflictedLocalDrafts,
+          drafts: { ...state.drafts, [action.stageIndex]: local },
+          saveStatusByStage: markSaveStatus(state.saveStatusByStage, action.stageIndex, "dirty"),
+        };
+      }
+      return {
+        ...state,
+        conflictedLocalDrafts,
+        saveStatusByStage:
+          statusForStage(state.saveStatusByStage, action.stageIndex) === "conflict"
+            ? markSaveStatus(state.saveStatusByStage, action.stageIndex, "saved")
+            : state.saveStatusByStage,
       };
     }
     case "judge-result": {

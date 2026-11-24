@@ -3,6 +3,7 @@ import { useCallback, useReducer, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
+import { useLabCatalog } from "../../../shared/lab/labs";
 import { StageTask } from "../../../shared/lab/StageTask";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
@@ -116,6 +117,26 @@ export function StatsFoundationsLabPage() {
     dispatch,
   });
 
+  const projectReady = projectLoaded && loadError === null;
+  const finished = projectReady && passed && stage.index === STATS_FOUNDATIONS_STAGES.length;
+  const catalog = useLabCatalog(finished);
+  const nextLab = catalog?.get("logistic-regression");
+  const nextLabOpen =
+    nextLab?.visible && (freeNavigation || nextLab.visibleClassIds.includes(classId));
+  const pendingStage = STATS_FOUNDATIONS_STAGES.find(({ index }) => {
+    const status = statusForStage(state.saveStatusByStage, index);
+    return (
+      (status !== "idle" && status !== "saved") ||
+      state.conflictedLocalDrafts[index] ||
+      state.unresolvedSyncConflicts[index]
+    );
+  });
+  const waitingForSave =
+    pendingStage &&
+    !state.conflictedLocalDrafts[pendingStage.index] &&
+    !state.unresolvedSyncConflicts[pendingStage.index] &&
+    ["dirty", "saving"].includes(statusForStage(state.saveStatusByStage, pendingStage.index));
+
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
       fetchProject,
@@ -132,11 +153,11 @@ export function StatsFoundationsLabPage() {
 
   useAutosaveDraft<StatsFoundationsDraft>({
     flushPreservedDrafts,
-    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
+    saveStatuses: projectReady ? state.saveStatusByStage : undefined,
     classId,
     labId: "stats-foundations",
     saveStatus:
-      projectLoaded && !resetting
+      projectReady && !resetting
         ? statusForStage(state.saveStatusByStage, state.stageIndex)
         : "idle",
     stageIndex: state.stageIndex,
@@ -156,6 +177,7 @@ export function StatsFoundationsLabPage() {
   };
 
   const handleJudge = useCallback(async () => {
+    if (!projectReady) return;
     setSubmitError(null);
     const response = await postJudge<StatsFoundationsJudgeResult>({
       stageIndex: stage.index,
@@ -166,7 +188,7 @@ export function StatsFoundationsLabPage() {
     } else if (response.status === "error") {
       setSubmitError(response.error);
     }
-  }, [currentDraft, postJudge, stage.index]);
+  }, [currentDraft, postJudge, projectReady, stage.index]);
 
   const submitting = submittingJudge || resetting;
 
@@ -174,6 +196,14 @@ export function StatsFoundationsLabPage() {
     <AppPageLayout
       topbar={
         <SaveIndicator
+          onRestoreLocal={
+            state.conflictedLocalDrafts[stage.index] &&
+            (() => dispatch({ type: "restore-conflict-draft", stageIndex: stage.index }))
+          }
+          onDiscardLocal={
+            state.conflictedLocalDrafts[stage.index] &&
+            (() => dispatch({ type: "discard-conflict-draft", stageIndex: stage.index }))
+          }
           onRetrySync={() => reconcileConflict(state.stageIndex)}
           status={statusForStage(state.saveStatusByStage, state.stageIndex)}
           unresolvedSyncConflict={syncConflictForStage(
@@ -196,7 +226,7 @@ export function StatsFoundationsLabPage() {
             passedStages={state.passedStages}
             stageIndex={stage.index}
             stages={RAIL_STAGES}
-            unlocked={(item) => isStageUnlocked(state, item.index, freeNavigation)}
+            unlocked={(item) => projectReady && isStageUnlocked(state, item.index, freeNavigation)}
           />
         }
         resetControls={resetControls}
@@ -208,7 +238,7 @@ export function StatsFoundationsLabPage() {
             </p>
           ) : null}
 
-          {!projectLoaded ? (
+          {!projectReady ? (
             loadError ? null : (
               <p className="home-loading" role="status">
                 正在载入…
@@ -261,7 +291,7 @@ export function StatsFoundationsLabPage() {
               <div className="sf-actions-bar">
                 <button
                   className="sf-submit-btn"
-                  disabled={submitting || !projectLoaded}
+                  disabled={submitting || !projectReady}
                   onClick={() => void handleJudge()}
                   type="button"
                 >
@@ -284,15 +314,23 @@ export function StatsFoundationsLabPage() {
                   </button>
                 )}
 
-                {passed && stage.index === STATS_FOUNDATIONS_STAGES.length && (
-                  <Link
-                    className="sf-next-link"
-                    params={{ classId }}
-                    to="/classes/$classId/labs/logistic-regression"
-                  >
-                    前往下一课：逻辑回归 →
-                  </Link>
-                )}
+                {finished &&
+                  nextLabOpen &&
+                  (pendingStage || resetting ? (
+                    <span role="status">
+                      {!pendingStage || waitingForSave
+                        ? "草稿保存后即可进入下一课。"
+                        : `请先处理第 ${pendingStage.index} 关未保存的修改，再进入下一课。`}
+                    </span>
+                  ) : (
+                    <Link
+                      className="sf-next-link"
+                      params={{ classId }}
+                      to="/classes/$classId/labs/logistic-regression"
+                    >
+                      前往下一课：逻辑回归 →
+                    </Link>
+                  ))}
               </div>
             </>
           )}

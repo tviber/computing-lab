@@ -32,6 +32,7 @@ export function LikelihoodPanel({ draft, question, passed, onChange }: Props) {
   const [simResult, setSimResult] = useState<string | null>(null);
   const curve = useMemo(() => sampleLikelihoodCurve(90), []);
   const currentL = coinLikelihood(draft.p);
+  const [mantissa, exponent] = currentL.toExponential(3).split("e");
   const currentNll = coinNegLogLikelihood(draft.p);
   const maxL = coinLikelihood(COIN_MLE_OPTIMAL);
   const isNearPeak = isNearCoinMLE(draft.p);
@@ -97,7 +98,9 @@ export function LikelihoodPanel({ draft, question, passed, onChange }: Props) {
           <span className="sf-metric-label">
             似然 <MathFormula>{String.raw`L(p)=p^7(1-p)^3`}</MathFormula>
           </span>
-          <strong className="sf-metric-value sf-mono">{(currentL * 1000).toFixed(3)} × 10⁻³</strong>
+          <strong className="sf-metric-value sf-mono">
+            {mantissa} × 10<sup>{Number(exponent)}</sup>
+          </strong>
           <span className="sf-metric-sub">越大表示该参数下这串记录越可能出现</span>
         </div>
         <div className="sf-metric-card">
