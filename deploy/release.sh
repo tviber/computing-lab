@@ -11,6 +11,13 @@ work_root=/var/lib/computing-lab-release
 
 log() { printf 'computing-lab-release: %s\n' "$*"; }
 die() { log "$*" >&2; exit 1; }
+timed() {
+  local phase=$1 started=$SECONDS
+  shift
+  log "starting $phase"
+  "$@"
+  log "$phase completed in $((SECONDS - started))s"
+}
 static() {
   systemd-run --quiet --wait --pipe --collect --uid=computing-lab --gid=computing-lab \
     -p NoNewPrivileges=yes -p PrivateTmp=yes -p ProtectHome=yes -p ProtectSystem=strict \
@@ -37,7 +44,7 @@ if (($# != 1)); then
     || die 'expected a staged archive and SHA-256'
 fi
 exec 9>/run/lock/computing-lab-release.lock
-flock -w 900 9 || die 'another joint release is still running'
+timed release-lock flock -w 900 9
 
 static_sha="$(cat "$static_root/state/current.sha")"
 api_sha="$(cat "$api_root/state/deployed.sha")"
@@ -71,9 +78,9 @@ digest="$(sha256sum <"$archive")"
 digest="${digest%% *}"
 [[ "$digest" == "${3:-$digest}" ]] || die 'archive checksum mismatch'
 
-static prepare "$sha" "$archive" "$digest"
-"$api_deployer" "$sha" "$archive" "$digest"
+timed static-prepare static prepare "$sha" "$archive" "$digest"
+timed api-release "$api_deployer" "$sha" "$archive" "$digest"
 [[ "$(cat "$api_root/state/deployed.sha")" == "$sha" ]] || die 'API did not reach the requested SHA'
-static activate "$sha"
+timed static-activate static activate "$sha"
 [[ "$(cat "$static_root/state/current.sha")" == "$sha" ]] || die 'frontend did not reach the requested SHA'
 log "frontend and API published $sha"

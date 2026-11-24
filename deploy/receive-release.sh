@@ -5,7 +5,15 @@ umask 077
 die() { printf 'computing-lab-receive: %s\n' "$*" >&2; exit 1; }
 
 [[ "$EUID" == 0 && $# == 0 ]] || die 'expected a release stream on stdin'
-IFS= read -r -t 10 -n 106 header || die 'missing release header'
+cache_helper=/usr/local/libexec/computing-lab/bundle-cache.sh
+cache() { runuser -u computing-lab-git -- "$cache_helper" "$@"; }
+IFS= read -r -t 10 -n 116 header || die 'missing release header'
+if [[ "$header" == base-v1 ]]; then
+  cache base
+  exit
+fi
+mode=archive
+if [[ "$header" == 'bundle-v1 '* ]]; then mode=bundle; header=${header#bundle-v1 }; fi
 [[ "$header" =~ ^([0-9a-f]{40})\ ([0-9a-f]{64})$ ]] || die 'invalid release header'
 sha="${BASH_REMATCH[1]}"
 expected="${BASH_REMATCH[2]}"
@@ -16,13 +24,22 @@ flock -n 8 || die 'another release is being received or published'
 stage="$(mktemp -d /var/lib/computing-lab-release/.upload.XXXXXXXX)"
 trap 'rm -rf -- "$stage"' EXIT
 archive="$stage/source.tar.gz"
+payload="$stage/upload"
 limit=268435456
-timeout 1200 head -c "$((limit + 1))" >"$archive" || die 'upload timed out'
-size="$(stat -c %s "$archive")"
+timeout 1200 head -c "$((limit + 1))" >"$payload" || die 'upload timed out'
+size="$(stat -c %s "$payload")"
 ((size > 0 && size <= limit)) || die 'invalid archive size'
-digest="$(sha256sum <"$archive")"
+digest="$(sha256sum <"$payload")"
 [[ "${digest%% *}" == "$expected" ]] || die 'archive checksum mismatch'
 printf 'Accepted %s bytes for %s\n' "$size" "$sha"
+if [[ "$mode" == bundle ]]; then
+  # Status 42 is reserved for cache reconstruction failure BEFORE publication.
+  (ulimit -f 262144; timeout 120 runuser -u computing-lab-git -- "$cache_helper" unpack "$sha") \
+    <"$payload" >"$archive" || exit 42
+  digest=$(sha256sum <"$archive"); expected=${digest%% *}
+else
+  mv -- "$payload" "$archive"
+fi
 unit="computing-lab-push-$sha.service"
 
 trap - EXIT

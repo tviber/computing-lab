@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { LabPageShell } from "./LabPageShell";
@@ -28,6 +28,8 @@ describe("LabPageShell", () => {
 
     const toggle = screen.getByRole("button", { name: "收起关卡栏" });
     expect(toggle).toHaveAttribute("aria-expanded", "true");
+    const panel = document.getElementById(toggle.getAttribute("aria-controls")!);
+    expect(panel).toContainElement(screen.getByText("关卡列表"));
     expect(toggle.querySelector("svg path")?.getAttribute("d")).toContain("m10-12-3 3 3 3");
 
     await user.click(toggle);
@@ -38,6 +40,9 @@ describe("LabPageShell", () => {
     );
     expect(toggle.querySelector("svg path")?.getAttribute("d")).toContain("m6-12 3 3-3 3");
     expect(screen.getByText("关卡列表")).toBeInTheDocument();
+    await waitFor(() => expect(panel).not.toBeVisible());
+    await user.keyboard("{Enter}");
+    expect(panel).toBeVisible();
   });
 
   it("persists the collapsed state under the lab-scoped key and restores it", async () => {

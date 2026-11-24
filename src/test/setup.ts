@@ -2,6 +2,11 @@ import "@testing-library/jest-dom/vitest";
 import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 
+// jsdom has no animation timeline. UI SDK queries it before hiding a panel.
+if (typeof Element !== "undefined" && !Element.prototype.getAnimations) {
+  Element.prototype.getAnimations = () => [];
+}
+
 // Node ≥23 ships a global localStorage that lacks .clear() unless
 // --localstorage-file is set; jsdom tests need a working Web Storage.
 if (typeof globalThis.localStorage?.clear !== "function") {

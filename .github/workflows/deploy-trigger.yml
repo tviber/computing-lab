@@ -31,7 +31,7 @@ jobs:
     environment: production
     timeout-minutes: 60
     steps:
-      - name: Verify target and download exact archive
+      - name: Verify target
         env:
           GH_TOKEN: ${{ github.token }}
           REPOSITORY: ${{ github.repository }}
@@ -51,12 +51,12 @@ jobs:
               --commit "$target_sha" --limit 1 --json conclusion --jq '.[0].conclusion')"
             [[ "$conclusion" == success ]] || { echo 'target did not pass CI on main' >&2; exit 1; }
           fi
-          curl --fail --silent --show-error --proto '=https' --connect-timeout 8 --max-time 120 \
-            --retry 2 --max-filesize 268435456 -o "$RUNNER_TEMP/source.tar.gz" \
-            "https://codeload.github.com/$REPOSITORY/tar.gz/$target_sha"
-          gzip -t "$RUNNER_TEMP/source.tar.gz"
           printf 'RELEASE_SHA=%s\n' "$target_sha" >> "$GITHUB_ENV"
-      - name: Push the archive and wait for production
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Transfer source and wait for production
         env:
           DEPLOY_SSH_HOST: ${{ secrets.DEPLOY_SSH_HOST }}
           DEPLOY_SSH_KEY: ${{ secrets.DEPLOY_SSH_KEY }}
@@ -71,9 +71,6 @@ jobs:
           printf '%s\n' "$DEPLOY_SSH_KEY" > "$ssh_dir/key"
           printf '%s\n' "$DEPLOY_SSH_KNOWN_HOSTS" > "$ssh_dir/known_hosts"
           unset DEPLOY_SSH_KEY
-          archive="$RUNNER_TEMP/source.tar.gz"
-          digest="$(sha256sum < "$archive")"
-          { printf '%s %s\n' "$RELEASE_SHA" "${digest%% *}"; cat "$archive"; } |
-            ssh -T -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
+          bash deploy/send-release.sh ssh -T -o BatchMode=yes -o ConnectTimeout=10 -o ServerAliveInterval=15 -o ServerAliveCountMax=4 \
               -o IdentitiesOnly=yes -o StrictHostKeyChecking=yes -o HostKeyAlgorithms=ssh-ed25519 \
               -o UserKnownHostsFile="$ssh_dir/known_hosts" -i "$ssh_dir/key" "computing-lab-push@$DEPLOY_SSH_HOST"
