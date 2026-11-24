@@ -1,9 +1,9 @@
-import { Link, useParams, useSearch } from "@tanstack/react-router";
+import { Button } from "@ui-sdk/react/button";
+import { useParams, useSearch } from "@tanstack/react-router";
 import { useCallback, useReducer, useState } from "react";
 import { isStaffRole, useAuth } from "../../../shared/auth";
 import { SaveIndicator } from "../../../shared/lab/LabGate";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
-import { useLabCatalog } from "../../../shared/lab/labs";
 import { StageTask } from "../../../shared/lab/StageTask";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
@@ -118,25 +118,6 @@ export function StatsFoundationsLabPage() {
   });
 
   const projectReady = projectLoaded && loadError === null;
-  const finished = projectReady && passed && stage.index === STATS_FOUNDATIONS_STAGES.length;
-  const catalog = useLabCatalog(finished);
-  const nextLab = catalog?.get("logistic-regression");
-  const nextLabOpen =
-    nextLab?.visible && (freeNavigation || nextLab.visibleClassIds.includes(classId));
-  const pendingStage = STATS_FOUNDATIONS_STAGES.find(({ index }) => {
-    const status = statusForStage(state.saveStatusByStage, index);
-    return (
-      (status !== "idle" && status !== "saved") ||
-      state.conflictedLocalDrafts[index] ||
-      state.unresolvedSyncConflicts[index]
-    );
-  });
-  const waitingForSave =
-    pendingStage &&
-    !state.conflictedLocalDrafts[pendingStage.index] &&
-    !state.unresolvedSyncConflicts[pendingStage.index] &&
-    ["dirty", "saving"].includes(statusForStage(state.saveStatusByStage, pendingStage.index));
-
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
       fetchProject,
@@ -231,7 +212,12 @@ export function StatsFoundationsLabPage() {
         }
         resetControls={resetControls}
       >
-        <main aria-label="统计基础实验区" className="sf-page-content" key={saveGeneration}>
+        <main
+          aria-label="统计基础实验区"
+          className="sf-page-content"
+          data-stage={stage.slug}
+          key={saveGeneration}
+        >
           {(loadError ?? submitError) ? (
             <p className="test-error" role="alert">
               {loadError ?? submitError}
@@ -289,17 +275,17 @@ export function StatsFoundationsLabPage() {
               )}
 
               <div className="sf-actions-bar">
-                <button
+                <Button
                   className="sf-submit-btn"
                   disabled={submitting || !projectReady}
                   onClick={() => void handleJudge()}
                   type="button"
                 >
                   {submitting ? "正在判题…" : "提交检查本关"}
-                </button>
+                </Button>
 
                 {passed && stage.index < STATS_FOUNDATIONS_STAGES.length && (
-                  <button
+                  <Button
                     className="sf-next-link"
                     onClick={() =>
                       dispatch({
@@ -311,26 +297,8 @@ export function StatsFoundationsLabPage() {
                     type="button"
                   >
                     进入第 {stage.index + 1} 关 →
-                  </button>
+                  </Button>
                 )}
-
-                {finished &&
-                  nextLabOpen &&
-                  (pendingStage || resetting ? (
-                    <span role="status">
-                      {!pendingStage || waitingForSave
-                        ? "草稿保存后即可进入下一课。"
-                        : `请先处理第 ${pendingStage.index} 关未保存的修改，再进入下一课。`}
-                    </span>
-                  ) : (
-                    <Link
-                      className="sf-next-link"
-                      params={{ classId }}
-                      to="/classes/$classId/labs/logistic-regression"
-                    >
-                      前往下一课：逻辑回归 →
-                    </Link>
-                  ))}
               </div>
             </>
           )}

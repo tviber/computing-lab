@@ -10,7 +10,7 @@ async function moveSlider(slider: Locator, value: number) {
   await expect(slider).toHaveValue(String(value));
 }
 
-test("a student resumes a saved fit, completes four stages and opens logistic regression", async ({
+test("a student resumes a saved fit and completes all four statistics stages", async ({
   page,
   request,
 }) => {
@@ -56,6 +56,22 @@ test("a student resumes a saved fit, completes four stages and opens logistic re
   await otherTab.goto(page.url());
   await expect(otherTab.getByRole("slider", { name: /斜率 w/ })).toBeVisible();
   const slope = page.getByRole("slider", { name: /斜率 w/ });
+  const fitLine = page.locator(".sf-fit-line");
+  const pivotY = await fitLine.getAttribute("y1");
+  const endY = await fitLine.getAttribute("y2");
+  const thumb = page.locator('[data-slot="slider-thumb"]').filter({ has: slope });
+  await thumb.scrollIntoViewIfNeeded();
+  const handle = await thumb.boundingBox();
+  if (!handle) throw new Error("Expected a visible slope handle");
+  const x = handle.x + handle.width / 2;
+  const y = handle.y + handle.height / 2;
+  await page.mouse.move(x, y);
+  await page.mouse.down();
+  await page.mouse.move(x + 35, y, { steps: 6 });
+  await page.mouse.up();
+  expect(await fitLine.getAttribute("y1")).toBe(pivotY);
+  expect(await fitLine.getAttribute("y2")).not.toBe(endY);
+  await expect(submit).toHaveCSS("background-color", "rgb(23, 105, 210)");
   await moveSlider(slope, 3.2);
   await moveSlider(page.getByRole("slider", { name: /截距 b/ }), -22);
   await page.getByRole("radio", { name: /正误差和负误差/ }).check();
@@ -106,24 +122,11 @@ test("a student resumes a saved fit, completes four stages and opens logistic re
   await page.getByRole("button", { name: "用直线硬拟合" }).click();
   await submit.click();
   await expect(page.locator(".sf-feedback.is-fail")).toContainText("切换到 Sigmoid");
-  let releaseDraft!: () => void;
-  const heldDraft = new Promise<void>((resolve) => {
-    releaseDraft = resolve;
-  });
-  await page.route("**/labs/stats-foundations/draft", async (route) => {
-    await heldDraft;
-    await route.continue();
-  });
   await page.getByRole("button", { name: "Sigmoid 曲线" }).click();
   await submit.click();
-  const nextLesson = page.getByRole("link", { name: /前往下一课/ });
-  try {
-    await expect(page.getByText("草稿保存后即可进入下一课。")).toBeVisible();
-    await expect(nextLesson).toHaveCount(0);
-  } finally {
-    releaseDraft();
-  }
-  await nextLesson.click();
+  await expect(page.locator(".sf-feedback.is-pass")).toBeVisible();
+  await expect(page.getByText("已保存", { exact: true })).toBeVisible();
+  await expect(page.getByRole("link", { name: /逻辑回归/ })).toHaveCount(0);
   const savedProject = await page.request.get(
     `/api/classes/${classes[0].id}/labs/stats-foundations/project`,
   );
@@ -132,6 +135,6 @@ test("a student resumes a saved fit, completes four stages and opens logistic re
     w: 1.8,
     b: -8,
   });
-  await expect(page.getByRole("main", { name: "逻辑回归实验区" })).toBeVisible();
+  await expect(page.getByRole("main", { name: "统计基础实验区" })).toBeVisible();
   expect(errors).toEqual([]);
 });
