@@ -542,6 +542,26 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
     const recovered = (await (await load()).json()) as CalculatorProjectPayload;
     expect(recovered.drafts).toEqual({ 2: { nodes: nodes.slice(0, 3), edges: edges.slice(0, 2) } });
     expect(recovered.draftNotices).toEqual([expect.stringContaining("Lost")]);
+    expect(recovered.draftRevisions).toEqual({ 2: 8 });
+    const stored = db
+      .prepare("SELECT draft_graph, draft_revisions FROM student_projects WHERE id = ?")
+      .get(projectId);
+    expect(JSON.parse(String(stored?.draft_graph))).toEqual(recovered.drafts);
+    expect(JSON.parse(String(stored?.draft_revisions))).toEqual(recovered.draftRevisions);
+    const again = (await (await load()).json()) as CalculatorProjectPayload;
+    expect(again.draftNotices).toBeUndefined();
+    expect(again.draftRevisions).toEqual(recovered.draftRevisions);
+    const staleSave = await app.request(labUrl(classId, "calculator", "/draft"), {
+      method: "PUT",
+      headers: { cookie: cookieFor(studentId), "content-type": "application/json" },
+      body: JSON.stringify({
+        stageIndex: 2,
+        graph: { nodes, edges },
+        expectedRevision: 7,
+        expectedGeneration: 0,
+      }),
+    });
+    expect(await staleSave.json()).toMatchObject({ applied: false, revision: 8 });
     const reset = (expectedGeneration: number) =>
       app.request(labUrl(classId, "calculator", "/reset"), {
         method: "POST",
@@ -553,13 +573,63 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
     const project = (await response.json()) as CalculatorProjectPayload;
     expect(project.unlockedSubmodules).toEqual([library[0], library[4]]);
     expect(project.drafts).toEqual({ 2: { nodes: nodes.slice(0, 2), edges: edges.slice(0, 1) } });
-    expect(project.draftRevisions).toEqual({ 2: 8 });
-    expect(project.draftNotices).toEqual([expect.stringContaining("Nested、Lost")]);
+    expect(project.draftRevisions).toEqual({ 2: 9 });
+    expect(project.draftNotices).toEqual([expect.stringContaining("Nested")]);
     const reloaded = (await (await load()).json()) as CalculatorProjectPayload;
     expect(reloaded.drafts).toEqual(project.drafts);
     expect(reloaded.draftNotices).toBeUndefined();
     expect((await reset(0)).status).toBe(409);
   });
+
+  it.each([true, false])(
+    "preserves the valid gate sharing a reset component ID (component first: %s)",
+    async (componentFirst) => {
+      const { db, classId, studentId, app, cookieFor } = await setupEnv();
+      const gate = { id: "n1", kind: "xor", x: 200, y: 60 };
+      const component = { id: "n1", kind: "component", name: "FullAdder", x: 200, y: 160 };
+      const input = { id: "in-A", kind: "input", name: "A", x: 0, y: 0 };
+      const output = { id: "out-Sum", kind: "output", name: "Sum", x: 400, y: 0 };
+      const nodes = [input, ...(componentFirst ? [component, gate] : [gate, component]), output];
+      const valid = [
+        { id: "e1", from: { node: input.id, port: "out" }, to: { node: gate.id, port: "in0" } },
+        { id: "e2", from: { node: gate.id, port: "out" }, to: { node: output.id, port: "in" } },
+      ];
+      const edges = [
+        ...valid,
+        { id: "e3", from: valid[0].from, to: { node: component.id, port: "A" } },
+      ];
+      const library = [{ name: "FullAdder", graph: { nodes: [input, output], edges: [] } }];
+      const unchanged = { nodes: [input], edges: [] };
+      db.prepare(
+        `INSERT INTO student_projects (id, user_id, class_id, lab_id, unlocked_submodules, draft_graph, draft_revisions)
+      VALUES (?, ?, ?, 'calculator', ?, ?, '{"1":4,"2":7,"components":2}')`,
+      ).run(
+        newId(),
+        studentId,
+        classId,
+        JSON.stringify(library),
+        JSON.stringify({ 1: unchanged, 2: { nodes, edges } }),
+      );
+      const headers = { cookie: cookieFor(studentId), "content-type": "application/json" };
+      const res = await app.request(labUrl(classId, "calculator", "/reset"), {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ scope: "stage", stageIndex: 3, expectedGeneration: 0 }),
+      });
+      expect(res.status).toBe(200);
+      const project = (await res.json()) as CalculatorProjectPayload;
+      expect(project.drafts).toEqual({
+        1: unchanged,
+        2: { nodes: [input, gate, output], edges: valid },
+      });
+      expect(project.draftRevisions).toEqual({ 1: 4, 2: 8, components: 2 });
+      const load = await app.request(labUrl(classId, "calculator", "/project"), { headers });
+      expect(await load.json()).toMatchObject({
+        drafts: project.drafts,
+        draftRevisions: project.draftRevisions,
+      });
+    },
+  );
 
   it("lunch-shift ships final aiOrders immediately to teacher/admin before stage 4 unlocks", async () => {
     const { classId, studentId, teacherId, adminId, app, cookieFor } = await setupEnv();

@@ -102,14 +102,13 @@ export function AdminPage() {
     [resetPassword, run],
   );
 
-  const confirmDelete = useCallback(() => {
+  const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
-    const target = deleteTarget;
-    void run(async () => {
-      await api.del(target.endpoint);
-      setDeleteTarget(null);
-    });
-  }, [deleteTarget, run]);
+    setError(null);
+    await api.del(deleteTarget.endpoint);
+    setDeleteTarget(null);
+    reload();
+  }, [deleteTarget, reload]);
 
   const submitSearch = useCallback(
     (event: FormEvent<HTMLFormElement>) => {
@@ -465,8 +464,8 @@ export function AdminPage() {
           <AdminConfirmDialog
             title={`确定删除${deleteTarget.label}？`}
             description={deleteTarget.description}
-            busy={busy}
-            confirmLabel={busy ? "删除中…" : "确认删除"}
+            pendingLabel="删除中…"
+            confirmLabel="确认删除"
             onCancel={() => setDeleteTarget(null)}
             onConfirm={confirmDelete}
           />

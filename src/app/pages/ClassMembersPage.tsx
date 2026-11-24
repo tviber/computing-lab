@@ -147,16 +147,16 @@ export function ClassMembersPage() {
     [classId, resetPassword, run],
   );
 
-  const confirmRemove = useCallback(() => {
+  const confirmRemove = useCallback(async () => {
     if (!removeTarget) return;
     const target = removeTarget;
-    void run(async () => {
-      await api.del(`/api/classes/${classId}/members/${target.userId}`);
-      setRemoveTarget(null);
-      if (classId)
-        setNotice({ classId, text: `已把${target.label}移出班级，账号和做题记录保留。` });
-    });
-  }, [classId, removeTarget, run]);
+    setError(null);
+    setNotice(null);
+    await api.del(`/api/classes/${classId}/members/${target.userId}`);
+    setRemoveTarget(null);
+    if (classId) setNotice({ classId, text: `已把${target.label}移出班级，账号和做题记录保留。` });
+    reload();
+  }, [classId, removeTarget, reload]);
 
   const selectClass = useCallback(
     (nextClassId: string) => {
@@ -510,8 +510,8 @@ export function ClassMembersPage() {
           <AdminConfirmDialog
             title={`确定把${removeTarget.label}移出班级？`}
             description={removeTarget.description}
-            busy={busy}
-            confirmLabel={busy ? "处理中…" : "确认移出"}
+            pendingLabel="处理中…"
+            confirmLabel="确认移出"
             onCancel={() => setRemoveTarget(null)}
             onConfirm={confirmRemove}
           />

@@ -102,10 +102,16 @@ test("admin delete and roster removal dialogs contain focus and return it to the
   const { classId, studentNo } = await createStudent(page);
   const name = `空班-${studentNo}`;
   expect((await page.request.post("/api/admin/classes", { data: { name } })).status()).toBe(201);
-  for (const [path, row, action] of [
-    ["admin/classes", name, "删除"],
-    ["admin", studentNo, "删除"],
-    [`classes/${classId}/members`, studentNo, "移出班级"],
+  for (const [path, row, action, code, reason] of [
+    ["admin/classes", name, "删除", "class-not-empty", "班级里还有成员，请先移除全部成员。"],
+    ["admin", studentNo, "删除", "user-not-found", "账号不存在。"],
+    [
+      `classes/${classId}/members`,
+      studentNo,
+      "移出班级",
+      "membership-not-found",
+      "该用户不在这个班级里。",
+    ],
   ]) {
     await page.goto(path);
     if (path === "admin") {
@@ -129,8 +135,22 @@ test("admin delete and roster removal dialogs contain focus and return it to the
     await cancel.press("Enter");
     await expect(trigger).toBeFocused();
     await trigger.press("Enter");
+    const intercept = "**/api/**";
+    await page.route(intercept, (route) =>
+      route.request().method() === "DELETE"
+        ? route.fulfill({ status: 409, json: { error: code } })
+        : route.continue(),
+    );
+    const confirm = dialog.getByRole("button", { name: /确认删除|确认移出/ });
+    await confirm.click();
+    await expect(dialog.getByRole("alert")).toHaveText(reason);
+    await expect(confirm).toBeEnabled();
+    await page.unroute(intercept);
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(trigger).toBeFocused();
+    await trigger.press("Enter");
+    await expect(dialog.getByRole("alert")).toHaveCount(0);
+    await cancel.click();
   }
 });

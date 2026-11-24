@@ -10,6 +10,7 @@ import {
 } from "../http/context.ts";
 import {
   getOrCreateProject,
+  loadRepairedProject,
   resetLabProject,
   type DraftSaveResult,
   type LabJudgeError,
@@ -109,13 +110,12 @@ export function labRoutes<TDraft, TOutcome extends object>(
     const auth = requireAccess(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
     const db = c.get("db");
-    const project = projectOf(db, auth);
-    const repaired = spec.reconcileDrafts?.(project.drafts, project.unlockedSubmodules);
+    const load = () => projectOf(db, auth);
+    if (!spec.reconcileDrafts) return c.json(projectPayload(db, auth, load()));
+    const { project, notices } = loadRepairedProject(db, load, spec.reconcileDrafts);
     return c.json({
       ...projectPayload(db, auth, project),
-      ...(repaired && repaired.notices.length
-        ? { drafts: repaired.drafts, draftNotices: repaired.notices }
-        : {}),
+      ...(notices.length ? { draftNotices: notices } : {}),
     });
   });
 

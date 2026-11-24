@@ -14,7 +14,6 @@ export function AdminClassesPage() {
   const { status, role } = useAuth();
   const [classes, setClasses] = useState<AdminClass[]>([]);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
 
   const reload = useCallback(() => {
@@ -31,16 +30,9 @@ export function AdminClassesPage() {
   const confirmDelete = useCallback(async () => {
     if (!deleteTarget) return;
     setError(null);
-    setBusy(true);
-    try {
-      await api.del(deleteTarget.endpoint);
-      setDeleteTarget(null);
-      reload();
-    } catch (caught) {
-      setError(describeApiError(caught));
-    } finally {
-      setBusy(false);
-    }
+    await api.del(deleteTarget.endpoint);
+    setDeleteTarget(null);
+    reload();
   }, [deleteTarget, reload]);
 
   if (status === "loading") {
@@ -104,7 +96,7 @@ export function AdminClassesPage() {
                     <td>
                       <button
                         className="button button-ghost admin-inline-button"
-                        disabled={busy || klass.memberCount > 0}
+                        disabled={klass.memberCount > 0}
                         onClick={() =>
                           setDeleteTarget({
                             label: `班级「${klass.name}」`,
@@ -134,8 +126,8 @@ export function AdminClassesPage() {
           <AdminConfirmDialog
             title={`确定删除${deleteTarget.label}？`}
             description={deleteTarget.description}
-            busy={busy}
-            confirmLabel={busy ? "删除中…" : "确认删除"}
+            pendingLabel="删除中…"
+            confirmLabel="确认删除"
             onCancel={() => setDeleteTarget(null)}
             onConfirm={confirmDelete}
           />

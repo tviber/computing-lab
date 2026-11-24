@@ -2,11 +2,8 @@ import {
   CALCULATOR_STAGES,
   calculatorStageAffectedByReset,
 } from "../../src/features/calculator/domain/stages.ts";
-import {
-  withoutNodes,
-  type CircuitGraph,
-  type ComponentDef,
-} from "../../src/features/calculator/domain/graph.ts";
+import type { CircuitGraph, ComponentDef } from "../../src/features/calculator/domain/graph.ts";
+import { reconcileCalculatorDrafts } from "../judge/calculatorDrafts.ts";
 import type { CalculatorJudgeResult } from "../../src/features/calculator/domain/protocol.ts";
 import { canAccessLab } from "../labs.ts";
 import { jsonError, requireMembership } from "../http/context.ts";
@@ -38,22 +35,7 @@ export function calculatorRoutes() {
         kept = valid;
       }
     },
-    reconcileDrafts: (drafts, library) => {
-      const known = new Set((library as ComponentDef[]).map((component) => component.name));
-      const cleaned = { ...drafts };
-      const notices: string[] = [];
-      for (const [stage, graph] of Object.entries(drafts)) {
-        if (!Array.isArray(graph?.nodes) || !Array.isArray(graph.edges)) continue;
-        const missing = graph.nodes.filter(
-          (node) => node.kind === "component" && !known.has(node.name ?? ""),
-        );
-        if (!missing.length) continue;
-        cleaned[stage] = withoutNodes(graph, new Set(missing.map((node) => node.id)));
-        const names = [...new Set(missing.map((node) => node.name ?? "未命名组件"))].join("、");
-        notices.push(`第 ${stage} 关草稿已移除失效组件 ${names} 及其连线。`);
-      }
-      return { drafts: cleaned, notices };
-    },
+    reconcileDrafts: reconcileCalculatorDrafts,
     projectExtras: (db, project) => ({
       unlockedSubmodules: project.unlockedSubmodules,
       fullAdderGuideAcknowledged: Boolean(
