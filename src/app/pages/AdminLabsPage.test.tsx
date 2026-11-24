@@ -218,7 +218,7 @@ describe("AdminLabsPage", () => {
     await renderAppAt("/admin/labs", { auth: adminAuthState });
 
     expect(await screen.findByText("逻辑回归")).toBeInTheDocument();
-    expect(screen.getAllByRole("row")).toHaveLength(7);
+    expect(screen.getAllByRole("row")).toHaveLength(8);
     for (const retiredId of ["cpu", "audio-encoding", "is-sim"]) {
       expect(screen.queryByText(retiredId)).not.toBeInTheDocument();
     }

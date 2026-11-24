@@ -64,6 +64,7 @@ type SubmissionDetail = {
     categories?: Record<string, { passed: number; total: number }>;
     parts?: { id: string; label: string; ok: boolean; detail: string | null }[];
     error?: string | null;
+    detail?: string;
   };
 };
 
@@ -579,6 +580,9 @@ export function TeacherDashboardPage() {
                 </h2>
                 <p>{lab.stages.find((stage) => stage.index === detail.stageIndex)?.englishTitle}</p>
               </header>
+              {detail.testSummary.detail &&
+                !detail.testSummary.parts?.length &&
+                !detail.testSummary.categories && <p>{detail.testSummary.detail}</p>}
               {detail.testSummary.error ? (
                 <p className="test-error">{detail.testSummary.error}</p>
               ) : null}
