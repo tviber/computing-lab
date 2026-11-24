@@ -36,6 +36,11 @@ test("a student resumes a saved fit and completes all four statistics stages", a
     .click();
   const submit = page.getByRole("button", { name: "提交检查本关" });
   await expect(page.getByRole("heading", { name: "本关任务" })).toBeVisible();
+  const expectBlueTheme = async () => {
+    await expect(submit).toHaveCSS("background-color", "rgb(23, 105, 210)");
+    await expect(page.locator(".sf-page-content")).toHaveCSS("accent-color", "rgb(23, 105, 210)");
+  };
+  await expectBlueTheme();
   await expect(page.getByRole("button", { name: /条件概率：校园气象台/ })).toBeDisabled();
   await submit.click();
   await expect(page.locator(".sf-feedback.is-fail")).toBeVisible();
@@ -96,6 +101,7 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await expect(page.getByRole("radio", { name: /正误差和负误差/ })).toBeChecked();
   await submit.click();
   await page.getByRole("button", { name: /进入第 2 关/ }).click();
+  await expectBlueTheme();
   await page.setViewportSize({ width: 375, height: 812 });
   await page.getByRole("button", { name: /只看预报下雨/ }).click();
   await expect(page.locator(".sf-filter-summary")).toContainText("40 天");
@@ -109,6 +115,7 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await page.getByRole("radio", { name: /已知条件不同/ }).check();
   await submit.click();
   await page.getByRole("button", { name: /进入第 3 关/ }).click();
+  await expectBlueTheme();
   await page.getByRole("button", { name: "负对数似然 −ln L(p)" }).click();
   const coin = page.getByRole("slider", { name: "正面朝上的概率 p" });
   await coin.press("Home");
@@ -117,6 +124,7 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await page.getByRole("radio", { name: /连乘|相乘变成加法/ }).check();
   await submit.click();
   await page.getByRole("button", { name: /进入第 4 关/ }).click();
+  await expectBlueTheme();
   await moveSlider(slope, 1.8);
   await moveSlider(page.getByRole("slider", { name: /偏移 b/ }), -8);
   await page.getByRole("button", { name: "用直线硬拟合" }).click();
