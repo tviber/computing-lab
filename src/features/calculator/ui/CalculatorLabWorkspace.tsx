@@ -14,7 +14,6 @@ import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/La
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { BusReadout } from "./BusReadout";
 import { CircuitCanvas } from "./CircuitCanvas";
-import { CoachCard, type CalculatorCoach } from "./CoachCard";
 import { StageRail } from "./StageRail";
 import { TestPanel } from "./TestPanel";
 import { AnnotatedText, CalculatorTermGuide } from "./CalculatorTerms";
@@ -24,8 +23,6 @@ import "./calculator.css";
 export type CalculatorLabWorkspaceProps = {
   state: CalculatorLessonState;
   dispatch: (action: CalculatorLessonAction) => void;
-  coach?: CalculatorCoach;
-  projectLoaded: boolean;
   error?: string | null;
   onSubmit?: () => void;
   submitting?: boolean;
@@ -37,8 +34,6 @@ export type CalculatorLabWorkspaceProps = {
 export function CalculatorLabWorkspace({
   state,
   dispatch,
-  coach,
-  projectLoaded,
   error,
   onSubmit,
   submitting = false,
@@ -79,11 +74,9 @@ export function CalculatorLabWorkspace({
       <LabPageShell
         collapsedLabel={`第 ${state.stageIndex} 关`}
         contentClassName="calculator-layout"
-        forceExpand={coach?.focusesOn("my-components")}
         labId="calculator"
         rail={
           <StageRail
-            coachHighlight={coach?.focusesOn("my-components") && stage?.id === "full-adder"}
             freeNavigation={freeNavigation}
             passedStages={state.passedStages}
             onPlaceComponent={(name) =>
@@ -120,11 +113,6 @@ export function CalculatorLabWorkspace({
                 <AnnotatedText text={stage.hint} />
               </HintDisclosure>
             ) : null}
-            {coach && projectLoaded && !coach.step ? (
-              <button className="stage-guide-trigger" onClick={coach.restart} type="button">
-                查看引导
-              </button>
-            ) : null}
             <CalculatorTermGuide />
           </section>
 
@@ -153,7 +141,7 @@ export function CalculatorLabWorkspace({
               <div className="palette-items">
                 {paletteGates(state).map((kind) => (
                   <button
-                    className={`palette-chip${coach?.focusesOn("palette-gate", kind) ? " coach-focus" : ""}`}
+                    className="palette-chip"
                     key={kind}
                     onClick={() => addGate(kind)}
                     type="button"
@@ -190,7 +178,7 @@ export function CalculatorLabWorkspace({
                       常量 1
                     </button>
                     <button
-                      className={`palette-chip is-const${coach?.focusesOn("palette-const", 0) ? " coach-focus" : ""}`}
+                      className="palette-chip is-const"
                       onClick={() =>
                         dispatch({ type: "add-node", kind: "const", value: 0, x: 120, y: 340 })
                       }
@@ -204,23 +192,9 @@ export function CalculatorLabWorkspace({
             </section>
           ) : null}
 
-          {stage ? (
-            <div className={coach?.focusesOn("bus-readout") ? "coach-focus" : undefined}>
-              <BusReadout pins={preview.pins} stage={stage} />
-            </div>
-          ) : null}
-
-          {coach ? (
-            <CoachCard
-              onAdvance={coach.advance}
-              onSkip={coach.skip}
-              onSkipAll={coach.skipAll}
-              step={coach.step}
-            />
-          ) : null}
+          {stage ? <BusReadout pins={preview.pins} stage={stage} /> : null}
 
           <CircuitCanvas
-            coachFocus={coach?.canvasFocus}
             components={componentDefinitions}
             dispatch={dispatch}
             graph={graph}
@@ -247,7 +221,7 @@ export function CalculatorLabWorkspace({
 
               <div className="calculator-actions">
                 <button
-                  className={`button button-secondary${coach?.focusesOn("run-tests") ? " coach-focus" : ""}`}
+                  className="button button-secondary"
                   onClick={() => dispatch({ type: "run-public-tests" })}
                   type="button"
                 >
@@ -263,7 +237,7 @@ export function CalculatorLabWorkspace({
                 </button>
                 {onSubmit ? (
                   <button
-                    className={`button button-primary${coach?.focusesOn("submit") ? " coach-focus" : ""}`}
+                    className="button button-primary"
                     disabled={submitting}
                     onClick={onSubmit}
                     type="button"

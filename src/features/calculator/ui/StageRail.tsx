@@ -19,8 +19,6 @@ type StageRailProps = {
   onPlaceComponent: (name: string) => void;
   onEditCustomComponent: (name: string) => void;
   onDeleteCustomComponent: (name: string) => void;
-  /** Coach spotlight on the “我的组件” shelf. */
-  coachHighlight?: boolean;
 };
 
 export function StageRail({
@@ -32,7 +30,6 @@ export function StageRail({
   onPlaceComponent,
   onEditCustomComponent,
   onDeleteCustomComponent,
-  coachHighlight,
 }: StageRailProps) {
   const optionalByAnchor = new Map<number, (typeof CALCULATOR_STAGES)[number][]>();
   for (const challenge of challengeStages()) {
@@ -124,7 +121,7 @@ export function StageRail({
         </details>
       </div>
 
-      <div className={`my-components${coachHighlight ? " coach-focus" : ""}`}>
+      <div className="my-components">
         <p className="eyebrow">
           我的组件 <span aria-hidden="true">/</span> MY COMPONENTS
         </p>

@@ -314,7 +314,6 @@ export function StudentLabPreviewPage() {
               ? { graph: inspect.graph, meta: <InspectMeta submission={inspect.submission} /> }
               : null
           }
-          projectLoaded={projectLoaded}
           state={state}
         />
       )}

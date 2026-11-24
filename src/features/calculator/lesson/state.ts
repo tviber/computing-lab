@@ -74,6 +74,7 @@ export type CalculatorLessonState = {
   currentStage: number;
   /** Stages fully passed, ascending, deduplicated. */
   passedStages: number[];
+  guideAcknowledged: boolean;
   unlockedSubmodules: ComponentDef[];
   /** Server-assigned revision of the component library — the next save that
    *  carries `components` sends it back as `expectedComponentsRevision`. */
@@ -125,6 +126,7 @@ export type CalculatorLessonAction =
       type: "load-project";
       currentStage: number;
       passedStages: number[];
+      guideAcknowledged?: boolean;
       unlockedSubmodules: ComponentDef[];
       drafts: Record<number, CircuitGraph>;
       draftRevisions?: Record<number, number>;
@@ -207,6 +209,7 @@ export type CalculatorLessonAction =
       stageIndex: number;
       outcome: NonNullable<JudgeOutcome>;
     }
+  | { type: "acknowledge-full-adder-guide" }
   | { type: "dismiss-message" };
 
 export function graphOf(state: CalculatorLessonState, stageIndex = state.stageIndex): CircuitGraph {
@@ -302,6 +305,7 @@ export function createCalculatorLessonState(stageIndex = 1): CalculatorLessonSta
     stageIndex,
     currentStage: stageIndex,
     passedStages: [],
+    guideAcknowledged: false,
     unlockedSubmodules: [],
     componentsRevision: 0,
     componentsEditSeq: 0,
@@ -689,6 +693,7 @@ export function transitionCalculatorLesson(
         stageIndex,
         currentStage: action.currentStage,
         passedStages: action.passedStages,
+        guideAcknowledged: state.guideAcknowledged || !!action.guideAcknowledged,
         unlockedSubmodules: action.unlockedSubmodules,
         componentsRevision: action.componentsRevision ?? 0,
         componentsEditSeq: 0,
@@ -1300,6 +1305,8 @@ export function transitionCalculatorLesson(
       };
     }
 
+    case "acknowledge-full-adder-guide":
+      return { ...state, guideAcknowledged: true };
     case "dismiss-message":
       return { ...state, message: null };
   }

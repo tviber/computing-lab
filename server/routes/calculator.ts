@@ -4,11 +4,13 @@ import {
 } from "../../src/features/calculator/domain/stages.ts";
 import type { CircuitGraph, ComponentDef } from "../../src/features/calculator/domain/graph.ts";
 import type { CalculatorJudgeResult } from "../../src/features/calculator/domain/protocol.ts";
+import { canAccessLab } from "../labs.ts";
+import { jsonError, requireMembership } from "../http/context.ts";
 import { judgeSubmission, saveDraft } from "../judge/run.ts";
 import { labRoutes } from "./labRoutes.ts";
 
 export function calculatorRoutes() {
-  return labRoutes<CircuitGraph, CalculatorJudgeResult>({
+  const app = labRoutes<CircuitGraph, CalculatorJudgeResult>({
     labId: "calculator",
     stageCount: CALCULATOR_STAGES.length,
     usesComponents: true,
@@ -32,7 +34,14 @@ export function calculatorRoutes() {
         kept = valid;
       }
     },
-    projectExtras: (_db, project) => ({ unlockedSubmodules: project.unlockedSubmodules }),
+    projectExtras: (db, project) => ({
+      unlockedSubmodules: project.unlockedSubmodules,
+      fullAdderGuideAcknowledged: Boolean(
+        db
+          .prepare("SELECT 1 FROM calculator_full_adder_guide_acknowledgements WHERE user_id = ?")
+          .get(project.userId),
+      ),
+    }),
     saveDraft: (
       db,
       project,
@@ -55,4 +64,19 @@ export function calculatorRoutes() {
     judge: (db, project, stageIndex, body, { staff }) =>
       judgeSubmission(db, project, stageIndex, body.graph, body.components, { bypassLock: staff }),
   });
+
+  app.post("/guide/full-adder/acknowledge", (c) => {
+    const auth = requireMembership(c);
+    if ("error" in auth) return jsonError(c, auth.status, auth.error);
+    const db = c.get("db");
+    if (!canAccessLab(db, "calculator", auth.user)) {
+      return jsonError(c, 403, "lab-not-available");
+    }
+    db.prepare(
+      "INSERT OR IGNORE INTO calculator_full_adder_guide_acknowledgements (user_id) VALUES (?)",
+    ).run(auth.user.id);
+    return c.json({ ok: true });
+  });
+
+  return app;
 }

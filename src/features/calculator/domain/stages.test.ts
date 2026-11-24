@@ -34,6 +34,7 @@ describe("calculator stage pin order", () => {
 
   it("states the 5-bit signed contract for negation and subtraction", () => {
     expect(getStage(5)?.description).toContain("逐位取反再加 1");
+    expect(getStage(5)?.description).toContain("0 表示零或正数，1 表示负数");
     expect(getStage(5)?.details).toContain("5 位二进制补码");
     expect(getStage(5)?.details).toContain("1≤A≤15");
     expect(getStage(5)?.details).toContain("符号位");

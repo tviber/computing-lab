@@ -1,5 +1,4 @@
 import {
-  useEffect,
   useId,
   useRef,
   useState,
@@ -26,7 +25,6 @@ export type LabPageShellProps = {
   collapsedLabel?: ReactNode;
   railWidth?: number;
   contentClassName?: string;
-  forceExpand?: boolean;
   resetControls?: LabResetControlsProps;
   children: ReactNode;
 };
@@ -125,7 +123,7 @@ function LabProgressTools({
               />
               <span>
                 <strong>从本关重来</strong>
-                <small>清除第 {stageIndex} 关及依赖它的后续关卡记录，保留不受影响的关卡。</small>
+                <small>清除本关及依赖它的后续关卡记录，保留不受影响的关卡。</small>
               </span>
             </label>
             <label>
@@ -175,28 +173,17 @@ export function LabPageShell({
   collapsedLabel,
   railWidth = 240,
   contentClassName,
-  forceExpand = false,
   resetControls,
   children,
 }: LabPageShellProps) {
   const [desktopCollapsed, setDesktopCollapsed] = useState(() => readCollapsed(labId));
   const [mobileCollapsed, setMobileCollapsed] = useState(true);
-  const [forceCollapsed, setForceCollapsed] = useState(false);
   const narrow = useSyncExternalStore(subscribeToNarrowRail, isNarrowRail);
-  const forcedOpen = forceExpand && !forceCollapsed;
-  const effective = !forcedOpen && (narrow ? mobileCollapsed : desktopCollapsed);
+  const effective = narrow ? mobileCollapsed : desktopCollapsed;
   const scrollId = useId();
   const scrollRef = useScrollEdges<HTMLDivElement>();
 
-  useEffect(() => {
-    if (forceExpand) setForceCollapsed(false);
-  }, [forceExpand]);
-
   const toggle = () => {
-    if (forceExpand) {
-      setForceCollapsed((collapsed) => !collapsed);
-      return;
-    }
     if (narrow) {
       setMobileCollapsed((prev) => !prev);
       return;
@@ -212,7 +199,7 @@ export function LabPageShell({
 
   return (
     <div
-      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${effective ? " is-collapsed" : ""}${forcedOpen ? " is-forced" : ""}`}
+      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${effective ? " is-collapsed" : ""}`}
       style={{ "--rail-w": `${railWidth}px` } as CSSProperties}
     >
       <div className="lab-rail-zone">

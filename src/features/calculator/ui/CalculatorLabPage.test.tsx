@@ -47,91 +47,52 @@ describe("CalculatorLabPage autosave", () => {
   });
 });
 
-describe("CalculatorLabPage coach", () => {
-  it("opens with the signal lesson and pre-places an XOR for the first wire", async () => {
+describe("CalculatorLabPage full-adder guide", () => {
+  it("requires a half-adder pass even when navigating directly to the full adder", async () => {
     vi.stubGlobal(
       "fetch",
       vi.fn(async () =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              currentStage: 2,
-              passedStages: [1],
-              unlockedSubmodules: [],
-              drafts: {},
-            }),
-            { headers: { "content-type": "application/json" } },
-          ),
-        ),
+        Response.json({
+          currentStage: 2,
+          passedStages: [1],
+          unlockedSubmodules: [],
+          drafts: {},
+        }),
       ),
     );
-
-    await renderAppAt("/classes/c1/labs/calculator");
-
-    fireEvent.click(await screen.findByRole("button", { name: /半加器/ }));
-    expect(await screen.findByText("先认识信号")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "切换 A，当前 0" }));
-    expect(await screen.findByText("0 和 1")).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: "继续" }));
-    fireEvent.click(await screen.findByRole("button", { name: "继续" }));
-    expect(await screen.findByText("第一根导线")).toBeInTheDocument();
-    expect(await screen.findByText("XOR", { selector: ".node-label" })).toBeInTheDocument();
+    await renderAppAt("/classes/c1/labs/calculator?stage=3");
+    expect(await screen.findByRole("heading", { name: "实现ALU - 全加器" })).toBeVisible();
+    expect(screen.queryByRole("button", { name: "我知道了" })).toBeNull();
   });
 
-  it("can reopen the guide after the learner skips it", async () => {
+  it("lets the learner retry if saving the acknowledgement fails", async () => {
+    let attempts = 0;
     vi.stubGlobal(
       "fetch",
-      vi.fn(async () =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              currentStage: 1,
-              passedStages: [],
-              unlockedSubmodules: [],
-              drafts: {},
-            }),
-            { headers: { "content-type": "application/json" } },
-          ),
-        ),
-      ),
+      vi.fn(async (url: string) => {
+        if (url.endsWith("/guide/full-adder/acknowledge")) {
+          attempts++;
+          return attempts === 1
+            ? Response.json({ error: "offline" }, { status: 503 })
+            : Response.json({ ok: true });
+        }
+        return Response.json({
+          currentStage: 3,
+          passedStages: [1, 2],
+          unlockedSubmodules: [],
+          drafts: {},
+          fullAdderGuideAcknowledged: false,
+        });
+      }),
     );
-
-    await renderAppAt("/classes/c1/labs/calculator");
-
-    expect(await screen.findByText("先认识信号")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "跳过引导" }));
-    fireEvent.click(await screen.findByRole("button", { name: "查看引导" }));
-
-    expect(await screen.findByText("先认识信号")).toBeInTheDocument();
-  });
-
-  it("keeps tutorial progress isolated between stages", async () => {
-    vi.stubGlobal(
-      "fetch",
-      vi.fn(async () =>
-        Promise.resolve(
-          new Response(
-            JSON.stringify({
-              currentStage: 2,
-              passedStages: [1],
-              unlockedSubmodules: [],
-              drafts: {},
-            }),
-            { headers: { "content-type": "application/json" } },
-          ),
-        ),
-      ),
+    await renderAppAt("/classes/c1/labs/calculator?stage=3");
+    fireEvent.click(await screen.findByRole("button", { name: "我知道了" }));
+    expect(await screen.findByText(/确认未保存/)).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "我知道了" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("region", { name: "用上你搭好的半加器" })).toBeNull(),
     );
-
-    await renderAppAt("/classes/c1/labs/calculator");
-
-    expect(await screen.findByText("先认识信号")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "跳过引导" }));
-    fireEvent.click(await screen.findByRole("button", { name: /半加器/ }));
-
-    expect(await screen.findByText("先认识信号")).toBeInTheDocument();
+    expect(attempts).toBe(2);
   });
 });
 

@@ -470,6 +470,28 @@ describe("shared staff privilege abstraction across all 6 labs", () => {
     },
   );
 
+  it("keeps the full-adder acknowledgement across resets and separate between accounts", async () => {
+    const { classId, studentId, teacherId, app, cookieFor } = await setupEnv();
+    const lab = labUrl(classId, "calculator", "");
+    const headers = { cookie: cookieFor(studentId), "content-type": "application/json" };
+    for (let attempt = 0; attempt < 2; attempt++) {
+      expect(
+        (await app.request(`${lab}/guide/full-adder/acknowledge`, { method: "POST", headers }))
+          .status,
+      ).toBe(200);
+    }
+    const reset = await app.request(`${lab}/reset`, {
+      method: "POST",
+      headers,
+      body: JSON.stringify({ scope: "lab" }),
+    });
+    expect(await reset.json()).toMatchObject({ fullAdderGuideAcknowledged: true });
+    const other = await app.request(`${lab}/project`, {
+      headers: { cookie: cookieFor(teacherId) },
+    });
+    expect(await other.json()).toMatchObject({ fullAdderGuideAcknowledged: false });
+  });
+
   it("removes direct and nested calculator component dependencies on reset", async () => {
     const { db, classId, studentId, app, cookieFor } = await setupEnv();
     const component = (name: string, dependency?: string, custom = true) => ({

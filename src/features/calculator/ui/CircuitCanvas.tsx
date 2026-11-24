@@ -33,8 +33,6 @@ type CircuitCanvasProps = {
   selectedNodeId: string | null;
   pendingWire: PendingWire;
   dispatch: (action: CalculatorLessonAction) => void;
-  /** Coach spotlight: pulse these nodes, ports, or every wire. */
-  coachFocus?: { nodeIds: ReadonlySet<string>; portKeys: ReadonlySet<string>; wires: boolean };
   /**
    * Read-only presentation for forensics/review: no editing gestures, no
    * keyboard shortcuts, no mutation dispatch. Collapse badges still toggle —
@@ -72,7 +70,6 @@ export function CircuitCanvas({
   selectedNodeId,
   pendingWire,
   dispatch,
-  coachFocus,
   readOnly = false,
 }: CircuitCanvasProps) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -336,7 +333,7 @@ export function CircuitCanvas({
                     ? `连线 ${nodeLabel(fromNode)} → ${nodeLabel(toNode)}`
                     : `连线 ${nodeLabel(fromNode)} → ${nodeLabel(toNode)}，删除`
                 }
-                className={`wire${valueClass(value)}${coachFocus?.wires ? " coach-focus" : ""}`}
+                className={`wire${valueClass(value)}`}
                 d={wirePath(from, to)}
                 key={edge.id}
                 onClick={(event) => {
@@ -370,7 +367,7 @@ export function CircuitCanvas({
 
             return (
               <g
-                className={`circuit-node kind-${node.kind}${isSelected ? " is-selected" : ""}${collapsedOf(node) ? " is-collapsed" : ""}${coachFocus?.nodeIds.has(node.id) ? " coach-focus" : ""}`}
+                className={`circuit-node kind-${node.kind}${isSelected ? " is-selected" : ""}${collapsedOf(node) ? " is-collapsed" : ""}`}
                 key={node.id}
                 onPointerDown={(event) => onNodePointerDown(event, node)}
                 transform={`translate(${node.x} ${node.y})`}
@@ -488,7 +485,7 @@ export function CircuitCanvas({
                 {!collapsedOf(node) &&
                   outputs.map((port) => {
                     const anchor = portAnchor(node, port, "out", components);
-                    const className = `port is-out${valueClass(portValues[`${node.id}#${port}`])}${coachFocus?.portKeys.has(`${node.id}#${port}#out`) ? " coach-focus" : ""}`;
+                    const className = `port is-out${valueClass(portValues[`${node.id}#${port}`])}`;
                     if (readOnly) {
                       return (
                         <circle
@@ -532,7 +529,7 @@ export function CircuitCanvas({
                 {!collapsedOf(node) &&
                   inputs.map((port) => {
                     const anchor = portAnchor(node, port, "in", components);
-                    const className = `port is-in${valueClass(portValues[`${node.id}#${port}`])}${coachFocus?.portKeys.has(`${node.id}#${port}#in`) ? " coach-focus" : ""}`;
+                    const className = `port is-in${valueClass(portValues[`${node.id}#${port}`])}`;
                     if (readOnly) {
                       return (
                         <circle

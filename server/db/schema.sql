@@ -76,6 +76,10 @@ CREATE TABLE IF NOT EXISTS sessions (
   expires_at TEXT NOT NULL
 );
 
+CREATE TABLE IF NOT EXISTS calculator_full_adder_guide_acknowledgements (
+  user_id TEXT PRIMARY KEY NOT NULL REFERENCES users (id) ON DELETE CASCADE
+);
+
 -- Task sheets (任务单): teacher-owned worksheet templates. schema_json holds
 -- the full question list INCLUDING grading data (accept lists, correct
 -- options, reference answers) — students only ever receive the publicSchema()

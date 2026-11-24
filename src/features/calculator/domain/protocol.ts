@@ -51,4 +51,5 @@ export type CalculatorJudgeResult = {
 /** GET /project payload: the generic lab envelope plus unlocked components. */
 export type CalculatorProjectPayload = LabProjectPayload<CircuitGraph> & {
   unlockedSubmodules: ComponentDef[];
+  fullAdderGuideAcknowledged: boolean;
 };

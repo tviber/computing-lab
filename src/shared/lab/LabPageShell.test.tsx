@@ -5,11 +5,10 @@ import { LabPageShell } from "./LabPageShell";
 
 beforeEach(() => localStorage.clear());
 
-function renderShell(extra?: { collapsedLabel?: string; forceExpand?: boolean; labId?: string }) {
+function renderShell(extra?: { collapsedLabel?: string; labId?: string }) {
   return render(
     <LabPageShell
       collapsedLabel={extra?.collapsedLabel}
-      forceExpand={extra?.forceExpand}
       labId={extra?.labId ?? "decoding"}
       rail={<nav>关卡列表</nav>}
     >
@@ -62,50 +61,15 @@ describe("LabPageShell", () => {
     );
   });
 
-  it("lets the learner collapse a rail temporarily forced open by the coach", async () => {
+  it("shows the collapsed label", async () => {
     const user = userEvent.setup();
-    const { container, rerender } = render(
+    render(
       <LabPageShell collapsedLabel="第 3 关" labId="logistic-regression" rail={<nav>关卡列表</nav>}>
         <main>工作区</main>
       </LabPageShell>,
     );
     await user.click(screen.getByRole("button", { name: "收起关卡栏" }));
     expect(screen.getByText("第 3 关")).toBeInTheDocument();
-
-    rerender(
-      <LabPageShell
-        collapsedLabel="第 3 关"
-        forceExpand
-        labId="logistic-regression"
-        rail={<nav>关卡列表</nav>}
-      >
-        <main>工作区</main>
-      </LabPageShell>,
-    );
-    const grid = container.querySelector(".lab-page-grid")!;
-    expect(grid.className).not.toContain("is-collapsed");
-    expect(grid.className).toContain("is-forced");
-    const forcedToggle = screen.getByRole("button", { name: "收起关卡栏" });
-    expect(forcedToggle).toHaveAttribute("aria-expanded", "true");
-    expect(forcedToggle).toBeEnabled();
-
-    await user.click(forcedToggle);
-    expect(grid.className).toContain("is-collapsed");
-    expect(grid.className).not.toContain("is-forced");
-    const collapsedToggle = screen.getByRole("button", { name: "展开关卡栏" });
-    expect(collapsedToggle).toHaveAttribute("aria-expanded", "false");
-
-    await user.click(collapsedToggle);
-    expect(grid.className).not.toContain("is-collapsed");
-    expect(grid.className).toContain("is-forced");
-
-    rerender(
-      <LabPageShell collapsedLabel="第 3 关" labId="logistic-regression" rail={<nav>关卡列表</nav>}>
-        <main>工作区</main>
-      </LabPageShell>,
-    );
-    expect(grid.className).toContain("is-collapsed");
-    expect(localStorage.getItem("computing-lab:lab-rail:logistic-regression")).toBe("1");
   });
 
   it("confirms scoped resets and omits the controls from read-only workspaces", async () => {
@@ -134,6 +98,7 @@ describe("LabPageShell", () => {
     const resetBtn = screen.getByRole("button", { name: "重置进度" });
     await user.click(resetBtn);
     expect(screen.getByRole("dialog", { name: "重置实验进度" })).toBeInTheDocument();
+    expect(screen.getByText("清除本关及依赖它的后续关卡记录，保留不受影响的关卡。")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(onReset).not.toHaveBeenCalled();
 

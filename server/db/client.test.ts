@@ -17,6 +17,7 @@ function fixtureDb(version: number): DatabaseSync {
   const db = new DatabaseSync(":memory:");
   db.exec("PRAGMA foreign_keys = ON");
   db.exec(schemaSql);
+  if (version < 22) db.exec("DROP TABLE calculator_full_adder_guide_acknowledgements");
   if (version < 18) db.exec("ALTER TABLE student_projects DROP COLUMN project_generation");
   if (version < 9) db.exec("DROP TABLE IF EXISTS cpu_guided_first_answers");
   if (version < 8) db.exec("DROP TABLE IF EXISTS lab_class_settings");
@@ -54,6 +55,7 @@ describe("migrate", () => {
         "task_assignments",
         "task_responses",
         "cpu_guided_first_answers",
+        "calculator_full_adder_guide_acknowledgements",
       ]) {
         expect(tableExists(db, table), table).toBe(true);
       }
