@@ -25,13 +25,23 @@ if [[ "${header[0]}" == base-v1 ]]; then
   [[ ${scenario:-} != legacy ]] || exit 1
   exec bash "$scripts/bundle-cache.sh" base
 fi
+echo "${header[0]}" >>"$fixture/deliveries"
 cat >"$fixture/wire"
 digest=$(sha256sum <"$fixture/wire")
 [[ ${header[${#header[@]}-1]} == "${digest%% *}" ]]
 if [[ ${header[0]} == bundle-v1 ]]; then
   [[ ${scenario:-} != broken ]] || exit 42
-  [[ ${scenario:-} != failed ]] || exit 1
   bash "$scripts/bundle-cache.sh" unpack "${header[1]}" <"$fixture/wire" >"$fixture/archive"
+  if [[ ${scenario:-} == failed ]]; then
+    source "$scripts/receive-release.sh"
+    systemd-run() { return 42; }
+    systemctl() { return 1; }
+    stage=$(mktemp -d "$fixture/stage.XXXXXXXX")
+    mv "$fixture/archive" "$stage/source.tar.gz"
+    if publish "$RELEASE_SHA" "$stage" "$(sha256sum <"$stage/source.tar.gz" | cut -d' ' -f1)"; then
+      exit 1
+    fi
+  fi
 else
   [[ ${header[0]} == "$RELEASE_SHA" ]]
   cp "$fixture/wire" "$fixture/archive"
@@ -54,6 +64,12 @@ publish
 (( $(wc -c <"$fixture/wire") < full_size ))
 publish # Retry an already cached SHA.
 scenario=legacy publish
+: >"$fixture/deliveries"
 scenario=broken publish
-if scenario=failed bash "$scripts/send-release.sh" "$fixture/transport"; then exit 1; fi
+[[ $(cat "$fixture/deliveries") == "bundle-v1"$'\n'"$RELEASE_SHA" ]]
+: >"$fixture/deliveries"
+result=0
+scenario=failed bash "$scripts/send-release.sh" "$fixture/transport" 2>"$fixture/error" || result=$?
+[[ $result == 1 && $(cat "$fixture/deliveries") == bundle-v1 ]]
+grep -F 'systemd-run status 42' "$fixture/error" >/dev/null
 echo 'ok - full, delta, cached retry, legacy, cache failure, and publication failure'

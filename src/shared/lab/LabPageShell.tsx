@@ -177,19 +177,14 @@ export function LabPageShell({
   resetControls,
   children,
 }: LabPageShellProps) {
-  const [desktopCollapsed, setDesktopCollapsed] = useState(() => readCollapsed(labId));
-  const [mobileCollapsed, setMobileCollapsed] = useState(true);
   const narrow = useSyncExternalStore(subscribeToNarrowRail, isNarrowRail);
-  const effective = narrow ? mobileCollapsed : desktopCollapsed;
+  const [collapsed, setCollapsed] = useState(() => narrow || readCollapsed(labId));
   const scrollRef = useScrollEdges<HTMLDivElement>();
 
   const onOpenChange = (open: boolean) => {
     const next = !open;
-    if (narrow) {
-      setMobileCollapsed(next);
-      return;
-    }
-    setDesktopCollapsed(next);
+    setCollapsed(next);
+    if (narrow) return; // Only desktop interactions change the saved desktop preference.
     try {
       localStorage.setItem(storageKey(labId), next ? "1" : "0");
     } catch {
@@ -199,24 +194,24 @@ export function LabPageShell({
 
   return (
     <div
-      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${effective ? " is-collapsed" : ""}`}
+      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${collapsed ? " is-collapsed" : ""}`}
       style={{ "--rail-w": `${railWidth}px` } as CSSProperties}
     >
-      <Collapsible className="lab-rail-zone" open={!effective} onOpenChange={onOpenChange}>
+      <Collapsible className="lab-rail-zone" open={!collapsed} onOpenChange={onOpenChange}>
         <div className="lab-rail-bar">
           <CollapsibleTrigger
-            aria-label={effective ? "展开关卡栏" : "收起关卡栏"}
+            aria-label={collapsed ? "展开关卡栏" : "收起关卡栏"}
             className="lab-rail-toggle"
-            title={effective ? "展开关卡栏" : "收起关卡栏"}
+            title={collapsed ? "展开关卡栏" : "收起关卡栏"}
             type="button"
           >
             <Icon
               name={
                 narrow
-                  ? effective
+                  ? collapsed
                     ? "chevron-down"
                     : "chevron-up"
-                  : effective
+                  : collapsed
                     ? "panel-left-open"
                     : "panel-left-close"
               }
@@ -224,7 +219,7 @@ export function LabPageShell({
             />
             {narrow ? <span>{collapsedLabel ?? "关卡"}</span> : null}
           </CollapsibleTrigger>
-          {!narrow && effective && collapsedLabel ? (
+          {!narrow && collapsed && collapsedLabel ? (
             <span className="lab-rail-bar-label">{collapsedLabel}</span>
           ) : null}
         </div>

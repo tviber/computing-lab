@@ -4,6 +4,20 @@ umask 077
 
 die() { printf 'computing-lab-receive: %s\n' "$*" >&2; exit 1; }
 
+publish() {
+  local sha=$1 stage=$2 expected=$3 unit="computing-lab-push-$1.service" status
+  systemd-run --unit="$unit" --wait --collect -p RuntimeMaxSec=45min \
+    -p Type=exec -p StandardOutput=journal -p StandardError=journal \
+    -p "ExecStopPost=/usr/bin/rm -rf -- $stage" \
+    /usr/local/libexec/computing-lab/release.sh "$sha" "$stage/source.tar.gz" "$expected" </dev/null || {
+    status=$?
+    if ! systemctl is-active --quiet "$unit"; then rm -rf -- "$stage"; fi
+    printf 'Release failed (systemd-run status %s); inspect %s on the host\n' "$status" "$unit" >&2
+    return 1 # The sender must never interpret a publication status as a cache failure.
+  }
+}
+
+[[ ${BASH_SOURCE[0]} == "$0" ]] || return 0
 [[ "$EUID" == 0 && $# == 0 ]] || die 'expected a release stream on stdin'
 cache_helper=/usr/local/libexec/computing-lab/bundle-cache.sh
 cache() { runuser -u computing-lab-git -- "$cache_helper" "$@"; }
@@ -40,14 +54,5 @@ if [[ "$mode" == bundle ]]; then
 else
   mv -- "$payload" "$archive"
 fi
-unit="computing-lab-push-$sha.service"
-
 trap - EXIT
-systemd-run --unit="$unit" --wait --collect -p RuntimeMaxSec=45min \
-  -p Type=exec -p StandardOutput=journal -p StandardError=journal \
-  -p "ExecStopPost=/usr/bin/rm -rf -- $stage" \
-  /usr/local/libexec/computing-lab/release.sh "$sha" "$archive" "$expected" </dev/null || {
-  if ! systemctl is-active --quiet "$unit"; then rm -rf -- "$stage"; fi
-  printf 'Release failed; inspect %s on the host\n' "$unit" >&2
-  exit 1
-}
+publish "$sha" "$stage" "$expected"
