@@ -6,7 +6,7 @@ import {
   type LabId,
 } from "../../shared/lab/labMetadata";
 
-type Specimen = "circuit" | "bytes" | "receipt" | "curve" | "sampling" | "ink";
+type Specimen = "circuit" | "bytes" | "receipt" | "coin-toss" | "curve" | "sampling" | "ink";
 
 const topicSpecimens: Record<LabCategory, Specimen> = {
   "computer-architecture": "circuit",
@@ -16,6 +16,7 @@ const topicSpecimens: Record<LabCategory, Specimen> = {
 };
 
 const specialPlates: Partial<Record<LabId, Specimen>> = {
+  "stats-foundations": "coin-toss",
   "image-sampling": "sampling",
   "color-quantization": "ink",
 };
@@ -240,6 +241,31 @@ const specimenDefinitions: Record<Specimen, SpecimenDefinition> = {
           <text className="plate-muted" x="181" y="70">
             014
           </text>
+        </g>
+      </g>
+    ),
+  },
+  "coin-toss": {
+    spec: "p̂ = 7/10",
+    art: (
+      <g>
+        <g fill="var(--primary)" fontSize="11" textAnchor="end">
+          <text x="47" y="38">
+            正面
+          </text>
+          <text x="47" y="65">
+            反面
+          </text>
+        </g>
+        <g fill="var(--plate-accent)">
+          {[65, 87, 109, 131, 153, 175, 197].map((x) => (
+            <circle cx={x} cy="34" key={x} r="8" />
+          ))}
+        </g>
+        <g fill="var(--surface)" stroke="var(--primary)" strokeWidth="1.5">
+          {[65, 87, 109].map((x) => (
+            <circle cx={x} cy="61" key={x} r="8" />
+          ))}
         </g>
       </g>
     ),
