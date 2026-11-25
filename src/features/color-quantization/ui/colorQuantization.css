@@ -364,20 +364,12 @@
   padding: var(--space-2);
   text-align: start;
   font: inherit;
-  background: var(--surface);
-  border: 1px solid var(--border-strong);
   border-radius: var(--radius-mini);
 }
 
 .quant-practice-sources button {
   display: flex;
   align-items: center;
-}
-
-.quant-prediction button[aria-pressed="true"] {
-  border-color: var(--accent-ink);
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--accent-ink);
 }
 
 .quant-practice-chip {

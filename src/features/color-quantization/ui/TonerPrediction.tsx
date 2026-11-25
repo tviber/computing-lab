@@ -45,6 +45,7 @@ export function TonerPrediction({ outputs }: { outputs: (number | null)[] | null
           <button
             type="button"
             key={item.source}
+            className="choice-surface"
             aria-pressed={index === active}
             onClick={() => setActive(index)}
           >
@@ -66,6 +67,7 @@ export function TonerPrediction({ outputs }: { outputs: (number | null)[] | null
           <button
             type="button"
             key={candidate.name}
+            className="choice-surface"
             aria-pressed={guess === index}
             onClick={() => setGuesses((previous) => ({ ...previous, [active]: index }))}
           >

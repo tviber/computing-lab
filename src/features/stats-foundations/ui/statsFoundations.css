@@ -237,9 +237,9 @@
   font-size: 0.88rem;
 }
 
-.sf-slider-group input[type="range"] {
+.sf-slider-group > input[type="range"] {
   width: 100%;
-  accent-color: var(--sf-accent);
+  min-height: 44px;
 }
 
 .sf-fit-slider-control {
@@ -302,6 +302,7 @@
 }
 
 .sf-filter-pills button {
+  min-height: 36px;
   padding: 0.32rem 0.65rem;
   border-radius: 999px;
   border: 1px solid var(--border);
@@ -311,7 +312,7 @@
   cursor: pointer;
 }
 
-.sf-filter-pills button.is-active {
+.sf-filter-pills button[aria-checked="true"] {
   background: var(--sf-accent);
   border-color: var(--sf-accent);
   color: #fff;
@@ -663,4 +664,11 @@
   text-align: start;
   font-weight: 600;
   margin-bottom: 0.6rem;
+}
+
+@media (pointer: coarse) {
+  .sf-filter-pills button,
+  .sf-fit-slider-control {
+    min-height: 44px;
+  }
 }

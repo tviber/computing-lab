@@ -264,7 +264,7 @@ function ReceiverTransmission({
             <legend>根据收到的格子，来包可能来自谁？</legend>
             <div className="receiver-actions">
               {(["a", "b", "both"] as const).map((candidate) => (
-                <label key={candidate}>
+                <label className="choice-surface" key={candidate}>
                   <input
                     checked={choice === candidate}
                     name={choiceGroupName}
@@ -316,7 +316,7 @@ function ReceiverTransmission({
                 </legend>
                 <div className="receiver-actions">
                   {(["separate", "collide"] as const).map((option) => (
-                    <label key={option}>
+                    <label className="choice-surface" key={option}>
                       <input name="prediction" required type="radio" value={option} />
                       {predictions[option]}
                     </label>

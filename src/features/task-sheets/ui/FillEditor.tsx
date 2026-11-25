@@ -4,6 +4,7 @@
  * blanks the ${} markers bind to.
  */
 
+import { TaskCheckbox } from "./TaskCheckbox";
 import type { Dispatch } from "react";
 import { Icon } from "../../../shared/ui/Icon";
 import { BLANK_MARKER, SHEET_LIMITS, countPromptBlanks, type FillQuestion } from "../domain/schema";
@@ -37,20 +38,18 @@ export function FillEditor({ q, dispatch }: { q: FillQuestion; dispatch: Dispatc
             placeholder="可接受答案，多个用逗号分隔"
             value={blank.accept.join(", ")}
           />
-          <label className="ts-check">
-            <input
-              checked={blank.caseSensitive === true}
-              onChange={(e) =>
-                patch({
-                  blanks: q.blanks.map((b) =>
-                    b.id === blank.id ? { ...b, caseSensitive: e.target.checked } : b,
-                  ),
-                })
-              }
-              type="checkbox"
-            />
+          <TaskCheckbox
+            checked={blank.caseSensitive === true}
+            onChange={(checked) =>
+              patch({
+                blanks: q.blanks.map((b) =>
+                  b.id === blank.id ? { ...b, caseSensitive: checked } : b,
+                ),
+              })
+            }
+          >
             区分大小写
-          </label>
+          </TaskCheckbox>
           <button
             aria-label={`删除空 ${i + 1}`}
             className="icon-button"

@@ -215,15 +215,8 @@
   gap: var(--space-1);
   min-height: 42px;
   padding: 0 var(--space-2);
-  border: 1px solid var(--border);
   border-radius: var(--radius-control);
-  cursor: pointer;
   font-size: 14px;
-}
-
-.receiver-actions label:has(:checked) {
-  border-color: var(--accent-line);
-  background: var(--accent-soft);
 }
 
 .receiver-actions input {

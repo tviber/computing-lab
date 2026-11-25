@@ -286,18 +286,9 @@
   align-items: baseline;
   justify-content: space-between;
   gap: 0 var(--space-1);
-  background: var(--surface);
-  border: 1px solid var(--border);
   border-radius: var(--radius-mini);
   padding: var(--space-1) var(--space-2);
   font-size: 12px;
-}
-
-.decoding-byte-fields button[aria-pressed="true"] {
-  border-color: var(--accent);
-  color: var(--accent-ink);
-  background: var(--accent-soft);
-  font-weight: 650;
 }
 
 @container decoding-bytes (min-width: 42rem) {

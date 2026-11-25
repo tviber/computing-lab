@@ -216,7 +216,7 @@ export function TrainingPanel({
           {cookDone ? (
             <>
               <div className="lunch-choice-list" aria-label="你的选择">
-                <label className="lunch-choice-card">
+                <label className="choice-surface lunch-choice-card">
                   <input
                     checked={draft.kitchenChoice === "urgent"}
                     disabled
@@ -228,7 +228,7 @@ export function TrainingPanel({
                     <small>加急 · 制作需要 1 拍</small>
                   </span>
                 </label>
-                <label className="lunch-choice-card">
+                <label className="choice-surface lunch-choice-card">
                   <input
                     checked={draft.kitchenChoice === "normal"}
                     disabled
@@ -270,14 +270,14 @@ export function TrainingPanel({
                 }
               }}
             >
-              <label className="lunch-choice-card">
+              <label className="choice-surface lunch-choice-card">
                 <input name="choice" required type="radio" value="urgent" />
                 <span>
                   <b>2 号桌 · 鸡腿饭</b>
                   <small>加急 · 制作需要 1 拍</small>
                 </span>
               </label>
-              <label className="lunch-choice-card">
+              <label className="choice-surface lunch-choice-card">
                 <input name="choice" required type="radio" value="normal" />
                 <span>
                   <b>

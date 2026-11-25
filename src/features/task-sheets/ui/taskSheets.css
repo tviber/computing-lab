@@ -22,7 +22,7 @@
 
 .ts-field input,
 .ts-field textarea,
-.ts-blank-row input,
+.ts-blank-row > input,
 .ts-option-text,
 .ts-answer-blank input,
 .ts-answer-text,
@@ -44,12 +44,11 @@
 
 .ts-field input:focus,
 .ts-field textarea:focus,
-.ts-blank-row input:focus,
+.ts-blank-row > input:focus,
 .ts-option-text:focus,
 .ts-answer-blank input:focus,
 .ts-answer-text:focus {
   border-color: var(--focus);
-  outline: none;
 }
 
 .ts-palette {
@@ -126,6 +125,33 @@
   font-size: 12px;
 }
 
+.ts-check [data-slot="checkbox"] {
+  display: inline-grid;
+  place-items: center;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-mini);
+  background: var(--surface);
+}
+
+.ts-check [aria-checked="true"] {
+  border-color: var(--accent);
+  background: var(--accent);
+  color: var(--surface);
+}
+
+.ts-check [data-slot="checkbox-indicator"] {
+  display: flex;
+}
+
+@media (pointer: coarse) {
+  .ts-check {
+    min-height: 44px;
+  }
+}
+
 .ts-card-actions {
   display: inline-flex;
   gap: 4px;
@@ -194,7 +220,7 @@
   gap: 8px;
 }
 
-.ts-blank-row input {
+.ts-blank-row > input {
   flex: 1;
   min-width: 0;
 }

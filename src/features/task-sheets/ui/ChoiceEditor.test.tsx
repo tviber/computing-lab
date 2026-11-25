@@ -36,6 +36,24 @@ function Harness({
 }
 
 describe("ChoiceEditor option ids", () => {
+  it("toggles multi-select by its label and partial credit with the keyboard", async () => {
+    const user = userEvent.setup();
+    const updates: ChoiceQuestion[] = [];
+    render(
+      <Harness
+        initial={choice([blankOption(1), blankOption(2)])}
+        onUpdate={(q) => updates.push(q)}
+      />,
+    );
+    await user.click(screen.getByText("允许多选"));
+    expect(screen.getByRole("checkbox", { name: "允许多选" })).toBeChecked();
+    const partial = screen.getByRole("checkbox", { name: "漏选给部分分" });
+    await user.tab();
+    expect(partial).toHaveFocus();
+    await user.keyboard("[Space]");
+    expect(updates.at(-1)).toMatchObject({ multiple: true, partialCredit: true });
+  });
+
   it("mints a unique id when an option is added after deleting a middle one", async () => {
     const user = userEvent.setup();
     const updates: ChoiceQuestion[] = [];
