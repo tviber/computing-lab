@@ -88,6 +88,7 @@ export function sanitizeStatsFoundationsDraft(
       answer: sanitizeAnswer(obj.answer),
     };
   }
+  if (stageIndex !== 4) throw new RangeError(`Unknown stats foundations stage: ${stageIndex}`);
   const def = defaultSigmoidBridgeDraft();
   return {
     w: typeof obj.w === "number" ? clamp(obj.w, SIGMOID_W_MIN, SIGMOID_W_MAX) : def.w,

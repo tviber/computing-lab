@@ -620,8 +620,19 @@ test("teacher follows sequential unlocks and uses the shared reset dialog", asyn
   await expect(page.getByRole("button", { name: /训练模型/ })).toBeDisabled();
 
   await page.setViewportSize({ width: 390, height: 844 });
+  const collapseRail = page.getByRole("button", { name: "收起关卡栏" });
+  await expect(collapseRail).toHaveText("第 1 关");
+  await expect(collapseRail).toHaveAttribute("aria-expanded", "true");
+  await expect(page.getByRole("button", { name: /训练模型/ })).toBeVisible();
+  await collapseRail.click();
+
+  await page.setViewportSize({ width: 1280, height: 900 });
   const expandRail = page.getByRole("button", { name: "展开关卡栏" });
+  await expect(expandRail).toHaveText("");
   await expect(expandRail).toHaveAttribute("aria-expanded", "false");
+  await expect(page.getByRole("button", { name: /训练模型/ })).toBeHidden();
+
+  await page.setViewportSize({ width: 390, height: 844 });
   await expect(expandRail).toHaveText("第 1 关");
   await expect(page.getByRole("button", { name: /训练模型/ })).toBeHidden();
   await expect(
