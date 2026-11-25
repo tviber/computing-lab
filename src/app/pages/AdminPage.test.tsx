@@ -83,8 +83,8 @@ describe("AdminPage", () => {
     const classSelect = screen.getByLabelText("把 张三 加入班级");
     expect(roleSelect).toHaveClass("admin-table-select");
     expect(classSelect).toHaveClass("admin-table-select");
-    expect(roleSelect).toHaveClass("admin-role-select");
-    expect(classSelect).toHaveClass("admin-role-select");
+    expect(roleSelect).toHaveClass("field-select-native");
+    expect(classSelect).toHaveClass("field-select-native");
 
     await user.click(screen.getByRole("button", { name: "删除" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("确定删除账号「张三」");

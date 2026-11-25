@@ -76,49 +76,56 @@ export function AdminClassesPage() {
               <h2 id="classes-title">班级列表</h2>
             </div>
             <CreateClassForm onCreated={reload} />
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th scope="col">班级</th>
-                  <th scope="col">邀请码</th>
-                  <th scope="col">成员数</th>
-                  <th scope="col">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {classes.map((klass) => (
-                  <tr key={klass.id}>
-                    <td>{klass.name}</td>
-                    <td>
-                      <code>{klass.inviteCode}</code>
-                    </td>
-                    <td>{klass.memberCount}</td>
-                    <td>
-                      <button
-                        className="button button-ghost admin-inline-button"
-                        disabled={klass.memberCount > 0}
-                        onClick={() =>
-                          setDeleteTarget({
-                            label: `班级「${klass.name}」`,
-                            description: "删除后，这个班级和邀请码将不再可用。",
-                            endpoint: `/api/admin/classes/${klass.id}`,
-                          })
-                        }
-                        title={klass.memberCount > 0 ? "先移除全部成员才能删除" : "删除班级"}
-                        type="button"
-                      >
-                        删除
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-                {classes.length === 0 ? (
+            <div
+              className="admin-account-table-scroll"
+              role="region"
+              aria-label="班级列表"
+              tabIndex={0}
+            >
+              <table className="admin-table">
+                <thead>
                   <tr>
-                    <td colSpan={4}>还没有班级。</td>
+                    <th scope="col">班级</th>
+                    <th scope="col">邀请码</th>
+                    <th scope="col">成员数</th>
+                    <th scope="col">操作</th>
                   </tr>
-                ) : null}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {classes.map((klass) => (
+                    <tr key={klass.id}>
+                      <td>{klass.name}</td>
+                      <td>
+                        <code>{klass.inviteCode}</code>
+                      </td>
+                      <td>{klass.memberCount}</td>
+                      <td>
+                        <button
+                          className="button button-ghost admin-inline-button"
+                          disabled={klass.memberCount > 0}
+                          onClick={() =>
+                            setDeleteTarget({
+                              label: `班级「${klass.name}」`,
+                              description: "删除后，这个班级和邀请码将不再可用。",
+                              endpoint: `/api/admin/classes/${klass.id}`,
+                            })
+                          }
+                          title={klass.memberCount > 0 ? "先移除全部成员才能删除" : "删除班级"}
+                          type="button"
+                        >
+                          删除
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                  {classes.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>还没有班级。</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
 

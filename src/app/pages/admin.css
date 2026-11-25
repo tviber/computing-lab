@@ -220,22 +220,76 @@
 
 .admin-table {
   width: 100%;
+  table-layout: auto;
+  min-width: 640px;
   margin-top: 6px;
-  border-collapse: collapse;
+  border-collapse: separate;
+  border-spacing: 0;
   font-size: 13px;
 }
 
 .admin-table th,
 .admin-table td {
-  padding: 8px 10px;
+  padding: 12px 14px;
   border-bottom: 1px solid var(--border);
   text-align: left;
   vertical-align: middle;
 }
 
-.admin-table th:last-child,
-.admin-table td:last-child {
-  white-space: nowrap;
+.admin-table th:first-child,
+.admin-table td:first-child {
+  padding-inline-start: 10px;
+}
+
+.admin-table tbody tr {
+  transition: background-color 120ms ease;
+}
+.admin-table tbody tr:hover {
+  background: var(--subtle);
+}
+
+.admin-table-select {
+  appearance: none;
+  width: 100%;
+  min-width: 132px;
+  max-width: 180px;
+  min-height: 38px;
+  padding: 7px 34px 7px 11px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface) url("../../shared/ui/select-chevron.svg") no-repeat right 10px center /
+    14px;
+  color: var(--primary);
+  font-size: 13px;
+  text-overflow: ellipsis;
+}
+
+.field-select-native.admin-table-select:focus-visible {
+  border-color: var(--focus);
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 1px;
+}
+
+.admin-table-select:disabled {
+  cursor: not-allowed;
+  opacity: 0.6;
+}
+
+.admin-class-chips .admin-table-select {
+  min-width: 156px;
+}
+
+.admin-account-table-scroll:focus-visible {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.admin-users-table {
+  table-layout: fixed;
+}
+
+.admin-users-table td {
+  overflow-wrap: anywhere;
 }
 
 .admin-table thead th {
@@ -269,28 +323,6 @@
 .admin-inline-button:disabled {
   cursor: not-allowed;
   opacity: 0.45;
-}
-
-.admin-role-select {
-  box-sizing: border-box;
-  height: 36px;
-  min-height: 36px;
-  padding: 6px 28px 6px 10px;
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  font-size: 13px;
-  line-height: 20px;
-}
-
-.admin-table-select {
-  width: 100%;
-  max-width: 148px;
-}
-
-.admin-role-select:disabled {
-  cursor: not-allowed;
-  opacity: 0.55;
 }
 
 .admin-reset-form {
@@ -439,20 +471,25 @@
 
 .admin-class-chips {
   display: flex;
+  min-width: 0;
   align-items: center;
   flex-wrap: wrap;
-  gap: 4px;
-  min-height: 36px;
+  gap: 6px;
+  min-height: 38px;
 }
 
 .admin-class-chip {
   display: inline-flex;
   align-items: center;
   gap: 2px;
-  padding: 2px 4px 2px 8px;
+  max-width: min(100%, 260px);
+  overflow: hidden;
+  padding: 3px 5px 3px 10px;
   border: 1px solid var(--border);
   border-radius: var(--radius-pill);
   font-size: 12px;
+  overflow-wrap: anywhere;
+  line-height: 1.35;
 }
 
 .admin-chip-remove {
@@ -527,10 +564,6 @@
 }
 
 @media (max-width: 700px) {
-  .admin-users-card {
-    overflow-x: auto;
-  }
-
   .admin-users-toolbar,
   .admin-search-form {
     align-items: stretch;
@@ -552,9 +585,5 @@
 
   .admin-pagination-info {
     flex-basis: 100%;
-  }
-
-  .admin-table {
-    min-width: 760px;
   }
 }

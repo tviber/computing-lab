@@ -233,7 +233,14 @@ export function AdminPage() {
               aria-label="账号列表"
               tabIndex={0}
             >
-              <table className="admin-table">
+              <table className="admin-table admin-users-table">
+                <colgroup>
+                  <col style={{ width: "15%" }} />
+                  <col style={{ width: "14%" }} />
+                  <col style={{ width: "17%" }} />
+                  <col style={{ width: "36%" }} />
+                  <col style={{ width: "18%" }} />
+                </colgroup>
                 <thead>
                   <tr>
                     <th scope="col">学号</th>
@@ -251,7 +258,7 @@ export function AdminPage() {
                       <td>
                         <select
                           aria-label={`${user.name} 的角色`}
-                          className="admin-role-select admin-table-select"
+                          className="field-select-native admin-table-select"
                           disabled={busy || user.id === session?.user.id}
                           onChange={(e) =>
                             void run(() =>
@@ -301,7 +308,7 @@ export function AdminPage() {
                           ).length > 0 ? (
                             <select
                               aria-label={`把 ${user.name} 加入班级`}
-                              className="admin-role-select admin-table-select"
+                              className="field-select-native admin-table-select"
                               disabled={busy}
                               onChange={(e) => {
                                 const classId = e.target.value;

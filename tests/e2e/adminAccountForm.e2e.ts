@@ -9,13 +9,29 @@ test.beforeEach(async ({ page }) => {
       },
     }),
   );
+  await page.route("**/api/admin/users?*", (route) =>
+    route.fulfill({
+      json: {
+        users: [
+          {
+            id: "u1",
+            studentNo: "20251101",
+            name: "常奕璇",
+            role: "user",
+            createdAt: "2026-01-01",
+            classes: [{ classId: "old", className: "2026-高二信息技术-11", role: "student" }],
+          },
+        ],
+        total: 782,
+        page: 1,
+        pageSize: 50,
+      },
+    }),
+  );
   await page.route("**/api/admin/classes", (route) =>
     route.fulfill({
       json: { classes: [{ id: "long", name: "信息技术综合实践实验教学示范班".repeat(4) }] },
     }),
-  );
-  await page.route("**/api/admin/users?*", (route) =>
-    route.fulfill({ json: { users: [], total: 0, page: 1, pageSize: 50 } }),
   );
 });
 
@@ -23,6 +39,21 @@ test("fields keep their bounds on direct admin entry, keyboard focus and class s
   page,
 }, testInfo) => {
   await page.goto("admin");
+  const tableRegion = page.getByRole("region", { name: "账号列表" });
+  const adminSelect = tableRegion.getByRole("combobox", { name: "常奕璇 的角色" });
+  await expect(adminSelect).toHaveCSS("border-top-width", "1px");
+  await adminSelect.focus();
+  await expect(adminSelect).toHaveCSS("outline-style", "solid");
+  await expect(adminSelect).toHaveCSS("box-shadow", "none");
+  await testInfo.attach("accounts-desktop.png", {
+    body: await tableRegion.screenshot(),
+    contentType: "image/png",
+  });
+  await page.setViewportSize({ width: 320, height: 900 });
+  await testInfo.attach("accounts-mobile.png", {
+    body: await tableRegion.screenshot(),
+    contentType: "image/png",
+  });
   const form = page.getByRole("form", { name: "创建账号" });
   const role = form.getByLabel("角色");
   const klass = form.getByLabel("分配班级（可选）");
