@@ -1,8 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-test("fields keep their bounds on direct admin entry, keyboard focus and class selection", async ({
-  page,
-}, testInfo) => {
+test.beforeEach(async ({ page }) => {
   await page.route("**/api/auth/me", (route) =>
     route.fulfill({
       json: {
@@ -19,6 +17,11 @@ test("fields keep their bounds on direct admin entry, keyboard focus and class s
   await page.route("**/api/admin/users?*", (route) =>
     route.fulfill({ json: { users: [], total: 0, page: 1, pageSize: 50 } }),
   );
+});
+
+test("fields keep their bounds on direct admin entry, keyboard focus and class selection", async ({
+  page,
+}, testInfo) => {
   await page.goto("admin");
   const form = page.getByRole("form", { name: "创建账号" });
   const role = form.getByLabel("角色");
@@ -62,4 +65,53 @@ test("fields keep their bounds on direct admin entry, keyboard focus and class s
     });
     await klass.selectOption("");
   }
+});
+
+test("reviews a CSV file before importing and reads partial results on a narrow screen", async ({
+  page,
+}, testInfo) => {
+  const csv = "20260101,张三,pass123\n20260102,李四,pass456";
+  let submissions = 0;
+  await page.route("**/api/admin/users/import", async (route) => {
+    submissions++;
+    expect(route.request().postDataJSON()).toEqual({ csv });
+    await route.fulfill({
+      json: {
+        created: 1,
+        failed: 0,
+        exists: 1,
+        rows: [{ line: 2, studentNo: "20260102", status: "exists" }],
+      },
+    });
+  });
+  await page.goto("admin");
+  const panel = page.getByRole("region", { name: "批量导入账号", exact: true });
+  const text = panel.getByRole("textbox", { name: "账号名单" });
+  const submit = panel.getByRole("button", { name: "开始导入" });
+  await expect(submit).toBeDisabled();
+  for (const width of [1280, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(text).toBeVisible();
+    await testInfo.attach(`import-${width}`, {
+      body: await panel.screenshot(),
+      contentType: "image/png",
+    });
+  }
+  await panel
+    .getByLabel("选择 CSV 文件")
+    .setInputFiles({ name: "班级名单.csv", mimeType: "text/csv", buffer: Buffer.from(csv) });
+  await expect(text).toHaveValue(csv);
+  await expect(panel.getByText("已读取 班级名单.csv")).toBeVisible();
+  expect(submissions).toBe(0);
+  await submit.click();
+  await expect(panel.getByRole("table", { name: "未创建的账号" })).toContainText("已存在，跳过");
+  expect(await panel.evaluate((element) => element.scrollWidth <= element.clientWidth)).toBe(true);
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
+    true,
+  );
+  await text.fill("[");
+  await expect(panel.getByRole("table")).toHaveCount(0);
+  await submit.click();
+  await expect(panel.getByRole("alert")).toContainText("JSON 解析失败");
+  expect(submissions).toBe(1);
 });

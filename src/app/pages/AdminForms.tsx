@@ -9,9 +9,6 @@ import { api, describeApiError, API_ERROR_MESSAGES } from "../../shared/api/clie
 import type { AccountRole } from "../../shared/auth";
 import type { AdminClass, ImportSummary } from "./AdminTypes";
 
-const IMPORT_HINT =
-  "每行一个账号：学号,姓名,密码[,角色][,班级邀请码]。角色可选 学生/教师/管理员，留空默认为学生；也支持粘贴 JSON 数组。";
-
 function rowErrorText(code: string | undefined): string {
   return code ? (API_ERROR_MESSAGES[code] ?? code) : "";
 }
@@ -137,9 +134,22 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
+  const [reading, setReading] = useState(false);
+  const [fileName, setFileName] = useState("");
+
   const onFile = async (file: File | undefined) => {
     if (!file) return;
-    setText(await file.text());
+    setReading(true);
+    setSummary(null);
+    setError(null);
+    try {
+      setText(await file.text());
+      setFileName(file.name);
+    } catch {
+      setError("文件读取失败，请重新选择文件或粘贴名单。");
+    } finally {
+      setReading(false);
+    }
   };
 
   const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -175,44 +185,79 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
   };
 
   return (
-    <form className="profile-form" onSubmit={onSubmit}>
-      <label>
-        名单（CSV 或 JSON）
+    <form aria-labelledby="import-title" className="admin-import-form" onSubmit={onSubmit}>
+      <div className="admin-import-editor">
+        <div className="admin-import-toolbar">
+          <label htmlFor="admin-import-text">账号名单</label>
+          <label className="admin-file-picker button button-secondary">
+            选择 CSV 文件
+            <input
+              className="sr-only"
+              accept=".csv,text/csv,text/plain"
+              disabled={reading || busy}
+              name="importFile"
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                event.target.value = "";
+                void onFile(file);
+              }}
+              type="file"
+            />
+          </label>
+        </div>
         <textarea
+          id="admin-import-text"
+          aria-describedby="admin-import-hint"
           className="admin-import-text"
           name="importText"
-          onChange={(e) => setText(e.target.value)}
+          readOnly={reading || busy}
+          spellCheck={false}
+          onChange={(event) => {
+            setText(event.target.value);
+            setSummary(null);
+            setError(null);
+            setFileName("");
+          }}
           placeholder={"20260101,张三,pass123\n20260102,李四,pass456,学生,CLASS26"}
-          rows={7}
+          rows={5}
           value={text}
         />
-      </label>
-      <label className="admin-file-label">
-        或选择 .csv 文件
-        <input
-          accept=".csv,text/csv,text/plain"
-          name="importFile"
-          onChange={(e) => void onFile(e.target.files?.[0])}
-          type="file"
-        />
-      </label>
-      <p className="profile-form-note">{IMPORT_HINT}</p>
+      </div>
+      <p id="admin-import-hint">粘贴 CSV 或 JSON 数组，也可选择 CSV 文件后在上方核对。</p>
+      <details className="admin-import-guide">
+        <summary>查看名单格式</summary>
+        <p>
+          CSV
+          每行一个账号，依次填写学号、姓名、密码。后两列可选，分别是角色和班级邀请码。角色可填学生、教师或管理员，留空默认为学生。
+        </p>
+        <p>JSON 示例</p>
+        <code>{'[{"studentNo":"20260101","name":"张三","password":"pass123"}]'}</code>
+      </details>
+      <div className="admin-import-actions">
+        <button
+          className="button button-primary"
+          disabled={busy || reading || !text.trim()}
+          type="submit"
+        >
+          {busy ? "导入中…" : "开始导入"}
+        </button>
+        <span role="status">
+          {reading ? "正在读取文件…" : fileName ? `已读取 ${fileName}` : ""}
+        </span>
+      </div>
       {error ? (
         <p className="auth-error" role="alert">
           {error}
         </p>
       ) : null}
-      <button className="button button-primary" disabled={busy} type="submit">
-        {busy ? "导入中…" : "开始导入"}
-      </button>
-
       {summary ? (
-        <div className="admin-import-result" role="status">
-          <p>
+        <section className="admin-import-result" aria-label="导入结果">
+          <h3>导入结果</h3>
+          <p role="status">
             新建 {summary.created} 个，已存在 {summary.exists} 个，失败 {summary.failed} 个。
           </p>
           {summary.rows.some((row) => row.status !== "created") ? (
-            <table className="admin-table">
+            <table aria-label="未创建的账号" className="admin-import-table">
               <thead>
                 <tr>
                   <th scope="col">行</th>
@@ -233,7 +278,7 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
               </tbody>
             </table>
           ) : null}
-        </div>
+        </section>
       ) : null}
     </form>
   );
