@@ -141,76 +141,85 @@ export function TeacherLabsPage() {
             <p className="admin-labs-hint">
               隐藏和班级范围由管理员决定；你只能关掉或放开自己任课的班级，学生立即受影响。
             </p>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th scope="col">实验</th>
-                  <th scope="col">关卡数</th>
-                  <th scope="col">状态</th>
-                  <th scope="col">我的班级</th>
-                </tr>
-              </thead>
-              <tbody>
-                {data?.labs.map((lab) => {
-                  const openCount = lab.classes.filter((gate) => gate.open).length;
-                  return (
-                    <tr key={lab.id}>
-                      <td>
-                        {LAB_TITLES[lab.id] ?? lab.id}
-                        <span className="admin-lab-id">{lab.id}</span>
-                      </td>
-                      <td>{lab.stageCount}</td>
-                      <td>
-                        <span className="admin-lab-state">
-                          {lab.serverRegistered ? `${openCount} 个班开放` : "待服务器同步"}
-                        </span>
-                      </td>
-                      <td className="admin-lab-config">
-                        {!lab.serverRegistered ? (
-                          <span>服务器尚未注册此实验，暂不能修改开放设置。</span>
-                        ) : (
-                          <div className="admin-lab-classes">
-                            {lab.classes.map((gate) => (
-                              <label
-                                className="admin-lab-class"
-                                key={gate.classId}
-                                title={
-                                  gate.adminAllowed
-                                    ? undefined
-                                    : "管理员未勾选这个班，勾选即对本班学生开放"
-                                }
-                              >
-                                <input
-                                  checked={gate.teacherOpen}
-                                  disabled={busy.has(gateKey(lab.id, gate.classId))}
-                                  onChange={() => void toggle(lab, gate.classId, !gate.teacherOpen)}
-                                  type="checkbox"
-                                />
-                                {classNames.get(gate.classId) ?? gate.classId}
-                              </label>
-                            ))}
-                            {lab.classes.length === 0 ? (
-                              <span className="admin-lab-class-empty">
-                                你还没有任课的班级，请管理员把你加入班级。
-                              </span>
-                            ) : null}
-                          </div>
-                        )}
-                      </td>
+            <div
+              className="admin-account-table-scroll"
+              role="region"
+              aria-label="实验列表"
+              tabIndex={0}
+            >
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th scope="col">实验</th>
+                    <th scope="col">关卡数</th>
+                    <th scope="col">状态</th>
+                    <th scope="col">我的班级</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {data?.labs.map((lab) => {
+                    const openCount = lab.classes.filter((gate) => gate.open).length;
+                    return (
+                      <tr key={lab.id}>
+                        <td>
+                          {LAB_TITLES[lab.id] ?? lab.id}
+                          <span className="admin-lab-id">{lab.id}</span>
+                        </td>
+                        <td>{lab.stageCount}</td>
+                        <td>
+                          <span className="admin-lab-state">
+                            {lab.serverRegistered ? `${openCount} 个班开放` : "待服务器同步"}
+                          </span>
+                        </td>
+                        <td className="admin-lab-config">
+                          {!lab.serverRegistered ? (
+                            <span>服务器尚未注册此实验，暂不能修改开放设置。</span>
+                          ) : (
+                            <div className="admin-lab-classes">
+                              {lab.classes.map((gate) => (
+                                <label
+                                  className="admin-lab-class"
+                                  key={gate.classId}
+                                  title={
+                                    gate.adminAllowed
+                                      ? undefined
+                                      : "管理员未勾选这个班，勾选即对本班学生开放"
+                                  }
+                                >
+                                  <input
+                                    checked={gate.teacherOpen}
+                                    disabled={busy.has(gateKey(lab.id, gate.classId))}
+                                    onChange={() =>
+                                      void toggle(lab, gate.classId, !gate.teacherOpen)
+                                    }
+                                    type="checkbox"
+                                  />
+                                  {classNames.get(gate.classId) ?? gate.classId}
+                                </label>
+                              ))}
+                              {lab.classes.length === 0 ? (
+                                <span className="admin-lab-class-empty">
+                                  你还没有任课的班级，请管理员把你加入班级。
+                                </span>
+                              ) : null}
+                            </div>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {data === null ? (
+                    <tr>
+                      <td colSpan={4}>正在加载实验…</td>
                     </tr>
-                  );
-                })}
-                {data === null ? (
-                  <tr>
-                    <td colSpan={4}>正在加载实验…</td>
-                  </tr>
-                ) : data.labs.length === 0 ? (
-                  <tr>
-                    <td colSpan={4}>还没有实验。</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+                  ) : data.labs.length === 0 ? (
+                    <tr>
+                      <td colSpan={4}>还没有实验。</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
       </main>

@@ -159,159 +159,166 @@ export function AdminLabsPage() {
             <p className="admin-labs-hint">
               隐藏的实验只有管理员可见；开放的实验对勾选班级的成员可见。保存后生效。
             </p>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th scope="col">实验</th>
-                  <th scope="col">关卡数</th>
-                  <th scope="col">状态</th>
-                  <th scope="col">开放设置</th>
-                  <th scope="col">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {labs?.map((lab) => {
-                  const draft = drafts[lab.id];
-                  const dirty =
-                    draft && classes !== null ? !sameDraft(draft, draftOf(lab, classes)) : false;
-                  return (
-                    <tr key={lab.id}>
-                      <td>
-                        {LAB_TITLES[lab.id] ?? lab.id}
-                        <span className="admin-lab-id">{lab.id}</span>
-                      </td>
-                      <td>{lab.stageCount}</td>
-                      <td>
-                        <span className={`admin-lab-state${draft?.hidden ? " is-hidden" : ""}`}>
-                          {!lab.serverRegistered
-                            ? "待服务器同步"
-                            : !draft
-                              ? "…"
-                              : draft.hidden
-                                ? "已隐藏"
-                                : classes === null
-                                  ? "班级数据不可用"
-                                  : draft.checked.size === classes.length
-                                    ? "全部班级"
-                                    : `${draft.checked.size} 个班`}
-                        </span>
-                      </td>
-                      <td className="admin-lab-config">
-                        {!lab.serverRegistered ? (
-                          <span>服务器尚未注册此实验，暂不能修改开放设置。</span>
-                        ) : draft ? (
-                          <>
-                            <div className="admin-lab-mode" role="radiogroup">
-                              <label className="admin-lab-mode-option">
-                                <input
-                                  checked={!draft.hidden}
-                                  disabled={classes === null}
-                                  name={`visibility-${lab.id}`}
-                                  onChange={() =>
-                                    patchDraft(lab.id, (d) => ({ ...d, hidden: false }))
-                                  }
-                                  type="radio"
-                                />
-                                开放
-                              </label>
-                              <label className="admin-lab-mode-option">
-                                <input
-                                  checked={draft.hidden}
-                                  disabled={classes === null}
-                                  name={`visibility-${lab.id}`}
-                                  onChange={() =>
-                                    patchDraft(lab.id, (d) => ({ ...d, hidden: true }))
-                                  }
-                                  type="radio"
-                                />
-                                隐藏（仅管理员可见）
-                              </label>
-                            </div>
-                            {!draft.hidden ? (
-                              <div className="admin-lab-classes">
-                                <div className="admin-lab-class-actions">
-                                  <button
-                                    className="admin-lab-class-action"
+            <div
+              className="admin-account-table-scroll"
+              role="region"
+              aria-label="实验开放设置"
+              tabIndex={0}
+            >
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th scope="col">实验</th>
+                    <th scope="col">关卡数</th>
+                    <th scope="col">状态</th>
+                    <th scope="col">开放设置</th>
+                    <th scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {labs?.map((lab) => {
+                    const draft = drafts[lab.id];
+                    const dirty =
+                      draft && classes !== null ? !sameDraft(draft, draftOf(lab, classes)) : false;
+                    return (
+                      <tr key={lab.id}>
+                        <td>
+                          {LAB_TITLES[lab.id] ?? lab.id}
+                          <span className="admin-lab-id">{lab.id}</span>
+                        </td>
+                        <td>{lab.stageCount}</td>
+                        <td>
+                          <span className={`admin-lab-state${draft?.hidden ? " is-hidden" : ""}`}>
+                            {!lab.serverRegistered
+                              ? "待服务器同步"
+                              : !draft
+                                ? "…"
+                                : draft.hidden
+                                  ? "已隐藏"
+                                  : classes === null
+                                    ? "班级数据不可用"
+                                    : draft.checked.size === classes.length
+                                      ? "全部班级"
+                                      : `${draft.checked.size} 个班`}
+                          </span>
+                        </td>
+                        <td className="admin-lab-config">
+                          {!lab.serverRegistered ? (
+                            <span>服务器尚未注册此实验，暂不能修改开放设置。</span>
+                          ) : draft ? (
+                            <>
+                              <div className="admin-lab-mode" role="radiogroup">
+                                <label className="admin-lab-mode-option">
+                                  <input
+                                    checked={!draft.hidden}
                                     disabled={classes === null}
-                                    onClick={() =>
-                                      patchDraft(lab.id, (d) => ({
-                                        ...d,
-                                        checked: new Set(classes?.map((c) => c.id) ?? []),
-                                      }))
+                                    name={`visibility-${lab.id}`}
+                                    onChange={() =>
+                                      patchDraft(lab.id, (d) => ({ ...d, hidden: false }))
                                     }
-                                    type="button"
-                                  >
-                                    全选
-                                  </button>
-                                  <button
-                                    className="admin-lab-class-action"
+                                    type="radio"
+                                  />
+                                  开放
+                                </label>
+                                <label className="admin-lab-mode-option">
+                                  <input
+                                    checked={draft.hidden}
                                     disabled={classes === null}
-                                    onClick={() =>
-                                      patchDraft(lab.id, (d) => ({ ...d, checked: new Set() }))
+                                    name={`visibility-${lab.id}`}
+                                    onChange={() =>
+                                      patchDraft(lab.id, (d) => ({ ...d, hidden: true }))
                                     }
-                                    type="button"
-                                  >
-                                    取消全部
-                                  </button>
-                                </div>
-                                {classes?.map((klass) => (
-                                  <label className="admin-lab-class" key={klass.id}>
-                                    <input
-                                      checked={draft.checked.has(klass.id)}
-                                      disabled={classes === null}
-                                      onChange={() =>
-                                        patchDraft(lab.id, (d) => {
-                                          const checked = new Set(d.checked);
-                                          if (checked.has(klass.id)) checked.delete(klass.id);
-                                          else checked.add(klass.id);
-                                          return { ...d, checked };
-                                        })
-                                      }
-                                      type="checkbox"
-                                    />
-                                    {klass.name}
-                                  </label>
-                                ))}
-                                {classes?.length === 0 ? (
-                                  <span className="admin-lab-class-empty">
-                                    还没有班级，先在账号管理里创建。
-                                  </span>
-                                ) : null}
+                                    type="radio"
+                                  />
+                                  隐藏（仅管理员可见）
+                                </label>
                               </div>
-                            ) : null}
-                          </>
-                        ) : null}
-                      </td>
-                      <td>
-                        <button
-                          className="button button-ghost admin-inline-button"
-                          disabled={
-                            !lab.serverRegistered ||
-                            !dirty ||
-                            classes === null ||
-                            busyLab === lab.id
-                          }
-                          onClick={() => void save(lab)}
-                          title="保存这个实验的开放设置"
-                          type="button"
-                        >
-                          {busyLab === lab.id ? "保存中…" : "保存"}
-                        </button>
-                      </td>
+                              {!draft.hidden ? (
+                                <div className="admin-lab-classes">
+                                  <div className="admin-lab-class-actions">
+                                    <button
+                                      className="admin-lab-class-action"
+                                      disabled={classes === null}
+                                      onClick={() =>
+                                        patchDraft(lab.id, (d) => ({
+                                          ...d,
+                                          checked: new Set(classes?.map((c) => c.id) ?? []),
+                                        }))
+                                      }
+                                      type="button"
+                                    >
+                                      全选
+                                    </button>
+                                    <button
+                                      className="admin-lab-class-action"
+                                      disabled={classes === null}
+                                      onClick={() =>
+                                        patchDraft(lab.id, (d) => ({ ...d, checked: new Set() }))
+                                      }
+                                      type="button"
+                                    >
+                                      取消全部
+                                    </button>
+                                  </div>
+                                  {classes?.map((klass) => (
+                                    <label className="admin-lab-class" key={klass.id}>
+                                      <input
+                                        checked={draft.checked.has(klass.id)}
+                                        disabled={classes === null}
+                                        onChange={() =>
+                                          patchDraft(lab.id, (d) => {
+                                            const checked = new Set(d.checked);
+                                            if (checked.has(klass.id)) checked.delete(klass.id);
+                                            else checked.add(klass.id);
+                                            return { ...d, checked };
+                                          })
+                                        }
+                                        type="checkbox"
+                                      />
+                                      {klass.name}
+                                    </label>
+                                  ))}
+                                  {classes?.length === 0 ? (
+                                    <span className="admin-lab-class-empty">
+                                      还没有班级，先在账号管理里创建。
+                                    </span>
+                                  ) : null}
+                                </div>
+                              ) : null}
+                            </>
+                          ) : null}
+                        </td>
+                        <td>
+                          <button
+                            className="button button-ghost admin-inline-button"
+                            disabled={
+                              !lab.serverRegistered ||
+                              !dirty ||
+                              classes === null ||
+                              busyLab === lab.id
+                            }
+                            onClick={() => void save(lab)}
+                            title="保存这个实验的开放设置"
+                            type="button"
+                          >
+                            {busyLab === lab.id ? "保存中…" : "保存"}
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                  {labs === null ? (
+                    <tr>
+                      <td colSpan={5}>{labsLoadError ? "实验列表加载失败。" : "正在加载实验…"}</td>
                     </tr>
-                  );
-                })}
-                {labs === null ? (
-                  <tr>
-                    <td colSpan={5}>{labsLoadError ? "实验列表加载失败。" : "正在加载实验…"}</td>
-                  </tr>
-                ) : labs.length === 0 ? (
-                  <tr>
-                    <td colSpan={5}>还没有实验。</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+                  ) : labs.length === 0 ? (
+                    <tr>
+                      <td colSpan={5}>还没有实验。</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
             {classes === null && labs !== null && classesLoadError ? (
               <p className="auth-error" role="status">
                 班级列表不可用，开放范围暂时无法编辑。

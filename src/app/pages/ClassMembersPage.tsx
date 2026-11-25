@@ -330,179 +330,186 @@ export function ClassMembersPage() {
               <p className="eyebrow">STUDENTS</p>
               <h2 id="students-title">本班学生（{students.length}）</h2>
             </div>
-            <table className="admin-table">
-              <thead>
-                <tr>
-                  <th scope="col">学号</th>
-                  <th scope="col">姓名</th>
-                  <th scope="col">操作</th>
-                </tr>
-              </thead>
-              <tbody>
-                {students.map((member) => (
-                  <tr key={member.userId}>
-                    <td>{member.studentNo}</td>
-                    <td>
-                      {renameTarget === member.userId ? (
-                        <form
-                          className="admin-reset-form"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            if (!busy && renameValue.trim() !== "") submitRename(member);
-                          }}
-                        >
-                          <input
-                            aria-label={`${member.name} 的新姓名`}
-                            className="admin-reset-input"
-                            disabled={busy}
-                            onChange={(e) => setRenameValue(e.target.value)}
-                            onKeyDown={({ key, nativeEvent }) => {
-                              if (
-                                key === "Escape" &&
-                                !nativeEvent.isComposing &&
-                                nativeEvent.keyCode !== 229
-                              ) {
+            <div
+              className="admin-account-table-scroll"
+              role="region"
+              aria-label="本班学生列表"
+              tabIndex={0}
+            >
+              <table className="admin-table">
+                <thead>
+                  <tr>
+                    <th scope="col">学号</th>
+                    <th scope="col">姓名</th>
+                    <th scope="col">操作</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {students.map((member) => (
+                    <tr key={member.userId}>
+                      <td>{member.studentNo}</td>
+                      <td>
+                        {renameTarget === member.userId ? (
+                          <form
+                            className="admin-reset-form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              if (!busy && renameValue.trim() !== "") submitRename(member);
+                            }}
+                          >
+                            <input
+                              aria-label={`${member.name} 的新姓名`}
+                              className="admin-reset-input"
+                              disabled={busy}
+                              onChange={(e) => setRenameValue(e.target.value)}
+                              onKeyDown={({ key, nativeEvent }) => {
+                                if (
+                                  key === "Escape" &&
+                                  !nativeEvent.isComposing &&
+                                  nativeEvent.keyCode !== 229
+                                ) {
+                                  setRenameTarget(null);
+                                  setRenameValue("");
+                                }
+                              }}
+                              placeholder="新姓名"
+                              value={renameValue}
+                            />
+                            <button
+                              className="button button-ghost admin-inline-button"
+                              disabled={busy || renameValue.trim() === ""}
+                              type="submit"
+                            >
+                              确定
+                            </button>
+                            <button
+                              className="button button-ghost admin-inline-button"
+                              disabled={busy}
+                              onClick={() => {
                                 setRenameTarget(null);
                                 setRenameValue("");
+                              }}
+                              type="button"
+                            >
+                              取消
+                            </button>
+                          </form>
+                        ) : (
+                          member.name
+                        )}
+                      </td>
+                      <td>
+                        {resetTarget === member.userId ? (
+                          <form
+                            className="admin-reset-form"
+                            onSubmit={(event) => {
+                              event.preventDefault();
+                              if (!busy && resetPassword.length >= MIN_STUDENT_PASSWORD) {
+                                submitReset(member);
                               }
                             }}
-                            placeholder="新姓名"
-                            value={renameValue}
-                          />
-                          <button
-                            className="button button-ghost admin-inline-button"
-                            disabled={busy || renameValue.trim() === ""}
-                            type="submit"
                           >
-                            确定
-                          </button>
-                          <button
-                            className="button button-ghost admin-inline-button"
-                            disabled={busy}
-                            onClick={() => {
-                              setRenameTarget(null);
-                              setRenameValue("");
-                            }}
-                            type="button"
-                          >
-                            取消
-                          </button>
-                        </form>
-                      ) : (
-                        member.name
-                      )}
-                    </td>
-                    <td>
-                      {resetTarget === member.userId ? (
-                        <form
-                          className="admin-reset-form"
-                          onSubmit={(event) => {
-                            event.preventDefault();
-                            if (!busy && resetPassword.length >= MIN_STUDENT_PASSWORD) {
-                              submitReset(member);
-                            }
-                          }}
-                        >
-                          <input
-                            aria-label={`${member.name} 的新密码`}
-                            autoComplete="new-password"
-                            className="admin-reset-input"
-                            disabled={busy}
-                            onChange={(e) => setResetPassword(e.target.value)}
-                            onKeyDown={({ key, nativeEvent }) => {
-                              if (
-                                key === "Escape" &&
-                                !nativeEvent.isComposing &&
-                                nativeEvent.keyCode !== 229
-                              ) {
+                            <input
+                              aria-label={`${member.name} 的新密码`}
+                              autoComplete="new-password"
+                              className="admin-reset-input"
+                              disabled={busy}
+                              onChange={(e) => setResetPassword(e.target.value)}
+                              onKeyDown={({ key, nativeEvent }) => {
+                                if (
+                                  key === "Escape" &&
+                                  !nativeEvent.isComposing &&
+                                  nativeEvent.keyCode !== 229
+                                ) {
+                                  setResetTarget(null);
+                                  setResetPassword("");
+                                }
+                              }}
+                              placeholder={`新密码（至少 ${MIN_STUDENT_PASSWORD} 位）`}
+                              type="password"
+                              value={resetPassword}
+                            />
+                            <button
+                              className="button button-ghost admin-inline-button"
+                              disabled={busy || resetPassword.length < MIN_STUDENT_PASSWORD}
+                              type="submit"
+                            >
+                              确定
+                            </button>
+                            <button
+                              className="button button-ghost admin-inline-button"
+                              disabled={busy}
+                              onClick={() => {
                                 setResetTarget(null);
                                 setResetPassword("");
+                              }}
+                              type="button"
+                            >
+                              取消
+                            </button>
+                          </form>
+                        ) : renameTarget === member.userId ? null : (
+                          <span className="admin-actions">
+                            <button
+                              className="button button-ghost admin-inline-button"
+                              disabled={busy}
+                              onClick={() => {
+                                setRenameTarget(member.userId);
+                                setRenameValue(member.name);
+                                setResetTarget(null);
+                              }}
+                              title="修改该学生的姓名"
+                              type="button"
+                            >
+                              改名
+                            </button>
+                            <button
+                              className="button button-ghost admin-inline-button"
+                              disabled={busy}
+                              onClick={() => {
+                                setResetTarget(member.userId);
+                                setResetPassword("");
+                                setRenameTarget(null);
+                              }}
+                              title="重置该学生的密码，其登录会话将失效"
+                              type="button"
+                            >
+                              重置密码
+                            </button>
+                            <button
+                              className="button button-ghost admin-inline-button admin-danger"
+                              disabled={busy}
+                              onClick={() =>
+                                setRemoveTarget({
+                                  label: `学生「${member.name}（${member.studentNo}）」`,
+                                  description:
+                                    "移出后他将看不到本班的实验和任务单；账号、其他班级和做题记录都保留。",
+                                  userId: member.userId,
+                                })
                               }
-                            }}
-                            placeholder={`新密码（至少 ${MIN_STUDENT_PASSWORD} 位）`}
-                            type="password"
-                            value={resetPassword}
-                          />
-                          <button
-                            className="button button-ghost admin-inline-button"
-                            disabled={busy || resetPassword.length < MIN_STUDENT_PASSWORD}
-                            type="submit"
-                          >
-                            确定
-                          </button>
-                          <button
-                            className="button button-ghost admin-inline-button"
-                            disabled={busy}
-                            onClick={() => {
-                              setResetTarget(null);
-                              setResetPassword("");
-                            }}
-                            type="button"
-                          >
-                            取消
-                          </button>
-                        </form>
-                      ) : renameTarget === member.userId ? null : (
-                        <span className="admin-actions">
-                          <button
-                            className="button button-ghost admin-inline-button"
-                            disabled={busy}
-                            onClick={() => {
-                              setRenameTarget(member.userId);
-                              setRenameValue(member.name);
-                              setResetTarget(null);
-                            }}
-                            title="修改该学生的姓名"
-                            type="button"
-                          >
-                            改名
-                          </button>
-                          <button
-                            className="button button-ghost admin-inline-button"
-                            disabled={busy}
-                            onClick={() => {
-                              setResetTarget(member.userId);
-                              setResetPassword("");
-                              setRenameTarget(null);
-                            }}
-                            title="重置该学生的密码，其登录会话将失效"
-                            type="button"
-                          >
-                            重置密码
-                          </button>
-                          <button
-                            className="button button-ghost admin-inline-button admin-danger"
-                            disabled={busy}
-                            onClick={() =>
-                              setRemoveTarget({
-                                label: `学生「${member.name}（${member.studentNo}）」`,
-                                description:
-                                  "移出后他将看不到本班的实验和任务单；账号、其他班级和做题记录都保留。",
-                                userId: member.userId,
-                              })
-                            }
-                            title="把该学生移出本班（账号保留）"
-                            type="button"
-                          >
-                            移出班级
-                          </button>
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                ))}
-                {current !== null && students.length === 0 ? (
-                  <tr>
-                    <td colSpan={3}>还没有学生加入这个班级。</td>
-                  </tr>
-                ) : null}
-                {current === null ? (
-                  <tr>
-                    <td colSpan={3}>正在加载名单…</td>
-                  </tr>
-                ) : null}
-              </tbody>
-            </table>
+                              title="把该学生移出本班（账号保留）"
+                              type="button"
+                            >
+                              移出班级
+                            </button>
+                          </span>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                  {current !== null && students.length === 0 ? (
+                    <tr>
+                      <td colSpan={3}>还没有学生加入这个班级。</td>
+                    </tr>
+                  ) : null}
+                  {current === null ? (
+                    <tr>
+                      <td colSpan={3}>正在加载名单…</td>
+                    </tr>
+                  ) : null}
+                </tbody>
+              </table>
+            </div>
           </section>
         </div>
 
