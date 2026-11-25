@@ -38,9 +38,7 @@ if [[ ${header[0]} == bundle-v1 ]]; then
     systemctl() { return 1; }
     stage=$(mktemp -d "$fixture/stage.XXXXXXXX")
     mv "$fixture/archive" "$stage/source.tar.gz"
-    if publish "$RELEASE_SHA" "$stage" "$(sha256sum <"$stage/source.tar.gz" | cut -d' ' -f1)"; then
-      exit 1
-    fi
+    publish "$RELEASE_SHA" "$stage" "$(sha256sum <"$stage/source.tar.gz" | cut -d' ' -f1)" || exit $?
   fi
 else
   [[ ${header[0]} == "$RELEASE_SHA" ]]
