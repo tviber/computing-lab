@@ -6,6 +6,7 @@
  * domain/; this file only composes the visual layer.
  */
 
+import { TaskCheckbox } from "./TaskCheckbox";
 import { useRef, type Dispatch } from "react";
 import { Icon } from "../../../shared/ui/Icon";
 import { BLANK_MARKER, SHEET_LIMITS, type Question } from "../domain/schema";
@@ -62,16 +63,14 @@ function QuestionCard({
       <header className="ts-card-head">
         <span className="ts-card-index">Q{index + 1}</span>
         <span className="ts-badge">{QUESTION_KIND_LABELS[q.type]}</span>
-        <label className="ts-check">
-          <input
-            checked={q.required}
-            onChange={(e) =>
-              dispatch({ type: "update", question: { ...q, required: e.target.checked } })
-            }
-            type="checkbox"
-          />
+        <TaskCheckbox
+          checked={q.required}
+          onChange={(checked) =>
+            dispatch({ type: "update", question: { ...q, required: checked } })
+          }
+        >
           必答
-        </label>
+        </TaskCheckbox>
         <span className="ts-card-actions">
           <button
             aria-label="上移"

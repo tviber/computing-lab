@@ -3,6 +3,7 @@
  * correct-answer marking, and score.
  */
 
+import { TaskCheckbox } from "./TaskCheckbox";
 import type { Dispatch } from "react";
 import { Icon } from "../../../shared/ui/Icon";
 import { SHEET_LIMITS, type ChoiceQuestion } from "../domain/schema";
@@ -32,23 +33,19 @@ export function ChoiceEditor({
   return (
     <div className="ts-q-body">
       <div className="ts-row">
-        <label className="ts-check">
-          <input
-            checked={q.multiple}
-            onChange={(e) => patch({ multiple: e.target.checked, correctOptionIds: [] })}
-            type="checkbox"
-          />
+        <TaskCheckbox
+          checked={q.multiple}
+          onChange={(checked) => patch({ multiple: checked, correctOptionIds: [] })}
+        >
           允许多选
-        </label>
+        </TaskCheckbox>
         {q.multiple ? (
-          <label className="ts-check">
-            <input
-              checked={q.partialCredit === true}
-              onChange={(e) => patch({ partialCredit: e.target.checked })}
-              type="checkbox"
-            />
+          <TaskCheckbox
+            checked={q.partialCredit === true}
+            onChange={(checked) => patch({ partialCredit: checked })}
+          >
             漏选给部分分
-          </label>
+          </TaskCheckbox>
         ) : null}
       </div>
       {q.options.map((opt, i) => (

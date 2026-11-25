@@ -1,3 +1,5 @@
+import { StatsModePicker } from "./StatsModePicker";
+import { StatsSlider } from "./StatsSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { useMemo, useState } from "react";
 import type { SigmoidBridgeDraft } from "../domain/protocol.ts";
@@ -85,24 +87,15 @@ export function SigmoidBridgePanel({ draft, onChange }: Props) {
         <div className="sf-chart-card">
           <div className="sf-chart-header">
             <h3>考前复习时长 (小时) → 通过概率 P(通过 | 时长)</h3>
-            <div className="sf-filter-pills" role="group" aria-label="拟合模式">
-              <button
-                aria-pressed={isLinear}
-                className={isLinear ? "is-active" : ""}
-                onClick={() => onChange({ ...draft, curveMode: "linear" })}
-                type="button"
-              >
-                用直线硬拟合
-              </button>
-              <button
-                aria-pressed={!isLinear}
-                className={!isLinear ? "is-active" : ""}
-                onClick={() => onChange({ ...draft, curveMode: "sigmoid" })}
-                type="button"
-              >
-                Sigmoid 曲线
-              </button>
-            </div>
+            <StatsModePicker
+              label="拟合模式"
+              value={draft.curveMode}
+              onChange={(curveMode) => onChange({ ...draft, curveMode })}
+              options={[
+                { value: "linear", label: "用直线硬拟合" },
+                { value: "sigmoid", label: "Sigmoid 曲线" },
+              ]}
+            />
           </div>
 
           <svg
@@ -230,41 +223,23 @@ export function SigmoidBridgePanel({ draft, onChange }: Props) {
 
         <div className="sf-controls-card">
           <h3>调整 Sigmoid 曲线</h3>
-          <div className="sf-slider-group">
-            <div className="sf-slider-head">
-              <label htmlFor="sf-sig-w">斜率 w（曲线陡峭程度）</label>
-              <span className="sf-mono">{roundTo(draft.w, 2)}</span>
-            </div>
-            <input
-              id="sf-sig-w"
-              max={SIGMOID_W_MAX}
-              min={SIGMOID_W_MIN}
-              onChange={(e) =>
-                onChange({ ...draft, curveMode: "sigmoid", w: Number(e.target.value) })
-              }
-              step={0.1}
-              type="range"
-              value={draft.w}
-            />
-          </div>
+          <StatsSlider
+            label="斜率 w（曲线陡峭程度）"
+            value={draft.w}
+            min={SIGMOID_W_MIN}
+            max={SIGMOID_W_MAX}
+            step={0.1}
+            onChange={(w) => onChange({ ...draft, curveMode: "sigmoid", w })}
+          />
 
-          <div className="sf-slider-group">
-            <div className="sf-slider-head">
-              <label htmlFor="sf-sig-b">偏移 b（控制左右移动）</label>
-              <span className="sf-mono">{roundTo(draft.b, 1)}</span>
-            </div>
-            <input
-              id="sf-sig-b"
-              max={SIGMOID_B_MAX}
-              min={SIGMOID_B_MIN}
-              onChange={(e) =>
-                onChange({ ...draft, curveMode: "sigmoid", b: Number(e.target.value) })
-              }
-              step={0.2}
-              type="range"
-              value={draft.b}
-            />
-          </div>
+          <StatsSlider
+            label="偏移 b（控制左右移动）"
+            value={draft.b}
+            min={SIGMOID_B_MIN}
+            max={SIGMOID_B_MAX}
+            step={0.2}
+            onChange={(b) => onChange({ ...draft, curveMode: "sigmoid", b })}
+          />
 
           <div className="sf-inspector-box">
             <div className="sf-inspector-title">

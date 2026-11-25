@@ -103,7 +103,8 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await page.getByRole("button", { name: /进入第 2 关/ }).click();
   await expectBlueTheme();
   await page.setViewportSize({ width: 375, height: 812 });
-  await page.getByRole("button", { name: /只看预报下雨/ }).click();
+  await page.getByRole("radio", { name: "全部 100 天" }).press("ArrowRight");
+  await expect(page.getByRole("radio", { name: /只看预报下雨/ })).toBeChecked();
   await expect(page.locator(".sf-filter-summary")).toContainText("40 天");
   await expect(page.getByRole("table", { name: /预报与实际天气/ })).toBeVisible();
   expect(
@@ -116,7 +117,7 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await submit.click();
   await page.getByRole("button", { name: /进入第 3 关/ }).click();
   await expectBlueTheme();
-  await page.getByRole("button", { name: "负对数似然 −ln L(p)" }).click();
+  await page.getByRole("radio", { name: "负对数似然 −ln L(p)" }).click();
   const coin = page.getByRole("slider", { name: "正面朝上的概率 p" });
   await coin.press("Home");
   await expect(page.locator(".sf-metric-value").nth(1)).toHaveText("6.698 × 10-10");
@@ -127,10 +128,10 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await expectBlueTheme();
   await moveSlider(slope, 1.8);
   await moveSlider(page.getByRole("slider", { name: /偏移 b/ }), -8);
-  await page.getByRole("button", { name: "用直线硬拟合" }).click();
+  await page.getByRole("radio", { name: "用直线硬拟合" }).click();
   await submit.click();
   await expect(page.locator(".sf-feedback.is-fail")).toContainText("切换到 Sigmoid");
-  await page.getByRole("button", { name: "Sigmoid 曲线" }).click();
+  await page.getByRole("radio", { name: "Sigmoid 曲线" }).click();
   await submit.click();
   await expect(page.locator(".sf-feedback.is-pass")).toBeVisible();
   await expect(page.getByText("已保存", { exact: true })).toBeVisible();

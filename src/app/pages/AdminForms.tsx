@@ -60,7 +60,11 @@ export function CreateAccountForm({
   };
 
   return (
-    <form className="profile-form" onSubmit={onSubmit}>
+    <form
+      aria-labelledby="create-account-title"
+      className="profile-form admin-create-account-form"
+      onSubmit={onSubmit}
+    >
       <label>
         学号
         <input
@@ -91,22 +95,17 @@ export function CreateAccountForm({
           value={password}
         />
       </label>
-      <label>
-        角色
+      <label className="field-select field-select-native">
+        <span>角色</span>
         <select name="role" onChange={(e) => setRole(e.target.value as AccountRole)} value={role}>
           <option value="user">学生</option>
           <option value="teacher">教师</option>
           <option value="admin">管理员</option>
         </select>
       </label>
-      <label>
-        分配班级（可选）
-        <select
-          className="admin-form-select"
-          name="classId"
-          onChange={(e) => setClassId(e.target.value)}
-          value={classId}
-        >
+      <label className="field-select field-select-native admin-class-field">
+        <span>分配班级（可选）</span>
+        <select name="classId" onChange={(e) => setClassId(e.target.value)} value={classId}>
           <option value="">不分配</option>
           {classes.map((klass) => (
             <option key={klass.id} value={klass.id}>

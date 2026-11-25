@@ -5,6 +5,7 @@
  * in TaskReviewDrawer.
  */
 
+import { TaskCheckbox } from "./TaskCheckbox";
 import { useCallback, useEffect, useState } from "react";
 import { api, describeApiError } from "../../../shared/api/client";
 import { TaskReviewDrawer } from "./TaskReviewDrawer";
@@ -257,14 +258,9 @@ export function TaskDashboard({
             ) : null}
           </p>
         ) : null}
-        <label className="ts-check">
-          <input
-            checked={onlyPending}
-            onChange={(e) => setOnlyPending(e.target.checked)}
-            type="checkbox"
-          />
+        <TaskCheckbox checked={onlyPending} onChange={(checked) => setOnlyPending(checked)}>
           只看未交
-        </label>
+        </TaskCheckbox>
       </div>
 
       {error ? (

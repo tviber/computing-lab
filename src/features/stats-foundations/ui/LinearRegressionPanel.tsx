@@ -1,12 +1,4 @@
-import { Field, FieldLabel } from "@ui-sdk/react/field";
-import {
-  Slider,
-  SliderControl,
-  SliderIndicator,
-  SliderThumb,
-  SliderTrack,
-  SliderValue,
-} from "@ui-sdk/react/slider";
+import { StatsSlider } from "./StatsSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { ConceptQuestion } from "./ConceptQuestion.tsx";
 import type { LinearRegressionDraft } from "../domain/protocol.ts";
@@ -45,46 +37,6 @@ function mapY(cups: number): number {
 }
 
 const optimal = computeOptimalLinearFit();
-
-function FitSlider({
-  label,
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
-  label: string;
-  value: number;
-  min: number;
-  max: number;
-  step: number;
-  onChange: (value: number) => void;
-}) {
-  return (
-    <Field>
-      <Slider
-        className="sf-slider-group"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onValueChange={onChange}
-      >
-        <div className="sf-slider-head">
-          <FieldLabel>{label}</FieldLabel>
-          <SliderValue className="sf-mono" />
-        </div>
-        <SliderControl className="sf-fit-slider-control">
-          <SliderTrack>
-            <SliderIndicator />
-            <SliderThumb />
-          </SliderTrack>
-        </SliderControl>
-      </Slider>
-    </Field>
-  );
-}
 
 export function LinearRegressionPanel({ draft, question, passed, onChange }: Props) {
   const fit = evaluateLinearFit(draft.slope, draft.intercept);
@@ -260,7 +212,7 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
 
         <div className="sf-controls-card">
           <h3>动手调直线</h3>
-          <FitSlider
+          <StatsSlider
             label="斜率 w（每升高 1°C 多卖几杯）"
             value={draft.slope}
             min={LINEAR_SLOPE_MIN}
@@ -268,7 +220,7 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
             step={0.1}
             onChange={(slope) => onChange({ ...draft, slope })}
           />
-          <FitSlider
+          <StatsSlider
             label="截距 b（基准偏移量）"
             value={draft.intercept}
             min={LINEAR_INTERCEPT_MIN}

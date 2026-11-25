@@ -63,6 +63,17 @@
   }
 }
 
+@media (max-width: 360px) {
+  .dashboard-controls {
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "class" "kind" "subject" "members";
+  }
+
+  .dashboard-member-control {
+    justify-self: start;
+  }
+}
+
 .dashboard-heading h1 {
   color: var(--primary);
   font-size: clamp(28px, 4vw, 40px);

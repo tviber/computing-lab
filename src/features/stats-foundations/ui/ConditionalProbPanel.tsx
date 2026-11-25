@@ -1,3 +1,5 @@
+import { StatsModePicker } from "./StatsModePicker";
+import { StatsSlider } from "./StatsSlider";
 import { ConceptQuestion } from "./ConceptQuestion.tsx";
 import { useState } from "react";
 import type { ConditionalProbDraft } from "../domain/protocol.ts";
@@ -51,32 +53,16 @@ export function ConditionalProbPanel({ draft, question, passed, onChange }: Prop
         <div className="sf-chart-card">
           <div className="sf-chart-header">
             <h3>100 天校园天气方阵（1 格 = 1 天）</h3>
-            <div className="sf-filter-pills" role="group" aria-label="筛选条件">
-              <button
-                aria-pressed={filter === "all"}
-                className={filter === "all" ? "is-active" : ""}
-                onClick={() => setFilter("all")}
-                type="button"
-              >
-                全部 100 天
-              </button>
-              <button
-                aria-pressed={filter === "forecast-rain"}
-                className={filter === "forecast-rain" ? "is-active" : ""}
-                onClick={() => setFilter("forecast-rain")}
-                type="button"
-              >
-                只看预报下雨 (40)
-              </button>
-              <button
-                aria-pressed={filter === "actual-rain"}
-                className={filter === "actual-rain" ? "is-active" : ""}
-                onClick={() => setFilter("actual-rain")}
-                type="button"
-              >
-                只看实际下雨 (30)
-              </button>
-            </div>
+            <StatsModePicker
+              label="筛选条件"
+              value={filter}
+              onChange={setFilter}
+              options={[
+                { value: "all", label: "全部 100 天" },
+                { value: "forecast-rain", label: "只看预报下雨 (40)" },
+                { value: "actual-rain", label: "只看实际下雨 (30)" },
+              ]}
+            />
           </div>
 
           <div className="sf-weather-grid" aria-hidden="true">
@@ -206,21 +192,15 @@ export function ConditionalProbPanel({ draft, question, passed, onChange }: Prop
           假设气象台水平不变（真下雨时 80% 能报准，没下雨时约 23%（16/70）
           会误报）。拖动下方滑块改变当地原本的下雨频率，看看预报的可信度怎么变：
         </p>
-        <div className="sf-slider-group">
-          <div className="sf-slider-head">
-            <label htmlFor="sf-base-rain">当地基础下雨率 P(真下雨)</label>
-            <span className="sf-mono">{baseRainPct}%</span>
-          </div>
-          <input
-            id="sf-base-rain"
-            max={70}
-            min={5}
-            onChange={(e) => setBaseRainPct(Number(e.target.value))}
-            step={5}
-            type="range"
-            value={baseRainPct}
-          />
-        </div>
+        <StatsSlider
+          label="当地基础下雨率 P(真下雨)"
+          value={baseRainPct}
+          min={5}
+          max={70}
+          step={5}
+          onChange={setBaseRainPct}
+          suffix="%"
+        />
       </div>
 
       {question && (

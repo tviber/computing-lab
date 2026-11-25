@@ -76,6 +76,7 @@ p {
 }
 
 .field-select {
+  min-width: 0;
   display: inline-grid;
   grid-template-columns: minmax(0, 1fr);
   gap: 5px;
@@ -84,16 +85,12 @@ p {
   font-weight: 650;
 }
 
-.field-select > span {
-  padding-left: 2px;
-}
-
 .field-select select {
   appearance: none;
   min-width: 0;
   min-height: 38px;
   padding: 6px 34px 6px 11px;
-  border: 0;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface) url("../shared/ui/select-chevron.svg") no-repeat right 10px center /
     14px;
@@ -104,6 +101,11 @@ p {
   text-overflow: ellipsis;
 }
 
+.field-select select:focus-visible {
+  border-color: var(--focus);
+  outline-offset: 0;
+}
+
 .field-select select:disabled {
   background-color: var(--subtle);
   color: var(--muted);
@@ -111,19 +113,19 @@ p {
 }
 
 @supports (appearance: base-select) and selector(::picker(select)) {
-  .field-select select,
-  .field-select select::picker(select) {
+  .field-select:not(.field-select-native) select,
+  .field-select:not(.field-select-native) select::picker(select) {
     appearance: base-select;
   }
 
-  .field-select select {
+  .field-select:not(.field-select-native) select {
     align-items: center;
     gap: 8px;
     padding-right: 11px;
     background-image: none;
   }
 
-  .field-select select::picker-icon {
+  .field-select:not(.field-select-native) select::picker-icon {
     content: url("../shared/ui/select-chevron.svg");
     flex-shrink: 0;
     width: 14px;
@@ -131,11 +133,11 @@ p {
     margin-left: auto;
   }
 
-  .field-select select:open::picker-icon {
+  .field-select:not(.field-select-native) select:open::picker-icon {
     rotate: 180deg;
   }
 
-  .field-select select::picker(select) {
+  .field-select:not(.field-select-native) select::picker(select) {
     margin-top: 4px;
     padding: 4px;
     border: 1px solid var(--border);
@@ -145,7 +147,7 @@ p {
     box-shadow: var(--shadow-md);
   }
 
-  .field-select option {
+  .field-select:not(.field-select-native) option {
     gap: 10px;
     min-height: 34px;
     padding: 5px 8px;
@@ -155,19 +157,53 @@ p {
     overflow-wrap: anywhere;
   }
 
-  .field-select option:checked {
+  .field-select:not(.field-select-native) option:checked {
     background: var(--accent-soft);
     color: var(--accent-ink);
   }
 
-  .field-select option:hover,
-  .field-select option:focus-visible {
+  .field-select:not(.field-select-native) option:hover,
+  .field-select:not(.field-select-native) option:focus-visible {
     background: var(--subtle);
   }
 
-  .field-select option::checkmark {
+  .field-select:not(.field-select-native) option::checkmark {
     order: 1;
     margin-left: auto;
+  }
+}
+
+.choice-surface {
+  border: 1px solid var(--border-strong);
+  background: var(--surface);
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .choice-surface:hover {
+    border-color: var(--focus);
+  }
+}
+
+.choice-surface[aria-pressed="true"],
+.choice-surface:has(input:checked) {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+.choice-surface:has(input:focus-visible) {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+.choice-surface input {
+  accent-color: var(--accent);
+}
+
+@media (pointer: coarse) {
+  .choice-surface {
+    min-height: 44px;
   }
 }
 

@@ -53,6 +53,7 @@ test("keeps dashboard filters aligned across classes and categories", async ({ p
     [1080, 1],
     [640, 2],
     [375, 3],
+    [320, 4],
   ]) {
     await page.setViewportSize({ width, height: 850 });
     await page.goto("classes/short/dashboard");

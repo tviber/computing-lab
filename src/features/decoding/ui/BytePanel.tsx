@@ -45,6 +45,7 @@ function BmpBytes({
                 <button
                   type="button"
                   key={item.start}
+                  className="choice-surface"
                   aria-pressed={field === item}
                   onClick={() => setField(item)}
                 >

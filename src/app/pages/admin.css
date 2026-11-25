@@ -1,3 +1,5 @@
+@import "./profile.css";
+
 .admin-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(340px, 1fr));
@@ -59,18 +61,17 @@
   gap: 6px;
 }
 
-.admin-grid .profile-form select {
-  min-height: 42px;
-  padding: 8px 12px;
-  border: 0;
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--primary);
-  font-size: 14px;
+.admin-create-account-form {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, max(12rem, 45%)), 1fr));
+  column-gap: var(--space-4);
 }
 
-.admin-form-select {
-  box-sizing: border-box;
+.admin-create-account-form > :is(.admin-class-field, p, button) {
+  grid-column: 1 / -1;
+}
+
+.admin-create-account-form > button {
+  justify-self: start;
 }
 
 .admin-import-text {
@@ -168,7 +169,7 @@
 
 @media (max-width: 900px) {
   .admin-grid {
-    grid-template-columns: 1fr;
+    grid-template-columns: minmax(0, 1fr);
   }
 
   .admin-class-form {
@@ -195,7 +196,7 @@
   height: 36px;
   min-height: 36px;
   padding: 6px 28px 6px 10px;
-  border: 0;
+  border: 1px solid var(--border-strong);
   border-radius: var(--radius-control);
   background: var(--surface);
   font-size: 13px;
@@ -446,10 +447,6 @@
 }
 
 @media (max-width: 700px) {
-  .admin-page {
-    padding: 0 16px 36px;
-  }
-
   .admin-users-card {
     overflow-x: auto;
   }

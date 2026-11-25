@@ -1,3 +1,4 @@
+import { StatsModePicker } from "./StatsModePicker";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { ConceptQuestion } from "./ConceptQuestion.tsx";
 import { useMemo, useState } from "react";
@@ -114,24 +115,15 @@ export function LikelihoodPanel({ draft, question, passed, onChange }: Props) {
         <div className="sf-chart-card">
           <div className="sf-chart-header">
             <h3>{isNll ? "负对数似然曲线 −ln L(p)（找最低谷）" : "似然曲线 L(p)（找最高峰）"}</h3>
-            <div className="sf-filter-pills" role="group" aria-label="曲线视图">
-              <button
-                aria-pressed={!isNll}
-                className={!isNll ? "is-active" : ""}
-                onClick={() => onChange({ ...draft, viewMode: "likelihood" })}
-                type="button"
-              >
-                似然 L(p)
-              </button>
-              <button
-                aria-pressed={isNll}
-                className={isNll ? "is-active" : ""}
-                onClick={() => onChange({ ...draft, viewMode: "nll" })}
-                type="button"
-              >
-                负对数似然 −ln L(p)
-              </button>
-            </div>
+            <StatsModePicker
+              label="曲线视图"
+              value={draft.viewMode}
+              onChange={(viewMode) => onChange({ ...draft, viewMode })}
+              options={[
+                { value: "likelihood", label: "似然 L(p)" },
+                { value: "nll", label: "负对数似然 −ln L(p)" },
+              ]}
+            />
           </div>
 
           <svg

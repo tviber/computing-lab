@@ -35,7 +35,7 @@ describe("统计基础实验访问与保存", () => {
   it("stays in the statistics lab after the final stage even when the next lab is available", async () => {
     mockProject(Response.json({ currentStage: 4, passedStages: [1, 2, 3, 4], drafts: {} }));
     await renderAppAt(route, { auth: studentAuthState });
-    expect(await screen.findByRole("button", { name: "Sigmoid 曲线" })).toBeVisible();
+    expect(await screen.findByRole("radio", { name: "Sigmoid 曲线" })).toBeVisible();
     expect(screen.queryByRole("link", { name: /逻辑回归/ })).toBeNull();
   });
 });
