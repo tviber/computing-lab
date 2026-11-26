@@ -1,4 +1,4 @@
-import { useDeferredValue, useId, useMemo, useState } from "react";
+import { useDeferredValue, useMemo, useState } from "react";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import {
   binaryLogLoss,
@@ -19,9 +19,7 @@ import {
 import { ExperimentComparison } from "./ExperimentComparison.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { LossChartSvg } from "./LossChartSvg.tsx";
-import { LossDerivationCard } from "./LossDerivationCard.tsx";
 import { SingleStepPenaltyVisual } from "./SingleStepPenaltyVisual.tsx";
-import { WeightLossSliceExplorer } from "./WeightLossSliceExplorer.tsx";
 import { WeightSpectrum } from "./WeightSpectrum.tsx";
 
 const ETA_PRESETS = [
@@ -58,8 +56,6 @@ export function TrainPanel({
 }) {
   const [stepTrueY, setStepTrueY] = useState<0 | 1>(1);
   const [stepPredP, setStepPredP] = useState(0.2);
-  const [showSliceExplorer, setShowSliceExplorer] = useState(false);
-  const slicePanelId = useId();
 
   const deferredEta = useDeferredValue(draft.eta);
   const deferredEpochs = useDeferredValue(draft.epochs);
@@ -125,8 +121,9 @@ export function TrainPanel({
     <div className="logistic-regression-stage-stack">
       <section className="logistic-regression-panel">
         <p className="logistic-regression-old-knowledge">
-          你已学过：MSE 的单样本梯度是（预测 − 真实）× 输入。这里仍是这个形状；Sigmoid
-          把预测值换成了概率 p。
+          你已学过：MSE 的单样本梯度是（预测 − 真实）× 输入。逻辑回归只把预测值换成 Sigmoid 概率
+          p，梯度形状仍是 <MathFormula>{String.raw`(p-y)x_j`}</MathFormula>
+          。这一关先用它把上千个权重连成训练曲线；完整求导和单权重切片放在附加挑战里。
         </p>
         <div className="logistic-regression-panel-head">
           <h3>用 1,400 条短信自动训练模型（词表含 {run.vocabSize} 个词）</h3>
@@ -456,29 +453,10 @@ export function TrainPanel({
           predP={stepPredP}
           trueY={stepTrueY}
         />
-        <LossDerivationCard />
-      </section>
-
-      <section className="logistic-regression-panel logistic-regression-advanced-box">
-        <div className="logistic-regression-panel-head">
-          <div>
-            <h3>单个权重与损失（选读）</h3>
-          </div>
-          <button
-            aria-controls={slicePanelId}
-            aria-expanded={showSliceExplorer}
-            className="button button-ghost disclosure-trigger"
-            onClick={() => setShowSliceExplorer((v) => !v)}
-            type="button"
-          >
-            {showSliceExplorer ? "收起进阶探索：单维权重切片图" : "展开进阶探索：单维权重切片图"}
-          </button>
-        </div>
-        {showSliceExplorer ? (
-          <div id={slicePanelId}>
-            <WeightLossSliceExplorer trainedModel={run.finalModel} />
-          </div>
-        ) : null}
+        <p className="logistic-regression-muted-note">
+          代入上面的预测 p 和真实标签 y，就能算出这一条短信出现过的词要增加还是减少权重。
+          想追到导数怎么来、不同权重为什么有不同坡度，可以进入附加挑战「梯度维修台」继续拆解。
+        </p>
       </section>
 
       <div className="logistic-regression-submit-bar">
