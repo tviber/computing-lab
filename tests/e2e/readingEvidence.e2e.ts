@@ -86,6 +86,7 @@ for (const width of [1440, 390]) {
     await expect(table.getByRole("cell").last()).toHaveAttribute("title", "data[245]");
 
     await page.goto(`${labs}/image-sampling?stage=1`);
+    await expect(page.getByRole("button", { name: "重置进度" })).toBeEnabled();
     const receiver = page.getByRole("button", { name: /接收端看到的/ });
     await receiver.press("Enter");
     await expect(page.getByRole("status").filter({ hasText: "格子 (0, 0)" })).toContainText(
