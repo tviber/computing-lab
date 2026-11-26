@@ -4,10 +4,7 @@ import { COLOR_QUANT_STAGES } from "../features/color-quantization/domain/stages
 import { DECODING_CORE_STAGES, DECODING_STAGES } from "../features/decoding/domain/stages";
 import { IMAGE_SAMPLING_STAGES } from "../features/image-sampling/domain/stages";
 import { LUNCH_STAGES } from "../features/lunch-shift/domain/stages";
-import {
-  LOGISTIC_REGRESSION_CORE_STAGES,
-  LOGISTIC_REGRESSION_STAGES,
-} from "../features/logistic-regression/domain/stages";
+import { LOGISTIC_REGRESSION_CORE_STAGES } from "../features/logistic-regression/domain/stages";
 import { STATS_FOUNDATIONS_STAGES } from "../features/stats-foundations/domain/stages";
 import type { LabId } from "../shared/lab/labMetadata";
 
@@ -59,7 +56,7 @@ export const APP_LABS = {
     ),
   },
   "logistic-regression": {
-    dashboardStages: LOGISTIC_REGRESSION_STAGES,
+    dashboardStages: LOGISTIC_REGRESSION_CORE_STAGES,
     homeProgressStages: LOGISTIC_REGRESSION_CORE_STAGES.length,
     component: lazyRouteComponent(
       () => import("../features/logistic-regression/ui/LogisticRegressionLabPage"),

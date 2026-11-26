@@ -94,6 +94,9 @@ export function StrategyPanel({
               全部清零
             </button>
           </div>
+          <p className="logistic-regression-rule-strip">
+            出现 = 1 · 未出现 = 0 · 重复词仍 = 1 · 标点 / 未登录词 = 0
+          </p>
           <p className="logistic-regression-muted-note">
             垃圾短信里更常见的词给正分，正常短信里更常见的词给负分。难以区分的词可以设为 0。
             程序把短信中出现的词的分值相加，总分达到 +{STRATEGY_SCORE_SPAM_THRESHOLD} 就拦截。

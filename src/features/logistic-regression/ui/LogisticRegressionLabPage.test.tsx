@@ -28,7 +28,7 @@ function makeProject(
     passedStages: [],
     drafts: {},
     draftRevisions: {},
-    runSummaries: { s1: null, s2: null, s3: null, s4: null, s5: null },
+    runSummaries: { s1: null, s2: null, s3: null, s4: null, s5: null, s6: null },
     ...overrides,
   };
 }

@@ -29,6 +29,8 @@ export type TrainDraft = {
   showBgd: boolean;
 };
 
+export type SgdCodeDraft = { code: string; concepts: ConceptAnswers };
+
 export type TrainingSettings = Pick<TrainDraft, "eta" | "epochs">;
 
 export type ExperienceSubmission = {
@@ -37,7 +39,8 @@ export type ExperienceSubmission = {
   prediction: 0 | 1;
 };
 
-export type LogisticRegressionDraft = StrategyDraft | TokenizeDraft | ScoreDraft | TrainDraft;
+export type LogisticRegressionDraft =
+  StrategyDraft | TokenizeDraft | ScoreDraft | TrainDraft | SgdCodeDraft;
 
 export type LogisticRegressionPartSummary = {
   id: string;
@@ -73,6 +76,7 @@ export type LogisticRegressionRunSummaries = {
   s3: LogisticRegressionTestSummary | null;
   s4: LogisticRegressionTestSummary | null;
   s5: LogisticRegressionTestSummary | null;
+  s6: LogisticRegressionTestSummary | null;
 };
 
 export type LogisticRegressionProjectExtras = {

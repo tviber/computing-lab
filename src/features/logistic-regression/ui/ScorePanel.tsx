@@ -295,6 +295,9 @@ export function ScorePanel({
     <div className="logistic-regression-stage-stack">
       <div className="logistic-regression-score-layout">
         <section className="logistic-regression-panel">
+          <p className="logistic-regression-bridge-note">
+            接上上一关：Sigmoid 接收一个复习小时数；现在只是扩展为多个词，z = w · x + b。
+          </p>
           <div className="logistic-regression-panel-head">
             <h3>权重与偏置</h3>
             <button className="button button-ghost" onClick={resetToBlacklistStarter} type="button">

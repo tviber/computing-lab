@@ -6,6 +6,7 @@ import {
   LOGISTIC_REGRESSION_STAGES,
   TOKENIZE_PUZZLE_ITEMS,
 } from "../../../src/features/logistic-regression/domain/stages.ts";
+import { SGD_REFERENCE_CODE } from "../../../src/features/logistic-regression/domain/sgdCode.ts";
 
 const LAB_ID = "logistic-regression";
 
@@ -183,7 +184,7 @@ describe("logistic-regression judge", () => {
     expect(judgeLogisticRegressionSubmission(db, project, 5, { threshold: 0.4 })).toMatchObject({
       error: "invalid-activity",
     });
-    expect(judgeLogisticRegressionSubmission(db, project, 6, {})).toMatchObject({
+    expect(judgeLogisticRegressionSubmission(db, project, 7, {})).toMatchObject({
       error: "unknown-stage",
     });
     const activity = { activity: "sms-classification", exampleId: "promotion", prediction: 1 };
@@ -219,5 +220,21 @@ describe("logistic-regression judge", () => {
     expect(
       db.prepare("SELECT snapshot_graph FROM submissions WHERE stage_index = 5").get(),
     ).toMatchObject({ snapshot_graph: JSON.stringify({ activity: "sms-classification" }) });
+  });
+
+  it("judges the optional code challenge after stage four without changing the core completion", () => {
+    const { db, project } = setupProject([1, 2, 3, 4]);
+    const pass = judgeLogisticRegressionSubmission(db, project, 6, {
+      code: SGD_REFERENCE_CODE,
+      concepts: correctConcepts(6),
+    });
+    expect(pass).toMatchObject({ passed: true, passedStages: [1, 2, 3, 4, 6], currentStage: 5 });
+    const mainline = judgeLogisticRegressionSubmission(
+      db,
+      { ...project, passedStages: [1, 2, 3] },
+      4,
+      { eta: 0.1, epochs: 12 },
+    );
+    expect(mainline).toMatchObject({ passed: true, passedStages: [1, 2, 3, 4], currentStage: 5 });
   });
 });

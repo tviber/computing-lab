@@ -26,6 +26,10 @@ import {
 } from "../../../src/features/logistic-regression/domain/stages.ts";
 import { evaluateStrategyWeights } from "../../../src/features/logistic-regression/domain/strategy.ts";
 import {
+  runSgdCode,
+  sanitizeSgdCodeDraft,
+} from "../../../src/features/logistic-regression/domain/sgdCode.ts";
+import {
   sanitizeScoreDraft,
   sanitizeStrategyDraft,
   sanitizeTokenizeDraft,
@@ -92,6 +96,9 @@ export function judgeLogisticRegressionSubmission(
   stageIndex: number,
   rawDraft: unknown,
 ): LogisticRegressionJudgeResult | LabJudgeError {
+  if (!Number.isInteger(stageIndex) || stageIndex < 1 || (stageIndex > 5 && stageIndex !== 6)) {
+    return { error: "unknown-stage", status: 400 };
+  }
   const gated = gateStage(getLogisticRegressionStage(stageIndex), (item) =>
     logisticRegressionStageUnlocked(project.passedStages, item.index),
   );
@@ -250,7 +257,7 @@ export function judgeLogisticRegressionSubmission(
         ? `模型训练了 ${draft.epochs} 轮，学习率为 ${draft.eta}，两项损失已达到要求（验证损失 ${finalEpoch.valLoss.toFixed(3)}）。`
         : `训练损失或验证损失尚未达到要求。请比较其他学习率和轮数（当前 η=${draft.eta}，${draft.epochs} 轮）。`,
     };
-  } else {
+  } else if (stageIndex === 5) {
     const activity = rawDraft as {
       activity?: unknown;
       exampleId?: unknown;
@@ -276,6 +283,14 @@ export function judgeLogisticRegressionSubmission(
       parts: [{ id: "experience", label: "短信分类体验", ok: true, detail: null }],
       detail: "已完成短信分类体验。",
     };
+  } else {
+    const draft = sanitizeSgdCodeDraft(rawDraft);
+    snapshot = draft;
+    const judged = runSgdCode(draft.code, draft.concepts);
+    testSummary = judged.summary;
+    score = judged.summary.parts.filter((part) => part.ok).length;
+    total = judged.summary.parts.length;
+    passed = judged.passed;
   }
 
   const result: LogisticRegressionJudgeResult = {
@@ -302,9 +317,18 @@ export function judgeLogisticRegressionSubmission(
       testSummary,
     });
     if (passed) {
-      const progress = advanceStage(db, project, stageIndex, nextLogisticRegressionStage);
-      result.passedStages = progress.passedStages;
-      result.currentStage = progress.currentStage;
+      if (stageIndex === 6) {
+        const passedStages = [...new Set([...project.passedStages, 6])].sort((a, b) => a - b);
+        result.passedStages = passedStages;
+        result.currentStage = nextLogisticRegressionStage(passedStages);
+        db.prepare(
+          "UPDATE student_projects SET passed_stages = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?",
+        ).run(JSON.stringify(passedStages), project.id);
+      } else {
+        const progress = advanceStage(db, project, stageIndex, nextLogisticRegressionStage);
+        result.passedStages = progress.passedStages;
+        result.currentStage = progress.currentStage;
+      }
     }
   });
 

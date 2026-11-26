@@ -43,6 +43,7 @@ export function TrainPanel({
   onChange,
   onSubmit,
   onNextStage,
+  onBonusStage,
 }: {
   stage: LogisticRegressionStageDef;
   draft: TrainDraft;
@@ -53,6 +54,7 @@ export function TrainPanel({
   onChange: (draft: TrainDraft) => void;
   onSubmit: () => void;
   onNextStage: () => void;
+  onBonusStage: () => void;
 }) {
   const [stepTrueY, setStepTrueY] = useState<0 | 1>(1);
   const [stepPredP, setStepPredP] = useState(0.2);
@@ -122,6 +124,10 @@ export function TrainPanel({
   return (
     <div className="logistic-regression-stage-stack">
       <section className="logistic-regression-panel">
+        <p className="logistic-regression-old-knowledge">
+          你已学过：MSE 的单样本梯度是（预测 − 真实）× 输入。这里仍是这个形状；Sigmoid
+          把预测值换成了概率 p。
+        </p>
         <div className="logistic-regression-panel-head">
           <h3>用 1,400 条短信自动训练模型（词表含 {run.vocabSize} 个词）</h3>
           <div className="logistic-regression-preset-row">
@@ -497,6 +503,11 @@ export function TrainPanel({
         passed={passed}
         summary={result}
       />
+      {passed ? (
+        <button className="button button-ghost" onClick={onBonusStage} type="button">
+          可选挑战：揭开引擎盖，亲手写 4 行梯度下降 ↗
+        </button>
+      ) : null}
     </div>
   );
 }

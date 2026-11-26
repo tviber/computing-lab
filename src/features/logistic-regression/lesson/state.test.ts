@@ -9,7 +9,7 @@ import {
 import { logisticRegressionStageUnlocked, nextLogisticRegressionStage } from "../domain/stages.ts";
 
 describe("logistic-regression lesson state", () => {
-  it("unlocks stages linearly from 1 through 5", () => {
+  it("keeps the five-stage core linear and unlocks the bonus after training", () => {
     expect(logisticRegressionStageUnlocked([], 1)).toBe(true);
     expect(logisticRegressionStageUnlocked([], 2)).toBe(false);
     expect(logisticRegressionStageUnlocked([1], 2)).toBe(true);
@@ -17,10 +17,22 @@ describe("logistic-regression lesson state", () => {
     expect(logisticRegressionStageUnlocked([2, 3], 4)).toBe(false);
     expect(logisticRegressionStageUnlocked([1, 2, 3], 4)).toBe(true);
     expect(logisticRegressionStageUnlocked([1, 2, 3, 4], 5)).toBe(true);
-    expect(logisticRegressionStageUnlocked([1, 2, 3, 4, 5], 6)).toBe(false);
+    expect(logisticRegressionStageUnlocked([1, 2, 3], 6)).toBe(false);
+    expect(logisticRegressionStageUnlocked([1, 2, 3, 4], 6)).toBe(true);
     expect(nextLogisticRegressionStage([])).toBe(1);
     expect(nextLogisticRegressionStage([1, 2])).toBe(3);
     expect(nextLogisticRegressionStage([1, 2, 3, 4, 5])).toBe(6);
+  });
+
+  it("restores older drafts with an independent default bonus draft", () => {
+    const loaded = transitionLogisticRegressionLesson(createLogisticRegressionLessonState(), {
+      type: "load-project",
+      currentStage: 5,
+      passedStages: [1, 2, 3, 4],
+      drafts: {},
+    });
+    expect(draftOf(loaded, 6)).toHaveProperty("code");
+    expect(sanitizeLogisticRegressionDraft(6, null)).toHaveProperty("concepts", {});
   });
 
   it("clamps and sanitizes out-of-range parameters at the boundary", () => {

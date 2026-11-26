@@ -29,6 +29,7 @@ function isStaffUser(user: SessionUser): boolean {
 type LabSpec<TDraft, TOutcome> = {
   labId: string;
   stageCount: number;
+  optionalStageIndexes?: number[];
   usesComponents?: boolean;
   staffNavigation?: boolean;
   stageAffectedByReset?: (fromStage: number, stageIndex: number) => boolean;
@@ -95,8 +96,12 @@ export function labRoutes<TDraft, TOutcome extends object>(
   };
 
   const stageIndexOf = (body: unknown): number | null => {
-    const stageIndex = Number((body as { stageIndex?: unknown } | null)?.stageIndex);
-    return Number.isInteger(stageIndex) && stageIndex >= 1 && stageIndex <= spec.stageCount
+    const rawStageIndex = (body as { stageIndex?: unknown } | null)?.stageIndex;
+    if (typeof rawStageIndex !== "number") return null;
+    const stageIndex = rawStageIndex;
+    return Number.isInteger(stageIndex) &&
+      stageIndex >= 1 &&
+      (stageIndex <= spec.stageCount || spec.optionalStageIndexes?.includes(stageIndex) === true)
       ? stageIndex
       : null;
   };
@@ -127,7 +132,15 @@ export function labRoutes<TDraft, TOutcome extends object>(
       return jsonError(c, 400, "invalid-reset-scope");
     }
     const fromStage =
-      body.scope === "lab" ? 1 : typeof body.stageIndex === "number" ? stageIndexOf(body) : null;
+      body.scope === "lab"
+        ? 1
+        : typeof body.stageIndex === "number" &&
+            body.stageIndex >= 1 &&
+            Number.isInteger(body.stageIndex) &&
+            (body.stageIndex <= spec.stageCount ||
+              spec.optionalStageIndexes?.includes(body.stageIndex) === true)
+          ? body.stageIndex
+          : null;
     if (fromStage === null) return jsonError(c, 400, "invalid-stage");
     const expectedGeneration = parseRequiredGeneration(body);
     if (body.expectedGeneration !== undefined && expectedGeneration === null) {

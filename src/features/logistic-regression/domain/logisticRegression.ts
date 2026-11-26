@@ -440,6 +440,15 @@ export type TrainingOptions = {
   includeTrace?: boolean;
   includeBgd?: boolean;
   topWordsCount?: number;
+  /** Lesson interpreter; returns the updated bias using the same corpus and shuffle. */
+  sampleUpdate?: (
+    weights: Float64Array,
+    bias: number,
+    ids: readonly number[],
+    label: 0 | 1,
+    eta: number,
+    probability: number,
+  ) => number;
 };
 
 type PreparedPublicSplit = {
@@ -579,11 +588,15 @@ export function trainLogisticRegression(options: TrainingOptions): TrainingRun {
       let z = bias;
       for (let k = 0; k < ids.length; k++) z += weights[ids[k]];
       const p = sigmoid(z);
-      const step = eta * (p - sample.label);
-      for (let k = 0; k < ids.length; k++) {
-        weights[ids[k]] -= step;
+      if (options.sampleUpdate) {
+        bias = options.sampleUpdate(weights, bias, ids, sample.label, eta, p);
+      } else {
+        const step = eta * (p - sample.label);
+        for (let k = 0; k < ids.length; k++) {
+          weights[ids[k]] -= step;
+        }
+        bias -= step;
       }
-      bias -= step;
 
       if (
         options.includeTrace &&

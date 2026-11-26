@@ -10,7 +10,7 @@ import { COLOR_QUANT_STAGES } from "../src/features/color-quantization/domain/st
 import { DECODING_STAGES } from "../src/features/decoding/domain/stages.ts";
 import { IMAGE_SAMPLING_STAGES } from "../src/features/image-sampling/domain/stages.ts";
 import { LUNCH_STAGES } from "../src/features/lunch-shift/domain/stages.ts";
-import { LOGISTIC_REGRESSION_STAGES } from "../src/features/logistic-regression/domain/stages.ts";
+import { LOGISTIC_REGRESSION_CORE_STAGES } from "../src/features/logistic-regression/domain/stages.ts";
 import { STATS_FOUNDATIONS_STAGES } from "../src/features/stats-foundations/domain/stages.ts";
 import {
   LAB_IDS,
@@ -43,7 +43,7 @@ const LAB_SPECS: Record<LabId, Omit<LabInfo, "id">> = {
   decoding: { stageCount: DECODING_STAGES.length },
   "lunch-shift": { stageCount: LUNCH_STAGES.length },
   "stats-foundations": { stageCount: STATS_FOUNDATIONS_STAGES.length },
-  "logistic-regression": { stageCount: LOGISTIC_REGRESSION_STAGES.length },
+  "logistic-regression": { stageCount: LOGISTIC_REGRESSION_CORE_STAGES.length },
   "image-sampling": { stageCount: IMAGE_SAMPLING_STAGES.length },
   "color-quantization": { stageCount: COLOR_QUANT_STAGES.length },
 };

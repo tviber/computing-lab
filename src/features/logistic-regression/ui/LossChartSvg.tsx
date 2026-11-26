@@ -11,6 +11,7 @@ export function LossChartSvg({
   intraTrace,
   inspectEpoch,
   showBgd,
+  referenceHistory,
   onSelectEpoch,
 }: {
   history: readonly EpochSnapshot[];
@@ -18,6 +19,7 @@ export function LossChartSvg({
   intraTrace?: readonly IntraEpochPoint[];
   inspectEpoch?: number;
   showBgd?: boolean;
+  referenceHistory?: readonly EpochSnapshot[];
   onSelectEpoch?: (epoch: number) => void;
 }) {
   const W = 440;
@@ -33,6 +35,7 @@ export function LossChartSvg({
     ...history.map((h) => h.trainLoss),
     ...history.map((h) => h.valLoss),
     ...(showBgd && bgdHistory ? bgdHistory.map((b) => b.bgdValLoss) : []),
+    ...(referenceHistory ?? []).map((h) => h.valLoss),
   ];
   const maxLoss = Math.max(0.8, Math.min(1.6, Math.max(...allVals) * 1.08));
 
@@ -52,6 +55,9 @@ export function LossChartSvg({
     showBgd && bgdHistory
       ? bgdHistory.map((b) => `${xOfEp(b.epoch).toFixed(1)},${yOfLoss(b.bgdValLoss).toFixed(1)}`)
       : [];
+  const referencePts =
+    referenceHistory?.map((h) => `${xOfEp(h.epoch).toFixed(1)},${yOfLoss(h.valLoss).toFixed(1)}`) ??
+    [];
 
   return (
     <div className="logistic-regression-charts-grid">
@@ -68,6 +74,12 @@ export function LossChartSvg({
             {showBgd && bgdPts.length > 0 ? (
               <span className="logistic-regression-leg-item">
                 <i className="logistic-regression-leg-swatch is-bgd" /> 全批量 BGD
+              </span>
+            ) : null}
+            {referencePts.length > 0 ? (
+              <span className="logistic-regression-leg-item">
+                <i className="logistic-regression-leg-swatch is-reference" />
+                参考 SGD
               </span>
             ) : null}
           </div>
@@ -118,6 +130,15 @@ export function LossChartSvg({
               points={bgdPts.join(" ")}
               stroke="var(--warn)"
               strokeDasharray="5 3"
+              strokeWidth="1.8"
+            />
+          ) : null}
+          {referencePts.length > 0 ? (
+            <polyline
+              fill="none"
+              points={referencePts.join(" ")}
+              stroke="var(--success)"
+              strokeDasharray="4 3"
               strokeWidth="1.8"
             />
           ) : null}
