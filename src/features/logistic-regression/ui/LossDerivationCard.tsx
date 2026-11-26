@@ -15,6 +15,10 @@ export function LossDerivationCard() {
           <p className="logistic-regression-role-desc">
             模型给真实标签的概率越高，损失越接近 0。如果把一条垃圾短信的概率估成 2%，损失就很大。
           </p>
+          <p className="logistic-regression-old-knowledge">
+            旧知彩蛋：线性回归 MSE 梯度是“预测 − 真实”乘输入；这里完全同构，只把预测值换成 Sigmoid
+            概率 p。
+          </p>
           <p className="logistic-regression-formula-conclusion">
             <MathFormula>{String.raw`\text{损失} = -\ln\!\left(\text{模型给真实标签的概率}\right)`}</MathFormula>
           </p>

@@ -205,13 +205,15 @@ describe("TeacherDashboardPage", () => {
       expect(screen.getByRole("option", { name: meta.title })).toBeInTheDocument();
     }
 
-    for (const stage of LOGISTIC_REGRESSION_STAGES) {
+    for (const stage of LOGISTIC_REGRESSION_STAGES.filter((item) => !item.optional)) {
       expect(screen.getByRole("columnheader", { name: stage.title })).toBeInTheDocument();
     }
 
     const studentRow = await screen.findByRole("row", { name: /20260101.*张三/ });
     const stageFiveCell =
-      within(studentRow).getAllByRole("cell")[LOGISTIC_REGRESSION_STAGES.length];
+      within(studentRow).getAllByRole("cell")[
+        LOGISTIC_REGRESSION_STAGES.filter((item) => !item.optional).length
+      ];
     expect(stageFiveCell.querySelector(".cell-pass")).toBeInTheDocument();
   });
 

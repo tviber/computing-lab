@@ -142,6 +142,7 @@ export type LogisticRegressionStageDef = {
   takeaway: string;
   hints: string[];
   prompts: ConceptPrompt[];
+  optional?: boolean;
 };
 
 export const LOGISTIC_REGRESSION_STAGES: LogisticRegressionStageDef[] = [
@@ -355,7 +356,7 @@ export const LOGISTIC_REGRESSION_STAGES: LogisticRegressionStageDef[] = [
     judgeNote:
       "服务器会使用你的学习率和轮数重新训练模型。两项损失达到要求后，即可用你的模型试分新短信。",
     takeaway:
-      "随机梯度下降（SGD）每读一条短信就更新一次权重。对本条短信中出现的词，更新量是 $-\\eta(p-y)$。学习率决定每次改多少；改得太小，训练可能很慢，改得太大，损失可能来回波动。",
+      "随机梯度下降（SGD）每读一条短信就更新一次权重。对每个词和偏置，更新量统一是 $-\\eta(p-y)x_j$。这与前面线性回归 MSE 的梯度同构：都是“预测减真实，再乘输入”；这里预测值换成了 Sigmoid 概率 p。学习率决定每次改多少；改得太小，训练可能很慢，改得太大，损失可能来回波动。",
     hints: [
       "请比较 $\\eta=0.002$ 和 $\\eta=5.0$ 时的损失曲线，再试试 0.05 到 0.25 之间的值。哪一组能让训练损失和验证损失一起下降？",
       "本实验用单条短信的交叉熵损失更新权重。第 j 个词的梯度是 $(p-y)x_j$，其中词出现时 $x_j=1$。用学习率乘以梯度，再取负号，就得到权重改变量。",
@@ -375,9 +376,49 @@ export const LOGISTIC_REGRESSION_STAGES: LogisticRegressionStageDef[] = [
     hints: [],
     prompts: [],
   },
+  {
+    index: 6,
+    id: "sgd-code",
+    title: "梯度维修台",
+    englishTitle: "Bonus · Write SGD",
+    optional: true,
+    description:
+      "主线之外的引擎挑战：补上逻辑回归每读一条短信时执行的更新代码，观察自己写的模型是否学会。",
+    task: "先预测一次权重变化，再修好四行 SGD。用 20 轮训练和验证损失检查你的代码。",
+    judgeNote: "挑战结果按单步更新、训练与验证损失、概念检查共同评定。",
+    takeaway: "p−y 指出模型错在哪边；减去 η(p−y)x 会朝着损失更小的方向走。",
+    hints: [
+      "先用 y=1、p=0.2 想一想：模型猜低了，出现过的词应该增重。",
+      "每条短信只预测一次；没有出现的词乘 0 后不会改变。",
+    ],
+    prompts: [
+      {
+        id: "sgd-direction",
+        prompt: "把 w[j] -= g * xi[j] 写成 +=，训练最可能怎样？",
+        options: [
+          { label: "损失反而上升，像在沿着梯度上坡" },
+          { label: "损失一定更快降到 0", note: "它把权重推向损失增大的方向。" },
+        ],
+        correct: 0,
+        reveal: "减去梯度是下坡方向；加上梯度会变成梯度上升。",
+      },
+      {
+        id: "sgd-sparse",
+        prompt: "词表有 5000 个词，一条短信只有 8 个词。包含偏置在内，实际会更新几个参数？",
+        options: [
+          { label: "9 个：8 个出现的词，加上偏置" },
+          { label: "5001 个：每次都改变整份词表", note: "没出现的词乘 0，数值保持不变。" },
+        ],
+        correct: 0,
+        reveal: "8 个词的特征值是 1，偏置特征也恒为 1；其他权重乘 0 后保持不变。",
+      },
+    ],
+  },
 ];
 
-export const LOGISTIC_REGRESSION_CORE_STAGES = LOGISTIC_REGRESSION_STAGES;
+export const LOGISTIC_REGRESSION_CORE_STAGES = LOGISTIC_REGRESSION_STAGES.filter(
+  (stage) => !stage.optional,
+);
 
 export function getLogisticRegressionStage(index: number): LogisticRegressionStageDef | undefined {
   return LOGISTIC_REGRESSION_STAGES.find((stage) => stage.index === index);
@@ -388,14 +429,15 @@ export function logisticRegressionStageUnlocked(
   index: number,
 ): boolean {
   if (!getLogisticRegressionStage(index)) return false;
-  return LOGISTIC_REGRESSION_STAGES.every(
+  if (index === 6) return passedStages.includes(4);
+  return LOGISTIC_REGRESSION_CORE_STAGES.every(
     (stage) => stage.index >= index || passedStages.includes(stage.index),
   );
 }
 
 export function nextLogisticRegressionStage(passedStages: readonly number[]): number {
-  for (const stage of LOGISTIC_REGRESSION_STAGES) {
-    if (!passedStages.includes(stage.index)) return stage.index;
+  for (const stage of LOGISTIC_REGRESSION_CORE_STAGES) {
+    if (stage.index <= 4 && !passedStages.includes(stage.index)) return stage.index;
   }
-  return LOGISTIC_REGRESSION_STAGES.length + 1;
+  return passedStages.includes(5) ? 6 : 5;
 }

@@ -384,7 +384,7 @@ describe("shared staff privilege abstraction across all registered labs", () => 
       });
     expect((await reset({ scope: "stage", stageIndex: 2 }, "")).status).toBe(401);
     expect((await reset({})).status).toBe(400);
-    for (const stageIndex of [null, true, "2", 0, 1.5, 6]) {
+    for (const stageIndex of [null, true, "2", 0, 1.5, 7]) {
       expect((await reset({ scope: "stage", stageIndex })).status).toBe(400);
     }
     expect((await reset({ scope: "lab", userId: studentId }, cookieFor(teacherId))).status).toBe(

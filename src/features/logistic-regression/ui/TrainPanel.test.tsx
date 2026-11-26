@@ -51,6 +51,7 @@ describe("TrainPanel deferred parameter consistency", () => {
           hasNextStage
           onChange={setDraft}
           onNextStage={() => {}}
+          onBonusStage={() => {}}
           onSubmit={() => {}}
           passed={false}
           result={null}
@@ -111,6 +112,7 @@ describe("TrainPanel deferred parameter consistency", () => {
         hasNextStage
         onChange={() => {}}
         onNextStage={() => {}}
+        onBonusStage={() => {}}
         onSubmit={() => {}}
         passed={false}
         result={null}

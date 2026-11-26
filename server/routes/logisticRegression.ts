@@ -4,7 +4,7 @@ import type {
   LogisticRegressionRunSummaries,
   LogisticRegressionTestSummary,
 } from "../../src/features/logistic-regression/domain/protocol.ts";
-import { LOGISTIC_REGRESSION_STAGES } from "../../src/features/logistic-regression/domain/stages.ts";
+import { LOGISTIC_REGRESSION_CORE_STAGES } from "../../src/features/logistic-regression/domain/stages.ts";
 import { sanitizeLogisticRegressionDraft } from "../../src/features/logistic-regression/lesson/state.ts";
 import { SlidingWindowLimiter } from "../auth/rateLimit.ts";
 import { parseJsonColumn } from "../db/client.ts";
@@ -21,6 +21,7 @@ const SUMMARY_KEYS: Record<number, keyof LogisticRegressionRunSummaries> = {
   3: "s3",
   4: "s4",
   5: "s5",
+  6: "s6",
 };
 
 function latestRunSummaries(
@@ -31,7 +32,7 @@ function latestRunSummaries(
     .prepare(
       `SELECT stage_index AS stageIndex, test_summary AS testSummary
        FROM submissions
-       WHERE project_id = ? AND lab_id = 'logistic-regression' AND stage_index BETWEEN 1 AND 5
+       WHERE project_id = ? AND lab_id = 'logistic-regression' AND stage_index BETWEEN 1 AND 6
        ORDER BY submitted_at DESC, rowid DESC`,
     )
     .all(projectId) as { stageIndex: number; testSummary: string }[];
@@ -41,6 +42,7 @@ function latestRunSummaries(
     s3: null,
     s4: null,
     s5: null,
+    s6: null,
   };
   for (const row of rows) {
     const key = SUMMARY_KEYS[row.stageIndex];
@@ -55,7 +57,8 @@ export function logisticRegressionRoutes() {
   const judgeLimiter = new SlidingWindowLimiter(30, 10 * 60 * 1000);
   return labRoutes<LogisticRegressionDraft, LogisticRegressionJudgeResult>({
     labId: "logistic-regression",
-    stageCount: LOGISTIC_REGRESSION_STAGES.length,
+    stageCount: LOGISTIC_REGRESSION_CORE_STAGES.length,
+    optionalStageIndexes: [6],
     staffNavigation: false,
     projectExtras: (db, project) => {
       const trainedSettings = latestPassedTraining(db, project.id);

@@ -78,6 +78,9 @@ export function TokenizePanel({
             词表含 {fullTrainVocab.size} 个词
           </span>
         </div>
+        <p className="logistic-regression-rule-strip">
+          出现 = 1 · 未出现 = 0 · 重复词仍 = 1 · 标点 / 未登录词 = 0
+        </p>
 
         <div className="logistic-regression-preset-row">
           {TOKENIZE_PRESETS.map((preset) => (

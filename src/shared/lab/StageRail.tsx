@@ -12,6 +12,7 @@ export type StageRailItem = {
   title: string;
   /** Optional second line — omitted entirely when absent. */
   englishTitle?: string;
+  optional?: boolean;
 };
 
 /** One stage row: titles on the left, pass/unlock mark on the right. */
@@ -77,8 +78,17 @@ export function StageRail(props: {
               onSelect={() => onSelect(stage.index)}
               passed={passedStages.includes(stage.index)}
               subtitle={stage.englishTitle}
-              title={stage.title}
+              title={
+                stage.optional ? (
+                  <>
+                    {stage.title} <small>附加关</small>
+                  </>
+                ) : (
+                  stage.title
+                )
+              }
               unlocked={unlocked(stage)}
+              optional={stage.optional}
             />
           </li>
         ))}

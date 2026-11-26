@@ -22,6 +22,7 @@ import type {
   StrategyDraft,
   TokenizeDraft,
   TrainDraft,
+  SgdCodeDraft,
 } from "../domain/protocol.ts";
 import {
   LOGISTIC_REGRESSION_STAGES,
@@ -42,6 +43,7 @@ import { ScorePanel } from "./ScorePanel.tsx";
 import { StrategyPanel } from "./StrategyPanel.tsx";
 import { TokenizePanel } from "./TokenizePanel.tsx";
 import { TrainPanel } from "./TrainPanel.tsx";
+import { SgdCodePanel } from "./SgdCodePanel.tsx";
 import "./logisticRegression.css";
 
 function StageBrief({ stage, passed }: { stage: LogisticRegressionStageDef; passed: boolean }) {
@@ -82,7 +84,7 @@ function parseRequestedStage(raw: unknown): number | null {
       ? Number(rawStage)
       : NaN;
   return Number.isInteger(parsedStage) && parsedStage >= 1 && parsedStage <= 6
-    ? Math.min(parsedStage, LOGISTIC_REGRESSION_STAGES.length)
+    ? Math.min(parsedStage, 6)
     : null;
 }
 
@@ -192,7 +194,7 @@ export function LogisticRegressionLabPage() {
   const activeIndex = stage?.index ?? 1;
   const activePassed = passedStages.includes(activeIndex);
   const activeResult = summaryForStage(state, activeIndex, judgedStage);
-  const hasNextStage = activeIndex < LOGISTIC_REGRESSION_STAGES.length;
+  const hasNextStage = activeIndex < 5;
   const selectStage = (stageIndex: number) => {
     setSubmitError(null);
     dispatch({ type: "select-stage", stageIndex });
@@ -318,6 +320,7 @@ export function LogisticRegressionLabPage() {
               hasNextStage={hasNextStage}
               onChange={(draft) => dispatch({ type: "update-stage4", draft })}
               onNextStage={goNextStage}
+              onBonusStage={() => selectStage(6)}
               onSubmit={() => void submitJudge(4, draftOf(state, 4))}
               passed={activePassed}
               result={activeResult}
@@ -335,6 +338,18 @@ export function LogisticRegressionLabPage() {
               onReviewTraining={() => selectStage(4)}
               passed={activePassed}
               submitting={submitting}
+            />
+          ) : null}
+
+          {projectLoaded && stage?.index === 6 ? (
+            <SgdCodePanel
+              stage={stage}
+              draft={draftOf(state, 6) as SgdCodeDraft}
+              passed={activePassed}
+              result={activeResult}
+              submitting={submitting}
+              onChange={(draft) => dispatch({ type: "update-stage6", draft })}
+              onSubmit={() => void submitJudge(6, draftOf(state, 6))}
             />
           ) : null}
         </main>

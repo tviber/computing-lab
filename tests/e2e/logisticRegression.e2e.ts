@@ -1,5 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
+  LOGISTIC_REGRESSION_CORE_STAGES,
   LOGISTIC_REGRESSION_STAGES,
   TOKENIZE_PUZZLE_ITEMS,
 } from "../../src/features/logistic-regression/domain/stages.ts";
@@ -562,7 +563,7 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   await page.goto(`classes/${classId}/dashboard?lab=ml-intro`, { waitUntil: "networkidle" });
   await expect(page).toHaveURL(/dashboard\?lab=logistic-regression$/);
   await expect(page.getByRole("combobox", { name: "选择实验" })).toHaveValue("logistic-regression");
-  for (const stage of LOGISTIC_REGRESSION_STAGES) {
+  for (const stage of LOGISTIC_REGRESSION_CORE_STAGES) {
     await expect(page.getByRole("columnheader", { name: stage.title })).toBeVisible();
   }
 

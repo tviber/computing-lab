@@ -25,11 +25,11 @@ import type {
   StrategyDraft,
   TokenizeDraft,
   TrainDraft,
+  SgdCodeDraft,
   TrainingSettings,
 } from "../domain/protocol.ts";
 import {
   getLogisticRegressionStage,
-  LOGISTIC_REGRESSION_STAGES,
   logisticRegressionStageUnlocked,
   nextLogisticRegressionStage,
   SCORE_CALIBRATION_SMS,
@@ -40,6 +40,7 @@ import {
 } from "../domain/stages.ts";
 import { clampStrategyWeight, STRATEGY_WORDS } from "../domain/strategy.ts";
 import type { RawTokenStatus } from "../domain/tokenizer.ts";
+import { sanitizeSgdCodeDraft, SGD_STARTER_CODE } from "../domain/sgdCode.ts";
 
 export type { SaveStatus };
 
@@ -101,6 +102,10 @@ export function defaultTrainDraft(): TrainDraft {
     inspectEpoch: 10,
     showBgd: false,
   };
+}
+
+export function defaultSgdCodeDraft(): SgdCodeDraft {
+  return { code: SGD_STARTER_CODE, concepts: {} };
 }
 
 export function sanitizeStrategyDraft(raw: unknown): StrategyDraft {
@@ -213,6 +218,8 @@ export function defaultDraftForStage(stageIndex: number): LogisticRegressionDraf
       return defaultScoreDraft();
     case 4:
       return defaultTrainDraft();
+    case 6:
+      return defaultSgdCodeDraft();
     default:
       return defaultStrategyDraft();
   }
@@ -231,6 +238,9 @@ export function sanitizeLogisticRegressionDraft(
       return sanitizeScoreDraft(raw);
     case 4:
       return sanitizeTrainDraft(raw);
+    case 6: {
+      return sanitizeSgdCodeDraft(raw);
+    }
     default:
       return sanitizeStrategyDraft(raw);
   }
@@ -268,6 +278,7 @@ export type LogisticRegressionLessonAction =
   | { type: "update-stage2"; draft: TokenizeDraft }
   | { type: "update-stage3"; draft: ScoreDraft }
   | { type: "update-stage4"; draft: TrainDraft }
+  | { type: "update-stage6"; draft: SgdCodeDraft }
   | { type: "judge-result"; stageIndex: number; outcome: LogisticRegressionJudgeResult }
   | { type: "mark-saving"; stageIndex: number }
   | { type: "mark-saved"; stageIndex: number; revision?: number }
@@ -290,6 +301,7 @@ const EMPTY_SUMMARIES: LogisticRegressionProjectExtras["runSummaries"] = {
   s3: null,
   s4: null,
   s5: null,
+  s6: null,
 };
 
 const SUMMARY_KEYS: Record<number, keyof LogisticRegressionProjectExtras["runSummaries"]> = {
@@ -298,6 +310,7 @@ const SUMMARY_KEYS: Record<number, keyof LogisticRegressionProjectExtras["runSum
   3: "s3",
   4: "s4",
   5: "s5",
+  6: "s6",
 };
 
 export function createLogisticRegressionLessonState(
@@ -315,6 +328,7 @@ export function createLogisticRegressionLessonState(
       2: defaultTokenizeDraft(),
       3: defaultScoreDraft(),
       4: defaultTrainDraft(),
+      6: defaultSgdCodeDraft(),
     },
     conflictedLocalDrafts: {},
     draftRevisions: {},
@@ -380,27 +394,25 @@ export function transitionLogisticRegressionLesson(
       const draftRevisions: Record<number, number> = {};
       for (const [key, rev] of Object.entries(action.draftRevisions ?? {})) {
         const index = Number(key);
-        if (index >= 1 && index <= 4) draftRevisions[index] = rev;
+        if ([1, 2, 3, 4, 6].includes(index)) draftRevisions[index] = rev;
       }
       const drafts: Record<number, LogisticRegressionDraft> = {
         1: defaultStrategyDraft(),
         2: defaultTokenizeDraft(),
         3: defaultScoreDraft(),
         4: defaultTrainDraft(),
+        6: defaultSgdCodeDraft(),
       };
       for (const [key, draft] of Object.entries(action.drafts)) {
         const s = Number(key);
-        if (s >= 1 && s <= 4) drafts[s] = sanitizeLogisticRegressionDraft(s, draft);
+        if ([1, 2, 3, 4, 6].includes(s)) drafts[s] = sanitizeLogisticRegressionDraft(s, draft);
       }
       const pinnedStage = action.isReset ? null : state.pinnedStage;
-      const serverStage = Math.min(action.currentStage, LOGISTIC_REGRESSION_STAGES.length);
+      const serverStage = Math.min(action.currentStage, 5);
       const candidate = pinnedStage ?? serverStage;
       const stageIndex = logisticRegressionStageUnlocked(action.passedStages, candidate)
         ? candidate
-        : Math.min(
-            nextLogisticRegressionStage(action.passedStages),
-            LOGISTIC_REGRESSION_STAGES.length,
-          );
+        : Math.min(nextLogisticRegressionStage(action.passedStages), 5);
       return {
         ...state,
         pinnedStage,
@@ -436,6 +448,8 @@ export function transitionLogisticRegressionLesson(
       return state.stageIndex === 3 ? withDraft(state, 3, action.draft) : state;
     case "update-stage4":
       return state.stageIndex === 4 ? withDraft(state, 4, action.draft) : state;
+    case "update-stage6":
+      return state.stageIndex === 6 ? withDraft(state, 6, action.draft) : state;
 
     case "judge-result": {
       const summaryKey = SUMMARY_KEYS[action.stageIndex];
@@ -444,7 +458,7 @@ export function transitionLogisticRegressionLesson(
         judgeOutcome: action.outcome,
         trainedSettings: action.outcome.trainedSettings ?? state.trainedSettings,
         passedStages: action.outcome.passedStages,
-        currentStage: nextLogisticRegressionStage(action.outcome.passedStages),
+        currentStage: action.outcome.currentStage,
         runSummaries: summaryKey
           ? { ...state.runSummaries, [summaryKey]: action.outcome.testSummary }
           : state.runSummaries,
