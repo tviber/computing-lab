@@ -1625,24 +1625,13 @@ button.logistic-regression-triage-card {
 .sgd-guided-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
   gap: var(--space-2);
 }
 .sgd-guide-field {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 13px;
-  color: var(--secondary);
-}
-.sgd-guide-field select {
   width: 100%;
-  min-height: 36px;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  background: var(--surface);
-  color: var(--ink);
-  padding: 6px 8px;
-  font: inherit;
+  max-width: 18rem;
+  font-size: 13px;
 }
 .sgd-editor-wrap {
   display: flex;

@@ -101,9 +101,10 @@ p {
   text-overflow: ellipsis;
 }
 
-.field-select select:focus-visible {
+.field-select select:focus {
   border-color: var(--focus);
-  outline-offset: 0;
+  outline: none;
+  box-shadow: 0 0 0 1px var(--focus);
 }
 
 .field-select select:disabled {

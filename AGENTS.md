@@ -29,6 +29,9 @@
 - Keep page gutters and alignment based on shared `.page-content` and `--page-gutter` / `--page-max` tokens. Avoid outer page padding or margins that offset one page from the shared header and other pages. Page-specific content widths are fine when intentional.
 - Keep cards in the same collection visually consistent in width and height across breakpoints. Use the grid for equal tracks; avoid one-off spans unless hierarchy explicitly requires them.
 - Do not add thick, dark-purple focus outlines globally. Text inputs and textareas may use the existing thin, light-purple focus border.
+- Use the shared `.field-select` wrapper for labeled selects so every menu keeps the same custom chevron, `--border-strong` outline, radius, typography, and thin focus border. Do not leave raw selects with the browser’s default bevel or bright focus ring.
+- Keep compact expression builders and similar utility controls bounded rather than letting a short value stretch across an entire panel. Use a stable label-above-control rhythm, align controls to the start of their grid cell, and reserve full-width fields for forms that need them.
+- Use a restrained control size: normally 36–38px for compact lab tools, 42px for form fields, and at least 44px on coarse pointers. Keep labels secondary and values primary, with spacing and radii from the shared tokens.
 
 ## Teaching model
 

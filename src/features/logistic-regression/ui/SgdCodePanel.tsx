@@ -151,8 +151,8 @@ export function SgdCodePanel({
         </p>
         {mode === "guided" ? (
           <div className="sgd-guided-controls">
-            <label className="sgd-guide-field">
-              预测 p ={" "}
+            <label className="field-select field-select-native sgd-guide-field">
+              <span>预测 p =</span>
               <select
                 aria-label="预测表达式"
                 value={chosen.p}
@@ -162,8 +162,8 @@ export function SgdCodePanel({
                 <option>yi</option>
               </select>
             </label>
-            <label className="sgd-guide-field">
-              步长 g ={" "}
+            <label className="field-select field-select-native sgd-guide-field">
+              <span>步长 g =</span>
               <select
                 aria-label="步长表达式"
                 value={chosen.g}
@@ -174,8 +174,8 @@ export function SgdCodePanel({
                 <option>eta * (yi - p)</option>
               </select>
             </label>
-            <label className="sgd-guide-field">
-              词权重更新 w[j]{" "}
+            <label className="field-select field-select-native sgd-guide-field">
+              <span>词权重更新 w[j]</span>
               <select
                 aria-label="更新方向"
                 value={chosen.op}
@@ -185,8 +185,8 @@ export function SgdCodePanel({
                 <option value="+=">+= 加上梯度</option>
               </select>
             </label>
-            <label className="sgd-guide-field">
-              更新量{" "}
+            <label className="field-select field-select-native sgd-guide-field">
+              <span>更新量</span>
               <select
                 aria-label="特征乘数"
                 value={chosen.delta}
