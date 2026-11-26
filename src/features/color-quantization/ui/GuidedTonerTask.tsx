@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../../shared/ui/Icon";
+import { PythonCodeWithBlanks, type PythonCodePart } from "../../../shared/ui/PythonCode";
 import { runNearestToner } from "./pyodideRunner.ts";
 import { practiceCandidates, practiceColors, TonerPrediction } from "./TonerPrediction.tsx";
 
@@ -107,6 +108,46 @@ export function GuidedTonerTask({
       setRunning(false);
     }
   };
+  const codeParts: PythonCodePart[] = [
+    {
+      kind: "code",
+      code: `def nearest_toner(r, g, b, toners):
+    # toners: 候选颜色列表, 每个是 [r, g, b], toners[0] 是纸白
+    best = 0
+    best_d = (r - toners[0][0])**2 + (g - toners[0][1])**2 + (b - toners[0][2])**2
+    for i in range(1, len(toners)):
+        d = (r - toners[i][0])**2 + (g - toners[i][1])**2 + `,
+    },
+    {
+      kind: "blank",
+      id: "blue",
+      value: blankBlue,
+      ariaLabel: "空 1：蓝色通道的距离项",
+      minWidth: 16,
+      onChange: (value) => updateBlank("blue", value),
+    },
+    {
+      kind: "code",
+      code: `
+        if `,
+    },
+    {
+      kind: "blank",
+      id: "condition",
+      value: blankCond,
+      ariaLabel: "空 2：什么条件下更新 best",
+      minWidth: 10,
+      onChange: (value) => updateBlank("cond", value),
+    },
+    {
+      kind: "code",
+      code: `:
+            best_d = d
+            best = i
+    return best
+`,
+    },
+  ];
 
   return (
     <section aria-labelledby="guided-toner-title" className="quant-guided">
@@ -121,40 +162,11 @@ export function GuidedTonerTask({
       <p>
         让代码也选一次。第一个空补蓝色通道的平方差，第二个空决定什么时候用当前候选替换之前的最佳候选。
       </p>
-      <div className="quant-code-fill" role="group" aria-label="nearest_toner 代码填空">
-        <pre>
-          <code>
-            {"def nearest_toner(r, g, b, toners):\n"}
-            {"    # toners: 候选颜色列表, toners[0] 是纸白\n"}
-            {"    best = 0\n"}
-            {"    best_d = (r - toners[0][0])**2 + (g - toners[0][1])**2 + (b - toners[0][2])**2\n"}
-            {"    for i in range(1, len(toners)):\n"}
-            {"        d = (r - toners[i][0])**2 + (g - toners[i][1])**2 + "}
-            <input
-              aria-label="空 1：蓝色通道的距离项"
-              className="quant-blank"
-              onChange={(event) => updateBlank("blue", event.target.value)}
-              size={Math.max(16, blankBlue.length + 1)}
-              spellCheck={false}
-              value={blankBlue}
-            />
-            {"\n"}
-            {"        if "}
-            <input
-              aria-label="空 2：什么条件下更新 best"
-              className="quant-blank"
-              onChange={(event) => updateBlank("cond", event.target.value)}
-              size={Math.max(10, blankCond.length + 1)}
-              spellCheck={false}
-              value={blankCond}
-            />
-            {":\n"}
-            {"            best_d = d\n"}
-            {"            best = i\n"}
-            {"    return best\n"}
-          </code>
-        </pre>
-      </div>
+      <PythonCodeWithBlanks
+        ariaLabel="nearest_toner 代码填空"
+        className="quant-code-fill"
+        parts={codeParts}
+      />
 
       <div className="quant-actions">
         <button

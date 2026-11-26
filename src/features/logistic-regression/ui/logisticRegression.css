@@ -1655,19 +1655,6 @@ button.logistic-regression-triage-card {
   justify-content: space-between;
   gap: var(--space-2);
 }
-.sgd-editor {
-  border: 1px solid var(--code-line);
-  border-radius: var(--radius-control);
-  font-size: 13px;
-  overflow: hidden;
-}
-.sgd-editor .cm-editor {
-  background: var(--code-surface);
-}
-.sgd-editor .cm-scroller {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  line-height: 1.5;
-}
 .sgd-diagnostics {
   color: var(--danger, #a83232);
   background: color-mix(in srgb, #c83737 8%, var(--surface));

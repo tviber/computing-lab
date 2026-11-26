@@ -260,22 +260,6 @@
   margin-inline: auto;
 }
 
-.code-editor {
-  border: 1px solid var(--code-line);
-  border-radius: var(--radius-control);
-  font-size: 13px;
-  overflow: hidden;
-}
-
-.code-editor .cm-editor {
-  background: var(--code-surface);
-}
-
-.code-editor .cm-scroller {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  line-height: 1.5;
-}
-
 .helper-note {
   color: var(--secondary);
   font-size: 13px;
@@ -360,37 +344,6 @@
   color: var(--danger);
 }
 
-.code-fill {
-  background: var(--code-surface);
-  border: 1px solid var(--code-line);
-  border-radius: var(--radius-control);
-  padding: 12px;
-}
-
-.code-fill pre {
-  color: var(--code-ink);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.7;
-  margin: 0;
-  overflow-x: auto;
-  white-space: pre;
-}
-
-.code-blank {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid var(--muted);
-  color: var(--code-accent);
-  font: inherit;
-  padding: 0 2px;
-}
-
-.code-blank:focus {
-  border-bottom-color: var(--code-accent);
-  outline: none;
-}
-
 .region-pair {
   align-items: center;
   display: flex;
@@ -410,8 +363,8 @@
 }
 
 .cell-outcome.is-on {
-  background: var(--code-surface);
-  color: var(--code-ink);
+  background: var(--primary);
+  color: var(--surface);
 }
 
 .cell-outcome.is-ok {
@@ -423,6 +376,7 @@
 }
 
 .python-error {
+  border: 1px solid var(--danger-border);
   background: var(--error-surface);
   border-radius: var(--radius-control);
   color: var(--error-ink);

@@ -1,9 +1,5 @@
 import { useMemo, useState } from "react";
-import { indentWithTab } from "@codemirror/commands";
-import { python } from "@codemirror/lang-python";
-import { indentUnit } from "@codemirror/language";
-import { keymap } from "@codemirror/view";
-import CodeMirror from "@uiw/react-codemirror";
+import { PythonEditor } from "../../../shared/ui/PythonEditor";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { LossChartSvg } from "./LossChartSvg.tsx";
@@ -19,8 +15,6 @@ import {
 } from "../domain/logisticRegression.ts";
 import type { LogisticRegressionTestSummary, SgdCodeDraft } from "../domain/protocol.ts";
 import type { LogisticRegressionStageDef } from "../domain/stages.ts";
-
-const SGD_EDITOR_EXTENSIONS = [python(), indentUnit.of("    "), keymap.of([indentWithTab])];
 
 export function SgdCodePanel({
   stage,
@@ -215,24 +209,15 @@ export function SgdCodePanel({
             <span className="logistic-regression-field-label">单条短信的更新代码</span>
             <span className="logistic-regression-badge-neutral">Python</span>
           </div>
-          <CodeMirror
-            aria-describedby="sgd-code-help"
-            aria-label="单条短信的更新代码"
-            basicSetup={{
-              lineNumbers: false,
-              foldGutter: false,
-              highlightActiveLine: false,
-              highlightActiveLineGutter: false,
-              autocompletion: false,
-            }}
+          <PythonEditor
+            ariaDescribedBy="sgd-code-help"
+            ariaLabel="单条短信的更新代码"
             className="sgd-editor"
             editable={mode === "free"}
-            extensions={SGD_EDITOR_EXTENSIONS}
             height={mode === "guided" ? "150px" : "210px"}
             onChange={(next) => {
               if (mode === "free") updateCode(next);
             }}
-            theme="dark"
             value={mode === "guided" ? guidedCode : draft.code}
           />
           <p id="sgd-code-help" className="logistic-regression-muted-note">

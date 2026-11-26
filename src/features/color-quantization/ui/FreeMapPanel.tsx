@@ -8,11 +8,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "../../../shared/ui/Icon";
-import CodeMirror from "@uiw/react-codemirror";
-import { python } from "@codemirror/lang-python";
-import { indentUnit } from "@codemirror/language";
-import { keymap } from "@codemirror/view";
-import { indentWithTab } from "@codemirror/commands";
+import { PythonEditor } from "../../../shared/ui/PythonEditor";
 import { SOURCE_COLORS, TONER_RACK } from "../domain/palette.ts";
 import { nnTable, countOverrides } from "../domain/quantize.ts";
 import type { QuantStageDef } from "../domain/stages.ts";
@@ -33,8 +29,6 @@ const STARTER = `def map_color(r, g, b):
             best = i
     return best
 `;
-
-const EDITOR_EXTENSIONS = [python(), indentUnit.of("    "), keymap.of([indentWithTab])];
 
 export function FreeMapPanel({
   stage,
@@ -106,20 +100,11 @@ export function FreeMapPanel({
         本关粉盒固定为 {(stage.fixedLoadout ?? []).map((i) => TONER_RACK[i].name).join("、")}
         ，且最多只能有 {stage.overrideBudget} 条映射和打印机默认规则不同。
       </p>
-      <CodeMirror
-        aria-label="map_color 代码"
-        basicSetup={{
-          lineNumbers: false,
-          foldGutter: false,
-          highlightActiveLine: false,
-          highlightActiveLineGutter: false,
-          autocompletion: false,
-        }}
+      <PythonEditor
+        ariaLabel="map_color 代码"
         className="quant-editor"
-        extensions={EDITOR_EXTENSIONS}
         height="240px"
         onChange={(value) => onCodeChange(value)}
-        theme="dark"
         value={source}
       />
       <div className="quant-actions">

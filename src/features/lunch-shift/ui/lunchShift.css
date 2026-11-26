@@ -290,10 +290,6 @@
 /* Student Python editor (CodeMirror) */
 .lunch-editor {
   margin: var(--space-2) 0 var(--space-3);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-  font-size: 13px;
 }
 
 /* Stage-2 wrong-ticket list */

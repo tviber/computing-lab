@@ -14,11 +14,7 @@
 
 import { useMemo, useState } from "react";
 import { Icon } from "../../../shared/ui/Icon";
-import CodeMirror from "@uiw/react-codemirror";
-import { python } from "@codemirror/lang-python";
-import { indentUnit } from "@codemirror/language";
-import { keymap } from "@codemirror/view";
-import { indentWithTab } from "@codemirror/commands";
+import { PythonEditor } from "../../../shared/ui/PythonEditor";
 import { imageToLists } from "../domain/indexed.ts";
 import { publicGalleryFor } from "../domain/fixtures.ts";
 import { SOURCE_COLORS, TONER_RACK } from "../domain/palette.ts";
@@ -37,8 +33,6 @@ const STARTER = `def choose_toners(toners, palette, images, k):
     # 任务: 返回一个编号列表, 决定装哪几种粉 (len <= k)
     return [0, 1, 2, 3]
 `;
-
-const EDITOR_EXTENSIONS = [python(), indentUnit.of("    "), keymap.of([indentWithTab])];
 
 export function ChooseTonersPanel({
   stage,
@@ -111,20 +105,11 @@ export function ChooseTonersPanel({
         <code>nn_table(subset)</code>（装这组粉时每个源色落到哪）、
         <code>quantize(image, table)</code>（按映射表打印一张图）。
       </p>
-      <CodeMirror
-        aria-label="choose_toners 代码"
-        basicSetup={{
-          lineNumbers: false,
-          foldGutter: false,
-          highlightActiveLine: false,
-          highlightActiveLineGutter: false,
-          autocompletion: false,
-        }}
+      <PythonEditor
+        ariaLabel="choose_toners 代码"
         className="quant-editor"
-        extensions={EDITOR_EXTENSIONS}
         height="220px"
         onChange={(value) => onCodeChange(value)}
-        theme="dark"
         value={source}
       />
       <div className="quant-actions">

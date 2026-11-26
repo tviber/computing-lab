@@ -12,11 +12,7 @@
  */
 
 import { useMemo, useState } from "react";
-import CodeMirror from "@uiw/react-codemirror";
-import { python } from "@codemirror/lang-python";
-import { indentUnit } from "@codemirror/language";
-import { keymap } from "@codemirror/view";
-import { indentWithTab } from "@codemirror/commands";
+import { PythonEditor } from "../../../shared/ui/PythonEditor";
 import { imageToLists } from "../domain/bitmap.ts";
 import { publicGalleryFor } from "../domain/fixtures.ts";
 import type { SamplingStageDef } from "../domain/stages.ts";
@@ -42,8 +38,6 @@ const STARTER = (stage: SamplingStageDef) =>
     # 任务: 分析这些图, 算出 (宽, 高) —— 两者可以不同
     return (16, 16)
 `;
-
-const EDITOR_EXTENSIONS = [python(), indentUnit.of("    "), keymap.of([indentWithTab])];
 
 export function ChooseSizePanel({
   stage,
@@ -115,20 +109,11 @@ export function ChooseSizePanel({
         前面关卡写的函数可以直接用：<code>cell_value(region)</code>（第 1 关你的判定规则）和{" "}
         <code>downsample(image, w, h)</code>（内部就是逐格调用 cell_value）。
       </p>
-      <CodeMirror
-        aria-label="choose_size 代码"
-        basicSetup={{
-          lineNumbers: false,
-          foldGutter: false,
-          highlightActiveLine: false,
-          highlightActiveLineGutter: false,
-          autocompletion: false,
-        }}
+      <PythonEditor
+        ariaLabel="choose_size 代码"
         className="code-editor"
-        extensions={EDITOR_EXTENSIONS}
         height="200px"
         onChange={(value) => onCodeChange(value)}
-        theme="dark"
         value={source}
       />
       <div className="guided-actions">
