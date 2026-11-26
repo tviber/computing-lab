@@ -1,8 +1,15 @@
 import { useMemo, useState } from "react";
+import { indentWithTab } from "@codemirror/commands";
+import { python } from "@codemirror/lang-python";
+import { indentUnit } from "@codemirror/language";
+import { keymap } from "@codemirror/view";
+import CodeMirror from "@uiw/react-codemirror";
 import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { LossChartSvg } from "./LossChartSvg.tsx";
+import { LossDerivationCard } from "./LossDerivationCard.tsx";
 import { SingleStepPenaltyVisual } from "./SingleStepPenaltyVisual.tsx";
+import { WeightLossSliceExplorer } from "./WeightLossSliceExplorer.tsx";
 import { WeightSpectrum } from "./WeightSpectrum.tsx";
 import { runSgdCode } from "../domain/sgdCode.ts";
 import {
@@ -12,6 +19,8 @@ import {
 } from "../domain/logisticRegression.ts";
 import type { LogisticRegressionTestSummary, SgdCodeDraft } from "../domain/protocol.ts";
 import type { LogisticRegressionStageDef } from "../domain/stages.ts";
+
+const SGD_EDITOR_EXTENSIONS = [python(), indentUnit.of("    "), keymap.of([indentWithTab])];
 
 export function SgdCodePanel({
   stage,
@@ -51,6 +60,7 @@ export function SgdCodePanel({
   );
   const step = prediction === null ? null : singleUpdateDemo(0.2, 1, 0.1);
   const summary = simulation?.summary ?? result;
+  const guidedCode = `p = ${chosen.p}\ng = ${chosen.g}\nfor j in range(n):\n    w[j] ${chosen.op} ${chosen.delta}`;
   const updateCode = (next: string) => {
     onChange({ ...draft, code: next });
     setExecutedCode(null);
@@ -69,26 +79,40 @@ export function SgdCodePanel({
     <div className="logistic-regression-stage-stack sgd-code-stage">
       <section className="logistic-regression-panel sgd-code-bench">
         <div className="logistic-regression-panel-head">
-          <h3>01 / 先预测这一步</h3>
+          <h3>先预测这一步</h3>
           <span className="logistic-regression-badge-neutral">垃圾短信 · y=1</span>
         </div>
-        <p>这条短信里有「恭喜」「中奖」，没有「妈妈」。模型只给了 p=0.20；学习率 η=0.1。</p>
-        <p className="sgd-code-sms">【恭喜】你已中奖，点击查看活动详情</p>
+        <p className="logistic-regression-data-guide">
+          这条短信里有「恭喜」「中奖」，没有「妈妈」。模型只给了 p = 0.20；学习率 η = 0.1。
+        </p>
+        <p className="logistic-regression-quote">【恭喜】你已中奖，点击查看活动详情</p>
         <fieldset className="sgd-choice-group">
           <legend>猜一猜：p − yi 的符号是什么？</legend>
-          <button type="button" aria-pressed={prediction === 0} onClick={() => setPrediction(0)}>
-            正数
-          </button>
-          <button type="button" aria-pressed={prediction === 1} onClick={() => setPrediction(1)}>
-            负数
-          </button>
+          <div className="logistic-regression-segmented">
+            <button
+              className={prediction === 0 ? "is-active" : ""}
+              type="button"
+              aria-pressed={prediction === 0}
+              onClick={() => setPrediction(0)}
+            >
+              正数
+            </button>
+            <button
+              className={prediction === 1 ? "is-active" : ""}
+              type="button"
+              aria-pressed={prediction === 1}
+              onClick={() => setPrediction(1)}
+            >
+              负数
+            </button>
+          </div>
         </fieldset>
         {step ? (
-          <div className="sgd-step-result" role="status">
-            <strong>
+          <div className="logistic-regression-note-box sgd-step-result" role="status">
+            <p className="logistic-regression-formula-conclusion">
               {prediction === 1 ? "命中：−0.80，模型猜低了。" : "差一点：p−yi = 0.20−1 = −0.80。"}
-            </strong>
-            <p>
+            </p>
+            <p className="logistic-regression-role-desc">
               g=0.1×(−0.8)=−0.08，出现过的词执行 w ← w−g，权重增加 0.08。「妈妈」乘
               0，本轮保持不变。
             </p>
@@ -107,8 +131,8 @@ export function SgdCodePanel({
 
       <section className="logistic-regression-panel sgd-code-editor-panel">
         <div className="logistic-regression-panel-head">
-          <h3>02 / 修好学习引擎</h3>
-          <div className="sgd-mode-switch">
+          <h3>修好学习引擎</h3>
+          <div aria-label="代码编辑模式" className="logistic-regression-segmented" role="group">
             <button
               className={mode === "guided" ? "is-active" : ""}
               type="button"
@@ -127,13 +151,13 @@ export function SgdCodePanel({
             </button>
           </div>
         </div>
-        <p className="logistic-regression-muted-note">
+        <p className="logistic-regression-data-guide">
           每条短信先预测一次；η=0.1、20 轮、固定训练数据。更新范围只允许简单算式，不会执行 Python
           或浏览器命令。
         </p>
         {mode === "guided" ? (
           <div className="sgd-guided-controls">
-            <label>
+            <label className="sgd-guide-field">
               预测 p ={" "}
               <select
                 aria-label="预测表达式"
@@ -144,7 +168,7 @@ export function SgdCodePanel({
                 <option>yi</option>
               </select>
             </label>
-            <label>
+            <label className="sgd-guide-field">
               步长 g ={" "}
               <select
                 aria-label="步长表达式"
@@ -156,7 +180,7 @@ export function SgdCodePanel({
                 <option>eta * (yi - p)</option>
               </select>
             </label>
-            <label>
+            <label className="sgd-guide-field">
               词权重更新 w[j]{" "}
               <select
                 aria-label="更新方向"
@@ -167,7 +191,7 @@ export function SgdCodePanel({
                 <option value="+=">+= 加上梯度</option>
               </select>
             </label>
-            <label>
+            <label className="sgd-guide-field">
               更新量{" "}
               <select
                 aria-label="特征乘数"
@@ -179,37 +203,50 @@ export function SgdCodePanel({
                 <option>eta * (p - yi) * xi[j]</option>
               </select>
             </label>
-            <pre className="sgd-code-preview">{`p = ${chosen.p}\ng = ${chosen.g}\nfor j in range(n):\n    w[j] ${chosen.op} ${chosen.delta}`}</pre>
           </div>
         ) : (
-          <>
-            <label className="sgd-code-label" htmlFor="sgd-code-editor">
-              单条短信的更新代码
-            </label>
-            <textarea
-              id="sgd-code-editor"
-              name="sgd-code"
-              spellCheck={false}
-              rows={7}
-              maxLength={2000}
-              value={draft.code}
-              onChange={(e) => updateCode(e.target.value)}
-              aria-describedby="sgd-code-help"
-            />
-            <p id="sgd-code-help" className="logistic-regression-muted-note">
-              可用变量：xi、yi、w、j、n、eta、predict。每条短信只算一次 p；支持 + − × ÷、括号和
-              xi[j]、w[j]。不需要写训练轮循环。
-            </p>
-          </>
+          <p className="logistic-regression-muted-note">
+            可以直接改写 Python 代码。每种缩进用 4 个空格；这里只解析允许的简单算式，不运行任意
+            Python。
+          </p>
         )}
+        <div className="sgd-editor-wrap">
+          <div className="sgd-editor-head">
+            <span className="logistic-regression-field-label">单条短信的更新代码</span>
+            <span className="logistic-regression-badge-neutral">Python</span>
+          </div>
+          <CodeMirror
+            aria-describedby="sgd-code-help"
+            aria-label="单条短信的更新代码"
+            basicSetup={{
+              lineNumbers: false,
+              foldGutter: false,
+              highlightActiveLine: false,
+              highlightActiveLineGutter: false,
+              autocompletion: false,
+            }}
+            className="sgd-editor"
+            editable={mode === "free"}
+            extensions={SGD_EDITOR_EXTENSIONS}
+            height={mode === "guided" ? "150px" : "210px"}
+            onChange={(next) => {
+              if (mode === "free") updateCode(next);
+            }}
+            theme="dark"
+            value={mode === "guided" ? guidedCode : draft.code}
+          />
+          <p id="sgd-code-help" className="logistic-regression-muted-note">
+            可用变量：xi、yi、w、j、n、eta、predict。每条短信只算一次 p；支持 + − × ÷、括号和
+            xi[j]、w[j]。不需要写训练轮循环。
+          </p>
+        </div>
         <button
           className="button button-primary"
           type="button"
           onClick={() => {
             if (mode === "guided") {
-              const code = `p = ${chosen.p}\ng = ${chosen.g}\nfor j in range(n):\n    w[j] ${chosen.op} ${chosen.delta}`;
-              updateCode(code);
-              setExecutedCode(code);
+              updateCode(guidedCode);
+              setExecutedCode(guidedCode);
             }
             runCode();
           }}
@@ -228,11 +265,13 @@ export function SgdCodePanel({
         ) : null}
         {simulation?.run ? (
           <div className="sgd-run-result" role="status">
-            <strong>
+            <p className="logistic-regression-formula-conclusion">
               训练损失 {simulation.run.epochsHistory.at(-1)?.trainLoss.toFixed(4)} · 验证损失{" "}
               {simulation.run.epochsHistory.at(-1)?.valLoss.toFixed(4)}
-            </strong>
-            <p>绿色为参考 SGD，蓝色为你写的更新。让两条线重合，才说明每一步都对上了。</p>
+            </p>
+            <p className="logistic-regression-role-desc">
+              绿色为参考 SGD，蓝色为你写的更新。让两条线重合，才说明每一步都对上了。
+            </p>
             <LossChartSvg
               history={simulation.run.epochsHistory}
               referenceHistory={reference.epochsHistory}
@@ -246,6 +285,22 @@ export function SgdCodePanel({
           </div>
         ) : null}
       </section>
+
+      <section className="logistic-regression-panel sgd-code-theory-panel">
+        <div className="logistic-regression-panel-head">
+          <h3>为什么这一步会让损失下降</h3>
+          <span className="logistic-regression-badge-neutral">单样本梯度 → 平均损失</span>
+        </div>
+        <p className="logistic-regression-data-guide">
+          代码每读一条短信，就用这一条的 p − y 调一次权重。下面的推导解释这个梯度从哪里来；
+          权重切片则固定其他参数，展示一组含某个词的短信的<strong>平均损失</strong>
+          。两者方向一致，但切片里的坡度不是代码中单条短信的 p − y。
+        </p>
+        <LossDerivationCard />
+      </section>
+
+      <WeightLossSliceExplorer trainedModel={simulation?.run?.finalModel ?? reference.finalModel} />
+
       <ConceptChecklist prompts={stage.prompts} answers={answers} onSelectCorrect={selectConcept} />
       <JudgeVerdictCard
         summary={summary}

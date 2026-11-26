@@ -276,47 +276,20 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(beforeAfter.getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/)).toBeVisible();
   await expect(beforeAfter.getByText(/按训练集垃圾占比/)).toBeVisible();
   await expect(beforeAfter.getByText(/BCE Loss 0\.6931 →/)).toBeVisible();
-  await expect(
-    page.locator(".logistic-regression-formula-conclusion .katex-html").first(),
-  ).toBeVisible();
+  await expect(page.getByText(/这一关先用它把上千个权重连成训练曲线/)).toBeVisible();
   await expect(page.getByLabel("预测概率与损失")).toBeVisible();
-  const appendixToggle = page.getByRole("button", { name: "数学推导", exact: true });
-  await expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
-  await appendixToggle.click();
-  await expect(page.getByRole("button", { name: "收起数学推导", exact: true })).toHaveAttribute(
-    "aria-expanded",
-    "true",
-  );
-
-  const advancedToggle = page.getByRole("button", { name: /进阶探索：单维权重切片图/ });
-  await expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
-  await advancedToggle.click();
-  await expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
-
-  const slicePanel = page.getByRole("region", { name: "单维权重与损失切片探索" });
-  await slicePanel.getByRole("button", { name: /往右试推一格/ }).click();
-  await slicePanel.getByRole("button", { name: /← 往左试推一格/ }).click();
-  await expect(slicePanel.getByText(/没有回到原位/)).toBeVisible();
+  await expect(page.getByRole("button", { name: "数学推导", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("region", { name: "单维权重与损失切片探索" })).toHaveCount(0);
 
   const stage4Viewport = page.viewportSize();
   for (const width of [1440, 1024, 390]) {
     await page.setViewportSize({ width, height: 900 });
-    const appendix = page.locator(".logistic-regression-appendix-grid");
-    await expect(appendix.locator(".katex-error")).toHaveCount(0);
-    await expect(appendix.locator("math[display=block]")).toHaveCount(6);
-    expect(
-      await appendix.evaluate(
-        (el) =>
-          el.scrollWidth <= el.clientWidth + 1 &&
-          el.getBoundingClientRect().right <= innerWidth + 1,
-      ),
-    ).toBe(true);
     const baselineOverflow = await beforeAfter.evaluate((el) => {
       const box = el.getBoundingClientRect();
       return box.right > window.innerWidth + 1 || el.scrollWidth > el.clientWidth + 1;
     });
     expect(baselineOverflow, `Stage 4 baseline strip overflows at ${width}px`).toBe(false);
-    const overflow = await slicePanel.evaluate((el) => {
+    const stepOverflow = await page.locator(".logistic-regression-step-micro").evaluate((el) => {
       const box = el.getBoundingClientRect();
       return (
         box.right > window.innerWidth + 1 ||
@@ -328,7 +301,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
         ).some((child) => child.getBoundingClientRect().right > window.innerWidth + 1)
       );
     });
-    expect(overflow, `Stage 4 slice panel overflows at ${width}px`).toBe(false);
+    expect(stepOverflow, `Stage 4 single-step visual overflows at ${width}px`).toBe(false);
   }
   if (stage4Viewport) await page.setViewportSize(stage4Viewport);
 
@@ -344,6 +317,57 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(
     page.getByRole("heading", { name: "逻辑回归 - 用新短信试试模型", exact: true }),
   ).toBeVisible();
+
+  await page.getByRole("button", { name: /梯度维修台/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 梯度维修台", exact: true }),
+  ).toBeVisible();
+  await expect(page.locator(".sgd-editor .cm-editor")).toBeVisible();
+  await expect(page.getByLabel("单条短信的更新代码")).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "为什么这一步会让损失下降", exact: true }),
+  ).toBeVisible();
+  const stage6AppendixToggle = page.getByRole("button", { name: "数学推导", exact: true });
+  await stage6AppendixToggle.click();
+  const stage6Appendix = page.locator(".logistic-regression-appendix-grid");
+  await expect(stage6Appendix.locator("math[display=block]")).toHaveCount(6);
+  await expect(stage6Appendix.locator(".katex-error")).toHaveCount(0);
+  const stage6Slice = page.getByRole("region", { name: "单维权重与损失切片探索" });
+  await stage6Slice.getByRole("button", { name: /往右试推一格/ }).click();
+  await stage6Slice.getByRole("button", { name: /← 往左试推一格/ }).click();
+  await expect(stage6Slice.getByText(/没有回到原位/)).toBeVisible();
+
+  const stage6Viewport = page.viewportSize();
+  for (const width of [1440, 390, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    const appendixBounds = await stage6Appendix.evaluate((el) => ({
+      fits:
+        el.scrollWidth <= el.clientWidth + 1 && el.getBoundingClientRect().right <= innerWidth + 1,
+      lineBreaks: el.querySelectorAll("br, .katex-display").length,
+    }));
+    expect(appendixBounds.fits, `Stage 6 appendix overflows at ${width}px`).toBe(true);
+    expect(appendixBounds.lineBreaks).toBeGreaterThan(0);
+    const editorFits = await page
+      .locator(".sgd-editor")
+      .evaluate(
+        (el) =>
+          el.scrollWidth <= el.clientWidth + 1 &&
+          el.getBoundingClientRect().right <= window.innerWidth + 1,
+      );
+    expect(editorFits, `Stage 6 code editor overflows at ${width}px`).toBe(true);
+    const sliceFits = await stage6Slice.evaluate(
+      (el) =>
+        el.scrollWidth <= el.clientWidth + 1 &&
+        el.getBoundingClientRect().right <= window.innerWidth + 1,
+    );
+    expect(sliceFits, `Stage 6 slice overflows at ${width}px`).toBe(true);
+  }
+  if (stage6Viewport) await page.setViewportSize(stage6Viewport);
+  await page.getByRole("button", { name: /用新短信试试模型/ }).click();
+  await expect(
+    page.getByRole("heading", { name: "逻辑回归 - 用新短信试试模型", exact: true }),
+  ).toBeVisible();
+
   await expect(page.getByText(/学习率 0.1 · 12 轮 · 系统阈值/)).toBeVisible();
   await expect(page.getByText("概念检查", { exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "完成体验" })).toBeDisabled();

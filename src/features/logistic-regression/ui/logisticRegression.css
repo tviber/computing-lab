@@ -1603,92 +1603,85 @@ button.logistic-regression-triage-card {
   position: relative;
   overflow: hidden;
 }
-.sgd-code-sms {
-  font-size: 1.2rem;
-  font-weight: 650;
-  padding: 1rem;
-  border-radius: 0.7rem;
-  background: var(--surface-raised, var(--surface));
-}
 .sgd-choice-group {
   border: 0;
   padding: 0;
+  margin: 0;
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 .sgd-choice-group legend {
-  font-weight: 650;
-  margin-bottom: 0.5rem;
-}
-.sgd-choice-group button,
-.sgd-mode-switch button,
-.sgd-guided-controls select {
-  min-height: 44px;
-  border: 1px solid var(--border);
-  border-radius: 0.55rem;
-  background: var(--surface);
-  color: var(--ink);
-  padding: 0.5rem 0.8rem;
-  font: inherit;
-}
-.sgd-choice-group button[aria-pressed="true"],
-.sgd-mode-switch .is-active {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 14%, var(--surface));
+  margin-bottom: var(--space-1);
+  font-size: 13px;
+  font-weight: 600;
 }
 .sgd-step-result {
-  margin-top: 1rem;
-  padding: 1rem;
-  border-radius: 0.7rem;
-  background: color-mix(in srgb, var(--success) 8%, var(--surface));
-}
-.sgd-mode-switch {
+  margin-top: var(--space-2);
   display: flex;
-  gap: 0.4rem;
+  flex-direction: column;
+  gap: var(--space-2);
 }
 .sgd-guided-controls {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 0.8rem;
+  gap: var(--space-2);
 }
-.sgd-guided-controls label,
-.sgd-code-label {
+.sgd-guide-field {
   display: flex;
   flex-direction: column;
-  gap: 0.35rem;
-  font-weight: 600;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--secondary);
 }
-.sgd-code-preview,
-.sgd-code-editor-panel textarea {
-  font:
-    0.95rem/1.55 ui-monospace,
-    SFMono-Regular,
-    Menlo,
-    monospace;
-  white-space: pre-wrap;
-  background: #1e2934;
-  color: #e8f2f7;
-  border-radius: 0.65rem;
-  padding: 1rem;
-}
-.sgd-code-editor-panel textarea {
+.sgd-guide-field select {
   width: 100%;
-  margin: 0.5rem 0;
-  resize: vertical;
+  min-height: 36px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--ink);
+  padding: 6px 8px;
+  font: inherit;
 }
-.sgd-code-editor-panel textarea:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 2px;
+.sgd-editor-wrap {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+.sgd-editor-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+.sgd-editor {
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-control);
+  font-size: 13px;
+  overflow: hidden;
+}
+.sgd-editor .cm-editor {
+  background: var(--code-surface);
+}
+.sgd-editor .cm-scroller {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  line-height: 1.5;
 }
 .sgd-diagnostics {
   color: var(--danger, #a83232);
   background: color-mix(in srgb, #c83737 8%, var(--surface));
-  border-radius: 0.6rem;
-  padding: 0.8rem 0.8rem 0.8rem 2rem;
+  border-radius: var(--radius-control);
+  padding: var(--space-2) var(--space-2) var(--space-2) var(--space-4);
 }
 .sgd-run-result {
-  margin-top: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
+}
+.sgd-code-theory-panel {
+  min-width: 0;
 }
 .logistic-regression-leg-swatch.is-reference {
   background: repeating-linear-gradient(90deg, var(--success) 0 5px, transparent 5px 8px);
@@ -1697,7 +1690,7 @@ button.logistic-regression-triage-card {
   .sgd-guided-controls {
     grid-template-columns: 1fr;
   }
-  .sgd-code-panel .logistic-regression-panel-head {
+  .sgd-code-editor-panel .logistic-regression-panel-head {
     align-items: flex-start;
     flex-direction: column;
   }

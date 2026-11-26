@@ -383,8 +383,8 @@ export const LOGISTIC_REGRESSION_STAGES: LogisticRegressionStageDef[] = [
     englishTitle: "Bonus · Write SGD",
     optional: true,
     description:
-      "主线之外的引擎挑战：补上逻辑回归每读一条短信时执行的更新代码，观察自己写的模型是否学会。",
-    task: "先预测一次权重变化，再修好四行 SGD。用 20 轮训练和验证损失检查你的代码。",
+      "主线之外的引擎挑战：补上逻辑回归每读一条短信时执行的更新代码，观察自己写的模型是否学会，再用求导和权重切片复盘它为什么有效。",
+    task: "先预测一次权重变化，再修好四行 SGD。用 20 轮训练和验证损失检查代码，最后沿损失切片看清梯度如何带着权重下坡。",
     judgeNote: "挑战结果按单步更新、训练与验证损失、概念检查共同评定。",
     takeaway: "p−y 指出模型错在哪边；减去 η(p−y)x 会朝着损失更小的方向走。",
     hints: [

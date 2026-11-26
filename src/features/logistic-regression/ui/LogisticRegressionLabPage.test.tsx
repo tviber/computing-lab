@@ -327,7 +327,7 @@ describe("LogisticRegressionLabPage", () => {
     expect(screen.getByText(/当前选中的短信拆解：含「免费」的正常短信/)).toBeInTheDocument();
   });
 
-  it("renders Stage 4 role-focused visuals, single math appendix toggle, and plain-language 1D slice", async () => {
+  it("keeps Stage 4 focused on training metrics and the single-step gradient intuition", async () => {
     stubLogisticRegressionFetch(
       makeProject({
         currentStage: 4,
@@ -352,19 +352,44 @@ describe("LogisticRegressionLabPage", () => {
     expect(within(beforeAfter).getByText(/准确率：已超过 86\.0% 多数类基线/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/BCE Loss 0\.6931 →/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/优于训练集固定先验基线/)).toBeInTheDocument();
-    expect(
-      screen.getByText(/模型给真实标签的概率/, { selector: "mtext" }).closest("math"),
-    ).not.toBeNull();
-    expect(screen.getByText("梯度与权重更新")).toBeInTheDocument();
+    expect(screen.getByText(/这一关先用它把上千个权重连成训练曲线/)).toBeInTheDocument();
     expect(screen.getByLabelText("预测概率与损失")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "权重改变量" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "数学推导" })).not.toBeInTheDocument();
+    expect(screen.queryByText("从极大似然到最小化交叉熵")).not.toBeInTheDocument();
+    expect(screen.queryByText("概念检查")).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("region", { name: "单维权重与损失切片探索" }),
+    ).not.toBeInTheDocument();
+  });
+
+  it("puts the full derivative and weight-loss slice in the Stage 6 repair lab", async () => {
+    stubLogisticRegressionFetch(
+      makeProject({
+        currentStage: 5,
+        passedStages: [1, 2, 3, 4],
+      }),
+      () => json({}),
+    );
+
+    await renderAppAt("/classes/c1/labs/logistic-regression?classroom=1&stage=6", {
+      auth: teacherAuthState,
+    });
+    await screen.findByRole("heading", { name: "逻辑回归 - 梯度维修台" });
+
+    expect(screen.getByRole("heading", { name: "先预测这一步" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "修好学习引擎" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "为什么这一步会让损失下降" })).toBeInTheDocument();
+    expect(screen.getByText(/切片里的坡度不是代码中单条短信的 p − y/)).toBeInTheDocument();
+    expect(document.querySelector(".sgd-editor .cm-editor")).not.toBeNull();
+    expect(screen.getByLabelText("单条短信的更新代码")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "自由手写" }));
+    expect(screen.getByLabelText("单条短信的更新代码")).toBeInTheDocument();
 
     const appendixToggle = screen.getByRole("button", { name: "数学推导" });
     expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
-    expect(screen.queryByText("从极大似然到最小化交叉熵")).not.toBeInTheDocument();
-
     fireEvent.click(appendixToggle);
-    expect(appendixToggle).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("从极大似然到最小化交叉熵")).toBeInTheDocument();
     expect(screen.getByText(/相乘时约掉这一项/)).toBeInTheDocument();
     const appendix = document.getElementById(appendixToggle.getAttribute("aria-controls")!)!;
@@ -372,16 +397,6 @@ describe("LogisticRegressionLabPage", () => {
     expect(appendix.querySelector("mfrac")).not.toBeNull();
     expect(appendix.querySelector(".katex-error")).toBeNull();
     expect(screen.getByText("链式法则如何化简权重梯度")).toBeInTheDocument();
-    expect(screen.queryByText("概念检查")).not.toBeInTheDocument();
-
-    const advancedToggle = screen.getByRole("button", { name: /展开进阶探索：单维权重切片图/ });
-    expect(advancedToggle).toHaveAttribute("aria-expanded", "false");
-    expect(
-      screen.queryByRole("region", { name: "单维权重与损失切片探索" }),
-    ).not.toBeInTheDocument();
-
-    fireEvent.click(advancedToggle);
-    expect(advancedToggle).toHaveAttribute("aria-expanded", "true");
 
     const slicePanel = screen.getByRole("region", { name: "单维权重与损失切片探索" });
     expect(within(slicePanel).getByText(/含「免费」样本：14 条/)).toBeInTheDocument();
@@ -406,8 +421,7 @@ describe("LogisticRegressionLabPage", () => {
     fireEvent.click(within(slicePanel).getByRole("button", { name: "按梯度更新一步" }));
     expect(within(slicePanel).getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: "较小 η = 0.002" }));
-    await waitFor(() => expect(within(slicePanel).getByText(/仍有差距/)).toBeInTheDocument());
+    fireEvent.click(within(slicePanel).getByRole("button", { name: "重置起点" }));
     expect(
       within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
     ).not.toBeInTheDocument();
