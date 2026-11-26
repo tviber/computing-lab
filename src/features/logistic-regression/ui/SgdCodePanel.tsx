@@ -108,7 +108,7 @@ export function SgdCodePanel({
             </p>
             <p className="logistic-regression-role-desc">
               g=0.1×(−0.8)=−0.08，出现过的词执行 w ← w−g，权重增加 0.08。「妈妈」乘
-              0，本轮保持不变。
+              0，这一步权重保持不变。
             </p>
             <SingleStepPenaltyVisual
               predP={0.2}
@@ -255,7 +255,8 @@ export function SgdCodePanel({
               {simulation.run.epochsHistory.at(-1)?.valLoss.toFixed(4)}
             </p>
             <p className="logistic-regression-role-desc">
-              绿色为参考 SGD，蓝色为你写的更新。让两条线重合，才说明每一步都对上了。
+              绿色为参考 SGD，蓝色为你写的更新。曲线重合表示每轮记录的损失一致；
+              还要结合单步检查和概念题，确认更新规则正确。
             </p>
             <LossChartSvg
               history={simulation.run.epochsHistory}
@@ -273,13 +274,14 @@ export function SgdCodePanel({
 
       <section className="logistic-regression-panel sgd-code-theory-panel">
         <div className="logistic-regression-panel-head">
-          <h3>为什么这一步会让损失下降</h3>
+          <h3>为什么沿负梯度更新</h3>
           <span className="logistic-regression-badge-neutral">单样本梯度 → 平均损失</span>
         </div>
         <p className="logistic-regression-data-guide">
           代码每读一条短信，就用这一条的 p − y 调一次权重。下面的推导解释这个梯度从哪里来；
           权重切片则固定其他参数，展示一组含某个词的短信的<strong>平均损失</strong>
-          。两者方向一致，但切片里的坡度不是代码中单条短信的 p − y。
+          。切片的坡度是这组短信的 p − y 的平均值；某一条短信的梯度方向可能与它不同，
+          因此单步更新不保证降低整组短信的平均损失。
         </p>
         <LossDerivationCard />
       </section>

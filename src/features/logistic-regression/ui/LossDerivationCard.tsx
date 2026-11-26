@@ -13,11 +13,14 @@ export function LossDerivationCard() {
             <span className="logistic-regression-badge-neutral">交叉熵损失</span>
           </div>
           <p className="logistic-regression-role-desc">
-            模型给真实标签的概率越高，损失越接近 0。如果把一条垃圾短信的概率估成 2%，损失就很大。
+            模型给真实类别的概率越高，损失越接近 0。真实类别是垃圾时看 p，是正常时看 1−p。
+            例如，一条垃圾短信的预测垃圾概率只有 2%，损失为 −ln(0.02) ≈ 3.91；预测为 98%
+            时，损失约为 0.02。
           </p>
           <p className="logistic-regression-old-knowledge">
-            旧知彩蛋：线性回归 MSE 梯度是“预测 − 真实”乘输入；这里完全同构，只把预测值换成 Sigmoid
-            概率 p。
+            联系线性回归：单样本平方误差的梯度是 2×（预测 − 真实）× 输入；若损失前带 1/2，系数 2
+            就会抵消。逻辑回归配合交叉熵后，梯度也有“预测 −
+            真实，再乘输入”的形式，其中预测是垃圾概率 p。
           </p>
           <p className="logistic-regression-formula-conclusion">
             <MathFormula>{String.raw`\text{损失} = -\ln\!\left(\text{模型给真实标签的概率}\right)`}</MathFormula>
@@ -29,7 +32,8 @@ export function LossDerivationCard() {
             <span className="logistic-regression-badge-neutral">梯度与权重更新</span>
           </div>
           <p className="logistic-regression-role-desc">
-            按梯度的反方向更新权重。梯度的大小乘以学习率，就是这一步的改变量大小。
+            梯度指出当前损失增大最快的方向，更新时沿反方向走。对每个权重，改变量等于负的学习率乘以它的梯度。
+            SGD 每次使用一条短信的梯度，因此整体平均损失不一定每一步都下降。
           </p>
           <p className="logistic-regression-formula-conclusion">
             每次改变量 <MathFormula>{String.raw`\Delta w_j=-\eta\,(p-y)\,x_j`}</MathFormula>
@@ -55,8 +59,8 @@ export function LossDerivationCard() {
             <p className="logistic-regression-subhead">从极大似然到最小化交叉熵</p>
             <ol className="logistic-regression-derivation-steps">
               <li>
-                标签 <MathFormula>y_i</MathFormula> 只有 1 和 0。观察到垃圾短信时，这条标签的概率是{" "}
-                <MathFormula>p_i</MathFormula>。观察到正常短信时，概率是
+                标签 <MathFormula>y_i</MathFormula> 为 1 表示垃圾，为 0
+                表示正常。模型预测的垃圾概率是 <MathFormula>p_i</MathFormula>，正常概率是
                 <MathFormula>1-p_i</MathFormula>。用一个式子写出两种情况：
                 <MathFormula display>{String.raw`\begin{aligned}
 P(y_i\mid x_i)&=p_i^{y_i}(1-p_i)^{1-y_i}\\
@@ -72,9 +76,12 @@ P(y_i\mid x_i)&=p_i^{y_i}(1-p_i)^{1-y_i}\\
 \end{aligned}`}</MathFormula>
               </li>
               <li>
-                对数单调递增，最大化似然也就等价于最大化对数似然。取负号把最大化变成最小化，再除以样本数
-                N，得到<strong>平均二元交叉熵（BCE）</strong>：
+                为什么取对数？对数能把连乘变成求和。和式可以逐项求导，比对许多项的连乘使用乘积法则更容易计算。
+                直接累加各项的对数，也能避免大量小概率连乘后，小到超出计算机的表示范围。
+                对数单调递增，所以使似然最大的参数，也使对数似然最大。取负号把最大化变成最小化，再除以固定的样本数
+                N，得到<strong>平均二元交叉熵（BCE）</strong>；取平均不会改变最优参数：
                 <MathFormula display>{String.raw`\begin{aligned}
+\ln\prod_{i=1}^N P(y_i\mid x_i)&=\sum_{i=1}^N\ln P(y_i\mid x_i)\\
 L&=\frac{1}{N}\sum_{i=1}^N\ell_i\\
 &=-\frac{1}{N}\sum_{i=1}^N\big[y_i\ln p_i+(1-y_i)\ln(1-p_i)\big]
 \end{aligned}`}</MathFormula>
@@ -117,7 +124,8 @@ w_j&\leftarrow w_j-\eta\,(p_i-y_i)\,x_{ij}
                 例如，垃圾短信的 <MathFormula>y=1</MathFormula>。若{" "}
                 <MathFormula>p=0.20</MathFormula>、<MathFormula>{String.raw`\eta=0.1`}</MathFormula>
                 ，短信中出现的词 <MathFormula>x_j=1</MathFormula>，权重就增加 0.08。未出现的词{" "}
-                <MathFormula>x_j=0</MathFormula>，权重不变。
+                <MathFormula>x_j=0</MathFormula>，权重不变。偏置的输入恒为 1，因此本次偏置也增加
+                0.08。
               </li>
             </ol>
           </div>

@@ -121,9 +121,9 @@ export function TrainPanel({
     <div className="logistic-regression-stage-stack">
       <section className="logistic-regression-panel">
         <p className="logistic-regression-old-knowledge">
-          你已学过：MSE 的单样本梯度是（预测 − 真实）× 输入。逻辑回归只把预测值换成 Sigmoid 概率
-          p，梯度形状仍是 <MathFormula>{String.raw`(p-y)x_j`}</MathFormula>
-          。这一关先用它把上千个权重连成训练曲线；完整求导和单权重切片放在附加挑战里。
+          联系线性回归：单样本平方误差的梯度是 2×（预测 − 真实）× 输入。逻辑回归使用交叉熵损失，
+          梯度为 <MathFormula>{String.raw`(p-y)x_j`}</MathFormula>，其中 p 是预测的垃圾概率，y
+          是真实标签。 这一关先观察模型如何用它更新权重；完整求导和单权重切片放在附加挑战里。
         </p>
         <div className="logistic-regression-panel-head">
           <h3>用 1,400 条短信自动训练模型（词表含 {run.vocabSize} 个词）</h3>
@@ -141,7 +141,8 @@ export function TrainPanel({
         <p className="logistic-regression-data-guide">
           第 3 关手调 8 个词就很费劲，这里有 {run.vocabSize} 个词。训练集的{" "}
           {MAX_SAMPLE_SIZE.toLocaleString("en-US")} 条短信用于更新权重；300
-          条验证短信用于比较结果，不参与更新。
+          条验证短信用于比较学习率和轮数，不参与权重更新。训练损失反映对已学短信的拟合程度，
+          验证损失帮助判断对未参与训练的短信是否也有效。
         </p>
 
         <div className="logistic-regression-preset-row">
@@ -215,7 +216,8 @@ export function TrainPanel({
               <span>同时显示全批量梯度下降（BGD）的曲线</span>
             </label>
             <p className="logistic-regression-muted-note logistic-regression-update-guide">
-              每轮读完 1,400 条训练短信。每读一条，模型更新一次权重。
+              每轮读完 1,400 条训练短信。SGD 每读一条就更新一次；BGD 则先对整批短信的梯度取平均，
+              每轮只更新一次。同样的轮数，两者的更新次数不同。
             </p>
           </div>
         </div>
@@ -244,7 +246,7 @@ export function TrainPanel({
               </strong>
               <small className="logistic-regression-mono">
                 按训练集垃圾占比 {(run.trainSpamRate * 100).toFixed(1)}% 固定猜：BCE Loss{" "}
-                {priorBceLoss.toFixed(4)}（查垃圾 0%）
+                {priorBceLoss.toFixed(4)}（垃圾短信召回率 0%，即全部漏掉）
               </small>
             </div>
             <div

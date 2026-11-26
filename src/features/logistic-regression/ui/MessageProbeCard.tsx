@@ -57,7 +57,8 @@ export function MessageProbeCard({
             </span>
           ) : null}
           <span className={`logistic-regression-pill ${isSpamPred ? "is-danger" : "is-success"}`}>
-            模型判定：{isSpamPred ? "垃圾" : "正常"}（{(inspection.probability * 100).toFixed(1)}%）
+            模型判定：{isSpamPred ? "垃圾" : "正常"}（预测垃圾概率{" "}
+            {(inspection.probability * 100).toFixed(1)}%）
           </span>
         </div>
       </div>

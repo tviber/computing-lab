@@ -79,7 +79,7 @@ export function TokenizePanel({
           </span>
         </div>
         <p className="logistic-regression-rule-strip">
-          出现 = 1 · 未出现 = 0 · 重复词仍 = 1 · 标点 / 未登录词 = 0
+          词表内：出现 = 1，未出现 = 0，重复仍 = 1 · 标点和词表外词不编码
         </p>
 
         <div className="logistic-regression-preset-row">

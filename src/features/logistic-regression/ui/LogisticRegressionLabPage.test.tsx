@@ -136,7 +136,7 @@ describe("LogisticRegressionLabPage", () => {
     await screen.findByRole("heading", { name: "逻辑回归 - 训练模型" });
 
     expect(screen.getByText(/训练集的 1,400 条短信用于更新权重/)).toBeInTheDocument();
-    expect(screen.getByText(/每读一条，模型更新一次权重/)).toBeInTheDocument();
+    expect(screen.getByText(/SGD 每读一条就更新一次/)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText(/回放第/), { target: { value: "0" } });
     expect(screen.getByText(/第 0 轮是训练前的权重/)).toBeInTheDocument();
     expect(screen.getByText(/下面只回放已有结果，不改变最终提交的模型/)).toBeInTheDocument();
@@ -352,7 +352,7 @@ describe("LogisticRegressionLabPage", () => {
     expect(within(beforeAfter).getByText(/准确率：已超过 86\.0% 多数类基线/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/BCE Loss 0\.6931 →/)).toBeInTheDocument();
     expect(within(beforeAfter).getByText(/优于训练集固定先验基线/)).toBeInTheDocument();
-    expect(screen.getByText(/这一关先用它把上千个权重连成训练曲线/)).toBeInTheDocument();
+    expect(screen.getByText(/这一关先观察模型如何用它更新权重/)).toBeInTheDocument();
     expect(screen.getByLabelText("预测概率与损失")).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "权重改变量" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "数学推导" })).not.toBeInTheDocument();
@@ -379,8 +379,8 @@ describe("LogisticRegressionLabPage", () => {
 
     expect(screen.getByRole("heading", { name: "先预测这一步" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "修好学习引擎" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "为什么这一步会让损失下降" })).toBeInTheDocument();
-    expect(screen.getByText(/切片里的坡度不是代码中单条短信的 p − y/)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "为什么沿负梯度更新" })).toBeInTheDocument();
+    expect(screen.getByText(/某一条短信的梯度方向可能与它不同/)).toBeInTheDocument();
     expect(document.querySelector(".sgd-editor .cm-editor")).not.toBeNull();
     expect(screen.getByLabelText("单条短信的更新代码")).toBeInTheDocument();
     expect(screen.getByLabelText("预测表达式").closest("label")).toHaveClass(

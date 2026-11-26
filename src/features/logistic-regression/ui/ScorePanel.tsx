@@ -296,7 +296,8 @@ export function ScorePanel({
       <div className="logistic-regression-score-layout">
         <section className="logistic-regression-panel">
           <p className="logistic-regression-bridge-note">
-            接上上一关：Sigmoid 接收一个复习小时数；现在只是扩展为多个词，z = w · x + b。
+            联系前面的复习时长例子：先把输入算成分数 z，再交给 Sigmoid 转成概率。
+            这里把单个输入扩展为多个词的 0/1 特征，分数是 z = w · x + b。
           </p>
           <div className="logistic-regression-panel-head">
             <h3>权重与偏置</h3>

@@ -276,7 +276,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(beforeAfter.getByText(/多数类 \/ 先验基线（不学词 · 按训练集估计）/)).toBeVisible();
   await expect(beforeAfter.getByText(/按训练集垃圾占比/)).toBeVisible();
   await expect(beforeAfter.getByText(/BCE Loss 0\.6931 →/)).toBeVisible();
-  await expect(page.getByText(/这一关先用它把上千个权重连成训练曲线/)).toBeVisible();
+  await expect(page.getByText(/这一关先观察模型如何用它更新权重/)).toBeVisible();
   await expect(page.getByLabel("预测概率与损失")).toBeVisible();
   await expect(page.getByRole("button", { name: "数学推导", exact: true })).toHaveCount(0);
   await expect(page.getByRole("region", { name: "单维权重与损失切片探索" })).toHaveCount(0);
@@ -347,7 +347,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     path: "/tmp/computing-lab-sgd-select.png",
   });
   await expect(
-    page.getByRole("heading", { name: "为什么这一步会让损失下降", exact: true }),
+    page.getByRole("heading", { name: "为什么沿负梯度更新", exact: true }),
   ).toBeVisible();
   const stage6AppendixToggle = page.getByRole("button", { name: "数学推导", exact: true });
   await stage6AppendixToggle.click();
