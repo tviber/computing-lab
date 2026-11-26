@@ -9,6 +9,7 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Icon } from "../../../shared/ui/Icon";
+import { PythonCodeWithBlanks, type PythonCodePart } from "../../../shared/ui/PythonCode";
 import { imageFromLists } from "../domain/bitmap.ts";
 import { cellRegion, cellStats } from "../domain/downsample.ts";
 import { publicGalleryFor } from "../domain/fixtures.ts";
@@ -125,6 +126,48 @@ export function GuidedCellTask({
       setRunning(false);
     }
   };
+  const codeParts: PythonCodePart[] = [
+    {
+      kind: "code",
+      code: `def cell_value(region):
+    # region: 二维列表, 1 = 图形, 0 = 背景
+    total = 0
+    ink = 0
+    for row in region:
+        for v in row:
+            total += 1
+            ink += `,
+    },
+    {
+      kind: "blank",
+      id: "ink",
+      value: blankInk,
+      ariaLabel: "空 1：ink 累加什么",
+      minWidth: 4,
+      onChange: (value) => updateBlank("ink", value),
+    },
+    {
+      kind: "code",
+      code: `
+    if `,
+    },
+    {
+      kind: "blank",
+      id: "condition",
+      value: blankCond,
+      ariaLabel: "空 2：什么条件下这个格子是 1",
+      minWidth: 14,
+      onChange: (value) => updateBlank("cond", value),
+    },
+    {
+      kind: "code",
+      code: `:
+        return 1
+    else:
+        return 0
+`,
+    },
+  ];
 
   return (
     <section aria-labelledby="guided-cell-title" className="guided-cell-task">
@@ -201,42 +244,11 @@ export function GuidedCellTask({
       </div>
 
       <p>再补全这段代码里的两个空，让它在所有这些区域上都给出和规则一致的结果：</p>
-      <div className="code-fill" role="group" aria-label="cell_value 代码填空">
-        <pre>
-          <code>
-            {"def cell_value(region):\n"}
-            {"    # region: 二维列表, 1 = 图形, 0 = 背景\n"}
-            {"    total = 0\n"}
-            {"    ink = 0\n"}
-            {"    for row in region:\n"}
-            {"        for v in row:\n"}
-            {"            total += 1\n"}
-            {"            ink += "}
-            <input
-              aria-label="空 1：ink 累加什么"
-              className="code-blank"
-              onChange={(event) => updateBlank("ink", event.target.value)}
-              size={Math.max(4, blankInk.length + 1)}
-              spellCheck={false}
-              value={blankInk}
-            />
-            {"\n"}
-            {"    if "}
-            <input
-              aria-label="空 2：什么条件下这个格子是 1"
-              className="code-blank is-wide"
-              onChange={(event) => updateBlank("cond", event.target.value)}
-              size={Math.max(14, blankCond.length + 1)}
-              spellCheck={false}
-              value={blankCond}
-            />
-            {":\n"}
-            {"        return 1\n"}
-            {"    else:\n"}
-            {"        return 0\n"}
-          </code>
-        </pre>
-      </div>
+      <PythonCodeWithBlanks
+        ariaLabel="cell_value 代码填空"
+        className="code-fill"
+        parts={codeParts}
+      />
 
       <div className="guided-actions">
         <button

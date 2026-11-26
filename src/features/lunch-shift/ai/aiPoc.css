@@ -107,9 +107,12 @@
 .ai-json {
   max-height: 320px;
   overflow: auto;
-  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--code-line);
   border-radius: var(--radius-control);
+  padding: var(--space-3) var(--space-4);
   background: var(--code-surface);
   color: var(--code-ink);
+  font-family: var(--font-mono);
   font-size: 12px;
+  line-height: 1.6;
 }

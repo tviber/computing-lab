@@ -121,7 +121,7 @@
   opacity: 0.55;
 }
 
-.decode-example pre,
+.decode-example pre:not(.python-code),
 .decode-example-output pre {
   max-height: min(36dvh, 320px);
   overflow: auto;
@@ -951,39 +951,7 @@
 }
 
 .cloze-code {
-  margin: 0;
-  padding: var(--space-2);
   max-height: 300px;
-  overflow: auto;
-  border-radius: var(--radius-control);
-  background: var(--subtle);
-  color: var(--primary);
-  font-family: var(--font-mono, ui-monospace, monospace);
-  font-size: 11px;
-  line-height: 1.5;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.cloze-blank {
-  appearance: none;
-  border: none;
-  border-bottom: 1.5px solid var(--accent);
-  border-radius: 0;
-  background: transparent;
-  color: var(--accent);
-  font: inherit;
-  line-height: inherit;
-  letter-spacing: inherit;
-  padding: 0 2px;
-  margin: 0 1px;
-  text-align: center;
-}
-
-.cloze-blank:focus {
-  outline: none;
-  border-bottom-color: var(--accent-ink);
-  background: var(--accent-soft);
 }
 
 .file-verdict-hint {

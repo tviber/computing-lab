@@ -1,5 +1,6 @@
 import { hasCloze } from "../domain/cloze.ts";
 import type { DecodingStageDef } from "../domain/stages.ts";
+import { PythonCode } from "../../../shared/ui/PythonCode";
 import { ClozeEditor } from "./ClozeEditor.tsx";
 
 export function DecodeEditor({
@@ -68,9 +69,7 @@ export function DecodeEditor({
                 <p className="decode-example-empty">表达式可改——改完点 ▶ 看字节流和图案怎么变</p>
               </>
             ) : (
-              <pre>
-                <code>{stage.example.input}</code>
-              </pre>
+              <PythonCode ariaLabel="输入生成器代码" code={stage.example.input} />
             )}
           </form>
         </aside>

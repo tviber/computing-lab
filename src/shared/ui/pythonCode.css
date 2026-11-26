@@ -1,0 +1,161 @@
+.python-code,
+.python-editor,
+.ai-json,
+.quant-error,
+.python-error {
+  color-scheme: light;
+}
+
+.python-code {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-control);
+  background: var(--code-surface);
+  color: var(--code-ink);
+  font-family: var(--font-mono);
+  font-size: 13px;
+  line-height: 1.7;
+  white-space: pre;
+}
+
+.python-code code {
+  color: inherit;
+  font: inherit;
+}
+
+.python-code-blank {
+  position: relative;
+  display: inline-grid;
+  width: var(--python-blank-width);
+  min-width: 4ch;
+  margin-inline: 2px;
+  vertical-align: baseline;
+  border-bottom: 2px solid var(--code-accent);
+  border-radius: 3px 3px 0 0;
+  background: var(--code-blank-surface);
+  line-height: inherit;
+}
+
+.python-code-blank-mirror,
+.python-code-blank input {
+  grid-area: 1 / 1;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  padding: 0 2px;
+  font: inherit;
+  line-height: inherit;
+  letter-spacing: inherit;
+  white-space: pre;
+}
+
+.python-code-blank-mirror {
+  min-height: 1lh;
+  overflow: hidden;
+  text-overflow: clip;
+}
+
+.python-code-blank input {
+  border: 0;
+  outline: 0;
+  background: transparent;
+  color: transparent;
+  caret-color: var(--code-accent);
+}
+
+.python-code-blank input::selection {
+  background: var(--code-selection);
+  color: transparent;
+}
+
+.python-code-blank:focus-within {
+  background: var(--code-blank-focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+
+.python-editor {
+  overflow: hidden;
+  border: 1px solid var(--code-line);
+  border-radius: var(--radius-control);
+  background: var(--code-surface);
+  font-size: 13px;
+}
+
+.python-editor:focus-within {
+  border-color: var(--focus);
+  box-shadow: 0 0 0 1px var(--focus);
+}
+
+.python-editor .cm-editor {
+  background: var(--code-surface);
+  color: var(--code-ink);
+}
+
+.python-editor .cm-editor.cm-focused {
+  outline: none;
+}
+
+.python-editor .cm-scroller {
+  font-family: var(--font-mono);
+  line-height: 1.5;
+}
+
+.python-editor .cm-content {
+  caret-color: var(--code-accent);
+}
+
+.tok-keyword {
+  color: var(--code-keyword);
+}
+
+.tok-bool,
+.tok-atom,
+.tok-literal {
+  color: var(--code-literal);
+}
+
+.tok-string,
+.tok-string2 {
+  color: var(--code-string);
+}
+
+.tok-number {
+  color: var(--code-number);
+}
+
+.tok-comment {
+  color: var(--code-comment);
+  font-style: italic;
+}
+
+.tok-variableName,
+.tok-propertyName {
+  color: var(--code-variable);
+}
+
+.tok-definition {
+  color: var(--code-definition);
+  font-weight: 600;
+}
+
+.tok-typeName,
+.tok-className,
+.tok-namespace {
+  color: var(--code-type);
+}
+
+.tok-operator {
+  color: var(--code-operator);
+}
+
+.tok-punctuation,
+.tok-meta {
+  color: var(--code-punctuation);
+}
+
+.tok-invalid {
+  color: var(--danger-ink);
+  text-decoration: underline wavy;
+}

@@ -3,13 +3,7 @@
  * configuration as the color-quantization lab's editor.
  */
 
-import CodeMirror from "@uiw/react-codemirror";
-import { python } from "@codemirror/lang-python";
-import { indentUnit } from "@codemirror/language";
-import { keymap } from "@codemirror/view";
-import { indentWithTab } from "@codemirror/commands";
-
-const EDITOR_EXTENSIONS = [python(), indentUnit.of("    "), keymap.of([indentWithTab])];
+import { PythonEditor } from "../../../shared/ui/PythonEditor";
 
 export function CodeEditor({
   ariaLabel,
@@ -25,21 +19,12 @@ export function CodeEditor({
   disabled?: boolean;
 }) {
   return (
-    <CodeMirror
-      aria-label={ariaLabel}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-        highlightActiveLine: false,
-        highlightActiveLineGutter: false,
-        autocompletion: false,
-      }}
+    <PythonEditor
+      ariaLabel={ariaLabel}
       className="lunch-editor"
       editable={!disabled}
-      extensions={EDITOR_EXTENSIONS}
       height={height}
       onChange={onChange}
-      theme="dark"
       value={value}
     />
   );

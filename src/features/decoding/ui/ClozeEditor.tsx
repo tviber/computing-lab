@@ -1,4 +1,4 @@
-import { Fragment } from "react";
+import { PythonCodeWithBlanks, type PythonCodePart } from "../../../shared/ui/PythonCode";
 import { parseCloze } from "../domain/cloze.ts";
 
 export function ClozeEditor({
@@ -15,26 +15,19 @@ export function ClozeEditor({
   blankLabel?: (blankId: string) => string;
 }) {
   const parts = parseCloze(code);
-  return (
-    <pre aria-label={ariaLabel} className="cloze-code">
-      {parts.map((part, i) =>
-        part.kind === "text" ? (
-          <Fragment key={i}>{part.text}</Fragment>
-        ) : (
-          <input
-            aria-label={blankLabel?.(part.id) ?? `空 ${part.id}`}
-            className="cloze-blank"
-            key={i}
-            maxLength={300}
-            onChange={(e) => onFill(part.id, e.target.value)}
-            spellCheck={false}
-            style={{ width: `${Math.max(5, (fills[part.id] ?? "").length + 2)}ch` }}
-            title={blankLabel?.(part.id) ?? `空 ${part.id}`}
-            type="text"
-            value={fills[part.id] ?? ""}
-          />
-        ),
-      )}
-    </pre>
+  const codeParts: PythonCodePart[] = parts.map((part) =>
+    part.kind === "text"
+      ? { kind: "code", code: part.text }
+      : {
+          kind: "blank",
+          id: part.id,
+          value: fills[part.id] ?? "",
+          ariaLabel: blankLabel?.(part.id) ?? `空 ${part.id}`,
+          maxLength: 300,
+          minWidth: Math.max(5, (fills[part.id] ?? "").length + 2),
+          onChange: (value) => onFill(part.id, value),
+        },
   );
+
+  return <PythonCodeWithBlanks ariaLabel={ariaLabel} className="cloze-code" parts={codeParts} />;
 }

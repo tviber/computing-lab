@@ -405,60 +405,9 @@
   list-style: none;
 }
 
-.quant-editor {
-  border: 1px solid var(--code-line);
-  border-radius: var(--radius-control);
-  font-size: 13px;
-  overflow: hidden;
-}
-
-.quant-editor .cm-editor {
-  background: var(--code-surface);
-}
-
-.quant-editor .cm-scroller {
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  line-height: 1.5;
-}
-
 .quant-helper-note {
   color: var(--secondary);
   font-size: 13px;
-}
-
-.quant-code-fill {
-  background: var(--code-surface);
-  border: 1px solid var(--code-line);
-  border-radius: var(--radius-control);
-  padding: 12px;
-}
-
-.quant-code-fill pre {
-  color: var(--code-ink);
-  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-  font-size: 13px;
-  line-height: 1.7;
-  margin: 0;
-  overflow-x: auto;
-  white-space: pre;
-}
-
-.quant-blank {
-  background: transparent;
-  border: none;
-  border-bottom: 2px solid var(--muted);
-  color: var(--code-accent);
-  font: inherit;
-  padding: 0 2px;
-}
-
-.quant-blank:focus {
-  border-bottom-color: var(--code-accent);
-  outline: none;
-}
-
-.quant-blank::placeholder {
-  color: var(--muted);
 }
 
 /* ---- actions / verdict ----------------------------------------------- */
@@ -490,6 +439,7 @@
 }
 
 .quant-error {
+  border: 1px solid var(--danger-border);
   background: var(--error-surface);
   border-radius: var(--radius-control);
   color: var(--error-ink);

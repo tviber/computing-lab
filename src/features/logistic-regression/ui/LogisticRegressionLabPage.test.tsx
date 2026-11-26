@@ -383,6 +383,11 @@ describe("LogisticRegressionLabPage", () => {
     expect(screen.getByText(/切片里的坡度不是代码中单条短信的 p − y/)).toBeInTheDocument();
     expect(document.querySelector(".sgd-editor .cm-editor")).not.toBeNull();
     expect(screen.getByLabelText("单条短信的更新代码")).toBeInTheDocument();
+    expect(screen.getByLabelText("预测表达式").closest("label")).toHaveClass(
+      "field-select",
+      "field-select-native",
+      "sgd-guide-field",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "自由手写" }));
     expect(screen.getByLabelText("单条短信的更新代码")).toBeInTheDocument();

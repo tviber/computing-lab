@@ -324,6 +324,28 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   ).toBeVisible();
   await expect(page.locator(".sgd-editor .cm-editor")).toBeVisible();
   await expect(page.getByLabel("单条短信的更新代码")).toBeVisible();
+  const predictionSelect = page.getByLabel("预测表达式");
+  await expect(predictionSelect.locator("xpath=..")).toHaveClass(/field-select/);
+  await expect(predictionSelect.locator("xpath=..")).toHaveClass(/field-select-native/);
+  await predictionSelect.focus();
+  const predictionSelectStyles = await predictionSelect.evaluate((element) => {
+    const computed = getComputedStyle(element);
+    return {
+      appearance: computed.appearance,
+      backgroundImage: computed.backgroundImage,
+      outlineStyle: computed.outlineStyle,
+      boxShadow: computed.boxShadow,
+      width: element.getBoundingClientRect().width,
+    };
+  });
+  expect(predictionSelectStyles.appearance).toBe("none");
+  expect(predictionSelectStyles.backgroundImage).not.toBe("none");
+  expect(predictionSelectStyles.outlineStyle).toBe("none");
+  expect(predictionSelectStyles.boxShadow).not.toBe("none");
+  expect(predictionSelectStyles.width).toBeLessThanOrEqual(288);
+  await page.locator(".sgd-code-editor-panel").screenshot({
+    path: "/tmp/computing-lab-sgd-select.png",
+  });
   await expect(
     page.getByRole("heading", { name: "为什么这一步会让损失下降", exact: true }),
   ).toBeVisible();
