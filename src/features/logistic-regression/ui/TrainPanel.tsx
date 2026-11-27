@@ -1,9 +1,10 @@
 import { Button } from "@ui-sdk/solid/button";
 import { Checkbox, CheckboxIndicator } from "@ui-sdk/solid/checkbox";
-import { SegmentedControl, SegmentedControlItem } from "@ui-sdk/solid/segmented-control";
 import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import {
   binaryLogLoss,
   BLIND_GUESS_LOSS,
@@ -192,60 +193,54 @@ export function TrainPanel(props: {
           验证损失帮助判断对未参与训练的短信是否也有效。
         </p>
 
-        <div class="logistic-regression-preset-row">
-          <For each={ETA_PRESETS}>
-            {(p) => (
-              <Button
-                class={`logistic-regression-chip-btn${Math.abs(props.draft.eta - p.eta) < 0.0005 ? " is-active" : ""}`}
-                onClick={() =>
-                  props.onChange({
-                    ...props.draft,
-                    eta: p.eta,
-                    epochs: p.epochs,
-                    inspectEpoch: p.epochs,
-                  })
-                }
-                type="button"
-              >
-                <span>{p.label}</span>
-              </Button>
-            )}
-          </For>
-        </div>
+        <SegmentedPicker
+          class="logistic-regression-preset-row"
+          itemClass="logistic-regression-chip-btn"
+          label="学习率预设"
+          onChange={(value) => {
+            const preset = ETA_PRESETS.find((candidate) => String(candidate.eta) === value);
+            if (!preset) return;
+            props.onChange({
+              ...props.draft,
+              eta: preset.eta,
+              epochs: preset.epochs,
+              inspectEpoch: preset.epochs,
+            });
+          }}
+          options={ETA_PRESETS.map((p) => ({
+            value: String(p.eta),
+            label: <span>{p.label}</span>,
+          }))}
+          value={
+            ETA_PRESETS.find((p) => Math.abs(props.draft.eta - p.eta) < 0.0005)?.eta.toString() ??
+            ""
+          }
+        />
 
         <div class="logistic-regression-controls-grid">
           <div class="logistic-regression-control-card">
-            <div class="logistic-regression-control-head">
-              <label for="logistic-regression-eta-slider">学习率 η（对数刻度）</label>
-              <strong class="logistic-regression-mono">{props.draft.eta.toFixed(4)}</strong>
-            </div>
-            <input
-              id="logistic-regression-eta-slider"
+            <LabeledSlider
+              label="学习率 η（对数刻度）"
               max={0.699}
               min={-3}
-              onChange={(e) => updateEtaFromSlider(e.currentTarget.value)}
-              onInput={(e) => updateEtaFromSlider(e.currentTarget.value)}
+              onChange={(next) => updateEtaFromSlider(String(next))}
               step={0.03}
-              type="range"
               value={logSliderVal()}
-            />
-            <p class="logistic-regression-muted-note">{regime().summary}</p>
+              valueText={props.draft.eta.toFixed(4)}
+            >
+              <p class="logistic-regression-muted-note">{regime().summary}</p>
+            </LabeledSlider>
           </div>
 
           <div class="logistic-regression-control-card">
-            <div class="logistic-regression-control-head">
-              <label for="logistic-regression-epochs-slider">训练轮数</label>
-              <strong class="logistic-regression-mono">{props.draft.epochs} 轮</strong>
-            </div>
-            <input
-              id="logistic-regression-epochs-slider"
+            <LabeledSlider
+              label="训练轮数"
               max={25}
               min={1}
-              onChange={(e) => updateEpochsFromSlider(e.currentTarget.value)}
-              onInput={(e) => updateEpochsFromSlider(e.currentTarget.value)}
+              onChange={(next) => updateEpochsFromSlider(String(next))}
               step={1}
-              type="range"
               value={props.draft.epochs}
+              valueText={`${props.draft.epochs} 轮`}
             />
             <label class="logistic-regression-checkbox-row">
               <Checkbox
@@ -365,26 +360,16 @@ export function TrainPanel(props: {
         <p class="logistic-regression-muted-note">
           修改训练参数后，程序会自动重新训练。下面只回放已有结果，不改变最终提交的模型。
         </p>
-        <div class="logistic-regression-scrubber-row">
-          <label for="logistic-regression-epoch-scrubber">
-            回放第 <strong class="logistic-regression-mono">{snapshot().epoch}</strong>{" "}
-            轮结束时，各个词的权重：
-          </label>
-          <input
-            id="logistic-regression-epoch-scrubber"
-            max={run().epochsHistory.length - 1}
-            min={0}
-            onChange={(e) =>
-              props.onChange({ ...props.draft, inspectEpoch: Number(e.currentTarget.value) })
-            }
-            onInput={(e) =>
-              props.onChange({ ...props.draft, inspectEpoch: Number(e.currentTarget.value) })
-            }
-            step={1}
-            type="range"
-            value={inspectIdx()}
-          />
-        </div>
+        <LabeledSlider
+          class="logistic-regression-scrubber-row"
+          label="回放轮次"
+          max={run().epochsHistory.length - 1}
+          min={0}
+          onChange={(next) => props.onChange({ ...props.draft, inspectEpoch: next })}
+          step={1}
+          value={inspectIdx()}
+          valueText={`第 ${snapshot().epoch} 轮`}
+        />
 
         <LossChartSvg
           bgdHistory={run().bgdHistory}
@@ -431,32 +416,26 @@ export function TrainPanel(props: {
           </span>
         </div>
         <div class="logistic-regression-micro-controls">
-          <SegmentedControl<"1" | "0">
-            aria-label="选择真实标签"
+          <SegmentedPicker<"1" | "0">
             class="logistic-regression-segmented"
-            onValueChange={(next) => {
-              if (next === "1" || next === "0") setStepTrueY(next === "1" ? 1 : 0);
-            }}
+            label="选择真实标签"
+            onChange={(next) => setStepTrueY(next === "1" ? 1 : 0)}
+            options={[
+              { value: "1", label: "垃圾短信（y = 1）" },
+              { value: "0", label: "正常短信（y = 0）" },
+            ]}
             value={stepTrueY() === 1 ? "1" : "0"}
-          >
-            <SegmentedControlItem value="1">垃圾短信（y = 1）</SegmentedControlItem>
-            <SegmentedControlItem value="0">正常短信（y = 0）</SegmentedControlItem>
-          </SegmentedControl>
-          <label class="logistic-regression-inline-slider">
-            <span>
-              模型预测的垃圾概率 p ={" "}
-              <strong class="logistic-regression-mono">{stepPredP().toFixed(2)}</strong>
-            </span>
-            <input
-              max={0.98}
-              min={0.02}
-              onChange={(e) => setStepPredP(Number(e.currentTarget.value))}
-              onInput={(e) => setStepPredP(Number(e.currentTarget.value))}
-              step={0.02}
-              type="range"
-              value={stepPredP()}
-            />
-          </label>
+          />
+          <LabeledSlider
+            class="logistic-regression-inline-slider"
+            label="模型预测的垃圾概率 p"
+            max={0.98}
+            min={0.02}
+            onChange={setStepPredP}
+            step={0.02}
+            value={stepPredP()}
+            valueText={stepPredP().toFixed(2)}
+          />
         </div>
         <div class="logistic-regression-micro-metrics">
           <div class="logistic-regression-stat-box">

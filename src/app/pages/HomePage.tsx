@@ -15,6 +15,7 @@ import { getRecentLab } from "../../shared/lab/recentLab";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { AppLink } from "../../shared/ui/AppLink";
 import { Icon } from "../../shared/ui/Icon";
+import { SegmentedPicker } from "../../shared/ui/SegmentedPicker";
 import { APP_LABS, type AppLabEntry } from "../labRegistry";
 import { AtlasPlate } from "../atlas/AtlasPlate";
 import "./home.css";
@@ -188,26 +189,23 @@ function AnonymousLanding() {
           </div>
           <div class="home-hero-showcase">
             <AtlasPlate featured labId={previewLab()} />
-            <div aria-label="切换实验示意" class="home-specimen-tabs" role="group">
-              <For each={SHOWCASE_LABS}>
-                {(labId) => {
-                  const meta = labMetadata[labId];
-                  const active = () => previewLab() === labId;
-                  return (
-                    <Button
-                      aria-pressed={active() ? "true" : "false"}
-                      class={`home-specimen-tab${active() ? " is-active" : ""}`}
-                      data-category={meta.category}
-                      onClick={() => setPreviewLab(labId)}
-                      type="button"
-                    >
-                      <span aria-hidden="true" class="topic-dot" />
-                      {meta.title}
-                    </Button>
-                  );
-                }}
-              </For>
-            </div>
+            <SegmentedPicker
+              class="home-specimen-tabs"
+              itemClass="home-specimen-tab"
+              label="切换实验示意"
+              onChange={setPreviewLab}
+              options={SHOWCASE_LABS.map((labId) => ({
+                value: labId,
+                label: (
+                  <>
+                    <span aria-hidden="true" class="topic-dot" />
+                    {labMetadata[labId].title}
+                  </>
+                ),
+                data: { "data-category": labMetadata[labId].category },
+              }))}
+              value={previewLab()}
+            />
           </div>
         </section>
       </main>
@@ -414,36 +412,37 @@ function ClassroomHome() {
         </div>
 
         <Show when={catalog() && presentCategories().length > 1}>
-          <div aria-label="按主题筛选" class="home-filter-bar" role="group">
-            <Button
-              aria-pressed={effectiveCategory() === "all" ? "true" : "false"}
-              class={`home-filter-pill${effectiveCategory() === "all" ? " is-active" : ""}`}
-              onClick={() => setActiveCategory("all")}
-              type="button"
-            >
-              全部
-              <span class="home-filter-count">{visibleLabs().length}</span>
-            </Button>
-            <For each={presentCategories()}>
-              {(category) => {
-                const count = () => visibleLabs().filter((lab) => lab.category === category).length;
-                const active = () => effectiveCategory() === category;
-                return (
-                  <Button
-                    aria-pressed={active() ? "true" : "false"}
-                    class={`home-filter-pill${active() ? " is-active" : ""}`}
-                    data-category={category}
-                    onClick={() => setActiveCategory(category)}
-                    type="button"
-                  >
+          <SegmentedPicker
+            class="home-filter-bar"
+            itemClass="home-filter-pill"
+            label="按主题筛选"
+            onChange={setActiveCategory}
+            options={[
+              {
+                value: "all" as LabCategory | "all",
+                label: (
+                  <>
+                    全部
+                    <span class="home-filter-count">{visibleLabs().length}</span>
+                  </>
+                ),
+              },
+              ...presentCategories().map((category) => ({
+                value: category as LabCategory | "all",
+                label: (
+                  <>
                     <span aria-hidden="true" class="topic-dot" />
                     {LAB_CATEGORY_LABELS[category]}
-                    <span class="home-filter-count">{count()}</span>
-                  </Button>
-                );
-              }}
-            </For>
-          </div>
+                    <span class="home-filter-count">
+                      {visibleLabs().filter((lab) => lab.category === category).length}
+                    </span>
+                  </>
+                ),
+                data: { "data-category": category },
+              })),
+            ]}
+            value={effectiveCategory()}
+          />
         </Show>
 
         <div class="home-content-grid">

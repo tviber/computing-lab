@@ -28,9 +28,9 @@ const STARTER = `def choose_toners(toners, palette, images, k):
     # images:  这一类所有图片, 每张 64×64, 像素是源色编号 (0 = 纸)
     # k:       最多能装几种粉
     # 还可以直接调用:
-    #   nearest_toner(r, g, b, toners) —— 你在第 1 关写的规则 (toners[0] 是纸白)
-    #   nn_table(subset)    —— 装 subset 这组粉时, 每个源色落到哪 (表值: 粉编号或 -1=纸)
-    #   quantize(image, table) —— 用映射表打印一张图, 返回 toner 编号网格 (0 = 纸)
+    #   nearest_toner(r, g, b, toners): 你在第 1 关写的规则 (toners[0] 是纸白)
+    #   nn_table(subset): 装 subset 这组粉时, 每个源色落到哪 (表值: 粉编号或 -1=纸)
+    #   quantize(image, table): 用映射表打印一张图, 返回 toner 编号网格 (0 = 纸)
     # 任务: 返回一个编号列表, 决定装哪几种粉 (len <= k)
     return [0, 1, 2, 3]
 `;
@@ -92,7 +92,7 @@ export function ChooseTonersPanel(props: {
       <p>
         写一个 <code>choose_toners(toners, palette, images, k)</code> 函数：它会拿到粉架、
         源色板和上面公开图库的全部 {images().length} 张图（64×64 的源色编号网格），
-        由你的代码算出要装哪几种粉并填入上方——注意它对整个类别只返回一组选择。
+        由你的代码算出要装哪几种粉并填入上方。注意它对整个类别只返回一组选择。
       </p>
       <p class="quant-helper-note">
         可以直接调用的函数：<code>nearest_toner(r, g, b, toners)</code>（第 1 关你写的最近色规则）、
@@ -120,7 +120,7 @@ export function ChooseTonersPanel(props: {
       <Show when={helperFailed()}>
         <p class="quant-helper-warn" role="note">
           <Icon name="warning" size={13} /> 你在第 1 关写的 <code>nearest_toner</code>{" "}
-          有错误，这次运行用的是内置参考版本—— 回去修好它，这里才会真正调用你的规则。
+          有错误，这次运行用的是内置参考版本。回去修好它，这里才会真正调用你的规则。
         </p>
       </Show>
       <Show when={error()}>

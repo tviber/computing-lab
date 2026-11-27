@@ -9,6 +9,7 @@
 
 import { Button } from "@ui-sdk/solid/button";
 import { createSignal, For, Show } from "solid-js";
+import { Icon } from "../../../shared/ui/Icon";
 import type { PixelMatrix } from "../domain/bmp.ts";
 import type { DecoderChoice, LabPayload } from "../domain/protocol.ts";
 import { FILE_HELPERS, runDecode } from "../runtime/pyodideRunner.ts";
@@ -219,7 +220,9 @@ export function FilesPanel(props: {
                     一张图像
                   </label>
                   <Show when={verdict()}>
-                    <span class="file-verdict-done">已记下判定 ✓</span>
+                    <span class="file-verdict-done">
+                      已记下判定 <Icon name="check" size={12} />
+                    </span>
                   </Show>
                   <Show when={run().text === undefined || !run().pixels}>
                     <span class="file-verdict-hint">先点对应的「解码」跑一遍才能选</span>

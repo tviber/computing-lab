@@ -53,12 +53,12 @@ export function DecodeEditor(props: {
               >
                 <ClozeEditor
                   ariaLabel="输入生成器代码"
-                  blankLabel={() => "表达式，可编辑——改完点 ▶ 重新生成"}
+                  blankLabel={() => "表达式，可编辑；改完点 ▶ 重新生成"}
                   code={example().input}
                   fills={props.sampleFills}
                   onFill={props.onSampleFill}
                 />
-                <p class="decode-example-empty">表达式可改——改完点 ▶ 看字节流和图案怎么变</p>
+                <p class="decode-example-empty">表达式可改；改完点 ▶ 看字节流和图案怎么变</p>
               </Show>
             </form>
           </aside>

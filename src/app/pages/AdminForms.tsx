@@ -8,6 +8,7 @@ import { Button } from "@ui-sdk/solid/button";
 import { createSignal, For, Show } from "solid-js";
 import { api, describeApiError, API_ERROR_MESSAGES } from "../../shared/api/client";
 import type { AccountRole } from "../../shared/auth";
+import { Disclosure } from "../../shared/ui/Disclosure";
 import type { AdminClass, ImportSummary } from "./AdminTypes";
 
 function rowErrorText(code: string | undefined): string {
@@ -232,15 +233,14 @@ export function ImportPanel(props: { onImported: () => void }) {
         />
       </div>
       <p id="admin-import-hint">粘贴 CSV 或 JSON 数组，也可选择 CSV 文件后在上方核对。</p>
-      <details class="admin-import-guide">
-        <summary>查看名单格式</summary>
+      <Disclosure class="admin-import-guide" summary="查看名单格式">
         <p>
           CSV
           每行一个账号，依次填写学号、姓名、密码。后两列可选，分别是角色和班级邀请码。角色可填学生、教师或管理员，留空默认为学生。
         </p>
         <p>JSON 示例</p>
         <code>{'[{"studentNo":"20260101","name":"张三","password":"pass123"}]'}</code>
-      </details>
+      </Disclosure>
       <div class="admin-import-actions">
         <Button
           class="button button-primary"

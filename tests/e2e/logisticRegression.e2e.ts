@@ -111,8 +111,8 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(page.getByRole("button", { name: /从短信到数字/ })).toBeDisabled();
 
   const prizeStrongSpam = page
-    .getByRole("group", { name: "中奖 倾向设置" })
-    .getByRole("button", { name: "+2 强垃圾" });
+    .getByRole("radiogroup", { name: "中奖 倾向设置" })
+    .getByRole("radio", { name: "+2 强垃圾" });
   const strategyResults = page.getByRole("list", { name: "6 条短信的分类结果" });
   await expect(strategyResults.getByRole("listitem")).toHaveCount(6);
   await expect(strategyResults.getByRole("button")).toHaveCount(0);
@@ -132,7 +132,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     return body?.stageIndex === 1 && body.draft?.weights?.["中奖"] === 2;
   });
   await prizeStrongSpam.click();
-  await expect(prizeStrongSpam).toHaveAttribute("aria-pressed", "true");
+  await expect(prizeStrongSpam).toHaveAttribute("aria-checked", "true");
   await expect(firstResult.getByText("正确拦截")).toBeVisible();
   await expect(firstResult.locator(".katex-html")).toHaveText(/w⋅x=\+2/);
   const s1SaveRes = await s1DraftSave;
@@ -143,7 +143,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(
     page.getByRole("heading", { name: "逻辑回归 - 给 10 个词打分", exact: true }),
   ).toBeVisible();
-  await expect(prizeStrongSpam).toHaveAttribute("aria-pressed", "true");
+  await expect(prizeStrongSpam).toHaveAttribute("aria-checked", "true");
 
   const s1Tiers: Record<string, string> = {
     发票: "+1 偏垃圾",
@@ -155,8 +155,8 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   };
   for (const [word, tierLabel] of Object.entries(s1Tiers)) {
     await page
-      .getByRole("group", { name: `${word} 倾向设置` })
-      .getByRole("button", { name: tierLabel })
+      .getByRole("radiogroup", { name: `${word} 倾向设置` })
+      .getByRole("radio", { name: tierLabel })
       .click();
   }
   await expect(page.getByText("判对 6 / 6")).toBeVisible();
@@ -195,9 +195,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     const label = `片段 ${item.text} 的处理方式`;
     const group =
       item.text === "免费"
-        ? page.getByRole("group", { name: label }).nth(freeSeen++)
-        : page.getByRole("group", { name: label });
-    await group.getByRole("button", { name: CHOICE_LABEL[item.expected], exact: true }).click();
+        ? page.getByRole("radiogroup", { name: label }).nth(freeSeen++)
+        : page.getByRole("radiogroup", { name: label });
+    await group.getByRole("radio", { name: CHOICE_LABEL[item.expected], exact: true }).click();
   }
   for (const prompt of LOGISTIC_REGRESSION_STAGES[1].prompts) {
     await page
@@ -229,8 +229,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     } | null;
     return body?.stageIndex === 3 && body.draft?.weights?.["免费"] === 2.2;
   });
-  await page.locator("#logistic-regression-w-免费").fill("2.2");
-  await expect(page.locator("#logistic-regression-w-免费")).toHaveValue("2.2");
+  const wordSlider = (word: string) => page.getByRole("slider", { name: word, exact: true });
+  await wordSlider("免费").fill("2.2");
+  await expect(wordSlider("免费")).toHaveValue("2.2");
   const draftSaveRes = await draftSavePromise;
   expect(draftSaveRes.status()).toBe(200);
   expect((await draftSaveRes.json()) as { applied?: boolean }).toMatchObject({ applied: true });
@@ -240,9 +241,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(
     page.getByRole("heading", { name: "逻辑回归 - 从分数到概率", exact: true }),
   ).toBeVisible();
-  await expect(page.locator("#logistic-regression-w-免费")).toHaveValue("2.2");
+  await expect(wordSlider("免费")).toHaveValue("2.2");
 
-  await page.locator("#logistic-regression-bias-slider").fill("-1");
+  await page.getByRole("slider", { name: /偏置 b/ }).fill("-1");
   const s3Weights: Record<string, string> = {
     免费: "2.2",
     领取: "2",
@@ -254,7 +255,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     一起: "-1.6",
   };
   for (const [word, val] of Object.entries(s3Weights)) {
-    await page.locator(`#logistic-regression-w-${word}`).fill(val);
+    await wordSlider(word).fill(val);
   }
   await expect(page.getByText("分对 6 / 6")).toBeVisible();
   for (const prompt of LOGISTIC_REGRESSION_STAGES[2].prompts) {
@@ -308,7 +309,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   }
   if (stage4Viewport) await page.setViewportSize(stage4Viewport);
 
-  await page.getByRole("button", { name: "适中 η = 0.1" }).click();
+  await page.getByRole("radio", { name: "适中 η = 0.1" }).click();
   const s4RespPromise = page.waitForResponse(
     (res) =>
       res.request().method() === "POST" && res.url().endsWith("/labs/logistic-regression/judge"),
@@ -432,9 +433,9 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   expect((await (await page.request.get(`${labApi}/project`)).json()).drafts).not.toHaveProperty(
     "5",
   );
-  await page.getByRole("button", { name: "促销短信", exact: true }).click();
+  await page.getByRole("radio", { name: "促销短信", exact: true }).click();
   await expect(page.getByText("模型分类：垃圾短信")).toBeVisible();
-  await page.getByRole("button", { name: "日常消息", exact: true }).click();
+  await page.getByRole("radio", { name: "日常消息", exact: true }).click();
   await expect(page.getByText("模型分类：正常短信")).toBeVisible();
   await page.getByText("查看哪些词影响了分类").click();
   await expect(page.getByLabel("Sigmoid 概率曲线")).toBeVisible();
@@ -473,7 +474,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   await expect(smsInput).toHaveValue("");
   await page.getByRole("button", { name: /从短信到数字/ }).click();
   await page.getByRole("button", { name: "重置进度" }).click();
-  const resetDialog = page.getByRole("dialog", { name: "重置实验进度" });
+  const resetDialog = page.getByRole("alertdialog", { name: "重置实验进度" });
   await expect(resetDialog.getByRole("radio", { name: /从本关重来/ })).toBeChecked();
   const partialReset = page.waitForResponse((res) =>
     res.url().endsWith("/logistic-regression/reset"),
@@ -692,7 +693,7 @@ test("teacher follows sequential unlocks and uses the shared reset dialog", asyn
   await expect(page.getByRole("button", { name: /训练模型/ })).toBeDisabled();
   await page.getByRole("button", { name: "收起关卡栏" }).click();
   await page.getByRole("button", { name: "重置进度" }).click();
-  const resetDialog = page.getByRole("dialog", { name: "重置实验进度" });
+  const resetDialog = page.getByRole("alertdialog", { name: "重置实验进度" });
   await expect(resetDialog).toBeVisible();
   await resetDialog.getByRole("radio", { name: /重置整个实验/ }).check();
 

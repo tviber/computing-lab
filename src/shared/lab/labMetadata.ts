@@ -44,7 +44,7 @@ export const labMetadata = {
   "lunch-shift": {
     title: "设计餐馆系统",
     description:
-      "午市高峰的小餐馆只有一个灶台和一位送餐员。你负责接单、安排付费加急和普通单的先后，再用有限预算补偿超时顾客。",
+      "在小餐馆里接单、判断 AI 什么时候该再问一句、给厨房排单，最后用有限的预算补偿超时顾客。",
     category: "information-systems",
   },
   "stats-foundations": {

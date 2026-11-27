@@ -1,7 +1,8 @@
 import { Button } from "@ui-sdk/solid/button";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
-import { createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
+import { createMemo, createSignal, createUniqueId, Show } from "solid-js";
 import { StageTask } from "../../../shared/lab/StageTask";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { createExperienceClassifier, EXPERIENCE_EXAMPLES } from "../domain/experience.ts";
 import type { ExperienceSubmission, TrainingSettings } from "../domain/protocol.ts";
 import { MessageProbeCard } from "./MessageProbeCard.tsx";
@@ -42,27 +43,26 @@ export function ExperiencePanel(props: {
         {props.training.eta} · {props.training.epochs} 轮 · 系统阈值{" "}
         {(classifier().threshold * 100).toFixed(0)}%
       </p>
-      <div aria-label="短信示例" class="logistic-regression-preset-row" role="group">
-        <For each={EXPERIENCE_EXAMPLES}>
-          {(example) => (
-            <Button
-              aria-pressed={probeText() === example.text ? "true" : "false"}
-              class={`logistic-regression-chip-btn${probeText() === example.text ? " is-active" : ""}`}
-              onClick={() => {
-                setProbeText(example.text);
-                setSampleResult({
-                  activity: "sms-classification",
-                  exampleId: example.id,
-                  prediction: classifier().inspect(example.text).pred,
-                });
-              }}
-              type="button"
-            >
-              {example.label}
-            </Button>
-          )}
-        </For>
-      </div>
+      <SegmentedPicker
+        class="logistic-regression-preset-row"
+        itemClass="logistic-regression-chip-btn"
+        label="短信示例"
+        onChange={(next) => {
+          const example = EXPERIENCE_EXAMPLES.find((candidate) => candidate.id === next);
+          if (!example) return;
+          setProbeText(example.text);
+          setSampleResult({
+            activity: "sms-classification",
+            exampleId: example.id,
+            prediction: classifier().inspect(example.text).pred,
+          });
+        }}
+        options={EXPERIENCE_EXAMPLES.map((example) => ({
+          value: example.id,
+          label: example.label,
+        }))}
+        value={EXPERIENCE_EXAMPLES.find((example) => example.text === probeText())?.id ?? ""}
+      />
       <label class="logistic-regression-field-label" for={inputId}>
         短信内容
       </label>
@@ -99,17 +99,14 @@ export function ExperiencePanel(props: {
       </div>
       <Show when={inspection()}>
         {(insp) => (
-          <Collapsible class="logistic-regression-experience-details">
-            <CollapsibleTrigger
-              class="disclosure-trigger logistic-regression-experience-details-trigger"
-              type="button"
-            >
-              查看哪些词影响了分类
-            </CollapsibleTrigger>
-            <CollapsiblePanel class="logistic-regression-experience-details-panel">
-              <MessageProbeCard inspection={insp()} threshold={classifier().threshold} />
-            </CollapsiblePanel>
-          </Collapsible>
+          <Disclosure
+            class="logistic-regression-experience-details"
+            panelClass="logistic-regression-experience-details-panel"
+            summary="查看哪些词影响了分类"
+            summaryClass="logistic-regression-experience-details-trigger"
+          >
+            <MessageProbeCard inspection={insp()} threshold={classifier().threshold} />
+          </Disclosure>
         )}
       </Show>
       <Show

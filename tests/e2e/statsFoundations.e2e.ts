@@ -90,7 +90,7 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await expect(submit).toHaveCSS("background-color", "rgb(23, 105, 210)");
   await moveSlider(slope, 3.2);
   await moveSlider(page.getByRole("slider", { name: /截距 b/ }), -22);
-  await page.getByRole("radio", { name: /正误差和负误差/ }).check();
+  await page.getByRole("button", { name: /正误差和负误差/ }).click();
   await expect(page.getByText("已保存", { exact: true })).toBeVisible();
   // This tab still holds revision zero. Its edit must survive the refused write.
   const otherSlope = otherTab.getByRole("slider", { name: /斜率 w/ });
@@ -105,11 +105,11 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await expect(slope).toHaveValue("2.9");
   await moveSlider(slope, 3.2);
   await moveSlider(page.getByRole("slider", { name: /截距 b/ }), -22);
-  await page.getByRole("radio", { name: /正误差和负误差/ }).check();
+  await page.getByRole("button", { name: /正误差和负误差/ }).click();
   await expect(page.getByText("已保存", { exact: true })).toBeVisible();
   await page.reload();
   await expect(slope).toHaveValue("3.2");
-  await expect(page.getByRole("radio", { name: /正误差和负误差/ })).toBeChecked();
+  await expect(page.getByText(/平方后所有误差都变成非负数/)).toBeVisible();
   await submit.click();
   await page.getByRole("button", { name: /进入第 2 关/ }).click();
   await expectBlueTheme();
@@ -124,7 +124,7 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await page.getByRole("textbox", { name: "P(真下雨) 百分比", exact: true }).fill("30");
   await page.getByRole("textbox", { name: "P(真下雨 | 预报下雨) 百分比" }).fill("60");
   await page.getByRole("textbox", { name: "P(预报下雨 | 真下雨) 百分比" }).fill("80");
-  await page.getByRole("radio", { name: /已知条件不同/ }).check();
+  await page.getByRole("button", { name: /已知条件不同/ }).click();
   await submit.click();
   await page.getByRole("button", { name: /进入第 3 关/ }).click();
   await expectBlueTheme();
@@ -133,7 +133,7 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await coin.press("Home");
   await expect(page.locator(".sf-metric-value").nth(1)).toHaveText("6.698 × 10-10");
   await moveSlider(coin, 0.73);
-  await page.getByRole("radio", { name: /连乘|相乘变成加法/ }).check();
+  await page.getByRole("button", { name: /连乘|相乘变成加法/ }).click();
   await submit.click();
   await page.getByRole("button", { name: /进入第 4 关/ }).click();
   await expectBlueTheme();

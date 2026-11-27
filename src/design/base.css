@@ -187,6 +187,7 @@ p {
 }
 
 .choice-surface[aria-pressed="true"],
+.choice-surface[data-checked],
 .choice-surface:has(input:checked) {
   border-color: var(--accent);
   background: var(--accent-soft);
@@ -206,6 +207,153 @@ p {
   .choice-surface {
     min-height: 44px;
   }
+}
+
+/* Shared single-choice picker built on the ui-sdk segmented control. */
+.segmented-picker {
+  position: relative;
+  display: inline-flex;
+  isolation: isolate;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+
+.segmented-picker-item {
+  position: relative;
+  z-index: 1;
+  min-height: 32px;
+  padding: 5px 11px;
+  border: 0;
+  border-radius: calc(var(--radius-control) - 2px);
+  background: transparent;
+  color: var(--secondary);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.segmented-picker-item:hover {
+  color: var(--primary);
+}
+
+.segmented-picker-item[data-checked],
+.segmented-picker-item[aria-checked="true"] {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 1px 2px rgb(23 40 61 / 12%);
+}
+
+.segmented-picker-item:disabled {
+  color: var(--muted);
+  cursor: default;
+  opacity: 0.6;
+}
+
+.segmented-picker [data-slot="segmented-control-indicator"] {
+  display: none;
+}
+
+@media (pointer: coarse) {
+  .segmented-picker-item {
+    min-height: 44px;
+  }
+}
+
+/* Shared labelled slider built on the ui-sdk slider. */
+.labeled-slider {
+  display: grid;
+  gap: 4px;
+  min-inline-size: 0;
+}
+
+.labeled-slider-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  color: var(--secondary);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.labeled-slider-value {
+  color: var(--primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.labeled-slider-control-area {
+  display: grid;
+  align-items: center;
+  min-height: 40px;
+  margin-inline: 4px;
+  cursor: pointer;
+}
+
+.labeled-slider-control-area [data-slot="slider-track"] {
+  height: 5px;
+  border-radius: var(--radius-pill);
+  background: var(--border);
+}
+
+.labeled-slider-control-area [data-slot="slider-indicator"],
+.labeled-slider-control-area [data-slot="slider-thumb"] {
+  border-radius: var(--radius-pill);
+  background: var(--accent);
+}
+
+.labeled-slider-control-area [data-slot="slider-thumb"] {
+  width: 16px;
+  height: 16px;
+  border: 1px solid var(--surface);
+}
+
+.labeled-slider-control-area [data-slot="slider-thumb"]:has(:focus-visible) {
+  outline: 1px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* Shared disclosure shell. */
+.disclosure {
+  min-inline-size: 0;
+}
+
+.disclosure-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: start;
+}
+
+.disclosure-chevron {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  color: currentColor;
+}
+
+.disclosure-trigger .disclosure-chevron .ui-icon {
+  transition: rotate 140ms ease-out;
+}
+
+.disclosure-trigger[aria-expanded="true"] .disclosure-chevron .ui-icon {
+  rotate: 180deg;
+}
+
+.disclosure-panel {
+  min-inline-size: 0;
 }
 
 .eyebrow,
@@ -368,6 +516,146 @@ p {
   line-height: 1.6;
 }
 
+.stage-brief-hints {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.concept-checklist {
+  display: grid;
+  gap: var(--space-3);
+  padding: var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+
+.concept-checklist-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+.concept-checklist-head h3 {
+  font-size: 0.98rem;
+  font-weight: 700;
+}
+
+.concept-checklist-count {
+  padding: 2px 8px;
+  border-radius: var(--radius-pill);
+  background: var(--subtle);
+  color: var(--secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.concept-checklist-list {
+  display: grid;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.concept-checklist-item {
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  opacity: 0.78;
+}
+
+.concept-checklist-item.is-next {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  opacity: 1;
+}
+
+.concept-checklist-item.is-done {
+  border-color: var(--success-border);
+  background: var(--success-soft);
+  opacity: 1;
+}
+
+.concept-checklist-prompt {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-2);
+  color: var(--primary);
+  font-size: 0.88rem;
+  font-weight: 600;
+  line-height: 1.55;
+}
+
+.concept-checklist-check {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  margin-top: 1px;
+  border-radius: 50%;
+  background: var(--success);
+  color: #fff;
+}
+
+.concept-checklist-options {
+  display: grid;
+  gap: var(--space-2);
+  margin-inline-start: 26px;
+}
+
+.concept-checklist-option {
+  display: grid;
+  gap: 4px;
+  width: 100%;
+  min-height: 38px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  color: var(--primary);
+  cursor: pointer;
+  font-size: 0.82rem;
+  line-height: 1.5;
+  text-align: start;
+}
+
+.concept-checklist-option:hover {
+  border-color: var(--focus);
+}
+
+.concept-checklist-option.is-wrong {
+  border-color: var(--danger);
+  background: var(--danger-soft);
+}
+
+.concept-checklist-note {
+  color: var(--danger-ink);
+  font-size: 0.76rem;
+  font-weight: 500;
+}
+
+.concept-checklist-reveal {
+  margin-inline-start: 26px;
+  color: var(--secondary);
+  font-size: 0.82rem;
+  line-height: 1.6;
+}
+
+@media (max-width: 680px) {
+  .concept-checklist-options,
+  .concept-checklist-reveal {
+    margin-inline-start: 0;
+  }
+}
+
 .lab-stage-task {
   min-inline-size: 0;
   padding: var(--space-3) var(--space-4);
@@ -393,46 +681,6 @@ p {
   overflow-wrap: anywhere;
 }
 
-details > summary {
-  list-style: none;
-  cursor: pointer;
-}
-
-details > summary::-webkit-details-marker {
-  display: none;
-}
-
-details > summary::before,
-.disclosure-trigger::before {
-  content: "";
-  display: inline-block;
-  width: 16px;
-  height: 16px;
-  flex: none;
-  vertical-align: -3px;
-  background-color: currentColor;
-  mask: url("../shared/ui/select-chevron.svg") center / contain no-repeat;
-  forced-color-adjust: none;
-  rotate: -90deg;
-}
-
-details > summary::before {
-  margin-inline-end: var(--space-1);
-}
-
-details[open] > summary::before,
-.disclosure-trigger[aria-expanded="true"]::before {
-  rotate: 0deg;
-}
-
-@media (prefers-reduced-motion: no-preference) {
-  details > summary::before,
-  .disclosure-trigger::before {
-    transition: rotate 140ms ease-out;
-  }
-}
-
-.hint-disclosure > summary,
 .hint-disclosure-trigger {
   display: inline-flex;
   align-items: center;

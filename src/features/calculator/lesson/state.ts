@@ -1301,8 +1301,8 @@ export function transitionCalculatorLesson(
           ? state.message
           : action.outcome.passed
             ? unlocked
-              ? `${getStage(action.stageIndex)?.title ?? "本关"}完成——组件 ${unlocked} 已加入「我的组件」，下一关可以直接使用。`
-              : `${getStage(action.stageIndex)?.title ?? "本关"}完成——全部隐藏用例都正确。`
+              ? `${getStage(action.stageIndex)?.title ?? "本关"}完成。组件 ${unlocked} 已加入「我的组件」，下一关可以直接使用。`
+              : `${getStage(action.stageIndex)?.title ?? "本关"}完成。全部隐藏用例都正确。`
             : `得分 ${action.outcome.score} / ${action.outcome.total}，还没有全部通过。`,
       };
     }

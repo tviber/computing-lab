@@ -67,7 +67,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     primitives: [],
     unlocks: null,
     hint: "点击 A 右边的输出圆点，再点击 Y 左边的输入圆点。",
-    takeaway: "一根导线 = 实时信号传递，数据通路的基本单元。",
+    takeaway: "导线把输入直接送到输出，是数据通路的最小单元。",
   },
   {
     index: 2,
@@ -83,7 +83,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     extraPrimitives: ["or", "not", "nand", "nor", "buffer"],
     unlocks: "HalfAdder",
     hint: "Sum 只在两个输入不同时为 1；Carry 只在都为 1 时为 1。",
-    takeaway: "半加器 = XOR 算和 + AND 算进位，1 位加法的最小电路。",
+    takeaway: "XOR 给出和位，AND 给出进位，合起来就是一位加法器。",
   },
   {
     index: 3,
@@ -98,7 +98,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     primitives: ALL_GATES,
     unlocks: "FullAdder",
     hint: "可以用两个 HalfAdder 级联：先加 A+B，再加 Cin；两次进位取或。",
-    takeaway: "全加器 = 两个半加器 + 一个或门（合并两次进位），三个 1 位数相加的完整部件。",
+    takeaway: "两个半加器负责相加，OR 门合并两次进位，就得到能处理进位输入的全加器。",
   },
   {
     index: 4,
@@ -129,7 +129,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     constants: true,
     unlocks: "Add4",
     hint: "第 0 位的 Cin 接常量 0；进位像波浪一样从低位传到高位。",
-    takeaway: "进位链 = 低位的 Cout 流向高位的 Cin，多位加法就是全加器的串联。",
+    takeaway: "低位的 Cout 接到高位的 Cin，四个全加器串起来就完成了多位加法。",
   },
   {
     index: 5,
@@ -163,7 +163,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     constants: true,
     unlocks: "Neg4",
     hint: "NOT 每个输入位，然后把结果当作加数送进 Add4，另一个加数是常量 1。",
-    takeaway: "补码 = 逐位取反再加 1，负数在二进制里的编码方式。",
+    takeaway: "补码把逐位取反再加 1 的结果作为负数编码，电路里仍沿用加法器。",
   },
   {
     index: 6,
@@ -204,7 +204,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     constants: true,
     unlocks: "Sub4",
     hint: "Neg4 求出 −B，再用 Add4 相加。减法就是加上补码。",
-    takeaway: "减法 = 加上补码，用已有的加法器合成新运算。",
+    takeaway: "减法可以转成加法：先求 B 的补码，再与 A 相加。",
   },
   {
     index: 7,
@@ -225,7 +225,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     constants: true,
     unlocks: "Mul4",
     hint: "把 A 的每一位分别与 B0、B1、B2、B3 做 AND，得到四行部分积。第一行的最低位就是 P0。把这一行剩下的三位高位补 0，用 Add4 与下一行相加。和的最低位就是 P1，把 Cout 和其余三位拼成下一轮的加数。处理第三行时同样取出 P2。加完第四行，Cout 和四位和就是 P7～P3。",
-    takeaway: "乘法 = 部分积累加，用更简单的门电路搭出复杂运算。",
+    takeaway: "乘法拆成若干行部分积，再用加法器逐行累加。",
   },
   {
     index: 8,
@@ -245,7 +245,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     constants: true,
     unlocks: null,
     hint: "算出全部结果，再用 Op 位做选择器（MUX）逐位挑选输出。",
-    takeaway: "多功能 ALU = 把四种运算并排放，用控制信号选一个输出——一片芯片，多种功能。",
+    takeaway: "多种运算并排计算，再由控制信号选择其中一个结果，就构成了一块多功能 ALU。",
   },
   {
     index: 9,
@@ -263,7 +263,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     primitives: ["not", "and"],
     unlocks: null,
     hint: "先让 A 变成“不是 A”，再让两个条件同时成立。",
-    takeaway: "组合逻辑 = 把条件拆成可逐段检查的小块，用 NOT + AND 合成。",
+    takeaway: "一个只在 A=0、B=1 时成立的输出条件，可以拆成 NOT 和 AND 逐段检查。",
   },
   {
     index: 10,
@@ -281,7 +281,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     primitives: ["xor"],
     unlocks: null,
     hint: "先对 A、B 做 XOR，再把中间结果和 C 做 XOR。",
-    takeaway: "奇偶判断 = XOR 的级联，全加器的和位也是这个逻辑。",
+    takeaway: "XOR 级联可以判断三个输入中 1 的个数是否为奇数，全加器的和位也使用同一逻辑。",
   },
   {
     index: 11,
@@ -299,7 +299,8 @@ export const CALCULATOR_STAGES: StageDef[] = [
     primitives: ["and", "or"],
     unlocks: null,
     hint: "分别判断 A&B、A&C、B&C，三个条件只要有一个成立就输出 1。",
-    takeaway: "多数决 = 把成对的 AND 用 OR 合起来——它恰好就是全加器的进位输出。",
+    takeaway:
+      "把三组成对条件分别用 AND 判断，再用 OR 合并，就得到多数决；全加器的进位输出也采用这个结构。",
   },
 ];
 

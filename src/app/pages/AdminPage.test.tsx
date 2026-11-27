@@ -87,14 +87,14 @@ describe("AdminPage", () => {
     expect(classSelect).toHaveClass("field-select-native");
 
     await user.click(screen.getByRole("button", { name: "删除" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("确定删除账号「张三」");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("确定删除账号「张三」");
     expect(fetchMock).not.toHaveBeenCalledWith(
       "/api/admin/users/u1",
       expect.objectContaining({ method: "DELETE" }),
     );
 
     await user.click(screen.getByRole("button", { name: "取消" }));
-    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument();
 
     await user.click(screen.getByRole("button", { name: "删除" }));
     await user.click(screen.getByRole("button", { name: "确认删除" }));

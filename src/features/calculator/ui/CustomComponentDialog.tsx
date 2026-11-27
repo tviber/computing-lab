@@ -8,6 +8,7 @@ import {
   DialogTitle,
 } from "@ui-sdk/solid/dialog";
 import { createMemo, createSignal, For, Show, untrack, type Setter } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
 import { Icon } from "../../../shared/ui/Icon";
 import { isValidComponentIdentifier, type ComponentSelection } from "../domain/componentize";
 import type { ComponentDef } from "../domain/graph";
@@ -380,8 +381,10 @@ export function CustomComponentDialog(props: CustomComponentDialogProps) {
                       )}
                     </For>
                   </div>
-                  <details class="custom-component-mapping-details">
-                    <summary>查看详细端口对应关系</summary>
+                  <Disclosure
+                    class="custom-component-mapping-details"
+                    summary="查看详细端口对应关系"
+                  >
                     <div class="custom-component-mapping-details-content">
                       <For each={inputPorts()} keyed={(port) => port.key}>
                         {(port, index) => {
@@ -432,7 +435,7 @@ export function CustomComponentDialog(props: CustomComponentDialogProps) {
                         }}
                       </For>
                     </div>
-                  </details>
+                  </Disclosure>
                 </Show>
               }
               when={isEditing()}

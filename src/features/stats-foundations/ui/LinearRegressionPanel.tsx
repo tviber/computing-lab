@@ -1,4 +1,5 @@
 import { createMemo, For, Show } from "solid-js";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import type { LinearRegressionDraft } from "../domain/protocol.ts";
 import type { StatsConceptQuestion } from "../domain/stages.ts";
@@ -13,12 +14,10 @@ import {
   roundTo,
 } from "../domain/statsMath.ts";
 import { ConceptQuestion } from "./ConceptQuestion.tsx";
-import { StatsSlider } from "./StatsSlider";
 
 type Props = {
   draft: LinearRegressionDraft;
   question?: StatsConceptQuestion;
-  passed: boolean;
   onChange: (next: LinearRegressionDraft) => void;
 };
 
@@ -217,7 +216,7 @@ export function LinearRegressionPanel(props: Props) {
 
         <div class="sf-controls-card">
           <h3>动手调直线</h3>
-          <StatsSlider
+          <LabeledSlider
             label="斜率 w（每升高 1°C 多卖几杯）"
             max={LINEAR_SLOPE_MAX}
             min={LINEAR_SLOPE_MIN}
@@ -225,7 +224,7 @@ export function LinearRegressionPanel(props: Props) {
             step={0.1}
             value={props.draft.slope}
           />
-          <StatsSlider
+          <LabeledSlider
             label="截距 b（基准偏移量）"
             max={LINEAR_INTERCEPT_MAX}
             min={LINEAR_INTERCEPT_MIN}
@@ -249,7 +248,6 @@ export function LinearRegressionPanel(props: Props) {
           <ConceptQuestion
             answer={props.draft.answer}
             onAnswer={(answer) => props.onChange({ ...props.draft, answer })}
-            passed={props.passed}
             question={q()}
           />
         )}

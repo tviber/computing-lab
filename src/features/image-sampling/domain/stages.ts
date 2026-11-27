@@ -67,7 +67,7 @@ export const IMAGE_SAMPLING_STAGES: SamplingStageDef[] = [
     guided: true,
     requiresChooseSize: false,
     mission:
-      "把这组异星徽章一张张发到低带宽接收端。统一选一个 n×n——对方拿着同一份图谱，只凭收到的格子图认出每一枚是哪一张。",
+      "把这组异星徽章一张张发到低带宽接收端。统一选一个 n×n。对方拿着同一份图谱，只凭收到的格子图认出每一枚是哪一张。",
     description:
       "这组徽章长得几乎一样，差别只在轮廓凸起和缺口上。n 小了，两枚会糊成同一张格子图；n 大了，带宽白白浪费。先随手试一个，看哪几张最先撞脸。",
     hint: "点表里的 4×4，再试 8×8。找一对撞脸的徽章，看看它们原来差在哪一块。",
@@ -87,10 +87,10 @@ export const IMAGE_SAMPLING_STAGES: SamplingStageDef[] = [
     guided: false,
     requiresChooseSize: true,
     mission:
-      "把这组机器人铭牌发到接收端。它们只在触角、眼睛、嘴和腿上有细小差别——写一个 choose_size(images)，让它算出一个 n×n，使对方仍能分清每台。",
+      "把这组机器人铭牌发到接收端。它们只在触角、眼睛、嘴和腿上有细小差别。写一个 choose_size(images)，让它算出一个 n×n，使对方仍能分清每台。",
     description:
-      "你的函数会拿到整组机器人图。差别越小，需要的格子越密；差异藏在哪里、有多大，决定了 n 的下限——先找出哪一对机器人最难区分，再让程序算出足够的分辨率。",
-    hint: "留意眼睛间距和头顶小球的尺寸——这些局部特征最先消失。把判断写进 choose_size(images)，不要手动填一个 n。",
+      "你的函数会拿到整组机器人图。差别越小，需要的格子越密；差异藏在哪里、有多大，决定了 n 的下限。先找出哪一对机器人最难区分，再让程序算出足够的分辨率。",
+    hint: "留意眼睛间距和头顶小球的尺寸，这些局部特征最先消失。把判断写进 choose_size(images)，不要手动填一个 n。",
     takeaway:
       "需要的分辨率取决于图库里最细小的差异特征：差异越小，格子就要越密才能保住它。没有脱离任务的“正确分辨率”。",
     probes: squareProbes([8, 12, 16, 20, 22, 24, 26, 28, 32]),
@@ -107,10 +107,10 @@ export const IMAGE_SAMPLING_STAGES: SamplingStageDef[] = [
     guided: false,
     requiresChooseSize: false,
     mission:
-      "把这组打孔印记牌发到接收端。牌面只在打孔位置和缺口上有区别——孔洞是最容易被格子抹平的特征。",
+      "把这组打孔印记牌发到接收端。牌面只在打孔位置和缺口上有区别。孔洞是最容易被格子抹平的特征。",
     description:
       "孔洞只有半个格子大小时就会被多数覆盖“磨平”。先找出哪些孔在哪个 n 下先消失，再决定格子数。",
-    hint: "数一数孔洞占几个格子——差异区域的面积决定了它需要多密的采样。",
+    hint: "数一数孔洞占几个格子。差异区域的面积决定了它需要多密的采样。",
     takeaway:
       "孔洞、缺口这类“空的部分”也是信息：它们和凸起一样会被多数覆盖磨平。信息丢失不区分特征的形状。",
     probes: squareProbes([8, 12, 16, 20, 22, 24, 26, 28, 32]),
@@ -118,7 +118,7 @@ export const IMAGE_SAMPLING_STAGES: SamplingStageDef[] = [
   {
     index: 4,
     id: "wide-ridges",
-    title: "宽与高不是一回事",
+    title: "宽与高分开选",
     englishTitle: "Wide Ridges",
     category: "ridge",
     mode: "free",
@@ -127,11 +127,10 @@ export const IMAGE_SAMPLING_STAGES: SamplingStageDef[] = [
     guided: false,
     requiresChooseSize: false,
     mission:
-      "把这组山脊标志发到接收端。差异全部在水平方向：凸起的左右位置。现在宽和高可以分开选——同样的格子总数，摆错方向照样认不出。",
-    description:
-      "横着放和竖着放不是一回事：差异在哪个方向，采样密度就该花在哪个方向。比较 16×8 和 8×16 的接收效果。",
+      "把这组山脊标志发到接收端。差异全部在水平方向：凸起的左右位置。现在宽和高可以分开选。同样的格子总数，方向分配不同，接收效果也不同。",
+    description: "差异在哪个方向，采样密度就应花在哪个方向。比较 16×8 和 8×16 的接收效果。",
     hint: "比较一下 16×8 和 8×16：格子数一样，但只有一个方向采得够密。",
-    takeaway: "格子总数相同不等于保留的信息相同：差异在哪一个方向，采样密度就该花在哪个方向。",
+    takeaway: "格子总数相同，保留的信息却可能不同。差异集中在哪个方向，就把更多采样放到哪个方向。",
     probes: [
       { width: 16, height: 8 },
       { width: 8, height: 16 },
@@ -159,12 +158,12 @@ export const IMAGE_SAMPLING_STAGES: SamplingStageDef[] = [
     guided: false,
     requiresChooseSize: false,
     mission:
-      "把这组立柱标记发到接收端。差异全部在垂直方向：成对细缝的上下位置。本关要求 高 > 宽——把采样密度花在对的方向上。",
+      "把这组立柱标记发到接收端。差异全部在垂直方向：成对细缝的上下位置。本关要求 高 > 宽，把采样密度花在对的方向上。",
     description:
       "细缝成对出现，行数太少时两条缝会糊成一团。先把高度推到能分开它们，再在预算内压宽度。",
     hint: "先把高度推到能分开成对的细缝，再压宽度。",
     takeaway:
-      "采样密度可以按方向分配：这一关差异在垂直方向，所以行数比列数更值钱。分辨率是两个数字，不是一个。",
+      "采样密度可以按方向分配。这一关差异在垂直方向，所以行数比列数更关键，宽和高也应分别调整。",
     probes: [
       { width: 10, height: 16 },
       { width: 8, height: 16 },

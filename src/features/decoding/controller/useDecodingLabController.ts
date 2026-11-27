@@ -1,4 +1,4 @@
-import { createEffect, createMemo, createSignal, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, untrack } from "solid-js";
 import { createReducer } from "../../../shared/lab/createReducer";
 import { statusForStage } from "../../../shared/lab/saveStatus.ts";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
@@ -66,10 +66,9 @@ export function useDecodingLabController(
   const payload = createMemo(() => state().payloads[state().stageIndex]);
   const inputRevision = createMemo(() => state().inputRevisions[state().stageIndex] ?? 0);
 
-  createEffect(
-    () => 0,
-    () => warmPyodide(),
-  );
+  onSettled(() => {
+    warmPyodide();
+  });
 
   let clearTransientRef: (() => void) | null = null;
 
@@ -226,7 +225,7 @@ export function useDecodingLabController(
       return;
     }
     if (currentEditor.cloze && !currentEditor.complete) {
-      decodeExec.fail("还有空没填上——每个空都要填。");
+      decodeExec.fail("还有空没填上，每个空都要填。");
       return;
     }
     const { source } = currentEditor;
@@ -331,7 +330,7 @@ export function useDecodingLabController(
       const outcome = response.outcome;
       dispatch({ type: "judge-result", outcome });
       if (!outcome.passed) {
-        dispatch({ type: "message", text: "判定未通过——看看右侧每一项的检查结果。" });
+        dispatch({ type: "message", text: "判定未通过。看看右侧每一项的检查结果。" });
       }
     } else if (response.status === "error") {
       setSubmitError(response.error);

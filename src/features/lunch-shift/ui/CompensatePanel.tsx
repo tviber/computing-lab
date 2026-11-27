@@ -10,6 +10,8 @@
 
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import {
   bestCompensation,
   checkCompensateTable,
@@ -45,10 +47,6 @@ export const COMPENSATE_STARTER = `def compensate(urgent, overtime, delivered, p
 /** The same fixed run everyone pays for — mirrors the judge. */
 const lateOrders = compensateLateOrders();
 const best = bestCompensation(lateOrders);
-const noCompBill = evaluateCompensation(
-  lateOrders,
-  new Array<number>(COMPENSATE_TABLE_SIZE).fill(0),
-);
 
 const RISK_ROWS = REVIEW_RISK_TIERS.flatMap((tier) =>
   (["normal", "urgent"] as const).map((kind) => ({
@@ -109,8 +107,8 @@ function TryoutBoard(props: { orders: readonly CompensateLateOrder[] }) {
       <p class="eyebrow">先手动试一次</p>
       <h2>这三张单，你会怎么补？</h2>
       <p>
-        先改下面三张典型问题单，另外 8
-        张按不补偿算。每次切换都会重算整张账单，并告诉你相对不补偿的变化。
+        先改下面三张典型问题单，其他 8
+        张暂时按不补偿算。每次切换都会重算整张账单，你可以直接看到花费和预计差评怎么变。
       </p>
       <div class="lunch-tryout-list">
         <For each={samples()}>
@@ -128,24 +126,17 @@ function TryoutBoard(props: { orders: readonly CompensateLateOrder[] }) {
                     {order.urgent ? "加急" : "普通"} · {order.price} 元
                   </span>
                 </div>
-                <div
-                  aria-label={`${order.id} 的补偿选择`}
+                <SegmentedPicker
                   class="lunch-tryout-choices"
-                  role="group"
-                >
-                  <For each={COMPENSATE_CHOICE_VALUES}>
-                    {(value) => (
-                      <Button
-                        aria-pressed={choiceOf(order.id) === value ? "true" : "false"}
-                        class="button button-secondary lunch-tryout-choice"
-                        onClick={() => setChoice(order.id, value)}
-                        type="button"
-                      >
-                        {COMPENSATE_CHOICES[value]}
-                      </Button>
-                    )}
-                  </For>
-                </div>
+                  itemClass="lunch-tryout-choice"
+                  label={`${order.id} 的补偿选择`}
+                  onChange={(value) => setChoice(order.id, Number(value))}
+                  options={COMPENSATE_CHOICE_VALUES.map((value) => ({
+                    value: String(value),
+                    label: COMPENSATE_CHOICES[value],
+                  }))}
+                  value={String(choiceOf(order.id))}
+                />
                 <p class="lunch-tryout-line">
                   差评率 {risk()}% · 这一单花 {cost()} 元
                 </p>
@@ -162,25 +153,13 @@ function TryoutBoard(props: { orders: readonly CompensateLateOrder[] }) {
       <div aria-label="试算账单" class="lunch-stat-row">
         <span>
           <b>{reviewsText(bill().badReviewPoints)}</b>
-          整张账单预计差评（另 8 张不补偿）
+          试算后的整张账单预计差评（单）
         </span>
         <span>
           <b>{bill().spend}</b>
-          整张账单补偿花费（元）
+          试算后的整张账单补偿花费（元）
         </span>
-        <Show when={Object.values(choices()).some((value) => value > 0)}>
-          <span>
-            <b>
-              {reviewDeltaText(bill().badReviewPoints, noCompBill.badReviewPoints)}，
-              {spendDeltaText(bill().spend, noCompBill.spend)}
-            </b>
-            相对全不补偿
-          </span>
-        </Show>
       </div>
-      <p class="lunch-note">
-        全不补偿的账单：预计差评 {reviewsText(noCompBill.badReviewPoints)} 单，花费 0 元。
-      </p>
       <div class="submit-row">
         <Button class="button button-secondary" onClick={() => setChoices({})} type="button">
           把试算清空
@@ -248,31 +227,38 @@ export function CompensatePanel(props: {
   return (
     <section class="lunch-challenge">
       <p>
-        排法不能再改，只能补偿。先在下面试算三张典型单，再写函数处理全部 {lateOrders.length}{" "}
-        张问题单。
+        晚高峰 20 单还是按先来先做跑完的，其中有 {lateOrders.length}
+        张出了问题：有的送晚了，有的没送到。排法已经不能改了，能改的只有补救。每张问题单补偿几档，由你写的
+        compensate 决定。
       </p>
       <div class="lunch-params">
         <ul>
           <li>
-            <code>compensate(urgent, overtime, delivered, price)</code>：返回 0 不补偿，1 送小食（
-            {COMPENSATE_SNACK_COST} 元），2 退款。
+            <code>compensate(urgent, overtime, delivered, price)</code>：urgent 表示是不是加急单；
+            overtime 表示超过等待上限几拍；delivered 表示最后有没有送到（True 或 False）；price
+            是这单的金额（元）。
+          </li>
+          <li>返回 0 表示不补偿：不花钱，按店里的历史差评率认账。</li>
+          <li>
+            返回 1 表示送小食：一张 {COMPENSATE_SNACK_COST} 元。返回 2 表示退款：送到的退一半（price
+            ÷ 2 向上取整），没送到的全退（price 元）。
           </li>
           <li>
-            送到的退款退一半，没送到全退。菜单价：
+            菜单价：
             {Object.entries(MENU_PRICES)
               .map(([dish, price]) => `${dish} ${price} 元`)
               .join("，")}
             。
           </li>
+          <li>没送到的单，overtime 按等到第 30 拍算，可能还是 0，所以看 delivered 更可靠。</li>
           <li>
-            过关线：预计差评 ≤ {reviewsText(COMPENSATE_PASS_REVIEWS)} 单，花费 ≤{" "}
-            {COMPENSATE_PASS_SPEND} 元。没送到的单 overtime 可能是 0，判断时优先看 delivered。
+            过关线：预计差评不超过 {reviewsText(COMPENSATE_PASS_REVIEWS)} 单，补偿总花费不超过{" "}
+            {COMPENSATE_PASS_SPEND} 元，两条都要满足。
           </li>
         </ul>
       </div>
 
-      <details class="lunch-reference">
-        <summary>店里的历史差评率</summary>
+      <Disclosure class="lunch-reference" defaultOpen summary="店里的历史差评率">
         <p class="lunch-note">同样的等待和补偿，加急顾客给出差评的概率更高。</p>
         <div class="lunch-table-wrap">
           <table class="lunch-orders-table">
@@ -296,12 +282,11 @@ export function CompensatePanel(props: {
             </tbody>
           </table>
         </div>
-      </details>
+      </Disclosure>
 
       <TryoutBoard orders={lateOrders} />
 
-      <details class="lunch-reference">
-        <summary>看这 {lateOrders.length} 张问题单</summary>
+      <Disclosure class="lunch-reference" summary={`看这 ${lateOrders.length} 张问题单`}>
         <p class="lunch-note">这是 compensate 会收到的参数，一张单一行。</p>
         <div class="lunch-table-wrap">
           <table class="lunch-orders-table">
@@ -333,7 +318,7 @@ export function CompensatePanel(props: {
             </tbody>
           </table>
         </div>
-      </details>
+      </Disclosure>
 
       <CodeEditor
         ariaLabel="compensate 函数代码"

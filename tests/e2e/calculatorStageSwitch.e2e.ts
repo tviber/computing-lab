@@ -37,7 +37,12 @@ test("switching ALU stages replaces every wire, including wires from legacy draf
     const stage = CALCULATOR_STAGES.find((stage) => stage.index === index)!;
     const button = rail.locator(".lab-stage-link").filter({ hasText: stage.title });
     if (await button.isHidden()) {
-      await button.locator("xpath=ancestor::details[1]/summary").click();
+      await button
+        .locator(
+          "xpath=ancestor::*[contains(@class,'stage-branch-item') or contains(@class,'stage-branch-late')][1]",
+        )
+        .locator(".stage-branch-summary")
+        .click();
     }
     await button.click();
     await expect(

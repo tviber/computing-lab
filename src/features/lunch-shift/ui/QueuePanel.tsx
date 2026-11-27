@@ -6,6 +6,10 @@
 
 import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { Icon } from "../../../shared/ui/Icon";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import type { OrderResult, QueuePick, RunSummary, SimulationEvent } from "../domain/contracts.ts";
 import { checkPriorityTable, priorityIndex, PRIORITY_TABLE_SIZE } from "../domain/priority.ts";
 import type { LunchTestSummary, QueueDraft } from "../domain/protocol.ts";
@@ -74,7 +78,9 @@ function ProbeResults(props: { probes: ProbeRow[] }) {
                     </td>
                     <td>{label(row.picked)}</td>
                     <td>{label(row.answer)}</td>
-                    <td>{row.passed ? "✓" : "✗"}</td>
+                    <td>
+                      <Icon name={row.passed ? "check" : "x"} size={12} />
+                    </td>
                   </tr>
                 );
               }}
@@ -225,7 +231,7 @@ function Replay(props: { run: RunSummary; autoPlay?: boolean }) {
             }
             return current + 1;
           }),
-        650,
+        420,
       );
       return () => window.clearInterval(timer);
     },
@@ -267,18 +273,16 @@ function Replay(props: { run: RunSummary; autoPlay?: boolean }) {
         <Button class="button button-secondary" onClick={togglePlay} type="button">
           {playing() ? "暂停回放" : atEnd() ? "重播回放" : "播放回放"}
         </Button>
-        <label class="lunch-replay-range">
-          进度
-          <input
-            aria-label="订单回放进度"
-            max={Math.max(frames().length - 1, 0)}
-            min={0}
-            onChange={(e) => onSeek(e.currentTarget.value)}
-            onInput={(e) => onSeek(e.currentTarget.value)}
-            type="range"
-            value={step()}
-          />
-        </label>
+        <LabeledSlider
+          class="lunch-replay-range"
+          label="进度"
+          max={Math.max(frames().length - 1, 0)}
+          min={0}
+          onChange={(next) => onSeek(String(next))}
+          step={1}
+          value={step()}
+          valueText={`${step() + 1} / ${Math.max(frames().length, 1)} 帧`}
+        />
         <strong>
           {current()
             ? `第 ${current()!.tick} 拍 · ${step() + 1} / ${frames().length} 帧`
@@ -310,15 +314,14 @@ export function QueueResultView(props: { run: RunSummary; title: string; autoPla
           实际送达
         </span>
       </div>
-      <Replay autoPlay={props.autoPlay} run={props.run} />
       <LateOrders run={props.run} />
+      <Replay autoPlay={props.autoPlay} run={props.run} />
       <Show when={picks().length > 0}>
-        <details class="lunch-pick-table">
-          <summary>每一拍怎么选的</summary>
+        <Disclosure class="lunch-pick-table" summary="每一拍怎么选的">
           <div>
             <For each={picks()}>{(pick) => <PickCard pick={pick} />}</For>
           </div>
-        </details>
+        </Disclosure>
       </Show>
     </section>
   );
@@ -412,7 +415,6 @@ export function QueuePanel(props: {
         }),
       );
       setLocalRun(simulate(QUEUE_SCENARIO, { priority: table }).result);
-      showReplay("mine");
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -450,39 +452,26 @@ export function QueuePanel(props: {
     <section class="lunch-challenge">
       <p>
         厨房和出餐台每一拍都会调用同一个 <code>priority(urgent, wait, cook)</code>
-        ：哪张单的返回值最大，就先做哪张。先看两种简单排法的回放，再写自己的规则。
+        ：哪张单的返回值最大，就先做哪张。运行之后，页面会拿 12 个排队瞬间检查你的规则，答对 11
+        张过关。
       </p>
 
       <section class="lunch-demo">
         <p class="eyebrow">先看两种简单排法</p>
-        <p>点标签切换同一块餐馆回放。看看这两种做法各自漏掉了谁。</p>
-        <div aria-label="选择回放来源" class="lunch-replay-tabs" role="group">
-          <Button
-            aria-pressed={replaySource() === "fifo" ? "true" : "false"}
-            class="button button-secondary lunch-replay-tab"
-            onClick={() => runPreset("fifo")}
-            type="button"
-          >
-            按到店顺序做
-          </Button>
-          <Button
-            aria-pressed={replaySource() === "urgent" ? "true" : "false"}
-            class="button button-secondary lunch-replay-tab"
-            onClick={() => runPreset("urgent")}
-            type="button"
-          >
-            有加急就先做
-          </Button>
-          <Button
-            aria-pressed={replaySource() === "mine" ? "true" : "false"}
-            class="button button-secondary lunch-replay-tab"
-            disabled={!shownRun()}
-            onClick={() => showReplay("mine")}
-            type="button"
-          >
-            我的规则
-          </Button>
-        </div>
+        <p>点标签切换同一块餐馆回放。看看这两种做法各自漏掉了谁，再和自己的规则比。</p>
+        <SegmentedPicker<"fifo" | "urgent" | "mine" | "">
+          label="选择回放来源"
+          onChange={(id) => {
+            if (id === "mine") showReplay("mine");
+            else if (id === "fifo" || id === "urgent") runPreset(id);
+          }}
+          options={[
+            { value: "fifo", label: "按到店顺序做" },
+            { value: "urgent", label: "有加急就先做" },
+            { value: "mine", label: "我的规则", disabled: !shownRun() },
+          ]}
+          value={replaySource() ?? ""}
+        />
         <Show
           fallback={<p class="lunch-note">先选一种排法，回放会从第一拍开始播放。</p>}
           when={replayRun()}
@@ -516,8 +505,7 @@ export function QueuePanel(props: {
           <li>函数返回一个数，越大越先做；两个数一样大时，先来先做。</li>
         </ul>
       </div>
-      <details class="lunch-reference">
-        <summary>看抽检用的 12 个排队瞬间</summary>
+      <Disclosure class="lunch-reference" summary="看抽检用的 12 个排队瞬间">
         <p class="lunch-note">
           每张卡列出几张同时在等的订单，顺序是先来后到。卡片只给场景，不给答案；运行后你会看到自己的函数选了谁、按等待上限又该选谁。
         </p>
@@ -548,9 +536,8 @@ export function QueuePanel(props: {
             </tbody>
           </table>
         </div>
-      </details>
-      <details class="lunch-reference">
-        <summary>这一轮要跑的 12 张订单（不计分）</summary>
+      </Disclosure>
+      <Disclosure class="lunch-reference" summary="这一轮要跑的 12 张订单（不计分）">
         <p class="lunch-note">
           到达拍表示这张单在系统第几拍进来。拍就是第 1 关里那种时间步。加急单最多等 9
           拍，普通单最多等 18 拍，超过就会超时。
@@ -584,7 +571,7 @@ export function QueuePanel(props: {
             </tbody>
           </table>
         </div>
-      </details>
+      </Disclosure>
       <CodeEditor
         ariaLabel="priority 函数代码"
         disabled={running()}
@@ -592,7 +579,6 @@ export function QueuePanel(props: {
           setLocalRun(null);
           setLocalProbes(null);
           setTableErrors([]);
-          if (replaySource() === "mine") setReplaySource(null);
           props.onChange({ code, priority: null });
         }}
         value={source()}
@@ -631,6 +617,9 @@ export function QueuePanel(props: {
         </ul>
       </Show>
       <Show when={shownProbes()}>{(probes) => <ProbeResults probes={probes()} />}</Show>
+      <Show when={shownRun()}>
+        {(r) => <QueueResultView run={r()} title="这一轮的完整结果（不计分）" />}
+      </Show>
 
       <Show when={extraArea()}>
         {(extra) => (

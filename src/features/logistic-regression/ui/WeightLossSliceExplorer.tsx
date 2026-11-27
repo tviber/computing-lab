@@ -1,6 +1,8 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import type { TrainedModel } from "../domain/logisticRegression.ts";
 import {
@@ -397,42 +399,31 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
       <div class="logistic-regression-slice-toolbar">
         <div class="logistic-regression-slice-group">
           <span class="logistic-regression-field-label">1. 选一个词：</span>
-          <div aria-label="选择切片词" class="logistic-regression-preset-row" role="group">
-            <For each={SLICE_WORD_OPTIONS}>
-              {(opt) => (
-                <Button
-                  aria-pressed={selectedWord() === opt.word ? "true" : "false"}
-                  class={`logistic-regression-chip-btn${selectedWord() === opt.word ? " is-active" : ""}`}
-                  onClick={() => handleSelectWord(opt.word)}
-                  type="button"
-                >
-                  <span>「{opt.label}」</span>
-                </Button>
-              )}
-            </For>
-          </div>
+          <SegmentedPicker
+            class="logistic-regression-preset-row"
+            itemClass="logistic-regression-chip-btn"
+            label="选择切片词"
+            onChange={handleSelectWord}
+            options={SLICE_WORD_OPTIONS.map((opt) => ({
+              value: opt.word,
+              label: <span>「{opt.label}」</span>,
+            }))}
+            value={selectedWord()}
+          />
         </div>
 
         <div class="logistic-regression-slice-group">
           <span class="logistic-regression-field-label">2. 其他词固定为：</span>
-          <div aria-label="选择其余权重基准" class="logistic-regression-segmented" role="group">
-            <Button
-              aria-pressed={contextMode() === "zero" ? "true" : "false"}
-              class={contextMode() === "zero" ? "is-active" : ""}
-              onClick={() => handleSelectContext("zero")}
-              type="button"
-            >
-              全为 0（训练起点）
-            </Button>
-            <Button
-              aria-pressed={contextMode() === "trained" ? "true" : "false"}
-              class={contextMode() === "trained" ? "is-active" : ""}
-              onClick={() => handleSelectContext("trained")}
-              type="button"
-            >
-              当前训练模型权重
-            </Button>
-          </div>
+          <SegmentedPicker
+            class="logistic-regression-segmented"
+            label="选择其余权重基准"
+            onChange={handleSelectContext}
+            options={[
+              { value: "zero", label: "全为 0（训练起点）" },
+              { value: "trained", label: "当前训练模型权重" },
+            ]}
+            value={contextMode()}
+          />
         </div>
       </div>
 
@@ -446,35 +437,34 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
       </p>
 
       <div class="logistic-regression-slice-eta-bar">
-        <label class="logistic-regression-inline-slider" for="logistic-regression-slice-eta">
-          <span>
-            单步步长系数 η ={" "}
-            <strong class="logistic-regression-mono">{sliceEta().toFixed(1)}</strong>
-          </span>
-          <input
-            id="logistic-regression-slice-eta"
-            max={SLICE_MAX_ETA}
-            min={SLICE_MIN_ETA}
-            onChange={(e) => setSliceEta(clampSliceEta(Number(e.currentTarget.value)))}
-            onInput={(e) => setSliceEta(clampSliceEta(Number(e.currentTarget.value)))}
-            step={0.1}
-            type="range"
-            value={sliceEta()}
-          />
-        </label>
-        <div class="logistic-regression-preset-row">
-          <For each={ETA_QUICK_PRESETS}>
-            {(preset) => (
-              <Button
-                class={`logistic-regression-chip-btn logistic-regression-chip-sm${Math.abs(sliceEta() - preset.eta) < 0.05 ? " is-active" : ""}`}
-                onClick={() => setSliceEta(preset.eta)}
-                type="button"
-              >
-                {preset.label}
-              </Button>
-            )}
-          </For>
-        </div>
+        <LabeledSlider
+          class="logistic-regression-inline-slider"
+          label="单步步长系数 η"
+          max={SLICE_MAX_ETA}
+          min={SLICE_MIN_ETA}
+          onChange={(next) => setSliceEta(clampSliceEta(next))}
+          step={0.1}
+          value={sliceEta()}
+          valueText={sliceEta().toFixed(1)}
+        />
+        <SegmentedPicker
+          class="logistic-regression-preset-row"
+          itemClass="logistic-regression-chip-btn logistic-regression-chip-sm"
+          label="快速步长预设"
+          onChange={(value) => {
+            const preset = ETA_QUICK_PRESETS.find((candidate) => String(candidate.eta) === value);
+            if (preset) setSliceEta(preset.eta);
+          }}
+          options={ETA_QUICK_PRESETS.map((preset) => ({
+            value: String(preset.eta),
+            label: preset.label,
+          }))}
+          value={
+            ETA_QUICK_PRESETS.find(
+              (preset) => Math.abs(sliceEta() - preset.eta) < 0.05,
+            )?.eta.toString() ?? ""
+          }
+        />
       </div>
 
       <div class="logistic-regression-chart-box logistic-regression-slice-chart-box">

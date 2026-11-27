@@ -137,7 +137,7 @@
   line-height: 1.6;
 }
 
-.admin-import-guide summary {
+.admin-import-guide .disclosure-trigger {
   width: fit-content;
   cursor: pointer;
   color: var(--accent-ink);

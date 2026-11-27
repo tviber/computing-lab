@@ -55,7 +55,7 @@ describe("HomePage lab visibility", () => {
         await screen.findByText(open ? "1 项实验 · 1 个主题" : "0 项实验 · 0 个主题"),
       ).toBeVisible();
       expect(screen.queryAllByRole("article")).toHaveLength(open ? 1 : 0);
-      expect(screen.queryByRole("group", { name: "按主题筛选" })).toBeNull();
+      expect(screen.queryByRole("radiogroup", { name: "按主题筛选" })).toBeNull();
       if (open) {
         expect(screen.getByRole("heading", { name: "实现ALU" })).toBeVisible();
         const resumeLink = await screen.findByRole("link", { name: /继续未完成实验/ });
@@ -87,16 +87,16 @@ describe("HomePage lab visibility", () => {
 
     await renderAppAt("/", { auth: studentAuth });
 
-    const filterGroup = await screen.findByRole("group", { name: "按主题筛选" });
+    const filterGroup = await screen.findByRole("radiogroup", { name: "按主题筛选" });
     expect(screen.getAllByRole("article")).toHaveLength(3);
 
-    fireEvent.click(within(filterGroup).getByRole("button", { name: /数据与编码/ }));
+    fireEvent.click(within(filterGroup).getByRole("radio", { name: /数据与编码/ }));
     flush();
     expect(screen.getAllByRole("article")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "实现ALU" })).toBeNull();
     expect(screen.getByRole("heading", { name: "解码侦探" })).toBeVisible();
 
-    fireEvent.click(within(filterGroup).getByRole("button", { name: /全部/ }));
+    fireEvent.click(within(filterGroup).getByRole("radio", { name: /全部/ }));
     flush();
     expect(screen.getAllByRole("article")).toHaveLength(3);
   });
@@ -138,7 +138,7 @@ describe("HomePage lab visibility", () => {
     expect(screen.getByRole("heading", { name: "计算实验室" })).toBeVisible();
     expect(within(screen.getByRole("figure")).getByText("空间采样")).toBeVisible();
 
-    fireEvent.click(screen.getByRole("button", { name: "实现ALU" }));
+    fireEvent.click(screen.getByRole("radio", { name: "实现ALU" }));
     flush();
     expect(within(screen.getByRole("figure")).getByText("实现ALU")).toBeVisible();
   });

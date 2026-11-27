@@ -87,6 +87,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .home-specimen-tab {
@@ -113,7 +116,7 @@
   color: var(--primary);
 }
 
-.home-specimen-tab.is-active {
+.home-specimen-tab[data-checked] {
   border-color: color-mix(in srgb, var(--plate-accent) 45%, var(--border));
   background: color-mix(in srgb, var(--plate-accent) 9%, var(--surface));
   color: var(--primary);
@@ -343,6 +346,9 @@
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-4);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .home-filter-pill {
@@ -369,18 +375,18 @@
   color: var(--primary);
 }
 
-.home-filter-pill.is-active {
+.home-filter-pill[data-checked] {
   border-color: var(--primary);
   background: var(--primary);
   color: var(--surface);
 }
 
-.home-filter-pill.is-active[data-category] {
+.home-filter-pill[data-checked][data-category] {
   border-color: var(--plate-accent);
   background: var(--plate-accent);
 }
 
-.home-filter-pill.is-active .topic-dot {
+.home-filter-pill[data-checked] .topic-dot {
   background: var(--surface);
 }
 
@@ -391,7 +397,7 @@
   font-weight: 600;
 }
 
-.home-filter-pill.is-active .home-filter-count {
+.home-filter-pill[data-checked] .home-filter-count {
   color: color-mix(in srgb, var(--surface) 82%, transparent);
 }
 

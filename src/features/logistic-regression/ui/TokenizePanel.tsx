@@ -1,5 +1,6 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, For, Show } from "solid-js";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import type { LogisticRegressionTestSummary, TokenizeDraft } from "../domain/protocol.ts";
 import {
@@ -70,26 +71,30 @@ export function TokenizePanel(props: {
           词表内：出现 = 1，未出现 = 0，重复仍 = 1 · 标点和词表外词不编码
         </p>
 
-        <div class="logistic-regression-preset-row">
-          <For each={TOKENIZE_PRESETS}>
-            {(preset) => (
-              <Button
-                class={`logistic-regression-chip-btn${props.draft.selectedPresetId === preset.id ? " is-active" : ""}`}
-                onClick={() =>
-                  props.onChange({
-                    ...props.draft,
-                    selectedPresetId: preset.id,
-                    customText: preset.text,
-                  })
-                }
-                type="button"
-              >
+        <SegmentedPicker
+          class="logistic-regression-preset-row"
+          itemClass="logistic-regression-chip-btn"
+          label="短信示例"
+          onChange={(presetId) => {
+            const preset = TOKENIZE_PRESETS.find((candidate) => candidate.id === presetId);
+            if (!preset) return;
+            props.onChange({
+              ...props.draft,
+              selectedPresetId: preset.id,
+              customText: preset.text,
+            });
+          }}
+          options={TOKENIZE_PRESETS.map((preset) => ({
+            value: preset.id,
+            label: (
+              <>
                 <span>{preset.label}</span>
                 <small>{preset.tag}</small>
-              </Button>
-            )}
-          </For>
-        </div>
+              </>
+            ),
+          }))}
+          value={props.draft.selectedPresetId}
+        />
 
         <label class="logistic-regression-field-label" for="logistic-regression-stage1-input">
           短信内容
@@ -183,32 +188,25 @@ export function TokenizePanel(props: {
                     <strong class="logistic-regression-mono">{item.text}</strong>
                     <span>{item.displayNote}</span>
                   </div>
-                  <div
-                    aria-label={`片段 ${item.text} 的处理方式`}
+                  <SegmentedPicker
                     class="logistic-regression-puzzle-choices"
-                    role="group"
-                  >
-                    <For each={STATUS_CHOICES}>
-                      {(status) => (
-                        <Button
-                          aria-pressed={chosen() === status ? "true" : "false"}
-                          class={`logistic-regression-pill-choice${chosen() === status ? " is-selected" : ""}`}
-                          onClick={() =>
-                            props.onChange({
-                              ...props.draft,
-                              classifications: {
-                                ...props.draft.classifications,
-                                [item.id]: status,
-                              },
-                            })
-                          }
-                          type="button"
-                        >
-                          {TOKEN_STATUS_LABELS[status]}
-                        </Button>
-                      )}
-                    </For>
-                  </div>
+                    itemClass="logistic-regression-pill-choice"
+                    label={`片段 ${item.text} 的处理方式`}
+                    onChange={(status) =>
+                      props.onChange({
+                        ...props.draft,
+                        classifications: {
+                          ...props.draft.classifications,
+                          [item.id]: status as RawTokenStatus,
+                        },
+                      })
+                    }
+                    options={STATUS_CHOICES.map((status) => ({
+                      value: status,
+                      label: TOKEN_STATUS_LABELS[status],
+                    }))}
+                    value={chosen() ?? ""}
+                  />
                 </div>
               );
             }}

@@ -84,7 +84,7 @@ export function RecognitionPanel(props: { outcome: SamplingJudgeResult; stage: S
                 : `接收端最可能认成 ${ce().predicted?.label ?? "?"}`}
               。
               {ce().difference
-                ? `丢掉的差别在原图 x∈[${ce().difference!.x0}, ${ce().difference!.x1})、y∈[${ce().difference!.y0}, ${ce().difference!.y1}) 的 ${ce().difference!.pixels} 个像素里（原图已框出）——它们摊不满一个格子，就被抹平了。`
+                ? `丢掉的差别在原图 x∈[${ce().difference!.x0}, ${ce().difference!.x1})、y∈[${ce().difference!.y0}, ${ce().difference!.y1}) 的 ${ce().difference!.pixels} 个像素里（原图已框出）。它们摊不满一个格子，所以被抹平了。`
                 : ""}
             </p>
             <div class="counterexample-triptych">
@@ -114,7 +114,7 @@ export function RecognitionPanel(props: { outcome: SamplingJudgeResult; stage: S
             </div>
             <table class="ranking-table">
               <caption>
-                最接近的候选（按轮廓距离排序）——这个排序只是帮你看谁最容易混淆，
+                最接近的候选（按轮廓距离排序）。这个排序只是帮你看谁最容易混淆，
                 不参与判定：判定只看压缩后是否仍然唯一，不会去“猜”答案。
               </caption>
               <thead>

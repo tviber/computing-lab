@@ -33,7 +33,7 @@ describe("decoding fixed presentation scenes", () => {
 
   it("gates submit on the same blockers the lab uses", () => {
     expect(scene("initial").submission.blocker).toBe("概念题还没答完。");
-    expect(scene("incomplete-cloze").submission.blocker).toBe("还有空没填上——每个空都要填。");
+    expect(scene("incomplete-cloze").submission.blocker).toBe("还有空没填上，每个空都要填。");
     expect(scene("decoded").submission.blocker).toBeNull();
     expect(scene("files-stage").submission.blocker).toBe("每个文件都要先给出判定。");
   });

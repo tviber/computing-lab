@@ -138,7 +138,9 @@ describe("CalculatorLabPage takeaway", () => {
 
     await renderAppAt("/classes/c1/labs/calculator");
 
-    expect(await screen.findByText(/本关收获：一根导线 = 实时信号传递/)).toBeInTheDocument();
+    expect(
+      await screen.findByText(/本关收获：导线把输入直接送到输出，是数据通路的最小单元/),
+    ).toBeInTheDocument();
   });
 
   it("does not show stage takeaway when the stage is not passed", async () => {
@@ -229,7 +231,7 @@ describe("CalculatorLabPage takeaway", () => {
         { headers: { "content-type": "application/json" } },
       ),
     );
-    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByRole("alertdialog")).not.toBeInTheDocument());
     await screen.findByText(/用一根导线把输入 A 连到输出 Y/);
     expect(screen.queryByText(/本关收获/)).not.toBeInTheDocument();
 

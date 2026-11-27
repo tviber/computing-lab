@@ -48,7 +48,7 @@
   background: var(--subtle);
 }
 
-.ai-order summary {
+.ai-order > .disclosure-trigger {
   padding: var(--space-2) var(--space-3);
 }
 

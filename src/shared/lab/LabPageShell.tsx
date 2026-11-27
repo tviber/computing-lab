@@ -1,15 +1,15 @@
 import type { JSX } from "@solidjs/web";
 import { Button } from "@ui-sdk/solid/button";
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
 import {
-  Dialog,
-  DialogBackdrop,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@ui-sdk/solid/dialog";
-import { createEffect, createSignal, Show, untrack } from "solid-js";
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@ui-sdk/solid/alert-dialog";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
+import { createSignal, onSettled, Show, untrack } from "solid-js";
 import { Icon } from "../ui/Icon";
 import { useScrollEdges } from "../ui/scrollEdges";
 
@@ -81,7 +81,7 @@ function LabProgressTools(props: LabResetControlsProps) {
       <span class="sr-only" role="status">
         {notice()}
       </span>
-      <Dialog
+      <AlertDialog
         dismissible={!props.resetting}
         onOpenChange={(next) => {
           if (!next && props.resetting) return;
@@ -89,10 +89,12 @@ function LabProgressTools(props: LabResetControlsProps) {
         }}
         open={open()}
       >
-        <DialogBackdrop class="lab-reset-backdrop" />
-        <DialogContent class="lab-reset-dialog">
-          <DialogTitle>重置实验进度</DialogTitle>
-          <DialogDescription>此操作只影响你自己的记录，清除后无法恢复。</DialogDescription>
+        <AlertDialogBackdrop class="lab-reset-backdrop" />
+        <AlertDialogContent class="lab-reset-dialog">
+          <AlertDialogTitle>重置实验进度</AlertDialogTitle>
+          <AlertDialogDescription>
+            此操作只影响你自己的记录，清除后无法恢复。
+          </AlertDialogDescription>
           <form
             onSubmit={async (event) => {
               event.preventDefault();
@@ -143,9 +145,13 @@ function LabProgressTools(props: LabResetControlsProps) {
               </p>
             </Show>
             <div class="lab-reset-actions">
-              <DialogClose class="button button-ghost" disabled={props.resetting} type="button">
+              <AlertDialogClose
+                class="button button-ghost"
+                disabled={props.resetting}
+                type="button"
+              >
                 取消
-              </DialogClose>
+              </AlertDialogClose>
               <Button
                 class="button lab-reset-confirm"
                 disabled={!props.canReset || props.resetting}
@@ -155,8 +161,8 @@ function LabProgressTools(props: LabResetControlsProps) {
               </Button>
             </div>
           </form>
-        </DialogContent>
-      </Dialog>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
@@ -168,16 +174,13 @@ export function LabPageShell(props: LabPageShellProps) {
   );
   const scrollRef = useScrollEdges<HTMLDivElement>();
 
-  createEffect(
-    () => 0,
-    () => {
-      const media = window.matchMedia?.(narrowRailQuery);
-      if (!media) return;
-      const onChange = () => setNarrow(media.matches);
-      media.addEventListener("change", onChange);
-      return () => media.removeEventListener("change", onChange);
-    },
-  );
+  onSettled(() => {
+    const media = window.matchMedia?.(narrowRailQuery);
+    if (!media) return;
+    const onChange = () => setNarrow(media.matches);
+    media.addEventListener("change", onChange);
+    return () => media.removeEventListener("change", onChange);
+  });
 
   const onOpenChange = (open: boolean) => {
     const next = !open;

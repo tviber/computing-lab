@@ -25,8 +25,8 @@ const STARTER = (stage: SamplingStageDef) =>
     # images: 这一类所有图片, 每张是 64×64 的二维列表
     #   images[0][y][x] -> 0 (背景) 或 1 (图形)
     # 还可以直接调用:
-    #   cell_value(region)      —— 你在第 1 关写的判定规则
-    #   downsample(image, w, h) —— 把一张图缩成 w×h 的 0/1 列表
+    #   cell_value(region): 你在第 1 关写的判定规则
+    #   downsample(image, w, h): 把一张图缩成 w×h 的 0/1 列表
     # 任务: 分析这些图, 算出一个 n, 让它们缩到 n×n 后仍能区分开
     return 16
 `
@@ -34,9 +34,9 @@ const STARTER = (stage: SamplingStageDef) =>
     # images: 这一类所有图片, 每张是 64×64 的二维列表
     #   images[0][y][x] -> 0 (背景) 或 1 (图形)
     # 还可以直接调用:
-    #   cell_value(region)      —— 你在第 1 关写的判定规则
-    #   downsample(image, w, h) —— 把一张图缩成 w×h 的 0/1 列表
-    # 任务: 分析这些图, 算出 (宽, 高) —— 两者可以不同
+    #   cell_value(region): 你在第 1 关写的判定规则
+    #   downsample(image, w, h): 把一张图缩成 w×h 的 0/1 列表
+    # 任务: 分析这些图, 算出 (宽, 高); 两者可以不同
     return (16, 16)
 `;
 
@@ -97,7 +97,7 @@ export function ChooseSizePanel(props: {
       <p>
         {required() ? "本关必须" : "写一个"} <code>choose_size(images)</code>{" "}
         函数：它会拿到上面公开图库的全部 {images().length} 张图（每张 64×64 的 0/1
-        列表），由你的代码算出分辨率并填入上方——注意它对整个 category 只返回一个尺寸。
+        列表），由你的代码算出分辨率并填入上方。注意它对整个 category 只返回一个尺寸。
       </p>
       <p class="helper-note">
         前面关卡写的函数可以直接用：<code>cell_value(region)</code>（第 1 关你的判定规则）和{" "}

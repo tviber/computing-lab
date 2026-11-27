@@ -16,7 +16,10 @@
  */
 
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { Icon } from "../../../shared/ui/Icon";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import {
   predictTicket,
   textsToEmbed,
@@ -41,8 +44,10 @@ import { runNeedConfirm, runPriorityTable } from "./pyodideRunner.ts";
 import { QUEUE_STARTER, QueueResultView } from "./QueuePanel.tsx";
 
 export const NEED_CONFIRM_STARTER = `def need_confirm(similarity, margin):
-    # 先看 AI 裸跑的散点图，再决定哪些单需要请顾客确认。
-    # 返回 True 会让接单台停 1 拍。
+    if similarity < 0.85:
+        return True
+    if margin < 0.10:
+        return True
     return False
 `;
 
@@ -82,12 +87,12 @@ const TRIAGE_CASES = [
     id: "P06",
     title: "「想快一点，但不想加钱」",
     draft: "鸡腿饭 · 加蛋 · 7 号桌 · 普通",
-    draftNote: "AI 写成了普通，但它没有解释自己有多确定。",
-    directTone: "warning",
+    draftNote: "AI 对时效的判断只领先第二名 0.001。",
+    directTone: "neutral",
     askTone: "neutral",
     direct:
-      "你赌对了，这次 AI 刚好记对。可它对「加急还是普通」只领先一点点；换一种说法，它就可能把这单记成加急，厨房会把它插到普通单前面。",
-    ask: "你让顾客确认了一次。小票没有变，接单台白停了 1 拍。谨慎有成本，但这次的风险确实只差一点点。",
+      "AI 这次记对了，但它对「加急还是普通」只领先 0.001。下一句相似的话就可能被记成加急，厨房会把它插到普通单前面。",
+    ask: "顾客确认：我只想快一点，没有加急。小票没有变，但接单台多停了 1 拍。",
   },
   {
     id: "P10",
@@ -97,8 +102,8 @@ const TRIAGE_CASES = [
     directTone: "mistake",
     askTone: "success",
     direct:
-      "AI 不知道顾客平时怎么吃，只能把「照旧」猜成少辣。厨房照这张票做，顾客收到的会是一碗额外少了辣的面。",
-    ask: "顾客确认：照平时做就行，不用特别备注。AI 多加的「少辣」被删掉，小票改成无备注，接单台停 1 拍。",
+      "AI 不知道顾客平时吃多辣，只能把「照旧」猜成少辣。厨房照这张票做，顾客收到的很可能不是他常点的那碗。",
+    ask: "顾客确认：和以前一样，重辣。小票改对，接单台停 1 拍。",
   },
 ] as const;
 
@@ -119,8 +124,8 @@ function TriageIntro(props: { orders: { id: string; request: string }[] }) {
         <p class="eyebrow">先当一次质检员</p>
         <h2>这两张小票，你会直接出票吗？</h2>
         <p>
-          AI
-          已经写好草稿，但没有告诉你自己有多确定。先凭顾客的原话判断：直接出票，还是请他再说一遍？
+          下面两张单，AI
+          都已经写好了草稿。它没有告诉你自己有多确定。你先凭顾客的原话判断：直接交给厨房，还是请顾客再说一遍？
         </p>
         <div class="lunch-triage-grid">
           <For each={cases()}>
@@ -133,24 +138,16 @@ function TriageIntro(props: { orders: { id: string; request: string }[] }) {
                   <b>{item.draft}</b>
                   <small>{item.draftNote}</small>
                 </div>
-                <div class="lunch-triage-actions">
-                  <Button
-                    aria-pressed={decisions()[item.id] === "direct" ? "true" : "false"}
-                    class="button button-secondary"
-                    onClick={() => decide(item.id, "direct")}
-                    type="button"
-                  >
-                    直接出票
-                  </Button>
-                  <Button
-                    aria-pressed={decisions()[item.id] === "ask" ? "true" : "false"}
-                    class="button button-secondary"
-                    onClick={() => decide(item.id, "ask")}
-                    type="button"
-                  >
-                    停 1 拍，问顾客
-                  </Button>
-                </div>
+                <SegmentedPicker
+                  class="lunch-triage-actions"
+                  label={`${item.title} 的处理方式`}
+                  onChange={(decision) => decide(item.id, decision as TriageDecision)}
+                  options={[
+                    { value: "direct", label: "直接出票" },
+                    { value: "ask", label: "停 1 拍，问顾客" },
+                  ]}
+                  value={decisions()[item.id] ?? ""}
+                />
                 <Show when={decisions()[item.id]}>
                   {(decision) => (
                     <p
@@ -169,8 +166,9 @@ function TriageIntro(props: { orders: { id: string; request: string }[] }) {
         </div>
         <Show when={Object.keys(decisions()).length >= 2}>
           <p class="lunch-note">
-            这两单都不能放心直接出票。接下来把 12 张单一起交给
-            AI，你要写一个函数，替自己挑出该问的单。
+            这两单都处在 AI 拿不准的位置：P10 已经猜错了，P06 只以 0.001
+            的优势分对。确认能让小票更稳，但每确认一次都要多停 1 拍。下面把剩下的 10
+            张单也交给它，你要写一个函数，替你把该问的单挑出来。
           </p>
         </Show>
       </section>
@@ -178,9 +176,7 @@ function TriageIntro(props: { orders: { id: string; request: string }[] }) {
   );
 }
 
-function ConfidenceScatter(props: { rows: PreviewRow[]; mode: "raw" | "run" }) {
-  const [selectedId, setSelectedId] = createSignal<string | null>(null);
-  const selected = createMemo(() => props.rows.find((row) => row.id === selectedId()) ?? null);
+function ConfidenceScatter(props: { rows: PreviewRow[] }) {
   const geometry = createMemo(() => {
     const rows = props.rows;
     const width = 640;
@@ -280,34 +276,11 @@ function ConfidenceScatter(props: { rows: PreviewRow[]; mode: "raw" | "run" }) {
             const x = () => geometry().px(row.prediction.similarity);
             const y = () => geometry().py(row.prediction.margin);
             const labelY = () => (y() < geometry().top + 18 ? y() + 16 : y() - 10);
-            const choose = () => setSelectedId(row.id);
             return (
-              <g
-                aria-label={`${row.id}：${row.request}`}
-                class="lunch-scatter-point"
-                onClick={choose}
-                onFocus={choose}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter" || event.key === " ") {
-                    event.preventDefault();
-                    choose();
-                  }
-                }}
-                onMouseEnter={choose}
-                role="button"
-                tabindex={0}
-              >
-                <Show when={row.confirmed}>
-                  <circle class="lunch-scatter-halo" cx={x()} cy={y()} r={12} />
-                </Show>
-                <circle
-                  class={`${pointClass(row)}${selectedId() === row.id ? " selected" : ""}`}
-                  cx={x()}
-                  cy={y()}
-                  r={selectedId() === row.id ? 8 : 6}
-                >
+              <g>
+                <circle class={pointClass(row)} cx={x()} cy={y()} r={6}>
                   <title>
-                    {row.id}：{row.request}。similarity {fmt(row.prediction.similarity)}，margin{" "}
+                    {row.id}：similarity {fmt(row.prediction.similarity)}，margin{" "}
                     {fmt(row.prediction.margin)}
                     {row.correct === false ? "，AI 记错" : ""}
                     {row.confirmed ? "，已要求确认" : ""}
@@ -322,26 +295,10 @@ function ConfidenceScatter(props: { rows: PreviewRow[]; mode: "raw" | "run" }) {
         </For>
       </svg>
       <figcaption>
-        {props.mode === "raw"
-          ? "这是 AI 裸跑的结果。红点是它已经猜错的单；先看它们落在哪，再决定 need_confirm 该在哪些分数上拦一下。"
-          : "空心圈是你要求确认的单，它们会让接单台多停 1 拍。看看这些圈有没有落在红点附近。"}
+        每个点是一张订单。红点是 AI
+        记错的单，空心圈是你要求顾客再确认的单。先看红点落在哪个角落，再决定 need_confirm
+        该在哪些分数上拦一下。
       </figcaption>
-      <Show when={selected()}>
-        {(row) => (
-          <div class="lunch-scatter-detail" role="status">
-            <p>
-              <b>{row().id}</b>
-              <span>「{row().request}」</span>
-            </p>
-            <small>
-              AI 小票：{ticketText(row().prediction)} · similarity{" "}
-              {fmt(row().prediction.similarity)} · margin {fmt(row().prediction.margin)}
-              {row().correct === false ? " · 已猜错" : ""}
-              {row().confirmed ? " · 会让接单台停 1 拍" : ""}
-            </small>
-          </div>
-        )}
-      </Show>
       <div class="lunch-scatter-legend">
         <span>
           <i class="right" />
@@ -353,60 +310,10 @@ function ConfidenceScatter(props: { rows: PreviewRow[]; mode: "raw" | "run" }) {
         </span>
         <span>
           <i class="ring" />
-          空心 = 停 1 拍确认
+          已确认
         </span>
       </div>
     </figure>
-  );
-}
-
-function OrderPreviewTable(props: { rows: PreviewRow[]; showCorrect: boolean; open?: boolean }) {
-  return (
-    <details class="lunch-reference" open={props.open}>
-      <summary>看每一张订单的判断</summary>
-      <div class="lunch-table-wrap">
-        <table class="lunch-orders-table">
-          <thead>
-            <tr>
-              <th>订单</th>
-              <th>顾客说</th>
-              <th>AI 记的小票</th>
-              <th>similarity</th>
-              <th>margin</th>
-              <Show when={props.showCorrect}>
-                <th>AI 记对</th>
-              </Show>
-              <th>处理</th>
-            </tr>
-          </thead>
-          <tbody>
-            <For each={props.rows}>
-              {(row) => (
-                <tr>
-                  <td>
-                    <b>{row.id}</b>
-                  </td>
-                  <td>
-                    <small>{row.request}</small>
-                  </td>
-                  <td>{ticketText(row.prediction)}</td>
-                  <td>
-                    {fmt(row.prediction.similarity)}
-                    <br />
-                    <small>较弱：{weakestField(row.prediction)}</small>
-                  </td>
-                  <td>{fmt(row.prediction.margin)}</td>
-                  <Show when={props.showCorrect}>
-                    <td>{row.correct === false ? "✗" : "✓"}</td>
-                  </Show>
-                  <td>{row.confirmed ? "再确认 +1 拍" : "直接记"}</td>
-                </tr>
-              )}
-            </For>
-          </tbody>
-        </table>
-      </div>
-    </details>
   );
 }
 
@@ -429,8 +336,6 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
   const [runNote, setRunNote] = createSignal<string | null>(null);
   const [error, setError] = createSignal<string | null>(null);
   const [preview, setPreview] = createSignal<PreviewRow[] | null>(null);
-  const [previewMode, setPreviewMode] = createSignal<"raw" | "run" | null>(null);
-  const [previewStale, setPreviewStale] = createSignal(false);
 
   // Model predictions keyed by the order set — an edit to need_confirm
   // or priority does not re-embed 300+ texts, so a rerun is Python-fast.
@@ -483,27 +388,24 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
 
   // Start the model download as soon as the stage opens — it's vendored
   // locally and warm by the time the student finishes reading the task.
-  createEffect(
-    () => 0,
-    () => {
-      let cancelled = false;
-      loadEmbedder(setProgress).then(
-        (info) => {
-          if (cancelled) return;
-          setModelInfo(info);
-          setModelStatus("ready");
-        },
-        (loadError: unknown) => {
-          if (cancelled) return;
-          setModelError(loadError instanceof Error ? loadError.message : String(loadError));
-          setModelStatus("error");
-        },
-      );
-      return () => {
-        cancelled = true;
-      };
-    },
-  );
+  onSettled(() => {
+    let cancelled = false;
+    loadEmbedder(setProgress).then(
+      (info) => {
+        if (cancelled) return;
+        setModelInfo(info);
+        setModelStatus("ready");
+      },
+      (loadError: unknown) => {
+        if (cancelled) return;
+        setModelError(loadError instanceof Error ? loadError.message : String(loadError));
+        setModelStatus("error");
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  });
 
   const predict = async (): Promise<{ predictions: TicketPrediction[]; cached: boolean }> => {
     const orders = props.orders;
@@ -517,41 +419,6 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
     const predictions = orders.map((order) => predictTicket(order.request, embedOf));
     predictionCache = { key, predictions };
     return { predictions, cached: false };
-  };
-
-  const makePreviewRows = (
-    predictions: TicketPrediction[],
-    confirms?: readonly boolean[],
-  ): PreviewRow[] =>
-    props.orders.map((order, index) => {
-      const prediction = predictions[index];
-      const expected = !isFinal()
-        ? INTAKE_SCENARIO.orders.find((entry) => entry.id === order.id)?.expected
-        : undefined;
-      return {
-        id: order.id,
-        request: order.request,
-        prediction,
-        confirmed: confirms?.[index] ?? false,
-        correct: expected ? sameTicket(prediction.ticket, expected) : undefined,
-      };
-    });
-
-  const previewRaw = async () => {
-    setRunning(true);
-    setError(null);
-    setRunNote(null);
-    try {
-      const { predictions } = await predict();
-      setPreview(makePreviewRows(predictions));
-      setPreviewMode("raw");
-      setPreviewStale(false);
-      setRunNote("AI 已经读完订单。先看红点落在哪，再写 need_confirm。");
-    } catch (err) {
-      setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
-    } finally {
-      setRunning(false);
-    }
   };
 
   const run = async () => {
@@ -579,10 +446,20 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       ) {
         throw new Error("need_confirm 要对每张订单返回 True 或 False。");
       }
-      const rows = makePreviewRows(predictions, confirms);
+      const rows = orders.map((order, index) => {
+        const prediction = predictions[index];
+        const expected = !isFinal()
+          ? INTAKE_SCENARIO.orders.find((entry) => entry.id === order.id)?.expected
+          : undefined;
+        return {
+          id: order.id,
+          request: order.request,
+          prediction,
+          confirmed: confirms[index],
+          correct: expected ? sameTicket(prediction.ticket, expected) : undefined,
+        };
+      });
       setPreview(rows);
-      setPreviewMode("run");
-      setPreviewStale(false);
       const results = rows.map((row) => ({
         id: row.id,
         ticket: row.prediction.ticket,
@@ -611,12 +488,19 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
     }
   };
 
+  const passText = () =>
+    isFinal()
+      ? "正式订单要求 12 张全对、确认不超过 4 次，并且至少 11 张既记对又准时。"
+      : "练习要求 12 张单全部记对，且确认不超过 4 次。";
+
   return (
     <section class="lunch-challenge">
       <p>
-        {isFinal()
-          ? "这一关把接单和排单放在一起跑。先重跑一遍，再提交看完整回放。"
-          : "先做两张人工质检，再让 AI 裸跑一遍，最后写 need_confirm 自动化判断。"}
+        AI 接单台在浏览器里运行，不上服务器。它先听顾客的原话，再写一张小票，并给出两个分数：
+        <code>similarity</code> 表示这次判断和它记住的说法有多接近；
+        <code>margin</code> 表示第一名比第二名领先多少。分数低的单，AI 更容易猜错。你的{" "}
+        <code>need_confirm</code> 决定哪些单要先请顾客再说一遍。确认过的单一定记对，但接单台会停 1
+        拍。{passText()}
       </p>
 
       <p class="lunch-note" role="status">
@@ -642,67 +526,11 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
         <TriageIntro orders={props.orders} />
       </Show>
 
-      <Show when={!isFinal()}>
-        <section class="lunch-ai-preview">
-          <div class="lunch-ai-preview-head">
-            <div>
-              <p class="eyebrow">
-                {previewMode() === "run" ? "加上你的规则，再看看" : "先看 AI 裸跑"}
-              </p>
-              <p>
-                {previewMode() === "run"
-                  ? "空心圈是你要求确认的单。把它们和红点对照，看看有没有白问，或者漏掉真正没把握的单。"
-                  : "先让 AI 自己读一遍，不写任何规则。红点是它已经猜错的单。"}
-              </p>
-            </div>
-            <Button
-              class="button button-secondary"
-              disabled={running() || modelStatus() !== "ready" || props.orders.length === 0}
-              onClick={() => void previewRaw()}
-              type="button"
-            >
-              {preview() ? "重看 AI 裸跑" : `让 AI 先读这 ${props.orders.length} 张单`}
-            </Button>
-          </div>
-          <Show
-            fallback={
-              <p class="lunch-note">
-                {modelStatus() === "ready"
-                  ? "点上面的按钮，先看 AI 会把哪几张单记错。"
-                  : "模型加载完成后，就可以先看 AI 的裸跑结果。"}
-              </p>
-            }
-            when={preview()}
-          >
-            {(rows) => (
-              <>
-                <Show when={previewStale()}>
-                  <p class="lunch-note" role="status">
-                    代码已修改。散点图里仍是上一轮的确认圈，重新运行后会更新。
-                  </p>
-                </Show>
-                <ConfidenceScatter mode={previewMode() === "run" ? "run" : "raw"} rows={rows()} />
-                <OrderPreviewTable rows={rows()} showCorrect />
-              </>
-            )}
-          </Show>
-        </section>
-      </Show>
-
       <p class="eyebrow">你写的确认规则</p>
       <CodeEditor
         ariaLabel="need_confirm 函数代码"
         disabled={running()}
-        onChange={(confirmCode) => {
-          props.onChange({ ...props.draft, confirmCode, results: null });
-          if (isFinal()) {
-            setPreview(null);
-            setPreviewMode(null);
-          } else {
-            setPreviewStale(preview()?.some((row) => row.confirmed) ?? false);
-          }
-          setRunNote(null);
-        }}
+        onChange={(confirmCode) => props.onChange({ ...props.draft, confirmCode, results: null })}
         value={confirmSource()}
       />
 
@@ -725,13 +553,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
           onClick={() => void run()}
           type="button"
         >
-          {running()
-            ? "推理中…"
-            : isFinal()
-              ? `重跑这 ${props.orders.length} 张单`
-              : previewMode() === "raw"
-                ? `用这版规则跑 ${props.orders.length} 张单`
-                : `让 AI 读这 ${props.orders.length} 张单`}
+          {running() ? "推理中…" : `让 AI 读这 ${props.orders.length} 张单`}
         </Button>
         <Button
           class="button button-primary"
@@ -739,20 +561,10 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
           onClick={() => props.onSubmit()}
           type="button"
         >
-          {props.submitting ? "判定中…" : isFinal() ? "提交并看回放" : "提交这版确认规则"}
+          {props.submitting ? "判定中…" : isFinal() ? "提交晚餐高峰" : "提交这版确认规则"}
         </Button>
         <Show when={!ready()}>
-          <span class="submit-note">
-            {isFinal() ? "先重跑接单和排单，再提交看回放。" : "先运行这版 need_confirm，才能提交。"}
-          </span>
-        </Show>
-        <Show when={isFinal()}>
-          <span class="submit-note">
-            过关线：12 张全对、确认 ≤4 次、记对且准时 ≥11 张。可以多次提交看回放。
-          </span>
-        </Show>
-        <Show when={!isFinal()}>
-          <span class="submit-note">过关线：12 张全对，确认不超过 4 次。</span>
+          <span class="submit-note">还没有运行 need_confirm，先让 AI 读一遍订单。</span>
         </Show>
       </div>
 
@@ -765,8 +577,63 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       </Show>
       <Show when={runNote()}>{(note) => <p class="lunch-note">{note()}</p>}</Show>
 
-      <Show when={isFinal() ? preview() : null}>
-        {(rows) => <OrderPreviewTable open rows={rows()} showCorrect={false} />}
+      <Show when={preview()}>
+        {(rows) => (
+          <>
+            <Show when={!isFinal()}>
+              <section class="lunch-scatter-panel">
+                <p class="eyebrow">先看错单落在哪</p>
+                <ConfidenceScatter rows={rows()} />
+              </section>
+            </Show>
+            <Disclosure class="lunch-reference" open={isFinal()} summary="看每一张订单的判断">
+              <div class="lunch-table-wrap">
+                <table class="lunch-orders-table">
+                  <thead>
+                    <tr>
+                      <th>订单</th>
+                      <th>顾客说</th>
+                      <th>AI 记的小票</th>
+                      <th>similarity</th>
+                      <th>margin</th>
+                      <Show when={!isFinal()}>
+                        <th>AI 记对</th>
+                      </Show>
+                      <th>处理</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={rows()}>
+                      {(row) => (
+                        <tr>
+                          <td>
+                            <b>{row.id}</b>
+                          </td>
+                          <td>
+                            <small>{row.request}</small>
+                          </td>
+                          <td>{ticketText(row.prediction)}</td>
+                          <td>
+                            {fmt(row.prediction.similarity)}
+                            <br />
+                            <small>较弱：{weakestField(row.prediction)}</small>
+                          </td>
+                          <td>{fmt(row.prediction.margin)}</td>
+                          <Show when={!isFinal()}>
+                            <td>
+                              <Icon name={row.correct === false ? "x" : "check"} size={12} />
+                            </td>
+                          </Show>
+                          <td>{row.confirmed ? "再确认 +1 拍" : "直接记"}</td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            </Disclosure>
+          </>
+        )}
       </Show>
 
       <Show when={intakeResult()}>
@@ -816,11 +683,11 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                 。
               </p>
             </Show>
-            <details
+            <Disclosure
               class="lunch-reference"
               open={res().correct !== res().total || res().confirmed > AI_CONFIRM_BUDGET}
+              summary="逐单看结果"
             >
-              <summary>逐单看结果</summary>
               <div class="lunch-table-wrap">
                 <table class="lunch-orders-table">
                   <thead>
@@ -843,7 +710,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                             <small>{order.request}</small>
                           </td>
                           <td>
-                            {order.correct ? "✓ " : "✗ "}
+                            <Icon name={order.correct ? "check" : "x"} size={12} />{" "}
                             {`${order.produced.item}·${order.produced.note}·${order.produced.table}号·${order.produced.urgent ? "加急" : "普通"}`}
                           </td>
                           <td>
@@ -856,7 +723,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                   </tbody>
                 </table>
               </div>
-            </details>
+            </Disclosure>
           </section>
         )}
       </Show>
@@ -949,8 +816,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
               {(run) => <QueueResultView autoPlay run={run()} title="晚餐高峰回放" />}
             </Show>
 
-            <details class="lunch-reference">
-              <summary>逐单看送达结果</summary>
+            <Disclosure class="lunch-reference" summary="逐单看送达结果">
               <div class="lunch-table-wrap">
                 <table class="lunch-orders-table">
                   <thead>
@@ -999,7 +865,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                   </tbody>
                 </table>
               </div>
-            </details>
+            </Disclosure>
           </section>
         )}
       </Show>

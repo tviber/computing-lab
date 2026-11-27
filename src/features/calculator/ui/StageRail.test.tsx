@@ -57,27 +57,39 @@ describe("StageRail custom components", () => {
       />
     ));
 
-    const branches = container.querySelectorAll("details.stage-branch");
+    const branches = container.querySelectorAll(".disclosure.stage-branch");
     expect(branches).toHaveLength(3);
-    expect(branches[0]).not.toHaveAttribute("open");
-    expect(branches[1]).not.toHaveAttribute("open");
-    expect(branches[2]).not.toHaveAttribute("open");
+    expect(branches[0].querySelector(".stage-branch-summary")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(branches[1].querySelector(".stage-branch-summary")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
+    expect(branches[2].querySelector(".stage-branch-summary")).toHaveAttribute(
+      "aria-expanded",
+      "false",
+    );
 
-    const exactCase = branches[0].querySelector("button")!;
+    const exactCase = branches[0].querySelector(".lab-stage-link")!;
     expect(exactCase).toBeDisabled();
     expect(exactCase.className).toContain("is-optional");
-    expect(branches[2].querySelector("button")).toBeDisabled();
+    expect(branches[2].querySelector(".lab-stage-link")).toBeDisabled();
     expect(screen.getByText("0 / 6 主线")).toBeInTheDocument();
 
     setPassedStages([1]);
     flush();
-    expect(branches[0].querySelector("button")).not.toBeDisabled();
-    expect(branches[1].querySelectorAll("button")[0]).toBeDisabled();
-    expect(branches[1].querySelectorAll("button")[1]).toBeDisabled();
+    expect(branches[0].querySelector(".lab-stage-link")).not.toBeDisabled();
+    expect(branches[1].querySelectorAll(".lab-stage-link")[0]).toBeDisabled();
+    expect(branches[1].querySelectorAll(".lab-stage-link")[1]).toBeDisabled();
     expect(screen.getByText("1 / 6 主线")).toBeInTheDocument();
 
     setStageIndex(9);
     flush();
-    expect(branches[0]).toHaveAttribute("open");
+    expect(branches[0].querySelector(".stage-branch-summary")).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
   });
 });

@@ -33,7 +33,7 @@ for (const width of [1440, 390]) {
     await page.setViewportSize({ width, height: 900 });
     await page.goto(`${labs}/decoding?stage=3`);
     const reader = page.getByRole("region", { name: "原始数据" });
-    await reader.getByRole("button", { name: /^宽/ }).click();
+    await reader.getByRole("radio", { name: /^宽/ }).click();
     const table = reader.getByRole("table");
     const metrics = await table.evaluate((element) => {
       const cells = Array.from(element.querySelectorAll("td"), (cell) =>
@@ -99,13 +99,13 @@ for (const width of [1440, 390]) {
       .screenshot({ path: testInfo.outputPath("sample-cell.png") });
 
     await page.goto(`${labs}/color-quantization?stage=1`);
-    const rack = page.getByRole("group", { name: "crimson 的候选色" });
-    await rack.getByRole("button", { name: /black/ }).click();
+    const rack = page.getByRole("radiogroup", { name: "crimson 的候选色" });
+    await rack.getByRole("radio", { name: /black/ }).click();
     await expect(page.getByText("你选了 black，red 更近。")).toBeVisible();
     await page
       .locator(".quant-prediction")
       .screenshot({ path: testInfo.outputPath("color-distances.png") });
-    await rack.getByRole("button", { name: /red/ }).click();
+    await rack.getByRole("radio", { name: /red/ }).click();
     await expect(page.getByText("猜中了，这是最短距离。")).toBeVisible();
     await expect(page.locator("vite-error-overlay")).toHaveCount(0);
     expect(errors).toEqual([]);

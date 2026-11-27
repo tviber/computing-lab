@@ -1,21 +1,20 @@
 import { useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
 import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
+import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { StageTask } from "../../../shared/lab/StageTask";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
-import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { Icon } from "../../../shared/ui/Icon";
 import type { QuantJudgeResult, QuantSubmission } from "../domain/protocol.ts";
-import { COLOR_QUANT_STAGES, type QuantStageDef } from "../domain/stages.ts";
+import { COLOR_QUANT_STAGES } from "../domain/stages.ts";
 import {
   encodeQuantScenario,
   parseQuantScenario,
@@ -38,29 +37,6 @@ import { QuantExplorer } from "./QuantExplorer.tsx";
 import { QuantResultPanel } from "./QuantResultPanel.tsx";
 import "./colorQuantization.css";
 
-function StageBrief(props: { stage: QuantStageDef }) {
-  return (
-    <section class="stage-brief">
-      <StageTask>{props.stage.mission}</StageTask>
-      <p>{props.stage.description}</p>
-      <p class="quant-submit-note">
-        判定方式：判题图谱里每台机器人都按你的选择印一遍发出去， 接收端凭印出的图认人——≥
-        {Math.round(props.stage.requiredAccuracy * 100)}% 能被认出才算通过
-        {props.stage.mode === "pick"
-          ? `，且最多装 ${props.stage.tonerSlots} 种粉（纸白不计）`
-          : `，粉盒固定，映射最多改 ${props.stage.overrideBudget} 条默认值`}
-        。
-      </p>
-      <p class="quant-hidden-note">
-        请用同一套规则处理整组机器人，观察哪些颜色差异能帮助接收端区分成员。
-      </p>
-      <Show keyed when={props.stage.id}>
-        {(_) => <HintDisclosure>{props.stage.hint}</HintDisclosure>}
-      </Show>
-    </section>
-  );
-}
-
 export function ColorQuantizationLabPage() {
   const [searchParams] = useSearchParams();
   const runtime = useLabRuntime();
@@ -78,10 +54,9 @@ export function ColorQuantizationLabPage() {
   const stage = createMemo(() => stageOf(state()));
   const draft = createMemo(() => draftOf(state()));
 
-  createEffect(
-    () => 0,
-    () => warmPyodide(),
-  );
+  onSettled(() => {
+    warmPyodide();
+  });
 
   const project = useLabProject<StageDraft, Record<never, never>, QuantLessonAction>(() => ({
     scopeId: runtime.scopeId,
@@ -246,7 +221,26 @@ export function ColorQuantizationLabPage() {
         <Show keyed when={String(project.saveGeneration)}>
           {(_) => (
             <main aria-label="颜色量化实验区" class="quant-workspace">
-              <Show when={stage()}>{(current) => <StageBrief stage={current()} />}</Show>
+              <Show when={stage()}>
+                {(current) => (
+                  <StageBrief
+                    description={current().description}
+                    hints={[current().hint]}
+                    judgeNote={`判题图谱里每台机器人都按你的选择印一遍发出去，接收端凭印出的图认人，至少 ${Math.round(current().requiredAccuracy * 100)}% 能被认出才算通过${
+                      current().mode === "pick"
+                        ? `，且最多装 ${current().tonerSlots} 种粉（纸白不计）`
+                        : `，粉盒固定，映射最多改 ${current().overrideBudget} 条默认值`
+                    }。`}
+                    passed={state().passedStages.includes(current().index)}
+                    takeaway={current().takeaway}
+                    task={current().mission}
+                  >
+                    <p class="quant-hidden-note">
+                      请用同一套规则处理整组机器人，观察哪些颜色差异能帮助接收端区分成员。
+                    </p>
+                  </StageBrief>
+                )}
+              </Show>
 
               <Show when={state().message}>
                 {(msg) => (

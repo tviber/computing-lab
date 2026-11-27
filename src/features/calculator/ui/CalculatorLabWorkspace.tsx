@@ -2,8 +2,8 @@ import type { JSX } from "@solidjs/web";
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/LabPageShell";
-import { StageTask } from "../../../shared/lab/StageTask";
-import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
+import { StageBrief } from "../../../shared/lab/StageBrief";
+import { Disclosure } from "../../../shared/ui/Disclosure";
 import { evaluateGraph } from "../domain/evaluate";
 import { GATE_LABEL, type CircuitGraph, type CircuitNode } from "../domain/graph";
 import {
@@ -104,36 +104,27 @@ export function CalculatorLabWorkspace(props: CalculatorLabWorkspaceProps) {
         resetControls={inspect() ? undefined : props.resetControls}
       >
         <main aria-label="计算器实验区" class="calculator-workspace">
-          <section class="stage-brief">
-            <Show when={stage()}>
-              {(currentStage) => (
-                <StageTask>
-                  <AnnotatedText text={currentStage().description} />
-                </StageTask>
-              )}
-            </Show>
-            <Show when={stage()?.details}>
-              {(details) => (
-                <details class="stage-details">
-                  <summary>为什么？</summary>
-                  <p>
-                    <AnnotatedText text={details()} />
-                  </p>
-                </details>
-              )}
-            </Show>
-            <Show when={stage() && props.state.passedStages.includes(stage()!.index)}>
-              <p class="stage-takeaway">本关收获：{stage()!.takeaway}</p>
-            </Show>
-            <Show keyed when={stage()}>
-              {(currentStage) => (
-                <HintDisclosure>
-                  <AnnotatedText text={currentStage.hint} />
-                </HintDisclosure>
-              )}
-            </Show>
-            <CalculatorTermGuide />
-          </section>
+          <Show when={stage()}>
+            {(currentStage) => (
+              <StageBrief
+                footer={<CalculatorTermGuide />}
+                hints={[<AnnotatedText text={currentStage().hint} />]}
+                passed={props.state.passedStages.includes(currentStage().index)}
+                takeaway={currentStage().takeaway}
+                task={<AnnotatedText text={currentStage().description} />}
+              >
+                <Show when={currentStage().details}>
+                  {(details) => (
+                    <Disclosure class="stage-details" summary="为什么？">
+                      <p>
+                        <AnnotatedText text={details()} />
+                      </p>
+                    </Disclosure>
+                  )}
+                </Show>
+              </StageBrief>
+            )}
+          </Show>
 
           <Show when={props.error}>
             {(err) => (
@@ -170,8 +161,7 @@ export function CalculatorLabWorkspace(props: CalculatorLabWorkspaceProps) {
                   )}
                 </For>
                 <Show when={(stage()?.extraPrimitives?.length ?? 0) > 0}>
-                  <details class="palette-more">
-                    <summary>更多元件</summary>
+                  <Disclosure class="palette-more" summary="更多元件">
                     <div class="palette-items">
                       <For each={stage()?.extraPrimitives ?? []}>
                         {(kind) => (
@@ -185,7 +175,7 @@ export function CalculatorLabWorkspace(props: CalculatorLabWorkspaceProps) {
                         )}
                       </For>
                     </div>
-                  </details>
+                  </Disclosure>
                 </Show>
                 <Show when={stage()?.constants}>
                   <Button

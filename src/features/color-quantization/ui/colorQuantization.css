@@ -226,10 +226,16 @@
   padding: 3px 10px;
 }
 
-.quant-rule-toggle button.is-active {
+.quant-rule-toggle button[data-checked] {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent-ink);
+}
+
+.quant-rule-picker {
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .quant-rule-running {
@@ -355,6 +361,9 @@
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(min(6rem, 100%), 1fr));
   gap: var(--space-1);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .quant-practice-sources button,
@@ -370,6 +379,11 @@
 .quant-practice-sources button {
   display: flex;
   align-items: center;
+}
+
+.quant-practice-rack .segmented-picker-item[data-checked] {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
 }
 
 .quant-practice-chip {

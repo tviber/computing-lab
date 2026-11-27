@@ -43,7 +43,7 @@ async function runRequest(pyodide: PyodideInterface, request: RunRequest): Promi
     const call = request.call ?? "decode(data)";
     const fn = globals.get("decode");
     if (request.call === undefined && (fn === undefined || typeof fn.callKwargs !== "function")) {
-      throw new Error("需要一个函数 decode(data)——data 是这一关交给你的数据。");
+      throw new Error("需要一个函数 decode(data)。data 是这一关交给你的数据。");
     }
     const out = pyodide.runPython(call, { globals }) as unknown;
     if (out !== null && typeof out === "object") {

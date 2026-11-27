@@ -1,6 +1,7 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { PythonEditor } from "../../../shared/ui/PythonEditor";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import {
   MAX_SAMPLE_SIZE,
   singleUpdateDemo,
@@ -80,24 +81,16 @@ export function SgdCodePanel(props: {
         <p class="logistic-regression-quote">【恭喜】你已中奖，点击查看活动详情</p>
         <fieldset class="sgd-choice-group">
           <legend>猜一猜：p − yi 的符号是什么？</legend>
-          <div class="logistic-regression-segmented">
-            <Button
-              aria-pressed={prediction() === 0 ? "true" : "false"}
-              class={prediction() === 0 ? "is-active" : ""}
-              onClick={() => setPrediction(0)}
-              type="button"
-            >
-              正数
-            </Button>
-            <Button
-              aria-pressed={prediction() === 1 ? "true" : "false"}
-              class={prediction() === 1 ? "is-active" : ""}
-              onClick={() => setPrediction(1)}
-              type="button"
-            >
-              负数
-            </Button>
-          </div>
+          <SegmentedPicker
+            class="logistic-regression-segmented"
+            label="p 减 yi 的符号"
+            onChange={(next) => setPrediction(next === "1" ? 1 : 0)}
+            options={[
+              { value: "0", label: "正数" },
+              { value: "1", label: "负数" },
+            ]}
+            value={String(prediction())}
+          />
         </fieldset>
         <Show
           fallback={
@@ -131,24 +124,16 @@ export function SgdCodePanel(props: {
       <section class="logistic-regression-panel sgd-code-editor-panel">
         <div class="logistic-regression-panel-head">
           <h3>修好学习引擎</h3>
-          <div aria-label="代码编辑模式" class="logistic-regression-segmented" role="group">
-            <Button
-              aria-pressed={mode() === "guided" ? "true" : "false"}
-              class={mode() === "guided" ? "is-active" : ""}
-              onClick={() => setMode("guided")}
-              type="button"
-            >
-              填空引导
-            </Button>
-            <Button
-              aria-pressed={mode() === "free" ? "true" : "false"}
-              class={mode() === "free" ? "is-active" : ""}
-              onClick={() => setMode("free")}
-              type="button"
-            >
-              自由手写
-            </Button>
-          </div>
+          <SegmentedPicker
+            class="logistic-regression-segmented"
+            label="代码编辑模式"
+            onChange={setMode}
+            options={[
+              { value: "guided", label: "填空引导" },
+              { value: "free", label: "自由手写" },
+            ]}
+            value={mode()}
+          />
         </div>
         <p class="logistic-regression-data-guide">
           每条短信先预测一次；η=0.1、20 轮、固定训练数据。更新范围只允许简单算式，不会执行 Python

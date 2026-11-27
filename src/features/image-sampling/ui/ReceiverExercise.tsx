@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
 import { imageFromLists, imageToRows, inkCount, type BinaryImage } from "../domain/bitmap.ts";
 import { cellRegion } from "../domain/downsample.ts";
 import {
@@ -41,8 +42,7 @@ function RowComparison(props: { grids: LabeledGrid[]; size: number }) {
   const rowIndices = createMemo(() => Array.from({ length: props.size }, (_, row) => row));
 
   return (
-    <details class="receiver-row-comparison">
-      <summary>按行查看 0/1</summary>
+    <Disclosure class="receiver-row-comparison" summary="按行查看 0/1">
       <div aria-labelledby={captionId} class="receiver-table-scroll" role="region" tabindex={0}>
         <table class="receiver-row-table">
           <caption id={captionId}>各行格值（从左到右）</caption>
@@ -70,7 +70,7 @@ function RowComparison(props: { grids: LabeledGrid[]; size: number }) {
           </tbody>
         </table>
       </div>
-    </details>
+    </Disclosure>
   );
 }
 

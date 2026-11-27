@@ -9,7 +9,9 @@
  */
 
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { Icon } from "../../../shared/ui/Icon";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import {
   AI_MODEL_ID,
@@ -60,13 +62,18 @@ function OrderRow(props: { outcome: AiOrderOutcome }) {
       ] as const,
   );
   return (
-    <details class="ai-order">
-      <summary>
-        <b>{props.outcome.id}</b> · {props.outcome.request}
-        <span class={props.outcome.correct ? "ai-mark ok" : "ai-mark bad"}>
-          {props.outcome.correct ? "✓ 记对" : "✗ 记错"}
-        </span>
-      </summary>
+    <Disclosure
+      class="ai-order"
+      summary={
+        <>
+          <b>{props.outcome.id}</b> · {props.outcome.request}
+          <span class={props.outcome.correct ? "ai-mark ok" : "ai-mark bad"}>
+            <Icon name={props.outcome.correct ? "check" : "x"} size={12} />{" "}
+            {props.outcome.correct ? "记对" : "记错"}
+          </span>
+        </>
+      }
+    >
       <div class="ai-order-body">
         <p>
           AI 猜：{ticketText(prediction().ticket)}（相似度 {fmt(prediction().similarity)}，差距{" "}
@@ -129,7 +136,7 @@ function OrderRow(props: { outcome: AiOrderOutcome }) {
           </tbody>
         </table>
       </div>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -146,14 +153,11 @@ export function AiIntakePocPage() {
   const [outcomes, setOutcomes] = createSignal<AiOrderOutcome[] | null>(null);
   const [timing, setTiming] = createSignal<{ embedMs: number; totalMs: number } | null>(null);
 
-  createEffect(
-    () => 0,
-    () => {
-      warmPyodide();
-      // Debug handle for offline scoring experiments (dev route only).
-      (window as unknown as { __aiEmbed: typeof embedTexts }).__aiEmbed = embedTexts;
-    },
-  );
+  onSettled(() => {
+    warmPyodide();
+    // Debug handle for offline scoring experiments (dev route only).
+    (window as unknown as { __aiEmbed: typeof embedTexts }).__aiEmbed = embedTexts;
+  });
 
   const load = async () => {
     setModelStatus("loading");

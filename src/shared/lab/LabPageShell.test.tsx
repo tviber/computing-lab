@@ -100,7 +100,7 @@ describe("LabPageShell", () => {
 
     const resetBtn = await screen.findByRole("button", { name: "重置进度" });
     await user.click(resetBtn);
-    expect(screen.getByRole("dialog", { name: "重置实验进度" })).toBeInTheDocument();
+    expect(screen.getByRole("alertdialog", { name: "重置实验进度" })).toBeInTheDocument();
     expect(screen.getByText("清除本关及依赖它的后续关卡记录，保留不受影响的关卡。")).toBeVisible();
     await user.click(screen.getByRole("button", { name: "取消" }));
     expect(onReset).not.toHaveBeenCalled();

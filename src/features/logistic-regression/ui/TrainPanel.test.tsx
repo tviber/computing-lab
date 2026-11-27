@@ -42,10 +42,14 @@ describe("TrainPanel deferred parameter consistency", () => {
     render(() => <Harness />);
     expect(screen.getByRole("button", { name: "提交第 4 关判定" })).toBeEnabled();
 
-    fireEvent.click(screen.getByRole("button", { name: "较大 η = 0.8" }));
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "学习率预设" })).getByRole("radio", {
+        name: "较大 η = 0.8",
+      }),
+    );
     flush();
 
-    expect(screen.getByRole("status")).toHaveTextContent("正在按新参数重新计算");
+    expect(screen.getByText("正在按新参数重新计算…")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "正在重新计算…" })).toBeDisabled();
 
     fireEvent.click(screen.getByRole("button", { name: "记录当前结果作对照" }));

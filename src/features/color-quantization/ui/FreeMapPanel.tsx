@@ -18,7 +18,7 @@ import { runMapAll } from "./pyodideRunner.ts";
 const STARTER = `def map_color(r, g, b):
     # 返回墨粉编号: 0=black 1=red 2=orange 3=yellow 4=green 5=cyan 6=blue 7=magenta
     # 本关粉盒固定: 只能返回 1(red) 2(orange) 4(green) 6(blue), 或 -1 留白(纸色)
-    # 默认规则是"落到最近的已装粉"——你可以改写它, 但最多改 4 条
+    # 默认规则是"落到最近的已装粉"; 你可以改写它, 但最多改 4 条
     # 可用的辅助: nearest_toner(r, g, b, toners), TONERS, PALETTE, PAPER
     best = -1
     best_d = (r - PAPER[0])**2 + (g - PAPER[1])**2 + (b - PAPER[2])**2
@@ -77,7 +77,7 @@ export function FreeMapPanel(props: {
       if (disallowed.length) {
         throw new Error(
           `粉盒里只装了 ${fixedLoadout.map((i) => TONER_RACK[i].name).join("、")}` +
-            `——不能映射到 ${TONER_RACK[disallowed[0]].name}。`,
+            `不能映射到 ${TONER_RACK[disallowed[0]].name}。`,
         );
       }
       props.onTable(next);
@@ -125,7 +125,7 @@ export function FreeMapPanel(props: {
       <Show when={helperFailed()}>
         <p class="quant-helper-warn" role="note">
           <Icon name="warning" size={13} /> 你在第 1 关写的 <code>nearest_toner</code>{" "}
-          有错误，这次运行用的是内置参考版本—— 回去修好它，这里才会真正调用你的规则。
+          有错误，这次运行用的是内置参考版本。回去修好它，这里才会真正调用你的规则。
         </p>
       </Show>
       <Show when={error()}>
