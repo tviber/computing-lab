@@ -57,11 +57,12 @@ test("local statistics draft survives reload, passes and unlocks, then resets", 
   await expect(next).toBeDisabled();
   await moveSlider(page.getByRole("slider", { name: /斜率 w/ }), 3.2);
   await moveSlider(page.getByRole("slider", { name: /截距 b/ }), -22);
-  await page.getByRole("radio", { name: /正误差和负误差/ }).check();
+  await page.getByRole("button", { name: /正误差和负误差/ }).click();
+  await expect(page.getByText(/平方后所有误差都变成非负数/)).toBeVisible();
   await expect(page.getByText("已保存", { exact: true })).toBeVisible();
   await page.reload();
   await expect(page.getByRole("slider", { name: /斜率 w/ })).toHaveValue("3.2");
-  await expect(page.getByRole("radio", { name: /正误差和负误差/ })).toBeChecked();
+  await expect(page.getByText(/平方后所有误差都变成非负数/)).toBeVisible();
   await page.getByRole("button", { name: "提交检查本关" }).click();
   await expect(next).toBeEnabled();
   await page.reload();
