@@ -4,7 +4,8 @@
  * so the parent refetches.
  */
 
-import { useState, type FormEvent } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createSignal, For, Show } from "solid-js";
 import { api, describeApiError, API_ERROR_MESSAGES } from "../../shared/api/client";
 import type { AccountRole } from "../../shared/auth";
 import type { AdminClass, ImportSummary } from "./AdminTypes";
@@ -13,34 +14,28 @@ function rowErrorText(code: string | undefined): string {
   return code ? (API_ERROR_MESSAGES[code] ?? code) : "";
 }
 
-export function CreateAccountForm({
-  classes,
-  onCreated,
-}: {
-  classes: AdminClass[];
-  onCreated: () => void;
-}) {
-  const [studentNo, setStudentNo] = useState("");
-  const [name, setName] = useState("");
-  const [password, setPassword] = useState("");
-  const [role, setRole] = useState<AccountRole>("user");
-  const [classId, setClassId] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+export function CreateAccountForm(props: { classes: AdminClass[]; onCreated: () => void }) {
+  const [studentNo, setStudentNo] = createSignal("");
+  const [name, setName] = createSignal("");
+  const [password, setPassword] = createSignal("");
+  const [role, setRole] = createSignal<AccountRole>("user");
+  const [classId, setClassId] = createSignal("");
+  const [error, setError] = createSignal<string | null>(null);
+  const [success, setSuccess] = createSignal<string | null>(null);
+  const [busy, setBusy] = createSignal(false);
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
     setError(null);
     setSuccess(null);
     setBusy(true);
     try {
       await api.post("/api/admin/users", {
-        studentNo,
-        name,
-        password,
-        role,
-        classId: classId || undefined,
+        studentNo: studentNo(),
+        name: name(),
+        password: password(),
+        role: role(),
+        classId: classId() || undefined,
       });
       setStudentNo("");
       setName("");
@@ -48,7 +43,7 @@ export function CreateAccountForm({
       setRole("user");
       setClassId("");
       setSuccess("账号已创建。");
-      onCreated();
+      props.onCreated();
     } catch (caught) {
       setError(describeApiError(caught));
     } finally {
@@ -59,83 +54,92 @@ export function CreateAccountForm({
   return (
     <form
       aria-labelledby="create-account-title"
-      className="profile-form admin-create-account-form"
-      onSubmit={onSubmit}
+      class="profile-form admin-create-account-form"
+      onSubmit={(event) => void onSubmit(event)}
     >
       <label>
         学号
         <input
-          autoComplete="off"
+          autocomplete="off"
           name="studentNo"
-          onChange={(e) => setStudentNo(e.target.value)}
+          onInput={(e) => setStudentNo(e.currentTarget.value)}
           required
-          value={studentNo}
+          value={studentNo()}
         />
       </label>
       <label>
         姓名
         <input
-          autoComplete="off"
+          autocomplete="off"
           name="name"
-          onChange={(e) => setName(e.target.value)}
+          onInput={(e) => setName(e.currentTarget.value)}
           required
-          value={name}
+          value={name()}
         />
       </label>
       <label>
         初始密码
         <input
-          autoComplete="off"
+          autocomplete="off"
           name="password"
-          onChange={(e) => setPassword(e.target.value)}
+          onInput={(e) => setPassword(e.currentTarget.value)}
           required
-          value={password}
+          value={password()}
         />
       </label>
-      <label className="field-select field-select-native">
+      <label class="field-select field-select-native">
         <span>角色</span>
-        <select name="role" onChange={(e) => setRole(e.target.value as AccountRole)} value={role}>
+        <select
+          name="role"
+          onChange={(e) => setRole(e.currentTarget.value as AccountRole)}
+          value={role()}
+        >
           <option value="user">学生</option>
           <option value="teacher">教师</option>
           <option value="admin">管理员</option>
         </select>
       </label>
-      <label className="field-select field-select-native admin-class-field">
+      <label class="field-select field-select-native admin-class-field">
         <span>分配班级（可选）</span>
-        <select name="classId" onChange={(e) => setClassId(e.target.value)} value={classId}>
+        <select
+          name="classId"
+          onChange={(e) => setClassId(e.currentTarget.value)}
+          value={classId()}
+        >
           <option value="">不分配</option>
-          {classes.map((klass) => (
-            <option key={klass.id} value={klass.id}>
-              {klass.name}
-            </option>
-          ))}
+          <For each={props.classes}>
+            {(klass) => <option value={klass.id}>{klass.name}</option>}
+          </For>
         </select>
       </label>
-      {error ? (
-        <p className="auth-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {success ? (
-        <p className="profile-success" role="status">
-          {success}
-        </p>
-      ) : null}
-      <button className="button button-primary" disabled={busy} type="submit">
-        {busy ? "创建中…" : "创建账号"}
-      </button>
+      <Show when={error()}>
+        {(msg) => (
+          <p class="auth-error" role="alert">
+            {msg()}
+          </p>
+        )}
+      </Show>
+      <Show when={success()}>
+        {(msg) => (
+          <p class="profile-success" role="status">
+            {msg()}
+          </p>
+        )}
+      </Show>
+      <Button class="button button-primary" disabled={busy()} type="submit">
+        {busy() ? "创建中…" : "创建账号"}
+      </Button>
     </form>
   );
 }
 
-export function ImportPanel({ onImported }: { onImported: () => void }) {
-  const [text, setText] = useState("");
-  const [summary, setSummary] = useState<ImportSummary | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
-
-  const [reading, setReading] = useState(false);
-  const [fileName, setFileName] = useState("");
+export function ImportPanel(props: { onImported: () => void }) {
+  const [text, setText] = createSignal("");
+  const [summary, setSummary] = createSignal<ImportSummary | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
+  const [busy, setBusy] = createSignal(false);
+  const [reading, setReading] = createSignal(false);
+  const [fileName, setFileName] = createSignal("");
 
   const onFile = async (file: File | undefined) => {
     if (!file) return;
@@ -152,11 +156,11 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
     }
   };
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
     setError(null);
     setSummary(null);
-    const trimmed = text.trim();
+    const trimmed = text().trim();
     if (!trimmed) {
       setError("请先粘贴名单或选择 CSV 文件。");
       return;
@@ -176,7 +180,7 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
     try {
       const result = await api.post<ImportSummary>("/api/admin/users/import", payload);
       setSummary(result);
-      onImported();
+      props.onImported();
     } catch (caught) {
       setError(describeApiError(caught));
     } finally {
@@ -185,20 +189,24 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
   };
 
   return (
-    <form aria-labelledby="import-title" className="admin-import-form" onSubmit={onSubmit}>
-      <div className="admin-import-editor">
-        <div className="admin-import-toolbar">
-          <label htmlFor="admin-import-text">账号名单</label>
-          <label className="admin-file-picker button button-secondary">
+    <form
+      aria-labelledby="import-title"
+      class="admin-import-form"
+      onSubmit={(event) => void onSubmit(event)}
+    >
+      <div class="admin-import-editor">
+        <div class="admin-import-toolbar">
+          <label for="admin-import-text">账号名单</label>
+          <label class="admin-file-picker button button-secondary">
             选择 CSV 文件
             <input
-              className="sr-only"
               accept=".csv,text/csv,text/plain"
-              disabled={reading || busy}
+              class="sr-only"
+              disabled={reading() || busy()}
               name="importFile"
               onChange={(event) => {
-                const file = event.target.files?.[0];
-                event.target.value = "";
+                const file = event.currentTarget.files?.[0];
+                event.currentTarget.value = "";
                 void onFile(file);
               }}
               type="file"
@@ -206,25 +214,25 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
           </label>
         </div>
         <textarea
-          id="admin-import-text"
           aria-describedby="admin-import-hint"
-          className="admin-import-text"
+          class="admin-import-text"
+          id="admin-import-text"
           name="importText"
-          readOnly={reading || busy}
-          spellCheck={false}
-          onChange={(event) => {
-            setText(event.target.value);
+          onInput={(event) => {
+            setText(event.currentTarget.value);
             setSummary(null);
             setError(null);
             setFileName("");
           }}
           placeholder={"20260101,张三,pass123\n20260102,李四,pass456,学生,CLASS26"}
+          readonly={reading() || busy()}
           rows={5}
-          value={text}
+          spellcheck={false}
+          value={text()}
         />
       </div>
       <p id="admin-import-hint">粘贴 CSV 或 JSON 数组，也可选择 CSV 文件后在上方核对。</p>
-      <details className="admin-import-guide">
+      <details class="admin-import-guide">
         <summary>查看名单格式</summary>
         <p>
           CSV
@@ -233,75 +241,84 @@ export function ImportPanel({ onImported }: { onImported: () => void }) {
         <p>JSON 示例</p>
         <code>{'[{"studentNo":"20260101","name":"张三","password":"pass123"}]'}</code>
       </details>
-      <div className="admin-import-actions">
-        <button
-          className="button button-primary"
-          disabled={busy || reading || !text.trim()}
+      <div class="admin-import-actions">
+        <Button
+          class="button button-primary"
+          disabled={busy() || reading() || !text().trim()}
           type="submit"
         >
-          {busy ? "导入中…" : "开始导入"}
-        </button>
+          {busy() ? "导入中…" : "开始导入"}
+        </Button>
         <span role="status">
-          {reading ? "正在读取文件…" : fileName ? `已读取 ${fileName}` : ""}
+          {reading() ? "正在读取文件…" : fileName() ? `已读取 ${fileName()}` : ""}
         </span>
       </div>
-      {error ? (
-        <p className="auth-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {summary ? (
-        <section className="admin-import-result" aria-label="导入结果">
-          <h3>导入结果</h3>
-          <p role="status">
-            新建 {summary.created} 个，已存在 {summary.exists} 个，失败 {summary.failed} 个。
+      <Show when={error()}>
+        {(msg) => (
+          <p class="auth-error" role="alert">
+            {msg()}
           </p>
-          {summary.rows.some((row) => row.status !== "created") ? (
-            <table aria-label="未创建的账号" className="admin-import-table">
-              <thead>
-                <tr>
-                  <th scope="col">行</th>
-                  <th scope="col">学号</th>
-                  <th scope="col">结果</th>
-                </tr>
-              </thead>
-              <tbody>
-                {summary.rows
-                  .filter((row) => row.status !== "created")
-                  .map((row) => (
-                    <tr key={row.line}>
-                      <td>{row.line}</td>
-                      <td>{row.studentNo || "—"}</td>
-                      <td>{row.status === "exists" ? "已存在，跳过" : rowErrorText(row.error)}</td>
+        )}
+      </Show>
+      <Show when={summary()}>
+        {(result) => {
+          const failedRows = () => result().rows.filter((row) => row.status !== "created");
+          return (
+            <section aria-label="导入结果" class="admin-import-result">
+              <h3>导入结果</h3>
+              <p role="status">
+                新建 {result().created} 个，已存在 {result().exists} 个，失败 {result().failed} 个。
+              </p>
+              <Show when={failedRows().length > 0}>
+                <table aria-label="未创建的账号" class="admin-import-table">
+                  <thead>
+                    <tr>
+                      <th scope="col">行</th>
+                      <th scope="col">学号</th>
+                      <th scope="col">结果</th>
                     </tr>
-                  ))}
-              </tbody>
-            </table>
-          ) : null}
-        </section>
-      ) : null}
+                  </thead>
+                  <tbody>
+                    <For each={failedRows()}>
+                      {(row) => (
+                        <tr>
+                          <td>{row.line}</td>
+                          <td>{row.studentNo || "—"}</td>
+                          <td>
+                            {row.status === "exists" ? "已存在，跳过" : rowErrorText(row.error)}
+                          </td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </Show>
+            </section>
+          );
+        }}
+      </Show>
     </form>
   );
 }
 
-export function CreateClassForm({ onCreated }: { onCreated: () => void }) {
-  const [name, setName] = useState("");
-  const [inviteCode, setInviteCode] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+export function CreateClassForm(props: { onCreated: () => void }) {
+  const [name, setName] = createSignal("");
+  const [inviteCode, setInviteCode] = createSignal("");
+  const [error, setError] = createSignal<string | null>(null);
+  const [busy, setBusy] = createSignal(false);
 
-  const onSubmit = async (event: FormEvent<HTMLFormElement>) => {
+  const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
     setError(null);
     setBusy(true);
     try {
       await api.post("/api/admin/classes", {
-        name,
-        inviteCode: inviteCode || undefined,
+        name: name(),
+        inviteCode: inviteCode() || undefined,
       });
       setName("");
       setInviteCode("");
-      onCreated();
+      props.onCreated();
     } catch (caught) {
       setError(describeApiError(caught));
     } finally {
@@ -310,28 +327,35 @@ export function CreateClassForm({ onCreated }: { onCreated: () => void }) {
   };
 
   return (
-    <form className="admin-class-form" onSubmit={onSubmit}>
+    <form class="admin-class-form" onSubmit={(event) => void onSubmit(event)}>
       <label>
         班级名称
-        <input name="className" onChange={(e) => setName(e.target.value)} required value={name} />
+        <input
+          name="className"
+          onInput={(e) => setName(e.currentTarget.value)}
+          required
+          value={name()}
+        />
       </label>
       <label>
         邀请码（可选）
         <input
           name="inviteCode"
-          onChange={(e) => setInviteCode(e.target.value)}
+          onInput={(e) => setInviteCode(e.currentTarget.value)}
           placeholder="留空自动生成"
-          value={inviteCode}
+          value={inviteCode()}
         />
       </label>
-      <button className="button button-secondary" disabled={busy} type="submit">
-        {busy ? "创建中…" : "新建班级"}
-      </button>
-      {error ? (
-        <p className="auth-error" role="alert">
-          {error}
-        </p>
-      ) : null}
+      <Button class="button button-secondary" disabled={busy()} type="submit">
+        {busy() ? "创建中…" : "新建班级"}
+      </Button>
+      <Show when={error()}>
+        {(msg) => (
+          <p class="auth-error" role="alert">
+            {msg()}
+          </p>
+        )}
+      </Show>
     </form>
   );
 }

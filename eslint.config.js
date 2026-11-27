@@ -7,7 +7,7 @@ import tseslint from "typescript-eslint";
 const pureInfrastructureImports = {
   // Only saveStatus is a runtime dependency; infrastructure contracts stay type-only.
   regex:
-    "(?:^|/)shared/(?:api|auth|layout)(?:/|$)|(?:^|/)shared/lab(?:$|/(?!saveStatus(?:\\.ts)?$))",
+    "(?:^|/)shared/(?:api|auth|layout)(?:/|$)|(?:^|/)shared/lab(?:$|/(?!(?:saveStatus|judging)(?:\\.ts)?$))",
   allowTypeImports: true,
 };
 
@@ -15,6 +15,8 @@ export default tseslint.config(
   {
     ignores: [
       "dist",
+      "dist-classroom",
+      "dist-server",
       "node_modules",
       "coverage",
       // Gitignored local-only material (AGENTS.md) — not our code.
@@ -35,7 +37,6 @@ export default tseslint.config(
     },
     rules: {
       "@typescript-eslint/no-unused-vars": ["error", { argsIgnorePattern: "^_" }],
-      "react-refresh/only-export-components": "off",
     },
   },
   eslintPluginPrettier,
@@ -106,10 +107,27 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          paths: ["react", "react-dom", "@tanstack/react-router", ...builtinModules],
+          paths: [
+            "solid-js",
+            "@solidjs/web",
+            "@solidjs/router",
+            "@ui-sdk/solid",
+            "react",
+            "react-dom",
+            ...builtinModules,
+          ],
           patterns: [
             { group: ["node:*"] },
-            { group: ["react/**", "react-dom/**", "@tanstack/react-router/**"] },
+            {
+              group: [
+                "solid-js/**",
+                "@solidjs/web/**",
+                "@solidjs/router/**",
+                "@ui-sdk/solid/**",
+                "react/**",
+                "react-dom/**",
+              ],
+            },
             { group: ["**/server", "**/server/**", "**/preview", "**/preview/**"] },
             { group: ["**/ui/**"] },
             { group: ["**/app/**"] },
@@ -139,10 +157,27 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          paths: ["react", "react-dom", "@tanstack/react-router", ...builtinModules],
+          paths: [
+            "solid-js",
+            "@solidjs/web",
+            "@solidjs/router",
+            "@ui-sdk/solid",
+            "react",
+            "react-dom",
+            ...builtinModules,
+          ],
           patterns: [
             { group: ["node:*"] },
-            { group: ["react/**", "react-dom/**", "@tanstack/react-router/**"] },
+            {
+              group: [
+                "solid-js/**",
+                "@solidjs/web/**",
+                "@solidjs/router/**",
+                "@ui-sdk/solid/**",
+                "react/**",
+                "react-dom/**",
+              ],
+            },
             { group: ["**/server", "**/server/**", "**/preview", "**/preview/**"] },
             { group: ["**/app/**"] },
             { group: ["**/ui/**"] },
@@ -238,8 +273,19 @@ export default tseslint.config(
       "no-restricted-imports": [
         "error",
         {
-          paths: ["react", "react-dom"],
+          paths: [
+            "solid-js",
+            "@solidjs/web",
+            "@solidjs/router",
+            "@ui-sdk/solid",
+            "react",
+            "react-dom",
+          ],
           patterns: [
+            { group: ["solid-js/**"] },
+            { group: ["@solidjs/web/**"] },
+            { group: ["@solidjs/router/**"] },
+            { group: ["@ui-sdk/solid/**"] },
             { group: ["react/**"] },
             { group: ["react-dom/**"] },
             { group: ["**/ui/**"] },
@@ -247,8 +293,8 @@ export default tseslint.config(
             { group: ["**/preview/**"] },
             { group: ["**/shared/auth/**"] },
             // labMetadata is pure catalog data shared with the server; the rest
-            // of shared/lab holds React hooks/UI and stays off-limits here.
-            { regex: "(?:^|/)shared/lab(?:$|/(?!labMetadata(?:\\.ts)?$))" },
+            // of shared/lab holds SolidJS hooks/UI and stays off-limits here.
+            { regex: "(?:^|/)shared/lab(?:$|/(?!(?:labMetadata|judging)(?:\\.ts)?$))" },
           ],
         },
       ],

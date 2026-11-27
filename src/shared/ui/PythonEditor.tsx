@@ -1,9 +1,22 @@
-import { indentWithTab } from "@codemirror/commands";
+import { defaultKeymap, history, historyKeymap, indentWithTab } from "@codemirror/commands";
 import { python } from "@codemirror/lang-python";
-import { HighlightStyle, indentUnit, syntaxHighlighting } from "@codemirror/language";
-import { keymap } from "@codemirror/view";
+import {
+  bracketMatching,
+  HighlightStyle,
+  indentOnInput,
+  indentUnit,
+  syntaxHighlighting,
+} from "@codemirror/language";
+import { Compartment, EditorState } from "@codemirror/state";
+import {
+  drawSelection,
+  dropCursor,
+  EditorView,
+  highlightSpecialChars,
+  keymap,
+} from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import CodeMirror from "@uiw/react-codemirror";
+import { createEffect, untrack } from "solid-js";
 import "./pythonCode.css";
 
 const PYTHON_HIGHLIGHT_STYLE = HighlightStyle.define([
@@ -20,22 +33,20 @@ const PYTHON_HIGHLIGHT_STYLE = HighlightStyle.define([
   { tag: tags.invalid, color: "var(--danger-ink)", textDecoration: "underline wavy" },
 ]);
 
-const EDITOR_EXTENSIONS = [
+const BASE_EXTENSIONS = [
+  highlightSpecialChars(),
+  history(),
+  drawSelection(),
+  dropCursor(),
+  indentOnInput(),
+  bracketMatching(),
   python(),
   indentUnit.of("    "),
-  keymap.of([indentWithTab]),
+  keymap.of([indentWithTab, ...defaultKeymap, ...historyKeymap]),
   syntaxHighlighting(PYTHON_HIGHLIGHT_STYLE),
 ];
 
-export function PythonEditor({
-  ariaLabel,
-  ariaDescribedBy,
-  className,
-  editable = true,
-  height = "220px",
-  onChange,
-  value,
-}: {
+export function PythonEditor(props: {
   ariaLabel: string;
   ariaDescribedBy?: string;
   className?: string;
@@ -44,24 +55,102 @@ export function PythonEditor({
   onChange: (value: string) => void;
   value: string;
 }) {
+  let hostEl: HTMLDivElement | undefined;
+  let view: EditorView | undefined;
+  let syncingExternal = false;
+
+  const editableComp = new Compartment();
+  const contentAttrsComp = new Compartment();
+  const themeComp = new Compartment();
+
+  const buildContentAttrs = (label: string, describedBy: string | undefined) => {
+    const attrs: Record<string, string> = { "aria-label": label };
+    if (describedBy) attrs["aria-describedby"] = describedBy;
+    return EditorView.contentAttributes.of(attrs);
+  };
+
+  const buildTheme = (height: string) =>
+    EditorView.theme({
+      "&": { height, backgroundColor: "#ffffff" },
+      ".cm-scroller": { overflow: "auto" },
+    });
+
+  createEffect(
+    () => 0,
+    () => {
+      if (!hostEl) return;
+      const initial = untrack(() => ({
+        value: props.value,
+        editable: props.editable ?? true,
+        ariaLabel: props.ariaLabel,
+        ariaDescribedBy: props.ariaDescribedBy,
+        height: props.height ?? "220px",
+      }));
+      const state = EditorState.create({
+        doc: initial.value,
+        extensions: [
+          ...BASE_EXTENSIONS,
+          editableComp.of(EditorView.editable.of(initial.editable)),
+          contentAttrsComp.of(buildContentAttrs(initial.ariaLabel, initial.ariaDescribedBy)),
+          themeComp.of(buildTheme(initial.height)),
+          EditorView.updateListener.of((update) => {
+            if (!update.docChanged || syncingExternal) return;
+            props.onChange(update.state.doc.toString());
+          }),
+        ],
+      });
+      view = new EditorView({ state, parent: hostEl });
+      return () => {
+        view?.destroy();
+        view = undefined;
+      };
+    },
+  );
+
+  createEffect(
+    () => props.value,
+    (next) => {
+      if (!view) return;
+      const current = view.state.doc.toString();
+      if (current === next) return;
+      syncingExternal = true;
+      try {
+        view.dispatch({ changes: { from: 0, to: current.length, insert: next } });
+      } finally {
+        syncingExternal = false;
+      }
+    },
+  );
+
+  createEffect(
+    () => props.editable ?? true,
+    (editable) => {
+      view?.dispatch({ effects: editableComp.reconfigure(EditorView.editable.of(editable)) });
+    },
+  );
+
+  createEffect(
+    () => [props.ariaLabel, props.ariaDescribedBy] as const,
+    ([label, describedBy]) => {
+      view?.dispatch({
+        effects: contentAttrsComp.reconfigure(buildContentAttrs(label, describedBy)),
+      });
+    },
+  );
+
+  createEffect(
+    () => props.height ?? "220px",
+    (height) => {
+      view?.dispatch({ effects: themeComp.reconfigure(buildTheme(height)) });
+    },
+  );
+
   return (
-    <CodeMirror
-      aria-describedby={ariaDescribedBy}
-      aria-label={ariaLabel}
-      basicSetup={{
-        lineNumbers: false,
-        foldGutter: false,
-        highlightActiveLine: false,
-        highlightActiveLineGutter: false,
-        autocompletion: false,
+    <div
+      class={`python-editor${props.className ? ` ${props.className}` : ""}`}
+      ref={(el) => {
+        hostEl = el;
       }}
-      className={`python-editor${className ? ` ${className}` : ""}`}
-      editable={editable}
-      extensions={EDITOR_EXTENSIONS}
-      height={height}
-      onChange={onChange}
-      theme="light"
-      value={value}
     />
   );
 }

@@ -6,7 +6,7 @@
  * and compares the artifact against its own reference decode.
  */
 
-import type { LabProjectPayload } from "../../../shared/api/client.ts";
+import type { LabProjectPayload } from "../../../shared/lab/contracts.ts";
 import type { PixelMatrix } from "./bmp.ts";
 
 export type DecoderChoice = "text" | "image";

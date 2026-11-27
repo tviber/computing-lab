@@ -5,7 +5,7 @@
  * simulation. Images live in public/assets/lunch-shift/.
  */
 
-import { useEffect, useRef } from "react";
+import { createEffect } from "solid-js";
 import type { OrderResult, RunSummary } from "../domain/contracts.ts";
 
 const BASE = "/assets/lunch-shift";
@@ -186,156 +186,165 @@ function sharedImages(): Loaded {
   return cachedImages;
 }
 
-export function SimMap({ run, tick }: { run: RunSummary; tick: number }) {
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const tickRef = useRef(tick);
-  tickRef.current = tick;
+export function SimMap(props: { run: RunSummary; tick: number }) {
+  let canvasEl: HTMLCanvasElement | undefined;
+  let latestTick = 0;
 
-  useEffect(() => {
-    const canvas = canvasRef.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
+  createEffect(
+    () => props.tick,
+    (tick) => {
+      latestTick = tick;
+    },
+  );
 
-    const img = sharedImages();
+  createEffect(
+    () => props.run,
+    (run) => {
+      const canvas = canvasEl;
+      const ctx = canvas?.getContext("2d");
+      if (!canvas || !ctx) return;
 
-    const timeline = buildTimeline(run);
-    const queuePicks = run.picks ?? [];
-    // A wrong ticket only flashes red from the tick where intake recorded
-    // it — before that, the map must not reveal the outcome early.
-    const events = run.events ?? [];
-    const flashFrom = new Map<string, number>();
-    for (const order of run.orders) {
-      if (order.correct !== false) continue;
-      const reveal =
-        events.find(
-          (event) =>
-            event.orderId === order.id && (event.action === "ticket" || event.action === "held"),
-        ) ?? events.find((event) => event.orderId === order.id);
-      flashFrom.set(order.id, reveal?.tick ?? 0);
-    }
-    const flashes = (id: string, tick: number) =>
-      tick >= (flashFrom.get(id) ?? Infinity) ? performance.now() / 300 : undefined;
-    let raf = 0;
-    let alive = true;
+      const img = sharedImages();
 
-    const draw = (tick: number) => {
-      ctx.clearRect(0, 0, W, H);
-      if (img.map.complete && img.map.naturalWidth) {
-        ctx.drawImage(img.map, 0, 0, W, H);
-      } else {
-        ctx.fillStyle = "#f3ead9";
-        ctx.fillRect(0, 0, W, H);
+      const timeline = buildTimeline(run);
+      const queuePicks = run.picks ?? [];
+      // A wrong ticket only flashes red from the tick where intake recorded
+      // it — before that, the map must not reveal the outcome early.
+      const events = run.events ?? [];
+      const flashFrom = new Map<string, number>();
+      for (const order of run.orders) {
+        if (order.correct !== false) continue;
+        const reveal =
+          events.find(
+            (event) =>
+              event.orderId === order.id && (event.action === "ticket" || event.action === "held"),
+          ) ?? events.find((event) => event.orderId === order.id);
+        flashFrom.set(order.id, reveal?.tick ?? 0);
       }
+      const flashes = (id: string, tick: number) =>
+        tick >= (flashFrom.get(id) ?? Infinity) ? performance.now() / 300 : undefined;
+      let raf = 0;
+      let alive = true;
 
-      const lanes = lanesAt(run.orders, timeline, tick);
-      const frame = Math.floor(performance.now() / 220) % 4;
+      const draw = (tick: number) => {
+        ctx.clearRect(0, 0, W, H);
+        if (img.map.complete && img.map.naturalWidth) {
+          ctx.drawImage(img.map, 0, 0, W, H);
+        } else {
+          ctx.fillStyle = "#f3ead9";
+          ctx.fillRect(0, 0, W, H);
+        }
 
-      zoneBadge(ctx, "柜台 · 接单", Z.frontStaff.x - 60, 130);
-      zoneBadge(ctx, "厨房 · 灶台", Z.stoves[0].x - 20, 215);
-      zoneBadge(ctx, "出餐台 · 配送", Z.pass.x - 10, 285);
-      zoneBadge(ctx, "餐桌", Z.tables.x - 8, 105);
+        const lanes = lanesAt(run.orders, timeline, tick);
+        const frame = Math.floor(performance.now() / 220) % 4;
 
-      drawWhole(ctx, img.front, Z.frontStaff.x, Z.frontStaff.y, Z.frontStaff.w);
-      drawSprite(ctx, img.cook, Z.cook.x, Z.cook.y, Z.cook.w, lanes.stoves.length ? frame : 0);
-      const recentSend = lanes.tables.some((order) => {
-        const sent = timeline.get(order.id)?.send;
-        return sent !== undefined && tick >= sent && tick - sent <= 2;
-      });
-      drawSprite(ctx, img.runner, Z.runner.x, Z.runner.y, Z.runner.w, recentSend ? frame : 0);
+        zoneBadge(ctx, "柜台 · 接单", Z.frontStaff.x - 60, 130);
+        zoneBadge(ctx, "厨房 · 灶台", Z.stoves[0].x - 20, 215);
+        zoneBadge(ctx, "出餐台 · 配送", Z.pass.x - 10, 285);
+        zoneBadge(ctx, "餐桌", Z.tables.x - 8, 105);
 
-      if (lanes.queue.length) {
-        drawSprite(ctx, img.customer, Z.queueHead.x - 30, Z.queueHead.y - 60, 84, frame);
-      }
-      lanes.queue.forEach((order, i) =>
-        chip(ctx, img, order, Z.queueHead.x + 40, Z.queueHead.y - 40 + i * Z.queueSlot, {
-          flash: flashes(order.id, tick),
-        }),
-      );
-      lanes.held.forEach((order, i) =>
-        chip(ctx, img, order, Z.held.x + i * Z.held.dx, Z.held.y, {
-          held: true,
-          flash: flashes(order.id, tick),
-        }),
-      );
-      if (lanes.held.length) zoneBadge(ctx, "拦下的小票", Z.held.x, Z.held.y - 10);
-      lanes.kqueue.forEach((order, i) =>
-        chip(ctx, img, order, Z.kqueue.x, Z.kqueue.y + i * Z.kqueue.dy, {
-          flash: flashes(order.id, tick),
-        }),
-      );
-      lanes.stoves.forEach((order, i) => {
-        const slot = Z.stoves[i % Z.stoves.length];
-        chip(ctx, img, order, slot.x, slot.y, {
-          flash: flashes(order.id, tick),
+        drawWhole(ctx, img.front, Z.frontStaff.x, Z.frontStaff.y, Z.frontStaff.w);
+        drawSprite(ctx, img.cook, Z.cook.x, Z.cook.y, Z.cook.w, lanes.stoves.length ? frame : 0);
+        const recentSend = lanes.tables.some((order) => {
+          const sent = timeline.get(order.id)?.send;
+          return sent !== undefined && tick >= sent && tick - sent <= 2;
         });
-        ctx.fillStyle = YELLOW;
-        ctx.beginPath();
-        ctx.arc(slot.x + 8, slot.y + 8, 5 + (frame % 2), 0, Math.PI * 2);
-        ctx.fill();
-      });
-      lanes.pass.forEach((order, i) =>
-        chip(ctx, img, order, Z.pass.x + i * Z.pass.dx, Z.pass.y, {
-          flash: flashes(order.id, tick),
-        }),
-      );
-      lanes.tables.forEach((order, i) =>
-        chip(ctx, img, order, Z.tables.x, Z.tables.y + i * Z.tables.dy, {
-          alpha: 0.85,
-          flash: flashes(order.id, tick),
-        }),
-      );
+        drawSprite(ctx, img.runner, Z.runner.x, Z.runner.y, Z.runner.w, recentSend ? frame : 0);
 
-      const picks = queuePicks.filter((item) => item.tick === tick).slice(0, 2);
-      for (const pick of picks) {
-        const anchor = pick.stage === "kitchen" ? Z.stoves[0] : Z.pass;
-        const pickedValue = pick.candidates.find((c) => c.id === pick.picked)?.value;
-        const text =
-          pickedValue === null || pickedValue === undefined
-            ? `选 ${pick.picked}：先来先做`
-            : `选 ${pick.picked}：值 ${pickedValue} 最大`;
-        ctx.font = "11px sans-serif";
-        const wText = Math.min(ctx.measureText(text).width + 20, 300);
-        rr(ctx, anchor.x - 10, anchor.y - 46, wText, 26, 8);
-        ctx.fillStyle = "rgba(255,240,233,.96)";
-        ctx.fill();
-        ctx.strokeStyle = TOMATO;
-        ctx.stroke();
-        ctx.fillStyle = TOMATO;
-        ctx.fillText(text.length > 42 ? `${text.slice(0, 42)}…` : text, anchor.x, anchor.y - 28);
-      }
+        if (lanes.queue.length) {
+          drawSprite(ctx, img.customer, Z.queueHead.x - 30, Z.queueHead.y - 60, 84, frame);
+        }
+        lanes.queue.forEach((order, i) =>
+          chip(ctx, img, order, Z.queueHead.x + 40, Z.queueHead.y - 40 + i * Z.queueSlot, {
+            flash: flashes(order.id, tick),
+          }),
+        );
+        lanes.held.forEach((order, i) =>
+          chip(ctx, img, order, Z.held.x + i * Z.held.dx, Z.held.y, {
+            held: true,
+            flash: flashes(order.id, tick),
+          }),
+        );
+        if (lanes.held.length) zoneBadge(ctx, "拦下的小票", Z.held.x, Z.held.y - 10);
+        lanes.kqueue.forEach((order, i) =>
+          chip(ctx, img, order, Z.kqueue.x, Z.kqueue.y + i * Z.kqueue.dy, {
+            flash: flashes(order.id, tick),
+          }),
+        );
+        lanes.stoves.forEach((order, i) => {
+          const slot = Z.stoves[i % Z.stoves.length];
+          chip(ctx, img, order, slot.x, slot.y, {
+            flash: flashes(order.id, tick),
+          });
+          ctx.fillStyle = YELLOW;
+          ctx.beginPath();
+          ctx.arc(slot.x + 8, slot.y + 8, 5 + (frame % 2), 0, Math.PI * 2);
+          ctx.fill();
+        });
+        lanes.pass.forEach((order, i) =>
+          chip(ctx, img, order, Z.pass.x + i * Z.pass.dx, Z.pass.y, {
+            flash: flashes(order.id, tick),
+          }),
+        );
+        lanes.tables.forEach((order, i) =>
+          chip(ctx, img, order, Z.tables.x, Z.tables.y + i * Z.tables.dy, {
+            alpha: 0.85,
+            flash: flashes(order.id, tick),
+          }),
+        );
 
-      ctx.font = "600 11px sans-serif";
-      ctx.fillStyle = MUTED;
-      if (!tick) {
-        ctx.fillText("准备开始 — 按「播放」看订单流过三站", 20, H - 18);
-      } else if (
-        lanes.queue.length + lanes.kqueue.length + lanes.pass.length === 0 &&
-        lanes.tables.length < run.orders.length
-      ) {
-        ctx.fillText("各站等待队列或岗位空闲", 20, H - 18);
-      }
-    };
+        const picks = queuePicks.filter((item) => item.tick === tick).slice(0, 2);
+        for (const pick of picks) {
+          const anchor = pick.stage === "kitchen" ? Z.stoves[0] : Z.pass;
+          const pickedValue = pick.candidates.find((c) => c.id === pick.picked)?.value;
+          const text =
+            pickedValue === null || pickedValue === undefined
+              ? `选 ${pick.picked}：先来先做`
+              : `选 ${pick.picked}：值 ${pickedValue} 最大`;
+          ctx.font = "11px sans-serif";
+          const wText = Math.min(ctx.measureText(text).width + 20, 300);
+          rr(ctx, anchor.x - 10, anchor.y - 46, wText, 26, 8);
+          ctx.fillStyle = "rgba(255,240,233,.96)";
+          ctx.fill();
+          ctx.strokeStyle = TOMATO;
+          ctx.stroke();
+          ctx.fillStyle = TOMATO;
+          ctx.fillText(text.length > 42 ? `${text.slice(0, 42)}…` : text, anchor.x, anchor.y - 28);
+        }
 
-    const loop = () => {
-      if (!alive) return;
-      draw(tickRef.current);
-      raf = requestAnimationFrame(loop);
-    };
-    loop();
-    return () => {
-      alive = false;
-      cancelAnimationFrame(raf);
-    };
-    // Images and timeline rebuild only when the run changes; the loop
-    // reads the latest tick through tickRef.
-  }, [run]);
+        ctx.font = "600 11px sans-serif";
+        ctx.fillStyle = MUTED;
+        if (!tick) {
+          ctx.fillText("准备开始 — 按「播放」看订单流过三站", 20, H - 18);
+        } else if (
+          lanes.queue.length + lanes.kqueue.length + lanes.pass.length === 0 &&
+          lanes.tables.length < run.orders.length
+        ) {
+          ctx.fillText("各站等待队列或岗位空闲", 20, H - 18);
+        }
+      };
+
+      const loop = () => {
+        if (!alive) return;
+        draw(latestTick);
+        raf = requestAnimationFrame(loop);
+      };
+      loop();
+      return () => {
+        alive = false;
+        cancelAnimationFrame(raf);
+      };
+    },
+  );
 
   return (
     <canvas
       aria-label="餐馆俯视图：订单从柜台到厨房再到出餐的动画回放"
-      className="lunch-map-2d"
+      class="lunch-map-2d"
       height={H}
-      ref={canvasRef}
+      ref={(el) => {
+        canvasEl = el;
+      }}
       role="img"
       width={W}
     />

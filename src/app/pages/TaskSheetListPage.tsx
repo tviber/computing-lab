@@ -1,8 +1,26 @@
-import { Link, useNavigate } from "@tanstack/react-router";
-import { useCallback, useEffect, useState } from "react";
+import { useNavigate } from "@solidjs/router";
+import { Button } from "@ui-sdk/solid/button";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogTitle,
+} from "@ui-sdk/solid/dialog";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Match,
+  Show,
+  Switch,
+  untrack,
+} from "solid-js";
 import { api, describeApiError } from "../../shared/api/client";
 import { isStaffRole, useAuth } from "../../shared/auth";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
+import { AppLink } from "../../shared/ui/AppLink";
 import { Icon } from "../../shared/ui/Icon";
 import {
   TaskSheetPreview,
@@ -33,32 +51,32 @@ type PreviewState = {
   questions: PublicQuestion[];
 };
 
-function AssignDialog({
-  sheet,
-  onClose,
-}: {
-  sheet: SheetSummary;
-  onClose: (assigned: boolean) => void;
-}) {
-  const { session } = useAuth();
-  const classes = session?.memberships.filter((m) => m.role === "teacher") ?? [];
-  const [classId, setClassId] = useState(classes[0]?.classId ?? "");
-  const [title, setTitle] = useState(sheet.title);
-  const [dueAt, setDueAt] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+function AssignDialog(props: { sheet: SheetSummary; onClose: (assigned: boolean) => void }) {
+  const auth = useAuth();
+  const classes = createMemo(
+    () => auth.session?.memberships.filter((m) => m.role === "teacher") ?? [],
+  );
+  const [classId, setClassId] = createSignal(untrack(() => classes()[0]?.classId ?? ""));
+  const [title, setTitle] = createSignal(untrack(() => props.sheet.title));
+  const [dueAt, setDueAt] = createSignal("");
+  const [error, setError] = createSignal<string | null>(null);
+  const [busy, setBusy] = createSignal(false);
 
   const submit = () => {
-    if (!classId) return setError("请选择要布置的班级。");
+    const cid = classId();
+    if (!cid) {
+      setError("请选择要布置的班级。");
+      return;
+    }
     setBusy(true);
     setError(null);
     void api
-      .post(`/api/classes/${classId}/task-assignments`, {
-        sheetId: sheet.id,
-        title: title.trim() || sheet.title,
-        dueAt: dueAt ? new Date(dueAt).toISOString() : null,
+      .post(`/api/classes/${cid}/task-assignments`, {
+        sheetId: props.sheet.id,
+        title: title().trim() || props.sheet.title,
+        dueAt: dueAt() ? new Date(dueAt()).toISOString() : null,
       })
-      .then(() => onClose(true))
+      .then(() => props.onClose(true))
       .catch((caught) => {
         setError(describeApiError(caught));
         setBusy(false);
@@ -66,95 +84,109 @@ function AssignDialog({
   };
 
   return (
-    <div className="drawer-scrim" role="presentation" onClick={() => onClose(false)}>
-      <aside
-        aria-label={`布置「${sheet.title}」`}
-        className="drawer"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
+    <Dialog
+      onOpenChange={(next) => {
+        if (!next) props.onClose(false);
+      }}
+      open
+    >
+      <DialogBackdrop class="drawer-backdrop" />
+      <DialogContent aria-label={`布置「${props.sheet.title}」`} class="drawer assign-drawer">
         <header>
-          <p className="eyebrow">布置任务单</p>
-          <h2>{sheet.title}</h2>
-          <button
-            aria-label="关闭"
-            className="drawer-close"
-            onClick={() => onClose(false)}
-            type="button"
-          >
+          <p class="eyebrow">布置任务单</p>
+          <DialogTitle>{props.sheet.title}</DialogTitle>
+          <DialogClose aria-label="关闭" class="drawer-close" type="button">
             <Icon name="x" size={16} />
-          </button>
+          </DialogClose>
         </header>
 
-        <label className="field-select">
+        <label class="field-select">
           <span>班级</span>
-          <select onChange={(e) => setClassId(e.target.value)} value={classId}>
-            {classes.map((m) => (
-              <option key={m.classId} value={m.classId}>
-                {m.className}
-              </option>
-            ))}
+          <select onChange={(e) => setClassId(e.currentTarget.value)} value={classId()}>
+            <For each={classes()}>
+              {(m) => (
+                <option selected={m.classId === classId()} value={m.classId}>
+                  {m.className}
+                </option>
+              )}
+            </For>
           </select>
         </label>
 
-        <label className="ts-field">
+        <label class="ts-field">
           <span>任务标题（布置时可改）</span>
-          <input onChange={(e) => setTitle(e.target.value)} value={title} />
+          <input onInput={(e) => setTitle(e.currentTarget.value)} value={title()} />
         </label>
 
-        <label className="ts-field">
+        <label class="ts-field">
           <span>截止时间（可选）</span>
-          <input onChange={(e) => setDueAt(e.target.value)} type="datetime-local" value={dueAt} />
+          <input
+            onInput={(e) => setDueAt(e.currentTarget.value)}
+            type="datetime-local"
+            value={dueAt()}
+          />
         </label>
 
-        {error ? (
-          <p className="test-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {sheet.questionCount === 0 ? (
-          <p className="ts-hint ts-wrong">这份任务单还没有题目，先去编辑器添加题目。</p>
-        ) : null}
+        <Show when={error()}>
+          {(msg) => (
+            <p class="test-error" role="alert">
+              {msg()}
+            </p>
+          )}
+        </Show>
+        <Show when={props.sheet.questionCount === 0}>
+          <p class="ts-hint ts-wrong">这份任务单还没有题目，先去编辑器添加题目。</p>
+        </Show>
 
-        <button
-          className="button button-primary"
-          disabled={busy || sheet.questionCount === 0 || classes.length === 0}
+        <Button
+          class="button button-primary"
+          disabled={busy() || props.sheet.questionCount === 0 || classes().length === 0}
           onClick={submit}
           type="button"
         >
           布置给班级
-        </button>
-        <p className="drawer-note">布置会冻结当前题目快照——之后再改模板不影响这份任务。</p>
-      </aside>
-    </div>
+        </Button>
+        <p class="drawer-note">布置会冻结当前题目快照——之后再改模板不影响这份任务。</p>
+      </DialogContent>
+    </Dialog>
   );
 }
 
 export function TaskSheetListPage() {
-  const { status, role } = useAuth();
+  const auth = useAuth();
   const navigate = useNavigate();
-  const [sheets, setSheets] = useState<SheetSummary[]>([]);
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
-  const [assigning, setAssigning] = useState<SheetSummary | null>(null);
-  const [previewing, setPreviewing] = useState<PreviewState | null>(null);
-  const isAdmin = role === "admin";
+  const [sheets, setSheets] = createSignal<SheetSummary[]>([]);
+  const [error, setError] = createSignal<string | null>(null);
+  const [notice, setNotice] = createSignal<string | null>(null);
+  const [assigning, setAssigning] = createSignal<SheetSummary | null>(null);
+  const [previewing, setPreviewing] = createSignal<PreviewState | null>(null);
+  const [reloadTick, setReloadTick] = createSignal(0);
 
-  const load = useCallback(() => {
+  const isAdmin = createMemo(() => auth.role === "admin");
+  const load = () => setReloadTick((n) => n + 1);
+
+  const fetchKey = createMemo(() => (auth.status === "authenticated" ? String(reloadTick()) : ""));
+
+  createEffect(fetchKey, (key) => {
+    if (!key) return;
+    let active = true;
     void api
       .get<SheetPayload>("/api/task-sheets")
-      .then((p) => setSheets(p.sheets))
-      .catch((caught) => setError(describeApiError(caught)));
-  }, []);
-
-  useEffect(() => {
-    if (status === "authenticated") load();
-  }, [status, load]);
+      .then((p) => {
+        if (active) setSheets(p.sheets);
+      })
+      .catch((caught) => {
+        if (active) setError(describeApiError(caught));
+      });
+    return () => {
+      active = false;
+    };
+  });
 
   const createSheet = () => {
     void api
       .post<{ sheet: { id: string } }>("/api/task-sheets", { title: "未命名任务单" })
-      .then((p) => navigate({ to: "/tasks/$sheetId/edit", params: { sheetId: p.sheet.id } }))
+      .then((p) => navigate(`/tasks/${p.sheet.id}/edit`))
       .catch((caught) => setError(describeApiError(caught)));
   };
 
@@ -198,129 +230,136 @@ export function TaskSheetListPage() {
       .catch((caught) => setError(describeApiError(caught)));
   };
 
-  if (status === "loading") {
-    return (
-      <p className="home-loading" role="status">
-        正在载入…
-      </p>
-    );
-  }
-  if (status === "anonymous" || (role && !isStaffRole(role))) {
-    return (
-      <AppPageLayout className="dashboard-page">
-        <main className="not-found" role="status">
-          <p className="eyebrow">任务单 / 无权访问</p>
-          <h1>只有教师或管理员可以管理任务单</h1>
-        </main>
-      </AppPageLayout>
-    );
-  }
-
   return (
-    <AppPageLayout className="dashboard-page">
-      <main className="page-content">
-        <div className="dashboard-heading">
-          <div className="dashboard-heading-copy">
-            <p className="eyebrow">任务单</p>
-            <h1>我的任务单</h1>
-            <p>编辑题目模板，布置给班级，再到班级看板查阅提交。</p>
-          </div>
-          <button className="button button-primary" onClick={createSheet} type="button">
-            + 新建任务单
-          </button>
-        </div>
-
-        {error ? (
-          <p className="test-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-        {notice ? (
-          <p className="dashboard-note" role="status">
-            {notice}
-          </p>
-        ) : null}
-
-        <div className="ts-sheet-grid">
-          {sheets.map((sheet) => (
-            <article className="ts-sheet-card" key={sheet.id}>
-              <h3>
-                {sheet.title}{" "}
-                <span
-                  className={`ts-status-pill${sheet.status === "published" ? " is-published" : " is-draft"}`}
-                >
-                  {sheet.status === "published" ? "已发布" : "草稿"}
-                </span>
-              </h3>
-              <p className="ts-sheet-meta">
-                {sheet.questionCount} 题 · 布置 {sheet.assignmentCount} 次
-                {isAdmin ? ` · ${sheet.ownerName}` : ""} · 更新于 {sheet.updatedAt.slice(0, 10)}
-              </p>
-              <div className="ts-sheet-actions">
-                <button
-                  className="button button-secondary"
-                  onClick={() => setAssigning(sheet)}
-                  type="button"
-                >
-                  布置
-                </button>
-                <button
-                  className="button button-secondary"
-                  onClick={() => previewSheet(sheet)}
-                  type="button"
-                >
-                  预览
-                </button>
-                <Link
-                  className="button button-secondary"
-                  params={{ sheetId: sheet.id }}
-                  to="/tasks/$sheetId/edit"
-                >
-                  编辑
-                </Link>
-                <button
-                  className="button button-ghost"
-                  onClick={() => cloneSheet(sheet)}
-                  type="button"
-                >
-                  复制
-                </button>
-                <button
-                  className="button button-ghost"
-                  onClick={() => removeSheet(sheet)}
-                  type="button"
-                >
-                  删除
-                </button>
+    <Switch
+      fallback={
+        <AppPageLayout class="dashboard-page">
+          <main class="page-content">
+            <div class="dashboard-heading">
+              <div class="dashboard-heading-copy">
+                <p class="eyebrow">任务单</p>
+                <h1>我的任务单</h1>
+                <p>编辑题目模板，布置给班级，再到班级看板查阅提交。</p>
               </div>
-            </article>
-          ))}
-          {sheets.length === 0 ? (
-            <p className="ts-empty">还没有任务单——点右上角「新建任务单」开始出题。</p>
-          ) : null}
-        </div>
-      </main>
+              <Button class="button button-primary" onClick={createSheet} type="button">
+                + 新建任务单
+              </Button>
+            </div>
 
-      {assigning ? (
-        <AssignDialog
-          onClose={(assigned) => {
-            setAssigning(null);
-            if (assigned) {
-              setNotice("已布置——到班级看板的「任务」分类查看提交情况。");
-              load();
-            }
-          }}
-          sheet={assigning}
-        />
-      ) : null}
-      {previewing ? (
-        <TaskSheetPreview
-          description={previewing.description}
-          onClose={() => setPreviewing(null)}
-          questions={previewing.questions}
-          title={previewing.title}
-        />
-      ) : null}
-    </AppPageLayout>
+            <Show when={error()}>
+              {(msg) => (
+                <p class="test-error" role="alert">
+                  {msg()}
+                </p>
+              )}
+            </Show>
+            <Show when={notice()}>
+              {(msg) => (
+                <p class="dashboard-note" role="status">
+                  {msg()}
+                </p>
+              )}
+            </Show>
+
+            <div class="ts-sheet-grid">
+              <For each={sheets()}>
+                {(sheet) => (
+                  <article class="ts-sheet-card">
+                    <h3>
+                      {sheet.title}{" "}
+                      <span
+                        class={`ts-status-pill${sheet.status === "published" ? " is-published" : " is-draft"}`}
+                      >
+                        {sheet.status === "published" ? "已发布" : "草稿"}
+                      </span>
+                    </h3>
+                    <p class="ts-sheet-meta">
+                      {sheet.questionCount} 题 · 布置 {sheet.assignmentCount} 次
+                      {isAdmin() ? ` · ${sheet.ownerName}` : ""} · 更新于{" "}
+                      {sheet.updatedAt.slice(0, 10)}
+                    </p>
+                    <div class="ts-sheet-actions">
+                      <Button
+                        class="button button-secondary"
+                        onClick={() => setAssigning(sheet)}
+                        type="button"
+                      >
+                        布置
+                      </Button>
+                      <Button
+                        class="button button-secondary"
+                        onClick={() => previewSheet(sheet)}
+                        type="button"
+                      >
+                        预览
+                      </Button>
+                      <AppLink class="button button-secondary" href={`/tasks/${sheet.id}/edit`}>
+                        编辑
+                      </AppLink>
+                      <Button
+                        class="button button-ghost"
+                        onClick={() => cloneSheet(sheet)}
+                        type="button"
+                      >
+                        复制
+                      </Button>
+                      <Button
+                        class="button button-ghost"
+                        onClick={() => removeSheet(sheet)}
+                        type="button"
+                      >
+                        删除
+                      </Button>
+                    </div>
+                  </article>
+                )}
+              </For>
+              <Show when={sheets().length === 0}>
+                <p class="ts-empty">还没有任务单——点右上角「新建任务单」开始出题。</p>
+              </Show>
+            </div>
+          </main>
+
+          <Show keyed when={assigning()}>
+            {(sheet) => (
+              <AssignDialog
+                onClose={(assigned) => {
+                  setAssigning(null);
+                  if (assigned) {
+                    setNotice("已布置——到班级看板的「任务」分类查看提交情况。");
+                    load();
+                  }
+                }}
+                sheet={sheet}
+              />
+            )}
+          </Show>
+          <Show when={previewing()}>
+            {(preview) => (
+              <TaskSheetPreview
+                description={preview().description}
+                onClose={() => setPreviewing(null)}
+                questions={preview().questions}
+                title={preview().title}
+              />
+            )}
+          </Show>
+        </AppPageLayout>
+      }
+    >
+      <Match when={auth.status === "loading"}>
+        <p class="home-loading" role="status">
+          正在载入…
+        </p>
+      </Match>
+      <Match when={auth.status === "anonymous" || (auth.role && !isStaffRole(auth.role))}>
+        <AppPageLayout class="dashboard-page">
+          <main class="not-found" role="status">
+            <p class="eyebrow">任务单 / 无权访问</p>
+            <h1>只有教师或管理员可以管理任务单</h1>
+          </main>
+        </AppPageLayout>
+      </Match>
+    </Switch>
   );
 }

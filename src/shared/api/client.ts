@@ -8,18 +8,7 @@ export class ApiError extends Error {
   }
 }
 
-export type LabProjectPayload<TDraft> = {
-  labId: string;
-  currentStage: number;
-  passedStages: number[];
-  drafts: Record<string, TDraft>;
-  draftRevisions?: Record<string, number>;
-  projectGeneration?: number;
-  staffFreeNavigation?: boolean;
-};
-
-export type SaveStatus =
-  "idle" | "dirty" | "saving" | "saved" | "error" | "conflict" | "sync-error";
+export type { LabProjectPayload, SaveStatus } from "../lab/contracts";
 
 export const API_ERROR_MESSAGES: Record<string, string> = {
   "invalid-credentials": "学号或密码不正确。",

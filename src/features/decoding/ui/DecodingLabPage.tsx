@@ -9,9 +9,9 @@
  * in the browser's Pyodide worker.
  */
 
-import { useParams, useSearch } from "@tanstack/react-router";
-import { isStaffRole, useAuth } from "../../../shared/auth";
-import { SaveIndicator } from "../../../shared/lab/LabGate";
+import { useSearchParams } from "@solidjs/router";
+import { useLabRuntime } from "../../../shared/lab/runtime";
+import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
 import { labStageTitle } from "../../../shared/lab/labMetadata";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { useDecodingLabController } from "../controller/useDecodingLabController.ts";
@@ -19,43 +19,46 @@ import { DecodingWorkspace } from "./DecodingWorkspace.tsx";
 import "./decoding.css";
 
 export function DecodingLabPage() {
-  const { classId } = useParams({ from: "/classes/$classId/labs/decoding" });
-  const search = useSearch({ strict: false }) as Record<string, unknown>;
-  const { status, session, role } = useAuth();
-  const controller = useDecodingLabController({
-    classId,
-    ready: status === "authenticated",
-    userId: session?.user.id ?? "",
-    stageLink: search.stage,
-    staff: isStaffRole(role),
-  });
-  const { model } = controller;
+  const [searchParams] = useSearchParams();
+  const runtime = useLabRuntime();
+  const controller = useDecodingLabController(() => ({
+    scopeId: runtime.scopeId ?? "",
+    ready: runtime.ready,
+    userId: runtime.learnerId,
+    stageLink: searchParams.stage,
+    staff: runtime.freeNavigation,
+  }));
+
   return (
     <AppPageLayout
-      className="decoding-lab"
+      class="decoding-lab"
       topbar={
         <SaveIndicator
-          status={model.feedback.saveStatus}
-          unresolvedSyncConflict={model.feedback.unresolvedSyncConflict}
-          onRetrySync={controller.actions.retrySyncConflict}
-          onRestoreLocal={
-            model.feedback.conflictLocalAvailable
-              ? controller.actions.restoreConflictLocal
-              : undefined
-          }
           onDiscardLocal={
-            model.feedback.conflictLocalAvailable
+            controller.model.feedback.conflictLocalAvailable
               ? controller.actions.discardConflictLocal
               : undefined
           }
+          onRestoreLocal={
+            controller.model.feedback.conflictLocalAvailable
+              ? controller.actions.restoreConflictLocal
+              : undefined
+          }
+          onRetrySync={controller.actions.retrySyncConflict}
+          status={controller.model.feedback.saveStatus}
+          unresolvedSyncConflict={controller.model.feedback.unresolvedSyncConflict}
         />
       }
       topbarProps={{
-        subtitle: model.stage?.englishTitle,
-        title: labStageTitle("decoding", model.stage?.title),
+        subtitle: controller.model.stage?.englishTitle,
+        title: labStageTitle("decoding", controller.model.stage?.title),
       }}
     >
-      <DecodingWorkspace {...controller} />
+      <DecodingWorkspace
+        actions={controller.actions}
+        model={controller.model}
+        resetControls={controller.resetControls}
+      />
     </AppPageLayout>
   );
 }

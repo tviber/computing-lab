@@ -17,6 +17,7 @@
     "vitest.config.ts",
     "playwright.config.ts",
     "playwright.preview.config.ts",
+    "playwright.showcase.config.ts",
     "eslint.config.js"
   ]
 }

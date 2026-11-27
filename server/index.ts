@@ -35,7 +35,7 @@ import { labsRoutes } from "./routes/labs.ts";
 import { teacherRoutes } from "./routes/teacher.ts";
 
 const here = fileURLToPath(new URL(".", import.meta.url));
-const distRoot = resolve(here, "../dist");
+const distRoot = resolve(here, "../dist-classroom");
 
 const basePath = normalizeBasePath(process.env.VITE_BASE_PATH ?? process.env.BASE_PATH);
 
@@ -119,7 +119,7 @@ export function createServerApp(db: DatabaseSync) {
   return app;
 }
 
-const isMain = process.argv[1] && resolve(process.argv[1]) === resolve(here, "index.ts");
+const isMain = process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
 if (isMain) {
   const port = Number(process.env.LAB_PORT ?? 8788);
   const host = process.env.LAB_HOST ?? "0.0.0.0";

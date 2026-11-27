@@ -12,7 +12,8 @@
  * defined.
  */
 
-import { useMemo, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { PythonEditor } from "../../../shared/ui/PythonEditor";
 import { imageToLists } from "../domain/indexed.ts";
@@ -34,13 +35,7 @@ const STARTER = `def choose_toners(toners, palette, images, k):
     return [0, 1, 2, 3]
 `;
 
-export function ChooseTonersPanel({
-  stage,
-  code,
-  helperCode,
-  onCodeChange,
-  onToners,
-}: {
+export function ChooseTonersPanel(props: {
   stage: QuantStageDef;
   code: string;
   /** The student's stage-1 nearest_toner source; injected before each run. */
@@ -48,15 +43,14 @@ export function ChooseTonersPanel({
   onCodeChange: (code: string) => void;
   onToners: (toners: number[]) => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [applied, setApplied] = useState<string | null>(null);
-  const [helperFailed, setHelperFailed] = useState(false);
-  const [running, setRunning] = useState(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const [applied, setApplied] = createSignal<string | null>(null);
+  const [helperFailed, setHelperFailed] = createSignal(false);
+  const [running, setRunning] = createSignal(false);
 
-  const source = code.trim() ? code : STARTER;
-  const images = useMemo(
-    () => publicGalleryFor(stage.category).map((entry) => imageToLists(entry.image)),
-    [stage.category],
+  const source = () => (props.code.trim() ? props.code : STARTER);
+  const images = createMemo(() =>
+    publicGalleryFor(props.stage.category).map((entry) => imageToLists(entry.image)),
   );
 
   const run = async () => {
@@ -65,12 +59,12 @@ export function ChooseTonersPanel({
     setApplied(null);
     try {
       const { results, helperFailed: helperErr } = await runChooseToners(
-        source,
+        source(),
         TONER_RACK.map((t) => [...t.rgb]),
         SOURCE_COLORS.map((c) => [...c.rgb]),
-        images,
-        stage.tonerSlots ?? 4,
-        helperCode,
+        images(),
+        props.stage.tonerSlots ?? 4,
+        props.helperCode,
       );
       setHelperFailed(helperErr);
       const values = Array.isArray(results) ? results : [results];
@@ -81,7 +75,7 @@ export function ChooseTonersPanel({
       ) {
         throw new Error("choose_toners 需要返回一个墨粉编号列表（0～7）。");
       }
-      onToners(toners);
+      props.onToners(toners);
       setApplied(
         `choose_toners(...) → 装入 [${[...new Set(toners)].sort((a, b) => a - b).join(", ")}]`,
       );
@@ -93,14 +87,14 @@ export function ChooseTonersPanel({
   };
 
   return (
-    <section aria-labelledby="choose-toners-title" className="quant-panel">
+    <section aria-labelledby="choose-toners-title" class="quant-panel">
       <h3 id="choose-toners-title">把装粉策略写成代码（可选）</h3>
       <p>
         写一个 <code>choose_toners(toners, palette, images, k)</code> 函数：它会拿到粉架、
-        源色板和上面公开图库的全部 {images.length} 张图（64×64 的源色编号网格），
+        源色板和上面公开图库的全部 {images().length} 张图（64×64 的源色编号网格），
         由你的代码算出要装哪几种粉并填入上方——注意它对整个类别只返回一组选择。
       </p>
-      <p className="quant-helper-note">
+      <p class="quant-helper-note">
         可以直接调用的函数：<code>nearest_toner(r, g, b, toners)</code>（第 1 关你写的最近色规则）、
         <code>nn_table(subset)</code>（装这组粉时每个源色落到哪）、
         <code>quantize(image, table)</code>（按映射表打印一张图）。
@@ -109,31 +103,33 @@ export function ChooseTonersPanel({
         ariaLabel="choose_toners 代码"
         className="quant-editor"
         height="220px"
-        onChange={(value) => onCodeChange(value)}
-        value={source}
+        onChange={(value) => props.onCodeChange(value)}
+        value={source()}
       />
-      <div className="quant-actions">
-        <button
-          className="button button-secondary"
-          disabled={running}
+      <div class="quant-actions">
+        <Button
+          class="button button-secondary"
+          disabled={running()}
           onClick={() => void run()}
           type="button"
         >
-          {running ? "运行中…" : "运行并装入粉槽"}
-        </button>
-        {applied ? <span className="quant-badge is-pass">{applied}</span> : null}
+          {running() ? "运行中…" : "运行并装入粉槽"}
+        </Button>
+        <Show when={applied()}>{(msg) => <span class="quant-badge is-pass">{msg()}</span>}</Show>
       </div>
-      {helperFailed ? (
-        <p className="quant-helper-warn" role="note">
+      <Show when={helperFailed()}>
+        <p class="quant-helper-warn" role="note">
           <Icon name="warning" size={13} /> 你在第 1 关写的 <code>nearest_toner</code>{" "}
           有错误，这次运行用的是内置参考版本—— 回去修好它，这里才会真正调用你的规则。
         </p>
-      ) : null}
-      {error ? (
-        <pre className="quant-error" role="alert">
-          {error}
-        </pre>
-      ) : null}
+      </Show>
+      <Show when={error()}>
+        {(err) => (
+          <pre class="quant-error" role="alert">
+            {err()}
+          </pre>
+        )}
+      </Show>
     </section>
   );
 }

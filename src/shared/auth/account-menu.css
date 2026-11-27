@@ -63,9 +63,7 @@
 }
 
 .account-menu-popover {
-  position: absolute;
-  top: calc(100% + 8px);
-  right: 0;
+  z-index: 60;
   display: grid;
   width: 240px;
   max-width: calc(100vw - 2 * var(--page-gutter));

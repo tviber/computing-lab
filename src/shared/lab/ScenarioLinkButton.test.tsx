@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ScenarioLinkButton } from "./ScenarioLinkButton.tsx";
@@ -10,7 +10,6 @@ afterEach(() => {
 
 describe("ScenarioLinkButton", () => {
   beforeEach(() => {
-    // Set a realistic URL with old query params
     Object.defineProperty(window, "location", {
       value: {
         origin: "http://test.com",
@@ -31,7 +30,7 @@ describe("ScenarioLinkButton", () => {
       configurable: true,
     });
 
-    render(<ScenarioLinkButton search={{ stage: 2, w: 16, h: 8 }} />);
+    render(() => <ScenarioLinkButton search={{ stage: 2, w: 16, h: 8 }} />);
 
     await user.click(screen.getByRole("button", { name: /复制实验链接/ }));
 
@@ -42,7 +41,6 @@ describe("ScenarioLinkButton", () => {
     expect(url.searchParams.get("stage")).toBe("2");
     expect(url.searchParams.get("w")).toBe("16");
     expect(url.searchParams.get("h")).toBe("8");
-    // Old params should NOT be present
     expect(url.searchParams.get("foo")).toBeNull();
 
     expect(screen.getByText("已复制")).toBeInTheDocument();
@@ -56,7 +54,7 @@ describe("ScenarioLinkButton", () => {
       configurable: true,
     });
 
-    render(<ScenarioLinkButton search={{ stage: 2, toners: "0,1" }} />);
+    render(() => <ScenarioLinkButton search={{ stage: 2, toners: "0,1" }} />);
 
     await user.click(screen.getByRole("button", { name: /复制实验链接/ }));
 
@@ -78,14 +76,13 @@ describe("ScenarioLinkButton", () => {
       configurable: true,
     });
 
-    const { unmount } = render(<ScenarioLinkButton search={{ stage: 1 }} />);
+    const { unmount } = render(() => <ScenarioLinkButton search={{ stage: 1 }} />);
 
     screen.getByRole("button").click();
     vi.runOnlyPendingTimers();
 
     unmount();
 
-    // Advance time past the 1500ms timeout — setState should not throw
     expect(() => vi.advanceTimersByTime(2000)).not.toThrow();
   });
 });

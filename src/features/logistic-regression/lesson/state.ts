@@ -1,4 +1,4 @@
-import type { SaveStatus } from "../../../shared/api/client";
+import type { SaveStatus } from "../../../shared/lab/contracts";
 import {
   markSaveStatus,
   markSyncConflict,

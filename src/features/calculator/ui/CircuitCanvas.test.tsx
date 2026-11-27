@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
 import { halfAdderGraph } from "../domain/fixtures";
 import type { CircuitGraph } from "../domain/graph";
@@ -28,7 +29,7 @@ const legacyAdd4Graph: CircuitGraph = {
 
 describe("CircuitCanvas", () => {
   it("labels component output ports at the exit side", () => {
-    render(
+    render(() => (
       <CircuitCanvas
         components={{ HalfAdder: halfAdderGraph() }}
         dispatch={vi.fn()}
@@ -36,15 +37,15 @@ describe("CircuitCanvas", () => {
         pendingWire={null}
         portValues={{}}
         selectedNodeId={null}
-      />,
-    );
+      />
+    ));
 
     expect(screen.getByText("Sum", { selector: ".port-label.is-out" })).toBeInTheDocument();
     expect(screen.getByText("Carry", { selector: ".port-label.is-out" })).toBeInTheDocument();
   });
 
   it("orders numbered component output ports from low bit to high bit", () => {
-    render(
+    render(() => (
       <CircuitCanvas
         components={{ Add4: legacyAdd4Graph }}
         dispatch={vi.fn()}
@@ -52,8 +53,8 @@ describe("CircuitCanvas", () => {
         pendingWire={null}
         portValues={{}}
         selectedNodeId={null}
-      />,
-    );
+      />
+    ));
 
     expect(
       screen
@@ -64,7 +65,7 @@ describe("CircuitCanvas", () => {
 
   it("hides every wire connected to a collapsed component", () => {
     const dispatch = vi.fn();
-    const { container } = render(
+    const { container } = render(() => (
       <CircuitCanvas
         components={{ HalfAdder: halfAdderGraph() }}
         dispatch={dispatch}
@@ -98,8 +99,8 @@ describe("CircuitCanvas", () => {
         pendingWire={null}
         portValues={{}}
         selectedNodeId={null}
-      />,
-    );
+      />
+    ));
 
     expect(screen.getAllByRole("button", { name: /连线/ })).toHaveLength(1);
     const toggle = screen.getByRole("button", { name: "展开组件 HalfAdder", expanded: false });
@@ -115,7 +116,7 @@ describe("CircuitCanvas", () => {
 
   it("supports undo and deleting the selected node from keyboard shortcuts", () => {
     const dispatch = vi.fn();
-    render(
+    render(() => (
       <CircuitCanvas
         components={{}}
         dispatch={dispatch}
@@ -126,8 +127,9 @@ describe("CircuitCanvas", () => {
         pendingWire={null}
         portValues={{}}
         selectedNodeId="gate"
-      />,
-    );
+      />
+    ));
+    flush();
 
     fireEvent.keyDown(window, { key: "z", ctrlKey: true });
     fireEvent.keyDown(window, { key: "Delete" });
@@ -145,7 +147,7 @@ describe("CircuitCanvas", () => {
       ],
       edges: [],
     };
-    const { container } = render(
+    const { container } = render(() => (
       <CircuitCanvas
         components={{}}
         dispatch={dispatch}
@@ -153,8 +155,8 @@ describe("CircuitCanvas", () => {
         pendingWire={null}
         portValues={{}}
         selectedNodeId={null}
-      />,
-    );
+      />
+    ));
 
     const input = screen.getByRole("button", { name: "切换 A，当前 0" });
     const canvas = screen.getByRole("application", { name: "电路画布" });
@@ -171,7 +173,7 @@ describe("CircuitCanvas", () => {
 
   it("toggles an input when it is clicked without moving", () => {
     const dispatch = vi.fn();
-    render(
+    render(() => (
       <CircuitCanvas
         components={{}}
         dispatch={dispatch}
@@ -182,8 +184,8 @@ describe("CircuitCanvas", () => {
         pendingWire={null}
         portValues={{}}
         selectedNodeId={null}
-      />,
-    );
+      />
+    ));
 
     fireEvent.click(screen.getByRole("button", { name: "切换 A，当前 0" }));
 
@@ -204,7 +206,7 @@ describe("CircuitCanvas", () => {
         { id: "gate-out", from: { node: "gate", port: "out" }, to: { node: "out", port: "in" } },
       ],
     };
-    const { container } = render(
+    const { container } = render(() => (
       <CircuitCanvas
         components={{}}
         dispatch={vi.fn()}
@@ -212,16 +214,18 @@ describe("CircuitCanvas", () => {
         pendingWire={null}
         portValues={{}}
         selectedNodeId={null}
-      />,
-    );
+      />
+    ));
 
     const canvas = screen.getByRole("application", { name: "电路画布" });
     fireEvent.pointerDown(canvas, { clientX: 150, clientY: 20, pointerId: 1 });
     fireEvent.pointerMove(canvas, { clientX: 400, clientY: 180, pointerId: 1 });
     fireEvent.pointerUp(canvas, { clientX: 400, clientY: 180, pointerId: 1 });
+    flush();
 
     expect(container.querySelector(".circuit-canvas-tools")).toHaveTextContent("已框选 1 个元件");
     fireEvent.click(screen.getByRole("button", { name: "封装为自定义组件" }));
+    flush();
     expect(screen.getByRole("dialog", { name: "把框选部分变成组件" })).toBeInTheDocument();
     expect(screen.getByText("入口（2）")).toBeInTheDocument();
     expect(screen.getByText("出口（1）")).toBeInTheDocument();
@@ -230,10 +234,13 @@ describe("CircuitCanvas", () => {
       effectAllowed: "",
       setData: vi.fn(),
     };
-    const portRows = container.querySelectorAll(".custom-component-port-row");
+    const portRows = document.querySelectorAll(".custom-component-port-row");
     fireEvent.dragStart(screen.getByLabelText("拖动入口 2"), { dataTransfer });
+    flush();
     fireEvent.dragOver(portRows[0], { dataTransfer });
+    flush();
     fireEvent.drop(portRows[0], { dataTransfer });
+    flush();
     expect(mappings).toHaveTextContent(/B\s*→\s*输入 1/);
     expect(mappings).toHaveTextContent(/A\s*→\s*输入 2/);
     expect(mappings.querySelector("details")).not.toHaveAttribute("open");

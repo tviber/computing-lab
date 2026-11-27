@@ -7,11 +7,12 @@
  * covered by any bus still appear as `pin=值` so nothing is lost.
  */
 
+import { createMemo, For, Match, Show, Switch } from "solid-js";
+import { Icon } from "../../../shared/ui/Icon";
 import { readBus } from "../domain/bus";
 import type { Bit } from "../domain/graph";
 import type { BusDef, StageDef } from "../domain/stages";
 import type { JudgeOutcome, RunOutcome } from "../lesson/state";
-import { Icon } from "../../../shared/ui/Icon";
 import { AnnotatedText } from "./CalculatorTerms";
 
 const ERROR_HINTS: Record<string, string> = {
@@ -25,68 +26,71 @@ function busesFor(stage: StageDef | undefined, role: BusDef["role"]): BusDef[] {
 }
 
 /** One bus read against a case's pin values, MSB first + decimal. */
-function CaseBusValue({
-  bus,
-  values,
-  compareTo,
-}: {
+function CaseBusValue(props: {
   bus: BusDef;
   values: Record<string, Bit | null>;
   compareTo?: Record<string, Bit>;
 }) {
-  const reading = readBus(bus, values);
+  const reading = createMemo(() => readBus(props.bus, props.values));
+
   return (
-    <span className="case-bus">
-      <span className="case-bus-name">
-        <AnnotatedText text={bus.name} />
+    <span class="case-bus">
+      <span class="case-bus-name">
+        <AnnotatedText text={props.bus.name} />
       </span>
-      <code aria-label={`${bus.name} ${reading.text}`} className="case-bus-bits">
-        {bus.implicitSign ? <span className="case-sign-bit">{reading.signBit ?? "?"}</span> : null}
-        {bus.pins.map((pin, i) => {
-          const bit = reading.bits[i];
-          const differs =
-            compareTo != null && compareTo[pin] !== undefined && bit !== compareTo[pin];
-          return differs ? (
-            <mark key={pin}>{bit ?? "?"}</mark>
-          ) : (
-            <span key={pin}>{bit ?? "?"}</span>
-          );
-        })}
+      <code aria-label={`${props.bus.name} ${reading().text}`} class="case-bus-bits">
+        <Show when={props.bus.implicitSign}>
+          <span class="case-sign-bit">{reading().signBit ?? "?"}</span>
+        </Show>
+        <For each={props.bus.pins}>
+          {(pin, i) => {
+            const bit = () => reading().bits[i()];
+            const differs = () =>
+              props.compareTo != null &&
+              props.compareTo[pin] !== undefined &&
+              bit() !== props.compareTo[pin];
+            return (
+              <Show fallback={<span>{bit() ?? "?"}</span>} when={differs()}>
+                <mark>{bit() ?? "?"}</mark>
+              </Show>
+            );
+          }}
+        </For>
       </code>
-      <span className="case-bus-number">（{reading.unsigned ?? "—"}）</span>
-      {bus.signed ? (
-        <span className="case-bus-number">（补码 {reading.signed ?? "—"}）</span>
-      ) : null}
+      <span class="case-bus-number">（{reading().unsigned ?? "—"}）</span>
+      <Show when={props.bus.signed}>
+        <span class="case-bus-number">（补码 {reading().signed ?? "—"}）</span>
+      </Show>
     </span>
   );
 }
 
 /** All buses of one role, plus bare pins no bus covers. */
-function CaseValues({
-  buses,
-  values,
-  compareTo,
-  inputs,
-}: {
+function CaseValues(props: {
   buses: BusDef[];
   values: Record<string, Bit | null>;
   compareTo?: Record<string, Bit>;
   /** Case inputs, merged in so implied sign bits can be derived. */
   inputs?: Record<string, Bit>;
 }) {
-  const covered = new Set(buses.flatMap((bus) => bus.pins));
-  const bare = Object.keys(values).filter((pin) => !covered.has(pin));
-  const context = inputs ? { ...inputs, ...values } : values;
+  const covered = createMemo(() => new Set(props.buses.flatMap((bus) => bus.pins)));
+  const bare = createMemo(() => Object.keys(props.values).filter((pin) => !covered().has(pin)));
+  const context = createMemo(() =>
+    props.inputs ? { ...props.inputs, ...props.values } : props.values,
+  );
+
   return (
-    <span className="case-values">
-      {buses.map((bus) => (
-        <CaseBusValue bus={bus} compareTo={compareTo} key={bus.name} values={context} />
-      ))}
-      {bare.length > 0 ? (
-        <code className="case-pins">
-          {bare.map((pin) => `${pin}=${values[pin] ?? "—"}`).join(" ")}
+    <span class="case-values">
+      <For each={props.buses}>
+        {(bus) => <CaseBusValue bus={bus} compareTo={props.compareTo} values={context()} />}
+      </For>
+      <Show when={bare().length > 0}>
+        <code class="case-pins">
+          {bare()
+            .map((pin) => `${pin}=${props.values[pin] ?? "—"}`)
+            .join(" ")}
         </code>
-      ) : null}
+      </Show>
     </span>
   );
 }
@@ -102,38 +106,36 @@ function busPhrase(buses: BusDef[], values: Record<string, Bit | null>): string 
     .join("，");
 }
 
-function CounterexampleBlock({
-  stage,
-  counterexample,
-}: {
+function CounterexampleBlock(props: {
   stage: StageDef | undefined;
   counterexample: NonNullable<NonNullable<JudgeOutcome>["counterexample"]>;
 }) {
-  const inputBuses = busesFor(stage, "input");
-  const outputBuses = busesFor(stage, "output");
+  const inputBuses = createMemo(() => busesFor(props.stage, "input"));
+  const outputBuses = createMemo(() => busesFor(props.stage, "output"));
+
   return (
-    <div className="test-counterexample">
-      <p className="eyebrow">最小反例</p>
-      <dl className="counterexample-rows">
+    <div class="test-counterexample">
+      <p class="eyebrow">最小反例</p>
+      <dl class="counterexample-rows">
         <div>
           <dt>用例</dt>
           <dd>
-            {counterexample.name}（<AnnotatedText text={counterexample.category} />）
+            {props.counterexample.name}（<AnnotatedText text={props.counterexample.category} />）
           </dd>
         </div>
         <div>
           <dt>输入</dt>
           <dd>
-            <CaseValues buses={inputBuses} values={counterexample.inputs} />
+            <CaseValues buses={inputBuses()} values={props.counterexample.inputs} />
           </dd>
         </div>
         <div>
           <dt>期望</dt>
           <dd>
             <CaseValues
-              buses={outputBuses}
-              inputs={counterexample.inputs}
-              values={counterexample.expected}
+              buses={outputBuses()}
+              inputs={props.counterexample.inputs}
+              values={props.counterexample.expected}
             />
           </dd>
         </div>
@@ -141,136 +143,150 @@ function CounterexampleBlock({
           <dt>实际</dt>
           <dd>
             <CaseValues
-              buses={outputBuses}
-              compareTo={counterexample.expected}
-              inputs={counterexample.inputs}
-              values={counterexample.actual}
+              buses={outputBuses()}
+              compareTo={props.counterexample.expected}
+              inputs={props.counterexample.inputs}
+              values={props.counterexample.actual}
             />
           </dd>
         </div>
       </dl>
-      <p className="counterexample-note">
-        这一组输入下，你的电路给出 {busPhrase(outputBuses, counterexample.actual)}
-        ，应为 {busPhrase(outputBuses, counterexample.expected)}。
+      <p class="counterexample-note">
+        这一组输入下，你的电路给出 {busPhrase(outputBuses(), props.counterexample.actual)}
+        ，应为 {busPhrase(outputBuses(), props.counterexample.expected)}。
       </p>
     </div>
   );
 }
 
-export function TestPanel({
-  stage,
-  runOutcome,
-  judgeOutcome,
-}: {
+export function TestPanel(props: {
   stage: StageDef | undefined;
   runOutcome: RunOutcome;
   judgeOutcome: JudgeOutcome;
 }) {
-  const outputBuses = busesFor(stage, "output");
-
-  if (judgeOutcome) {
-    const failedCategories = Object.entries(judgeOutcome.categories).filter(
-      ([, bucket]) => bucket.passed < bucket.total,
-    );
-    return (
-      <section aria-label="提交结果" className="test-panel">
-        <header className={`test-verdict${judgeOutcome.passed ? " is-pass" : " is-fail"}`}>
-          <strong>{judgeOutcome.passed ? "通过" : "未通过"}</strong>
-          <span className="test-score">
-            {judgeOutcome.score} / {judgeOutcome.total}
-          </span>
-          <span className="test-note">隐藏用例（服务器判定）</span>
-        </header>
-
-        {judgeOutcome.error ? (
-          <p className="test-error" role="alert">
-            {ERROR_HINTS[judgeOutcome.error.split(":")[0]] ?? judgeOutcome.error}
-          </p>
-        ) : null}
-
-        {failedCategories.length > 0 ? (
-          <div className="test-categories">
-            <p className="eyebrow">失败的用例类别</p>
-            <ul>
-              {failedCategories.map(([category, bucket]) => (
-                <li key={category}>
-                  <span className="category-name">
-                    <AnnotatedText text={category} />
-                  </span>
-                  <span className="category-score">
-                    {bucket.passed} / {bucket.total}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
-        ) : null}
-
-        {judgeOutcome.counterexample ? (
-          <CounterexampleBlock counterexample={judgeOutcome.counterexample} stage={stage} />
-        ) : null}
-      </section>
-    );
-  }
-
-  if (!runOutcome) {
-    return (
-      <section aria-label="测试结果" className="test-panel is-empty">
-        <p>点击「运行公开测试」在本地快速验证，确认无误后再提交。</p>
-      </section>
-    );
-  }
+  const outputBuses = createMemo(() => busesFor(props.stage, "output"));
 
   return (
-    <section aria-label="测试结果" className="test-panel">
-      <header
-        className={`test-verdict${runOutcome.score === runOutcome.total ? " is-pass" : " is-fail"}`}
-      >
-        <strong>公开测试</strong>
-        <span className="test-score">
-          {runOutcome.score} / {runOutcome.total}
-        </span>
-        <span className="test-note">公开用例仅供调试，不影响解锁</span>
-      </header>
+    <Switch
+      fallback={
+        <section aria-label="测试结果" class="test-panel is-empty">
+          <p>点击「运行公开测试」在本地快速验证，确认无误后再提交。</p>
+        </section>
+      }
+    >
+      <Match when={props.judgeOutcome}>
+        {(judge) => {
+          const failedCategories = createMemo(() =>
+            Object.entries(judge().categories).filter(([, bucket]) => bucket.passed < bucket.total),
+          );
+          return (
+            <section aria-label="提交结果" class="test-panel">
+              <header class={`test-verdict${judge().passed ? " is-pass" : " is-fail"}`}>
+                <strong>{judge().passed ? "通过" : "未通过"}</strong>
+                <span class="test-score">
+                  {judge().score} / {judge().total}
+                </span>
+                <span class="test-note">关卡判定结果</span>
+              </header>
 
-      <table className="test-table">
-        <caption className="sr-only">公开测试用例结果</caption>
-        <thead>
-          <tr>
-            <th scope="col">用例</th>
-            <th scope="col">结果</th>
-            <th scope="col">期望</th>
-            <th scope="col">实际</th>
-          </tr>
-        </thead>
-        <tbody>
-          {runOutcome.results.map((result) => (
-            <tr className={result.passed ? "is-pass" : "is-fail"} key={result.name}>
-              <th scope="row">
-                <AnnotatedText text={result.name} />
-              </th>
-              <td>
-                {result.passed ? <Icon name="check" size={13} /> : <Icon name="x" size={13} />}
-              </td>
-              <td>
-                <CaseValues buses={outputBuses} inputs={result.inputs} values={result.expected} />
-              </td>
-              <td>
-                {result.error ? (
-                  <code>{ERROR_HINTS[result.error.kind] ?? result.error.kind}</code>
-                ) : (
-                  <CaseValues
-                    buses={outputBuses}
-                    compareTo={result.expected}
-                    inputs={result.inputs}
-                    values={result.actual}
-                  />
+              <Show when={judge().error}>
+                {(err) => (
+                  <p class="test-error" role="alert">
+                    {ERROR_HINTS[err().split(":")[0]] ?? err()}
+                  </p>
                 )}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </section>
+              </Show>
+
+              <Show when={failedCategories().length > 0}>
+                <div class="test-categories">
+                  <p class="eyebrow">失败的用例类别</p>
+                  <ul>
+                    <For each={failedCategories()}>
+                      {([category, bucket]) => (
+                        <li>
+                          <span class="category-name">
+                            <AnnotatedText text={category} />
+                          </span>
+                          <span class="category-score">
+                            {bucket.passed} / {bucket.total}
+                          </span>
+                        </li>
+                      )}
+                    </For>
+                  </ul>
+                </div>
+              </Show>
+
+              <Show when={judge().counterexample}>
+                {(ce) => <CounterexampleBlock counterexample={ce()} stage={props.stage} />}
+              </Show>
+            </section>
+          );
+        }}
+      </Match>
+      <Match when={props.runOutcome}>
+        {(run) => (
+          <section aria-label="测试结果" class="test-panel">
+            <header class={`test-verdict${run().score === run().total ? " is-pass" : " is-fail"}`}>
+              <strong>公开测试</strong>
+              <span class="test-score">
+                {run().score} / {run().total}
+              </span>
+              <span class="test-note">公开用例仅供调试，不影响解锁</span>
+            </header>
+
+            <table class="test-table">
+              <caption class="sr-only">公开测试用例结果</caption>
+              <thead>
+                <tr>
+                  <th scope="col">用例</th>
+                  <th scope="col">结果</th>
+                  <th scope="col">期望</th>
+                  <th scope="col">实际</th>
+                </tr>
+              </thead>
+              <tbody>
+                <For each={run().results}>
+                  {(result) => (
+                    <tr class={result.passed ? "is-pass" : "is-fail"}>
+                      <th scope="row">
+                        <AnnotatedText text={result.name} />
+                      </th>
+                      <td>
+                        <Show fallback={<Icon name="x" size={13} />} when={result.passed}>
+                          <Icon name="check" size={13} />
+                        </Show>
+                      </td>
+                      <td>
+                        <CaseValues
+                          buses={outputBuses()}
+                          inputs={result.inputs}
+                          values={result.expected}
+                        />
+                      </td>
+                      <td>
+                        <Show
+                          fallback={
+                            <CaseValues
+                              buses={outputBuses()}
+                              compareTo={result.expected}
+                              inputs={result.inputs}
+                              values={result.actual}
+                            />
+                          }
+                          when={result.error}
+                        >
+                          {(err) => <code>{ERROR_HINTS[err().kind] ?? err().kind}</code>}
+                        </Show>
+                      </td>
+                    </tr>
+                  )}
+                </For>
+              </tbody>
+            </table>
+          </section>
+        )}
+      </Match>
+    </Switch>
   );
 }

@@ -1,4 +1,5 @@
-import { useMemo, type CSSProperties, type ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
+import { createMemo, For, Show } from "solid-js";
 import { pythonLanguage } from "@codemirror/lang-python";
 import { classHighlighter, highlightTree } from "@lezer/highlight";
 import "./pythonCode.css";
@@ -21,9 +22,8 @@ function highlightedRange(
   tree: ReturnType<typeof pythonLanguage.parser.parse>,
   from: number,
   to: number,
-  keyPrefix: string,
-): ReactNode[] {
-  const nodes: ReactNode[] = [];
+): JSX.Element[] {
+  const nodes: JSX.Element[] = [];
   let cursor = from;
 
   highlightTree(
@@ -34,11 +34,7 @@ function highlightedRange(
       const end = Math.min(to, tokenTo);
       if (end <= start) return;
       if (start > cursor) nodes.push(source.slice(cursor, start));
-      nodes.push(
-        <span className={classes} key={`${keyPrefix}-${start}-${end}`}>
-          {source.slice(start, end)}
-        </span>,
-      );
+      nodes.push(<span class={classes}>{source.slice(start, end)}</span>);
       cursor = end;
     },
     from,
@@ -49,19 +45,17 @@ function highlightedRange(
   return nodes;
 }
 
-export function PythonCode({
-  ariaLabel,
-  className,
-  code,
-}: {
-  ariaLabel?: string;
-  className?: string;
-  code: string;
-}) {
-  const tree = useMemo(() => pythonLanguage.parser.parse(code), [code]);
+export function PythonCode(props: { ariaLabel?: string; className?: string; code: string }) {
+  const highlighted = createMemo(() => {
+    const tree = pythonLanguage.parser.parse(props.code);
+    return highlightedRange(props.code, tree, 0, props.code.length);
+  });
   return (
-    <pre aria-label={ariaLabel} className={`python-code${className ? ` ${className}` : ""}`}>
-      <code>{highlightedRange(code, tree, 0, code.length, "python-code")}</code>
+    <pre
+      aria-label={props.ariaLabel}
+      class={`python-code${props.className ? ` ${props.className}` : ""}`}
+    >
+      <code>{highlighted()}</code>
     </pre>
   );
 }
@@ -71,62 +65,86 @@ export function PythonCode({
  * context around every blank, including blank expressions inside conditions
  * and arithmetic.
  */
-export function PythonCodeWithBlanks({
-  ariaLabel,
-  className,
-  parts,
-}: {
+export function PythonCodeWithBlanks(props: {
   ariaLabel: string;
   className?: string;
   parts: PythonCodePart[];
 }) {
-  const source = useMemo(
-    () => parts.map((part) => (part.kind === "code" ? part.code : part.value)).join(""),
-    [parts],
-  );
-  const tree = useMemo(() => pythonLanguage.parser.parse(source), [source]);
-  let cursor = 0;
+  const parsed = createMemo(() => {
+    const source = props.parts
+      .map((part) => (part.kind === "code" ? part.code : part.value))
+      .join("");
+    const tree = pythonLanguage.parser.parse(source);
+    let cursor = 0;
+    const ranges = props.parts.map((part, index) => {
+      const start = cursor;
+      const end = start + (part.kind === "code" ? part.code.length : part.value.length);
+      cursor = end;
+      return {
+        key: part.kind === "blank" ? `blank-${part.id}` : `code-${index}`,
+        part,
+        start,
+        end,
+      };
+    });
+    return { source, tree, ranges };
+  });
 
   return (
-    <pre aria-label={ariaLabel} className={`python-code${className ? ` ${className}` : ""}`}>
+    <pre
+      aria-label={props.ariaLabel}
+      class={`python-code${props.className ? ` ${props.className}` : ""}`}
+    >
       <code>
-        {parts.map((part, index) => {
-          const start = cursor;
-          const end = start + (part.kind === "code" ? part.code.length : part.value.length);
-          cursor = end;
-
-          if (part.kind === "code") {
+        <For each={parsed().ranges} keyed={(entry) => entry.key}>
+          {(entry) => {
+            const blankPart = () => {
+              const part = entry().part;
+              return part.kind === "blank" ? part : null;
+            };
             return (
-              <span key={`code-${index}`}>
-                {highlightedRange(source, tree, start, end, `code-${index}`)}
-              </span>
+              <Show
+                fallback={
+                  <span>
+                    {highlightedRange(parsed().source, parsed().tree, entry().start, entry().end)}
+                  </span>
+                }
+                when={blankPart()}
+              >
+                {(blank) => {
+                  const width = () => Math.max(blank().minWidth ?? 5, blank().value.length + 2);
+                  return (
+                    <span
+                      class="python-code-blank"
+                      style={{ "--python-blank-width": `${width()}ch` } as JSX.CSSProperties}
+                    >
+                      <span aria-hidden="true" class="python-code-blank-mirror">
+                        {highlightedRange(
+                          parsed().source,
+                          parsed().tree,
+                          entry().start,
+                          entry().end,
+                        )}
+                      </span>
+                      <input
+                        aria-label={blank().ariaLabel}
+                        autocapitalize="none"
+                        autocomplete="off"
+                        maxlength={blank().maxLength}
+                        onChange={(event) => blank().onChange(event.currentTarget.value)}
+                        onInput={(event) => blank().onChange(event.currentTarget.value)}
+                        spellcheck={false}
+                        title={blank().title ?? blank().ariaLabel}
+                        type="text"
+                        value={blank().value}
+                      />
+                    </span>
+                  );
+                }}
+              </Show>
             );
-          }
-
-          const width = Math.max(part.minWidth ?? 5, part.value.length + 2);
-          return (
-            <span
-              className="python-code-blank"
-              key={`blank-${part.id}`}
-              style={{ "--python-blank-width": `${width}ch` } as CSSProperties}
-            >
-              <span aria-hidden="true" className="python-code-blank-mirror">
-                {highlightedRange(source, tree, start, end, `blank-${part.id}`)}
-              </span>
-              <input
-                aria-label={part.ariaLabel}
-                autoCapitalize="none"
-                autoComplete="off"
-                maxLength={part.maxLength}
-                onChange={(event) => part.onChange(event.target.value)}
-                spellCheck={false}
-                title={part.title ?? part.ariaLabel}
-                type="text"
-                value={part.value}
-              />
-            </span>
-          );
-        })}
+          }}
+        </For>
       </code>
     </pre>
   );

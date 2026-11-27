@@ -1,4 +1,4 @@
-import { fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { AuthState } from "../../shared/auth";
@@ -48,7 +48,7 @@ describe("ClassMembersPage", () => {
 
     await renderAppAt("/classes/c1/members", { auth: teacherAuthState });
 
-    expect(screen.getByRole("heading", { name: "班级成员" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "班级成员" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("张三")).toBeInTheDocument());
     expect(screen.getByText(/任课教师：教师/)).toBeInTheDocument();
 
@@ -183,6 +183,6 @@ describe("ClassMembersPage", () => {
   it("redirects anonymous visitors to login", async () => {
     mockMembersApi();
     const { router } = await renderAppAt("/classes/c1/members", { auth: anonymousAuthState });
-    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    await waitFor(() => expect(router.location.pathname).toBe("/login"));
   });
 });

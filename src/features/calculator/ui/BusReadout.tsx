@@ -6,90 +6,95 @@
  * is-floating and a literal "?").
  */
 
+import { createMemo, For, Show } from "solid-js";
 import { readBuses, type BusReading } from "../domain/bus";
 import type { Bit } from "../domain/graph";
 import type { StageDef } from "../domain/stages";
 import { AnnotatedText } from "./CalculatorTerms";
 
-function BusCard({ reading }: { reading: BusReading }) {
-  const { bus } = reading;
+function BusCard(props: { reading: BusReading }) {
   return (
-    <article className="bus-card">
-      <header className="bus-card-head">
+    <article class="bus-card">
+      <header class="bus-card-head">
         <strong>
-          <AnnotatedText text={bus.name} />
+          <AnnotatedText text={props.reading.bus.name} />
         </strong>
-        <span className="bus-direction">高位 → 低位</span>
+        <span class="bus-direction">高位 → 低位</span>
       </header>
-      <div className="bus-bits" role="list">
-        {bus.implicitSign ? (
+      <div class="bus-bits" role="list">
+        <Show when={props.reading.bus.implicitSign}>
           <span
-            aria-label={`符号位，值 ${reading.signBit ?? "?"}`}
-            className={`bus-bit is-implied${reading.signBit === null ? " is-floating" : ""}`}
+            aria-label={`符号位，值 ${props.reading.signBit ?? "?"}`}
+            class={`bus-bit is-implied${props.reading.signBit === null ? " is-floating" : ""}`}
             role="listitem"
           >
-            <span aria-hidden="true" className="bus-bit-name">
+            <span aria-hidden="true" class="bus-bit-name">
               <AnnotatedText text="符号位" />
             </span>
-            <span aria-hidden="true" className="bus-bit-value">
-              {reading.signBit ?? "?"}
+            <span aria-hidden="true" class="bus-bit-value">
+              {props.reading.signBit ?? "?"}
             </span>
           </span>
-        ) : null}
-        {bus.pins.map((pin, i) => {
-          const bit = reading.bits[i];
-          return (
-            <span
-              aria-label={`${pin}，值 ${bit ?? "?"}`}
-              className={`bus-bit${bit === null ? " is-floating" : ""}`}
-              key={pin}
-              role="listitem"
-            >
-              <span aria-hidden="true" className="bus-bit-name">
-                <AnnotatedText text={pin} />
+        </Show>
+        <For each={props.reading.bus.pins}>
+          {(pin, i) => {
+            const bit = () => props.reading.bits[i()];
+            return (
+              <span
+                aria-label={`${pin}，值 ${bit() ?? "?"}`}
+                class={`bus-bit${bit() === null ? " is-floating" : ""}`}
+                role="listitem"
+              >
+                <span aria-hidden="true" class="bus-bit-name">
+                  <AnnotatedText text={pin} />
+                </span>
+                <span aria-hidden="true" class="bus-bit-value">
+                  {bit() ?? "?"}
+                </span>
               </span>
-              <span aria-hidden="true" className="bus-bit-value">
-                {bit ?? "?"}
-              </span>
-            </span>
-          );
-        })}
+            );
+          }}
+        </For>
       </div>
-      <p className="bus-reading">
-        <span className="bus-reading-label">无符号</span>
-        <strong>{reading.unsigned ?? "—"}</strong>
+      <p class="bus-reading">
+        <span class="bus-reading-label">无符号</span>
+        <strong>{props.reading.unsigned ?? "—"}</strong>
       </p>
-      {bus.signed ? (
-        <p className="bus-reading">
-          <span className="bus-reading-label">补码</span>
-          <strong>{reading.signed ?? "—"}</strong>
+      <Show when={props.reading.bus.signed}>
+        <p class="bus-reading">
+          <span class="bus-reading-label">补码</span>
+          <strong>{props.reading.signed ?? "—"}</strong>
         </p>
-      ) : null}
-      {reading.placeValue ? <p className="bus-place-value">{reading.placeValue}</p> : null}
+      </Show>
+      <Show when={props.reading.placeValue}>
+        {(placeValue) => <p class="bus-place-value">{placeValue()}</p>}
+      </Show>
     </article>
   );
 }
 
-function BusGroup({ title, readings }: { title: string; readings: BusReading[] }) {
-  if (readings.length === 0) return null;
+function BusGroup(props: { title: string; readings: BusReading[] }) {
   return (
-    <div className="bus-group">
-      <p className="eyebrow">{title}</p>
-      <div className="bus-cards">
-        {readings.map((reading) => (
-          <BusCard key={reading.bus.name} reading={reading} />
-        ))}
+    <Show when={props.readings.length > 0}>
+      <div class="bus-group">
+        <p class="eyebrow">{props.title}</p>
+        <div class="bus-cards">
+          <For each={props.readings}>{(reading) => <BusCard reading={reading} />}</For>
+        </div>
       </div>
-    </div>
+    </Show>
   );
 }
 
-export function BusReadout({ stage, pins }: { stage: StageDef; pins: Record<string, Bit | null> }) {
-  const readings = readBuses(stage.buses, pins);
+export function BusReadout(props: { stage: StageDef; pins: Record<string, Bit | null> }) {
+  const readings = createMemo(() => readBuses(props.stage.buses, props.pins));
+  const inputReadings = createMemo(() => readings().filter((r) => r.bus.role === "input"));
+  const outputReadings = createMemo(() => readings().filter((r) => r.bus.role === "output"));
+
   return (
-    <section aria-label="数值读数" className="bus-readout">
-      <BusGroup readings={readings.filter((r) => r.bus.role === "input")} title="输入" />
-      <BusGroup readings={readings.filter((r) => r.bus.role === "output")} title="输出" />
+    <section aria-label="数值读数" class="bus-readout">
+      <BusGroup readings={inputReadings()} title="输入" />
+      <BusGroup readings={outputReadings()} title="输出" />
     </section>
   );
 }

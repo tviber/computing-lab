@@ -8,12 +8,9 @@
  * job is to measure model accuracy and timing on real hardware.
  */
 
-import { useEffect, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
-import { sameTicket, type Ticket } from "../domain/contracts.ts";
-import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErrors.ts";
-import { CodeEditor } from "../ui/CodeEditor.tsx";
-import { runNeedConfirm, warmPyodide } from "../ui/pyodideRunner.ts";
 import {
   AI_MODEL_ID,
   normalizedResults,
@@ -24,7 +21,11 @@ import {
   type AiOrderOutcome,
   type Vector,
 } from "../domain/aiIntake.ts";
+import { sameTicket, type Ticket } from "../domain/contracts.ts";
+import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErrors.ts";
+import { CodeEditor } from "../ui/CodeEditor.tsx";
 import { embedTexts, loadEmbedder, type EmbedInfo, type EmbedProgress } from "../ui/embedRunner.ts";
+import { runNeedConfirm, warmPyodide } from "../ui/pyodideRunner.ts";
 import "./aiPoc.css";
 
 const NEED_CONFIRM_STARTER = `def need_confirm(similarity, margin):
@@ -47,38 +48,42 @@ function fmt(score: number): string {
   return score.toFixed(3);
 }
 
-function OrderRow({ outcome }: { outcome: AiOrderOutcome }) {
-  const { prediction } = outcome;
-  const fields = [
-    ["菜品", prediction.item],
-    ["备注", prediction.note],
-    ["桌号", prediction.table],
-    ["时效", prediction.urgent],
-  ] as const;
+function OrderRow(props: { outcome: AiOrderOutcome }) {
+  const prediction = () => props.outcome.prediction;
+  const fields = createMemo(
+    () =>
+      [
+        ["菜品", prediction().item],
+        ["备注", prediction().note],
+        ["桌号", prediction().table],
+        ["时效", prediction().urgent],
+      ] as const,
+  );
   return (
-    <details className="ai-order">
+    <details class="ai-order">
       <summary>
-        <b>{outcome.id}</b> · {outcome.request}
-        <span className={outcome.correct ? "ai-mark ok" : "ai-mark bad"}>
-          {outcome.correct ? "✓ 记对" : "✗ 记错"}
+        <b>{props.outcome.id}</b> · {props.outcome.request}
+        <span class={props.outcome.correct ? "ai-mark ok" : "ai-mark bad"}>
+          {props.outcome.correct ? "✓ 记对" : "✗ 记错"}
         </span>
       </summary>
-      <div className="ai-order-body">
+      <div class="ai-order-body">
         <p>
-          AI 猜：{ticketText(prediction.ticket)}（相似度 {fmt(prediction.similarity)}，差距{" "}
-          {fmt(prediction.margin)}）
+          AI 猜：{ticketText(prediction().ticket)}（相似度 {fmt(prediction().similarity)}，差距{" "}
+          {fmt(prediction().margin)}）
         </p>
-        {outcome.confirmed ? (
-          <p className="ai-confirm-line">
-            触发二次确认（+{outcome.extraTicks} 拍）→ 顾客复述：{outcome.clarifyText}
+        <Show
+          fallback={<p class="ai-confirm-line">未触发二次确认，直接采用 AI 结果。</p>}
+          when={props.outcome.confirmed}
+        >
+          <p class="ai-confirm-line">
+            触发二次确认（+{props.outcome.extraTicks} 拍）→ 顾客复述：{props.outcome.clarifyText}
           </p>
-        ) : (
-          <p className="ai-confirm-line">未触发二次确认，直接采用 AI 结果。</p>
-        )}
+        </Show>
         <p>
-          最终小票：<b>{ticketText(outcome.ticket)}</b>
+          最终小票：<b>{ticketText(props.outcome.ticket)}</b>
         </p>
-        <table className="ai-field-table">
+        <table class="ai-field-table">
           <thead>
             <tr>
               <th>字段</th>
@@ -90,33 +95,37 @@ function OrderRow({ outcome }: { outcome: AiOrderOutcome }) {
             </tr>
           </thead>
           <tbody>
-            {fields.map(([label, field]) => (
-              <tr key={label}>
-                <td>{label}</td>
-                <td>
-                  {String(
-                    field.value === true ? "加急" : field.value === false ? "普通" : field.value,
-                  )}
-                </td>
-                <td>{field.source === "literal" ? "字面规则" : "向量"}</td>
-                <td>{fmt(field.similarity)}</td>
-                <td>{fmt(field.margin)}</td>
-                <td>
-                  <ul className="ai-score-list">
-                    {field.scores.map((entry) => (
-                      <li key={entry.value}>
-                        {entry.value === "true"
-                          ? "加急"
-                          : entry.value === "false"
-                            ? "普通"
-                            : entry.value}
-                        （{entry.prototype}）{fmt(entry.score)}
-                      </li>
-                    ))}
-                  </ul>
-                </td>
-              </tr>
-            ))}
+            <For each={fields()}>
+              {([label, field]) => (
+                <tr>
+                  <td>{label}</td>
+                  <td>
+                    {String(
+                      field.value === true ? "加急" : field.value === false ? "普通" : field.value,
+                    )}
+                  </td>
+                  <td>{field.source === "literal" ? "字面规则" : "向量"}</td>
+                  <td>{fmt(field.similarity)}</td>
+                  <td>{fmt(field.margin)}</td>
+                  <td>
+                    <ul class="ai-score-list">
+                      <For each={field.scores}>
+                        {(entry) => (
+                          <li>
+                            {entry.value === "true"
+                              ? "加急"
+                              : entry.value === "false"
+                                ? "普通"
+                                : entry.value}
+                            （{entry.prototype}）{fmt(entry.score)}
+                          </li>
+                        )}
+                      </For>
+                    </ul>
+                  </td>
+                </tr>
+              )}
+            </For>
           </tbody>
         </table>
       </div>
@@ -125,21 +134,26 @@ function OrderRow({ outcome }: { outcome: AiOrderOutcome }) {
 }
 
 export function AiIntakePocPage() {
-  const [modelStatus, setModelStatus] = useState<"idle" | "loading" | "ready" | "error">("idle");
-  const [modelInfo, setModelInfo] = useState<EmbedInfo | null>(null);
-  const [progress, setProgress] = useState<EmbedProgress | null>(null);
-  const [modelError, setModelError] = useState<string | null>(null);
-  const [code, setCode] = useState(NEED_CONFIRM_STARTER);
-  const [running, setRunning] = useState(false);
-  const [runError, setRunError] = useState<string | null>(null);
-  const [outcomes, setOutcomes] = useState<AiOrderOutcome[] | null>(null);
-  const [timing, setTiming] = useState<{ embedMs: number; totalMs: number } | null>(null);
+  const [modelStatus, setModelStatus] = createSignal<"idle" | "loading" | "ready" | "error">(
+    "idle",
+  );
+  const [modelInfo, setModelInfo] = createSignal<EmbedInfo | null>(null);
+  const [progress, setProgress] = createSignal<EmbedProgress | null>(null);
+  const [modelError, setModelError] = createSignal<string | null>(null);
+  const [code, setCode] = createSignal(NEED_CONFIRM_STARTER);
+  const [running, setRunning] = createSignal(false);
+  const [runError, setRunError] = createSignal<string | null>(null);
+  const [outcomes, setOutcomes] = createSignal<AiOrderOutcome[] | null>(null);
+  const [timing, setTiming] = createSignal<{ embedMs: number; totalMs: number } | null>(null);
 
-  useEffect(() => {
-    warmPyodide();
-    // Debug handle for offline scoring experiments (dev route only).
-    (window as unknown as { __aiEmbed: typeof embedTexts }).__aiEmbed = embedTexts;
-  }, []);
+  createEffect(
+    () => 0,
+    () => {
+      warmPyodide();
+      // Debug handle for offline scoring experiments (dev route only).
+      (window as unknown as { __aiEmbed: typeof embedTexts }).__aiEmbed = embedTexts;
+    },
+  );
 
   const load = async () => {
     setModelStatus("loading");
@@ -160,7 +174,8 @@ export function AiIntakePocPage() {
     setRunError(null);
     setOutcomes(null);
     try {
-      const punct = describeFullWidthPunctuation(code);
+      const currentCode = code();
+      const punct = describeFullWidthPunctuation(currentCode);
       if (punct) throw new Error(punct);
       const started = performance.now();
       const texts = textsToEmbed(PRACTICE_ORDERS.map((order) => order.request));
@@ -171,7 +186,7 @@ export function AiIntakePocPage() {
         round4(prediction.similarity),
         round4(prediction.margin),
       ]);
-      const raw = await runNeedConfirm(code, cases);
+      const raw = await runNeedConfirm(currentCode, cases);
       const confirms = Array.isArray(raw) ? raw : [];
       if (
         confirms.length !== PRACTICE_ORDERS.length ||
@@ -193,65 +208,77 @@ export function AiIntakePocPage() {
   };
 
   const expectedOf = (id: string) => PRACTICE_ORDERS.find((order) => order.id === id)?.expected;
-  const predictedCorrect =
-    outcomes?.filter((outcome) => {
-      const expected = expectedOf(outcome.id);
-      return expected != null && sameTicket(outcome.prediction.ticket, expected);
-    }).length ?? 0;
-  const finalCorrect = outcomes?.filter((outcome) => outcome.correct).length ?? 0;
-  const confirmCount = outcomes?.filter((outcome) => outcome.confirmed).length ?? 0;
+  const predictedCorrect = createMemo(
+    () =>
+      outcomes()?.filter((outcome) => {
+        const expected = expectedOf(outcome.id);
+        return expected != null && sameTicket(outcome.prediction.ticket, expected);
+      }).length ?? 0,
+  );
+  const finalCorrect = createMemo(
+    () => outcomes()?.filter((outcome) => outcome.correct).length ?? 0,
+  );
+  const confirmCount = createMemo(
+    () => outcomes()?.filter((outcome) => outcome.confirmed).length ?? 0,
+  );
 
   return (
     <AppPageLayout
-      className="ai-poc"
+      class="ai-poc"
       topbarProps={{
         title: "智能接单 PoC",
         subtitle: "浏览器本地模型 · 不上服务器 · 不计成绩",
       }}
     >
-      <main className="ai-poc-workspace">
-        <section className="ai-card">
+      <main class="ai-poc-workspace">
+        <section class="ai-card">
           <h2>1 · 加载模型</h2>
           <p>
             <code>{AI_MODEL_ID}</code>（量化版约 24 MB，文件在本机 vendor 目录）。优先 WebGPU
             用核显算，失败自动回退 WASM。
           </p>
-          <div className="submit-row">
-            <button
-              className="button button-secondary"
-              disabled={modelStatus === "loading" || modelStatus === "ready"}
+          <div class="submit-row">
+            <Button
+              class="button button-secondary"
+              disabled={modelStatus() === "loading" || modelStatus() === "ready"}
               onClick={() => void load()}
               type="button"
             >
-              {modelStatus === "loading"
+              {modelStatus() === "loading"
                 ? "加载中…"
-                : modelStatus === "ready"
+                : modelStatus() === "ready"
                   ? "已就绪"
                   : "加载模型"}
-            </button>
-            {modelInfo ? (
-              <span className="submit-note">
-                {modelInfo.device === "webgpu" ? "WebGPU（核显）" : "WASM（CPU）"} ·{" "}
-                {modelInfo.dtype} · 加载 {modelInfo.loadMs} ms
-              </span>
-            ) : null}
+            </Button>
+            <Show when={modelInfo()}>
+              {(info) => (
+                <span class="submit-note">
+                  {info().device === "webgpu" ? "WebGPU（核显）" : "WASM（CPU）"} · {info().dtype} ·
+                  加载 {info().loadMs} ms
+                </span>
+              )}
+            </Show>
           </div>
-          {progress ? (
-            <p className="submit-note">
-              下载 {progress.file}：{Math.round(progress.loaded / 1024 / 1024)} /{" "}
-              {Math.round(progress.total / 1024 / 1024)} MB
-            </p>
-          ) : null}
-          {modelError ? (
-            <p className="test-error" role="alert">
-              {modelError}
-              <br />
-              模型文件在本机 vendor 目录里，先运行 <code>bun run sync:embed</code> 再重试。
-            </p>
-          ) : null}
+          <Show when={progress()}>
+            {(prog) => (
+              <p class="submit-note">
+                下载 {prog().file}：{Math.round(prog().loaded / 1024 / 1024)} /{" "}
+                {Math.round(prog().total / 1024 / 1024)} MB
+              </p>
+            )}
+          </Show>
+          <Show when={modelError()}>
+            {(err) => (
+              <p class="test-error" role="alert">
+                {err()}
+                <br />
+                模型文件在本机 vendor 目录里，先运行 <code>bun run sync:embed</code> 再重试。
+              </p>
+            )}
+          </Show>
         </section>
 
-        <section className="ai-card">
+        <section class="ai-card">
           <h2>2 · 写 need_confirm，跑 12 张订单</h2>
           <p>
             AI 给每张订单记一张小票，并报告 <code>similarity</code>（最有把握字段的分）和{" "}
@@ -261,51 +288,55 @@ export function AiIntakePocPage() {
           </p>
           <CodeEditor
             ariaLabel="need_confirm 代码"
-            disabled={running}
+            disabled={running()}
             onChange={setCode}
-            value={code}
+            value={code()}
           />
-          <div className="submit-row">
-            <button
-              className="button button-primary"
-              disabled={modelStatus !== "ready" || running}
+          <div class="submit-row">
+            <Button
+              class="button button-primary"
+              disabled={modelStatus() !== "ready" || running()}
               onClick={() => void run()}
               type="button"
             >
-              {running ? "推理中…" : "运行，看 12 张小票"}
-            </button>
-            {timing ? (
-              <span className="submit-note">
-                向量计算 {timing.embedMs} ms · 全流程 {timing.totalMs} ms
-              </span>
-            ) : null}
+              {running() ? "推理中…" : "运行，看 12 张小票"}
+            </Button>
+            <Show when={timing()}>
+              {(t) => (
+                <span class="submit-note">
+                  向量计算 {t().embedMs} ms · 全流程 {t().totalMs} ms
+                </span>
+              )}
+            </Show>
           </div>
-          {runError ? (
-            <p className="test-error" role="alert">
-              {runError}
-            </p>
-          ) : null}
+          <Show when={runError()}>
+            {(err) => (
+              <p class="test-error" role="alert">
+                {err()}
+              </p>
+            )}
+          </Show>
         </section>
 
-        {outcomes ? (
-          <section className="ai-card">
-            <h2>3 · 结果</h2>
-            <p className="ai-summary">
-              AI 直接记对 <b>{predictedCorrect}</b> / {PRACTICE_ORDERS.length} · 二次确认{" "}
-              <b>{confirmCount}</b> 次（额外 {confirmCount} 拍）· 最终记对 <b>{finalCorrect}</b> /{" "}
-              {PRACTICE_ORDERS.length}
-            </p>
-            <div className="ai-order-list">
-              {outcomes.map((outcome) => (
-                <OrderRow key={outcome.id} outcome={outcome} />
-              ))}
-            </div>
-            <h3>标准化提交（服务器会收到的样子）</h3>
-            <pre className="ai-json">
-              {JSON.stringify(normalizedResults("intake-poc-v1", outcomes), null, 2)}
-            </pre>
-          </section>
-        ) : null}
+        <Show when={outcomes()}>
+          {(list) => (
+            <section class="ai-card">
+              <h2>3 · 结果</h2>
+              <p class="ai-summary">
+                AI 直接记对 <b>{predictedCorrect()}</b> / {PRACTICE_ORDERS.length} · 二次确认{" "}
+                <b>{confirmCount()}</b> 次（额外 {confirmCount()} 拍）· 最终记对{" "}
+                <b>{finalCorrect()}</b> / {PRACTICE_ORDERS.length}
+              </p>
+              <div class="ai-order-list">
+                <For each={list()}>{(outcome) => <OrderRow outcome={outcome} />}</For>
+              </div>
+              <h3>标准化提交（服务器会收到的样子）</h3>
+              <pre class="ai-json">
+                {JSON.stringify(normalizedResults("intake-poc-v1", list()), null, 2)}
+              </pre>
+            </section>
+          )}
+        </Show>
       </main>
     </AppPageLayout>
   );

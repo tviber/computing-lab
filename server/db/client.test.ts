@@ -1,9 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { DatabaseSync } from "node:sqlite";
-import { readFileSync } from "node:fs";
-import { dirname, resolve } from "node:path";
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { migrate, SCHEMA_VERSION } from "./client.ts";
+import { findPackageRoot, migrate, resolveDbPath, SCHEMA_VERSION } from "./client.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
@@ -551,6 +552,27 @@ describe("migrate", () => {
       expect(tableExists(db, "task_sheets"), "v4 step should have rolled back").toBe(false);
     } finally {
       db.close();
+    }
+  });
+});
+
+describe("database path", () => {
+  it("anchors the default database at the nearest package root", () => {
+    const root = mkdtempSync(join(tmpdir(), "computing-lab-db-"));
+    try {
+      const sourceDir = join(root, "server", "db");
+      const serverDir = join(root, "dist-server");
+      mkdirSync(sourceDir, { recursive: true });
+      mkdirSync(serverDir);
+      writeFileSync(join(root, "package.json"), "{}\n");
+
+      expect(findPackageRoot(sourceDir)).toBe(root);
+      expect(findPackageRoot(serverDir)).toBe(root);
+      expect(resolveDbPath(sourceDir)).toBe(join(root, "data", "lab.db"));
+      expect(resolveDbPath(serverDir)).toBe(join(root, "data", "lab.db"));
+      expect(resolveDbPath(serverDir, "./custom.db")).toBe(resolve("custom.db"));
+    } finally {
+      rmSync(root, { recursive: true, force: true });
     }
   });
 });

@@ -6,8 +6,8 @@
  * domain/; this file only composes the visual layer.
  */
 
-import { TaskCheckbox } from "./TaskCheckbox";
-import { useRef, type Dispatch } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, For, Match, Show, Switch } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { BLANK_MARKER, SHEET_LIMITS, type Question } from "../domain/schema";
 import { questionProblem } from "../domain/validation";
@@ -16,6 +16,7 @@ import type { EditorState } from "../lesson/editorState";
 import { ChoiceEditor } from "./ChoiceEditor";
 import { FillEditor } from "./FillEditor";
 import { ShortEditor } from "./ShortEditor";
+import { TaskCheckbox } from "./TaskCheckbox";
 
 export const QUESTION_KIND_LABELS: Record<Question["type"], string> = {
   fill: "填空题",
@@ -23,23 +24,24 @@ export const QUESTION_KIND_LABELS: Record<Question["type"], string> = {
   short: "简答题",
 };
 
-function QuestionCard({
-  q,
-  index,
-  total,
-  dispatch,
-}: {
+const QUESTION_KINDS = Object.keys(QUESTION_KIND_LABELS) as Question["type"][];
+
+function QuestionCard(props: {
   q: Question;
   index: number;
   total: number;
-  dispatch: Dispatch<EditorAction>;
+  dispatch: (action: EditorAction) => void;
 }) {
-  const problem = questionProblem(q);
-  const promptRef = useRef<HTMLTextAreaElement>(null);
+  const problem = createMemo(() => questionProblem(props.q));
+  const fillQ = createMemo(() => (props.q.type === "fill" ? props.q : null));
+  const choiceQ = createMemo(() => (props.q.type === "choice" ? props.q : null));
+  const shortQ = createMemo(() => (props.q.type === "short" ? props.q : null));
+  let promptEl: HTMLTextAreaElement | undefined;
 
   const insertBlankMarker = () => {
-    if (q.type !== "fill" || q.blanks.length >= SHEET_LIMITS.blanksPerQuestion) return;
-    const el = promptRef.current;
+    const q = fillQ();
+    if (!q || q.blanks.length >= SHEET_LIMITS.blanksPerQuestion) return;
+    const el = promptEl;
     const start = el?.selectionStart ?? q.prompt.length;
     const end = el?.selectionEnd ?? start;
     const prompt = q.prompt.slice(0, start) + BLANK_MARKER + q.prompt.slice(end);
@@ -47,7 +49,7 @@ function QuestionCard({
       ...q.blanks,
       { id: `b${q.blanks.length + 1}-${Date.now() % 1000}`, accept: [""] },
     ];
-    dispatch({ type: "update", question: { ...q, prompt, blanks } });
+    props.dispatch({ type: "update", question: { ...q, prompt, blanks } });
     requestAnimationFrame(() => {
       const caret = start + BLANK_MARKER.length;
       el?.focus();
@@ -57,152 +59,169 @@ function QuestionCard({
 
   return (
     <section
-      aria-label={`第 ${index + 1} 题`}
-      className={`ts-card${problem ? " has-problem" : ""}`}
+      aria-label={`第 ${props.index + 1} 题`}
+      class={`ts-card${problem() ? " has-problem" : ""}`}
     >
-      <header className="ts-card-head">
-        <span className="ts-card-index">Q{index + 1}</span>
-        <span className="ts-badge">{QUESTION_KIND_LABELS[q.type]}</span>
+      <header class="ts-card-head">
+        <span class="ts-card-index">Q{props.index + 1}</span>
+        <span class="ts-badge">{QUESTION_KIND_LABELS[props.q.type]}</span>
         <TaskCheckbox
-          checked={q.required}
+          checked={props.q.required}
           onChange={(checked) =>
-            dispatch({ type: "update", question: { ...q, required: checked } })
+            props.dispatch({ type: "update", question: { ...props.q, required: checked } })
           }
         >
           必答
         </TaskCheckbox>
-        <span className="ts-card-actions">
-          <button
+        <span class="ts-card-actions">
+          <Button
             aria-label="上移"
-            className="icon-button"
-            disabled={index === 0}
-            onClick={() => dispatch({ type: "move", id: q.id, dir: -1 })}
+            class="icon-button"
+            disabled={props.index === 0}
+            onClick={() => props.dispatch({ type: "move", id: props.q.id, dir: -1 })}
             type="button"
           >
             <Icon name="chevron-up" size={13} />
-          </button>
-          <button
+          </Button>
+          <Button
             aria-label="下移"
-            className="icon-button"
-            disabled={index === total - 1}
-            onClick={() => dispatch({ type: "move", id: q.id, dir: 1 })}
+            class="icon-button"
+            disabled={props.index === props.total - 1}
+            onClick={() => props.dispatch({ type: "move", id: props.q.id, dir: 1 })}
             type="button"
           >
             <Icon name="chevron-down" size={13} />
-          </button>
-          <button
+          </Button>
+          <Button
             aria-label="复制本题"
-            className="icon-button"
-            onClick={() => dispatch({ type: "duplicate", id: q.id })}
+            class="icon-button"
+            onClick={() => props.dispatch({ type: "duplicate", id: props.q.id })}
             type="button"
           >
             <Icon name="copy" size={13} />
-          </button>
-          <button
+          </Button>
+          <Button
             aria-label="删除本题"
-            className="icon-button danger"
-            onClick={() => dispatch({ type: "remove", id: q.id })}
+            class="icon-button danger"
+            onClick={() => props.dispatch({ type: "remove", id: props.q.id })}
             type="button"
           >
             <Icon name="x" size={14} />
-          </button>
+          </Button>
         </span>
       </header>
-      <label className="ts-field ts-prompt">
+      <label class="ts-field ts-prompt">
         <textarea
           aria-label="题干"
-          onChange={(e) => dispatch({ type: "update", question: { ...q, prompt: e.target.value } })}
-          placeholder={
-            q.type === "fill" ? `输入题干…在需要填空的位置输入 ${BLANK_MARKER}` : "输入题干…"
+          onInput={(e) =>
+            props.dispatch({
+              type: "update",
+              question: { ...props.q, prompt: e.currentTarget.value },
+            })
           }
-          ref={promptRef}
+          placeholder={
+            props.q.type === "fill" ? `输入题干…在需要填空的位置输入 ${BLANK_MARKER}` : "输入题干…"
+          }
+          ref={(el) => {
+            promptEl = el;
+          }}
           rows={2}
-          value={q.prompt}
+          value={props.q.prompt}
         />
       </label>
-      {q.type === "fill" ? (
-        <button
-          className="button-ghost ts-add-inline"
-          disabled={q.blanks.length >= SHEET_LIMITS.blanksPerQuestion}
-          onClick={insertBlankMarker}
-          type="button"
-        >
-          + 插入空格
-        </button>
-      ) : null}
-      {q.type === "fill" ? (
-        <FillEditor dispatch={dispatch} q={q} />
-      ) : q.type === "choice" ? (
-        <ChoiceEditor dispatch={dispatch} q={q} />
-      ) : (
-        <ShortEditor dispatch={dispatch} q={q} />
-      )}
-      {problem ? (
-        <p className="ts-problem" role="alert">
-          {problem}
-        </p>
-      ) : null}
+      <Show when={fillQ()}>
+        {(q) => (
+          <Button
+            class="button-ghost ts-add-inline"
+            disabled={q().blanks.length >= SHEET_LIMITS.blanksPerQuestion}
+            onClick={insertBlankMarker}
+            type="button"
+          >
+            + 插入空格
+          </Button>
+        )}
+      </Show>
+      <Switch>
+        <Match when={fillQ()}>{(q) => <FillEditor dispatch={props.dispatch} q={q()} />}</Match>
+        <Match when={choiceQ()}>{(q) => <ChoiceEditor dispatch={props.dispatch} q={q()} />}</Match>
+        <Match when={shortQ()}>{(q) => <ShortEditor dispatch={props.dispatch} q={q()} />}</Match>
+      </Switch>
+      <Show when={problem()}>
+        {(message) => (
+          <p class="ts-problem" role="alert">
+            {message()}
+          </p>
+        )}
+      </Show>
     </section>
   );
 }
 
-export function TaskSheetEditor({
-  state,
-  dispatch,
-}: {
+export function TaskSheetEditor(props: {
   state: EditorState;
-  dispatch: Dispatch<EditorAction>;
+  dispatch: (action: EditorAction) => void;
 }) {
+  const questionIds = createMemo(() => props.state.questions.map((q) => q.id));
+
   return (
-    <div className="ts-editor">
-      <div className="ts-meta">
-        <label className="ts-field">
+    <div class="ts-editor">
+      <div class="ts-meta">
+        <label class="ts-field">
           <span>任务单标题</span>
           <input
-            maxLength={SHEET_LIMITS.title}
-            onChange={(e) => dispatch({ type: "meta", title: e.target.value })}
+            maxlength={SHEET_LIMITS.title}
+            onInput={(e) => props.dispatch({ type: "meta", title: e.currentTarget.value })}
             placeholder="例如：第一章 · 数制与编码"
-            value={state.title}
+            value={props.state.title}
           />
         </label>
-        <label className="ts-field">
+        <label class="ts-field">
           <span>说明（学生作答前可见）</span>
           <textarea
-            onChange={(e) => dispatch({ type: "meta", description: e.target.value })}
+            onInput={(e) => props.dispatch({ type: "meta", description: e.currentTarget.value })}
             placeholder="给学生的说明、要求或提交须知…"
             rows={2}
-            value={state.description}
+            value={props.state.description}
           />
         </label>
       </div>
 
-      <div className="ts-palette" role="group" aria-label="添加题目">
-        <span className="eyebrow">添加题目</span>
-        {(Object.keys(QUESTION_KIND_LABELS) as Question["type"][]).map((kind) => (
-          <button
-            className="button button-secondary ts-palette-btn"
-            key={kind}
-            onClick={() => dispatch({ type: "add", kind })}
-            type="button"
-          >
-            + {QUESTION_KIND_LABELS[kind]}
-          </button>
-        ))}
+      <div aria-label="添加题目" class="ts-palette" role="group">
+        <span class="eyebrow">添加题目</span>
+        <For each={QUESTION_KINDS}>
+          {(kind) => (
+            <Button
+              class="button button-secondary ts-palette-btn"
+              onClick={() => props.dispatch({ type: "add", kind })}
+              type="button"
+            >
+              + {QUESTION_KIND_LABELS[kind]}
+            </Button>
+          )}
+        </For>
       </div>
 
-      <div className="ts-flow">
-        {state.questions.map((q, i) => (
-          <QuestionCard
-            dispatch={dispatch}
-            index={i}
-            key={q.id}
-            q={q}
-            total={state.questions.length}
-          />
-        ))}
-        {state.questions.length === 0 ? (
-          <p className="ts-empty">还没有题目——从上方选择题型开始出题。</p>
-        ) : null}
+      <div class="ts-flow">
+        <For each={questionIds()}>
+          {(qid, i) => {
+            const question = createMemo(() => props.state.questions.find((q) => q.id === qid));
+            return (
+              <Show when={question()}>
+                {(q) => (
+                  <QuestionCard
+                    dispatch={props.dispatch}
+                    index={i()}
+                    q={q()}
+                    total={props.state.questions.length}
+                  />
+                )}
+              </Show>
+            );
+          }}
+        </For>
+        <Show when={props.state.questions.length === 0}>
+          <p class="ts-empty">还没有题目——从上方选择题型开始出题。</p>
+        </Show>
       </div>
     </div>
   );

@@ -466,10 +466,23 @@
   display: none;
 }
 
+.lab-reset-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--scrim);
+}
+
 .lab-reset-dialog {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 71;
+  transform: translate(-50%, -50%);
   width: min(440px, calc(100% - 32px));
   max-height: calc(100dvh - 32px);
-  margin: auto;
+  overflow-y: auto;
+  margin: 0;
   padding: clamp(16px, 4vw, 24px);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);

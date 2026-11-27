@@ -1,11 +1,7 @@
-import { SegmentedControl, SegmentedControlItem } from "@ui-sdk/react/segmented-control";
+import { SegmentedControl, SegmentedControlItem } from "@ui-sdk/solid/segmented-control";
+import { For } from "solid-js";
 
-export function StatsModePicker<T extends string>({
-  label,
-  value,
-  options,
-  onChange,
-}: {
+export function StatsModePicker<T extends string>(props: {
   label: string;
   value: T;
   options: readonly { value: T; label: string }[];
@@ -13,18 +9,18 @@ export function StatsModePicker<T extends string>({
 }) {
   return (
     <SegmentedControl<T>
-      aria-label={label}
-      className="sf-filter-pills"
-      value={value}
+      aria-label={props.label}
+      class="sf-filter-pills"
       onValueChange={(next) => {
-        if (next !== null) onChange(next);
+        if (next !== null) props.onChange(next);
       }}
+      value={props.value}
     >
-      {options.map((option) => (
-        <SegmentedControlItem key={option.value} value={option.value}>
-          {option.label}
-        </SegmentedControlItem>
-      ))}
+      <For each={props.options}>
+        {(option) => (
+          <SegmentedControlItem value={option.value}>{option.label}</SegmentedControlItem>
+        )}
+      </For>
     </SegmentedControl>
   );
 }

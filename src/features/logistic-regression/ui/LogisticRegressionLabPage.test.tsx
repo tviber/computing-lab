@@ -1,4 +1,5 @@
-import { fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   adminAuthState,
@@ -103,16 +104,21 @@ describe("LogisticRegressionLabPage", () => {
     expect(screen.queryByRole("button", { name: /误报与漏报/ })).not.toBeInTheDocument();
     const finish = screen.getByRole("button", { name: "完成体验" });
     expect(finish).toBeDisabled();
-    fireEvent.change(screen.getByLabelText("短信内容"), { target: { value: "明天来学校开会" } });
+    fireEvent.input(screen.getByLabelText("短信内容"), { target: { value: "明天来学校开会" } });
+    flush();
     expect(screen.getByText(/模型分类：/)).toBeInTheDocument();
     expect(finish).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "促销短信" }));
+    flush();
     expect(screen.getByText("模型分类：垃圾短信")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "日常消息" }));
+    flush();
     expect(screen.getByText("模型分类：正常短信")).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText("短信内容"), { target: { value: "明天来学校开会" } });
+    fireEvent.input(screen.getByLabelText("短信内容"), { target: { value: "明天来学校开会" } });
+    flush();
     expect(finish).toBeEnabled();
     fireEvent.click(finish);
+    flush();
     expect(await screen.findByText("已完成短信分类体验")).toBeInTheDocument();
     const request = fetchSpy.mock.calls.find(([url]) => String(url).endsWith("/judge"));
     expect(JSON.parse(String(request?.[1]?.body))).toEqual({
@@ -137,7 +143,8 @@ describe("LogisticRegressionLabPage", () => {
 
     expect(screen.getByText(/训练集的 1,400 条短信用于更新权重/)).toBeInTheDocument();
     expect(screen.getByText(/每读一条，模型更新一次权重/)).toBeInTheDocument();
-    fireEvent.change(screen.getByLabelText(/回放第/), { target: { value: "0" } });
+    fireEvent.input(screen.getByLabelText(/回放第/), { target: { value: "0" } });
+    flush();
     expect(screen.getByText(/第 0 轮是训练前的权重/)).toBeInTheDocument();
     expect(screen.getByText(/下面只回放已有结果，不改变最终提交的模型/)).toBeInTheDocument();
   });
@@ -186,6 +193,7 @@ describe("LogisticRegressionLabPage", () => {
     for (const [word, tierLabel] of Object.entries(tierSelections)) {
       const group = screen.getByRole("group", { name: `${word} 倾向设置` });
       fireEvent.click(within(group).getByRole("button", { name: tierLabel }));
+      flush();
     }
 
     expect(screen.getByText("判对 6 / 6")).toBeInTheDocument();
@@ -197,11 +205,13 @@ describe("LogisticRegressionLabPage", () => {
     for (const prompt of LOGISTIC_REGRESSION_STAGES[0].prompts) {
       const btn = await screen.findByRole("button", { name: prompt.options[prompt.correct].label });
       fireEvent.click(btn);
+      flush();
     }
 
     const submitBtn = screen.getByRole("button", { name: "提交第 1 关判定" });
     expect(submitBtn).toBeEnabled();
     fireEvent.click(submitBtn);
+    flush();
 
     await screen.findByText("通过本关判定");
     expect(screen.getByText(/本关收获/)).toBeInTheDocument();
@@ -214,6 +224,7 @@ describe("LogisticRegressionLabPage", () => {
     expect(stage2Nav).toBeEnabled();
 
     fireEvent.click(screen.getByRole("button", { name: /进入下一关/ }));
+    flush();
     await screen.findByRole("heading", { name: "逻辑回归 - 从短信到数字" });
   });
 
@@ -247,13 +258,16 @@ describe("LogisticRegressionLabPage", () => {
         name: "+2 强垃圾",
       }),
     );
+    flush();
     for (const prompt of LOGISTIC_REGRESSION_STAGES[0].prompts) {
       fireEvent.click(
         await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
       );
+      flush();
     }
 
     fireEvent.click(screen.getByRole("button", { name: "提交第 1 关判定" }));
+    flush();
 
     await screen.findByText("尚未通过本关");
     await waitFor(() =>
@@ -324,6 +338,7 @@ describe("LogisticRegressionLabPage", () => {
 
     const hamDotTitle = within(chart as unknown as HTMLElement).getByText(/含「免费」的正常短信/);
     fireEvent.click(hamDotTitle.closest("g")!);
+    flush();
     expect(screen.getByText(/当前选中的短信拆解：含「免费」的正常短信/)).toBeInTheDocument();
   });
 
@@ -390,11 +405,13 @@ describe("LogisticRegressionLabPage", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "自由手写" }));
+    flush();
     expect(screen.getByLabelText("单条短信的更新代码")).toBeInTheDocument();
 
     const appendixToggle = screen.getByRole("button", { name: "数学推导" });
     expect(appendixToggle).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(appendixToggle);
+    flush();
     expect(screen.getByText("从极大似然到最小化交叉熵")).toBeInTheDocument();
     expect(screen.getByText(/相乘时约掉这一项/)).toBeInTheDocument();
     const appendix = document.getElementById(appendixToggle.getAttribute("aria-controls")!)!;
@@ -408,33 +425,43 @@ describe("LogisticRegressionLabPage", () => {
     expect(within(slicePanel).getByText(/按 50% 门槛判对/)).toBeInTheDocument();
 
     fireEvent.click(within(slicePanel).getByRole("button", { name: /往右试推一格/ }));
+    flush();
     fireEvent.click(within(slicePanel).getByRole("button", { name: /← 往左试推一格/ }));
+    flush();
     expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
     expect(within(slicePanel).getByText(/坡度（偏导）不同/)).toBeInTheDocument();
 
     fireEvent.click(within(slicePanel).getByRole("button", { name: "示例：步子太大跨过头" }));
+    flush();
     expect(within(slicePanel).getByText(/含「好」样本：111 条/)).toBeInTheDocument();
     const stepBtn = within(slicePanel).getByRole("button", { name: "按梯度更新一步" });
     fireEvent.click(stepBtn);
+    flush();
     fireEvent.click(stepBtn);
+    flush();
     expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
 
     fireEvent.click(within(slicePanel).getByRole("button", { name: "当前训练模型权重" }));
+    flush();
     expect(within(slicePanel).getByText(/当前模型为「好」学到的权重/)).toBeInTheDocument();
     expect(within(slicePanel).getByText(/误拦正常/)).toBeInTheDocument();
 
     fireEvent.click(within(slicePanel).getByRole("button", { name: "按梯度更新一步" }));
+    flush();
     expect(within(slicePanel).getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
 
     fireEvent.click(within(slicePanel).getByRole("button", { name: "重置起点" }));
+    flush();
     expect(
       within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
     ).not.toBeInTheDocument();
 
     fireEvent.click(within(slicePanel).getByRole("button", { name: "按梯度更新一步" }));
+    flush();
     expect(within(slicePanel).getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
     const handle = within(slicePanel).getByRole("slider", { name: /拖动调整词「好」的权重/ });
     fireEvent.keyDown(handle, { key: "ArrowLeft" });
+    flush();
     expect(
       within(slicePanel).queryByRole("list", { name: /跳跃历史轨迹/ }),
     ).not.toBeInTheDocument();
@@ -504,9 +531,12 @@ describe("LogisticRegressionLabPage", () => {
     await screen.findByRole("heading", { name: "逻辑回归 - 训练模型" });
 
     fireEvent.click(screen.getByRole("button", { name: /从短信到数字/ }));
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
+    flush();
     expect(resets).toEqual([]);
     fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
+    flush();
     await waitFor(() => expect(screen.getByRole("button", { name: /训练模型/ })).toBeDisabled());
     expect(screen.getByRole("heading", { name: "逻辑回归 - 从短信到数字" })).toBeInTheDocument();
     expect(resets).toEqual([{ scope: "stage", stageIndex: 2, expectedGeneration: 0 }]);
@@ -550,15 +580,20 @@ describe("LogisticRegressionLabPage", () => {
       fireEvent.click(
         await screen.findByRole("button", { name: prompt.options[prompt.correct].label }),
       );
+      flush();
     }
     fireEvent.click(screen.getByRole("button", { name: "提交第 4 关判定" }));
+    flush();
     await waitFor(() =>
       expect(fetchSpy.mock.calls.some(([url]) => String(url).includes("/judge"))).toBe(true),
     );
 
     fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
+    flush();
     fireEvent.click(screen.getByRole("radio", { name: /重置整个实验/ }));
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
+    flush();
     await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
 
     resolveJudge(

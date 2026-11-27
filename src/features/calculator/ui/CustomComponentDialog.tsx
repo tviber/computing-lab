@@ -1,4 +1,13 @@
-import { useMemo, useState, type Dispatch, type DragEvent, type SetStateAction } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@ui-sdk/solid/dialog";
+import { createMemo, createSignal, For, Show, untrack, type Setter } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { isValidComponentIdentifier, type ComponentSelection } from "../domain/componentize";
 import type { ComponentDef } from "../domain/graph";
@@ -82,63 +91,54 @@ function DragGripIcon() {
   );
 }
 
-export function CustomComponentDialog({
-  existingNames = [],
-  selection,
-  component,
-  onCancel,
-  onCreate,
-  onUpdate,
-}: CustomComponentDialogProps) {
-  const isEditing = Boolean(component);
-  const [name, setName] = useState(() => component?.name ?? firstAvailableName(existingNames));
-  const [inputPorts, setInputPorts] = useState<PortDraft[]>(() =>
-    component
-      ? component.graph.nodes
-          .filter((port) => port.kind === "input" && port.name)
-          .map((port) => ({ key: port.id, name: port.name as string }))
-      : (selection?.inputPorts ?? []).map((port) => ({
-          key: port.key,
-          name: suggestedPortName(port.externalLabel, port.defaultName),
-        })),
-  );
-  const [outputPorts, setOutputPorts] = useState<PortDraft[]>(() =>
-    component
-      ? component.graph.nodes
-          .filter((port) => port.kind === "output" && port.name)
-          .map((port) => ({ key: port.id, name: port.name as string }))
-      : (selection?.outputPorts ?? []).map((port) => ({
-          key: port.key,
-          name: suggestedPortName(port.externalLabels[0] ?? port.internalLabel, port.defaultName),
-        })),
-  );
-  const [draggedPort, setDraggedPort] = useState<{ kind: PortKind; key: string } | null>(null);
-  const [dropIndex, setDropIndex] = useState<{ kind: PortKind; index: number } | null>(null);
-  const inputNames = inputPorts.map((port) => port.name);
-  const outputNames = outputPorts.map((port) => port.name);
+export function CustomComponentDialog(props: CustomComponentDialogProps) {
+  const isEditing = () => Boolean(props.component);
+  const existingNames = () => props.existingNames ?? [];
 
-  const otherNames = useMemo(
-    () =>
-      existingNames.filter(
-        (existing) => existing.toLocaleLowerCase() !== (component?.name ?? "").toLocaleLowerCase(),
-      ),
-    [component?.name, existingNames],
+  const [name, setName] = createSignal(
+    untrack(() => props.component?.name ?? firstAvailableName(props.existingNames ?? [])),
   );
-  const componentNameError = useMemo(
-    () => nameError(name, otherNames, "组件名称"),
-    [otherNames, name],
+  const [inputPorts, setInputPorts] = createSignal<PortDraft[]>(
+    untrack(() =>
+      props.component
+        ? props.component.graph.nodes
+            .filter((port) => port.kind === "input" && port.name)
+            .map((port) => ({ key: port.id, name: port.name as string }))
+        : (props.selection?.inputPorts ?? []).map((port) => ({
+            key: port.key,
+            name: suggestedPortName(port.externalLabel, port.defaultName),
+          })),
+    ),
   );
-  const portsError = useMemo(
-    () => portNamesError(inputNames, outputNames),
-    [inputNames, outputNames],
+  const [outputPorts, setOutputPorts] = createSignal<PortDraft[]>(
+    untrack(() =>
+      props.component
+        ? props.component.graph.nodes
+            .filter((port) => port.kind === "output" && port.name)
+            .map((port) => ({ key: port.id, name: port.name as string }))
+        : (props.selection?.outputPorts ?? []).map((port) => ({
+            key: port.key,
+            name: suggestedPortName(port.externalLabels[0] ?? port.internalLabel, port.defaultName),
+          })),
+    ),
   );
-  const error = selection?.error ?? componentNameError ?? portsError;
+  const [draggedPort, setDraggedPort] = createSignal<{ kind: PortKind; key: string } | null>(null);
+  const [dropIndex, setDropIndex] = createSignal<{ kind: PortKind; index: number } | null>(null);
 
-  const updateName = (
-    setPorts: Dispatch<SetStateAction<PortDraft[]>>,
-    key: string,
-    value: string,
-  ) => {
+  const inputNames = createMemo(() => inputPorts().map((port) => port.name));
+  const outputNames = createMemo(() => outputPorts().map((port) => port.name));
+
+  const otherNames = createMemo(() =>
+    existingNames().filter(
+      (existing) =>
+        existing.toLocaleLowerCase() !== (props.component?.name ?? "").toLocaleLowerCase(),
+    ),
+  );
+  const componentNameError = createMemo(() => nameError(name(), otherNames(), "组件名称"));
+  const portsError = createMemo(() => portNamesError(inputNames(), outputNames()));
+  const error = createMemo(() => props.selection?.error ?? componentNameError() ?? portsError());
+
+  const updateName = (setPorts: Setter<PortDraft[]>, key: string, value: string) => {
     setPorts((current) =>
       current.map((port) => (port.key === key ? { ...port, name: value } : port)),
     );
@@ -150,8 +150,10 @@ export function CustomComponentDialog({
   };
 
   const onPortDragStart = (event: DragEvent, kind: PortKind, key: string) => {
-    event.dataTransfer.effectAllowed = "move";
-    event.dataTransfer.setData("text/plain", key);
+    if (event.dataTransfer) {
+      event.dataTransfer.effectAllowed = "move";
+      event.dataTransfer.setData("text/plain", key);
+    }
     setDraggedPort({ kind, key });
   };
 
@@ -161,9 +163,10 @@ export function CustomComponentDialog({
    * to the nearest slot and the indicator can render between rows.
    */
   const onListDragOver = (event: DragEvent, kind: PortKind, count: number) => {
-    if (draggedPort?.kind !== kind) return;
+    if (draggedPort()?.kind !== kind) return;
     event.preventDefault();
-    const rows = event.currentTarget.querySelectorAll("[data-port-key]");
+    const target = event.currentTarget as HTMLElement;
+    const rows = target.querySelectorAll("[data-port-key]");
     const pointerY = Number.isFinite(event.clientY) ? event.clientY : 0;
     let index = count;
     for (let i = 0; i < rows.length; i += 1) {
@@ -179,267 +182,290 @@ export function CustomComponentDialog({
   const onPortDrop = (event: DragEvent, kind: PortKind, fallbackIndex: number) => {
     event.preventDefault();
     event.stopPropagation();
-    if (draggedPort?.kind === kind) {
-      const index = dropIndex?.kind === kind ? dropIndex.index : fallbackIndex;
+    const dragged = draggedPort();
+    if (dragged?.kind === kind) {
+      const currentDrop = dropIndex();
+      const index = currentDrop?.kind === kind ? currentDrop.index : fallbackIndex;
       const setter = kind === "input" ? setInputPorts : setOutputPorts;
-      setter((current) => reorderPorts(current, draggedPort.key, index));
+      setter((current) => reorderPorts(current, dragged.key, index));
     }
     clearDrag();
   };
 
   const onListDragLeave = (event: DragEvent, kind: PortKind) => {
-    if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+    const target = event.currentTarget as HTMLElement;
+    if (!target.contains(event.relatedTarget as Node | null)) {
       setDropIndex((current) => (current?.kind === kind ? null : current));
     }
   };
 
   const dropClass = (kind: PortKind, index: number, count: number): string => {
-    if (dropIndex?.kind !== kind) return "";
-    if (dropIndex.index === index) return " drop-before";
-    if (dropIndex.index >= count && index === count - 1) return " drop-after";
+    const currentDrop = dropIndex();
+    if (currentDrop?.kind !== kind) return "";
+    if (currentDrop.index === index) return " drop-before";
+    if (currentDrop.index >= count && index === count - 1) return " drop-after";
     return "";
   };
 
   return (
-    <div
-      aria-label={isEditing ? "编辑自定义组件" : "创建自定义组件"}
-      className="custom-component-scrim"
-      onClick={onCancel}
-      role="presentation"
+    <Dialog
+      dismissible
+      onOpenChange={(next) => {
+        if (!next) props.onCancel();
+      }}
+      open
     >
-      <section
-        aria-labelledby="custom-component-title"
-        aria-modal="true"
-        className="custom-component-dialog"
-        onClick={(event) => event.stopPropagation()}
-        role="dialog"
-      >
-        <div className="custom-component-dialog-heading">
+      <DialogBackdrop class="custom-component-scrim" />
+      <DialogContent class="custom-component-dialog">
+        <div class="custom-component-dialog-heading">
           <div>
-            <p className="eyebrow">组件封装 / COMPONENT</p>
-            <h2 id="custom-component-title">
-              {isEditing ? "编辑自定义组件" : "把框选部分变成组件"}
-            </h2>
+            <p class="eyebrow">组件封装 / COMPONENT</p>
+            <DialogTitle>{isEditing() ? "编辑自定义组件" : "把框选部分变成组件"}</DialogTitle>
           </div>
-          <button aria-label="关闭" className="icon-button" onClick={onCancel} type="button">
+          <DialogClose aria-label="关闭" class="icon-button" type="button">
             <Icon name="x" size={15} />
-          </button>
+          </DialogClose>
         </div>
-        <p className="custom-component-dialog-note">
-          {isEditing
+        <DialogDescription class="custom-component-dialog-note">
+          {isEditing()
             ? "拖动端口左侧的手柄可调整输入、输出顺序；修改名称会同步更新组件的连线引用。"
             : "选区内的元件会移入黑盒；跨出选区的连线会自动变成入口或出口。拖动端口左侧的手柄可调整顺序，连线关系会随端口一起移动。"}
-        </p>
+        </DialogDescription>
 
         <form
           onSubmit={(event) => {
             event.preventDefault();
-            if (error) return;
-            const form = {
-              name: name.trim(),
-              inputNames: inputPorts.map((port) => port.name.trim()),
-              outputNames: outputPorts.map((port) => port.name.trim()),
-              inputPortKeys: inputPorts.map((port) => port.key),
-              outputPortKeys: outputPorts.map((port) => port.key),
+            if (error()) return;
+            const form: ComponentizeForm = {
+              name: name().trim(),
+              inputNames: inputPorts().map((port) => port.name.trim()),
+              outputNames: outputPorts().map((port) => port.name.trim()),
+              inputPortKeys: inputPorts().map((port) => port.key),
+              outputPortKeys: outputPorts().map((port) => port.key),
             };
-            if (isEditing) onUpdate?.(form);
-            else onCreate?.(form);
+            if (isEditing()) props.onUpdate?.(form);
+            else props.onCreate?.(form);
           }}
         >
-          <label className="custom-component-field">
+          <label class="custom-component-field">
             <span>组件名称</span>
             <input
-              autoFocus={!isEditing}
-              onChange={(event) => setName(event.target.value)}
-              value={name}
+              autofocus={!isEditing()}
+              onInput={(event) => setName(event.currentTarget.value)}
+              value={name()}
             />
           </label>
 
-          <div className="custom-component-port-groups">
+          <div class="custom-component-port-groups">
             <fieldset
               onDragLeave={(event) => onListDragLeave(event, "input")}
-              onDragOver={(event) => onListDragOver(event, "input", inputPorts.length)}
-              onDrop={(event) => onPortDrop(event, "input", inputPorts.length)}
+              onDragOver={(event) => onListDragOver(event, "input", inputPorts().length)}
+              onDrop={(event) => onPortDrop(event, "input", inputPorts().length)}
             >
-              <legend>入口（{inputPorts.length}）</legend>
-              {inputPorts.length === 0 ? (
-                <p className="custom-component-no-ports">无入口</p>
-              ) : (
-                inputPorts.map((port, index) => (
-                  <div
-                    className={`custom-component-port-row${
-                      draggedPort?.kind === "input" && draggedPort.key === port.key
-                        ? " is-drag-source"
-                        : ""
-                    }${dropClass("input", index, inputPorts.length)}`}
-                    data-port-key={port.key}
-                    key={port.key}
-                    onDrop={(event) => onPortDrop(event, "input", index)}
-                  >
-                    <span
-                      aria-label={`拖动入口 ${index + 1}`}
-                      className="custom-component-port-drag-handle"
-                      draggable
-                      onDragEnd={clearDrag}
-                      onDragStart={(event) => onPortDragStart(event, "input", port.key)}
-                      title="拖动调整顺序"
+              <legend>入口（{inputPorts().length}）</legend>
+              <Show
+                fallback={<p class="custom-component-no-ports">无入口</p>}
+                when={inputPorts().length > 0}
+              >
+                <For each={inputPorts()} keyed={(port) => port.key}>
+                  {(port, index) => (
+                    <div
+                      class={`custom-component-port-row${
+                        draggedPort()?.kind === "input" && draggedPort()?.key === port().key
+                          ? " is-drag-source"
+                          : ""
+                      }${dropClass("input", index(), inputPorts().length)}`}
+                      data-port-key={port().key}
+                      onDrop={(event) => onPortDrop(event, "input", index())}
                     >
-                      <DragGripIcon />
-                    </span>
-                    <input
-                      aria-label={`入口 ${index + 1} 名称`}
-                      onChange={(event) => updateName(setInputPorts, port.key, event.target.value)}
-                      value={port.name}
-                    />
-                  </div>
-                ))
-              )}
+                      <span
+                        aria-label={`拖动入口 ${index() + 1}`}
+                        class="custom-component-port-drag-handle"
+                        draggable="true"
+                        onDragEnd={clearDrag}
+                        onDragStart={(event) => onPortDragStart(event, "input", port().key)}
+                        title="拖动调整顺序"
+                      >
+                        <DragGripIcon />
+                      </span>
+                      <input
+                        aria-label={`入口 ${index() + 1} 名称`}
+                        onInput={(event) =>
+                          updateName(setInputPorts, port().key, event.currentTarget.value)
+                        }
+                        value={port().name}
+                      />
+                    </div>
+                  )}
+                </For>
+              </Show>
             </fieldset>
             <fieldset
               onDragLeave={(event) => onListDragLeave(event, "output")}
-              onDragOver={(event) => onListDragOver(event, "output", outputPorts.length)}
-              onDrop={(event) => onPortDrop(event, "output", outputPorts.length)}
+              onDragOver={(event) => onListDragOver(event, "output", outputPorts().length)}
+              onDrop={(event) => onPortDrop(event, "output", outputPorts().length)}
             >
-              <legend>出口（{outputPorts.length}）</legend>
-              {outputPorts.length === 0 ? (
-                <p className="custom-component-no-ports">无出口</p>
-              ) : (
-                outputPorts.map((port, index) => (
-                  <div
-                    className={`custom-component-port-row${
-                      draggedPort?.kind === "output" && draggedPort.key === port.key
-                        ? " is-drag-source"
-                        : ""
-                    }${dropClass("output", index, outputPorts.length)}`}
-                    data-port-key={port.key}
-                    key={port.key}
-                    onDrop={(event) => onPortDrop(event, "output", index)}
-                  >
-                    <span
-                      aria-label={`拖动出口 ${index + 1}`}
-                      className="custom-component-port-drag-handle"
-                      draggable
-                      onDragEnd={clearDrag}
-                      onDragStart={(event) => onPortDragStart(event, "output", port.key)}
-                      title="拖动调整顺序"
+              <legend>出口（{outputPorts().length}）</legend>
+              <Show
+                fallback={<p class="custom-component-no-ports">无出口</p>}
+                when={outputPorts().length > 0}
+              >
+                <For each={outputPorts()} keyed={(port) => port.key}>
+                  {(port, index) => (
+                    <div
+                      class={`custom-component-port-row${
+                        draggedPort()?.kind === "output" && draggedPort()?.key === port().key
+                          ? " is-drag-source"
+                          : ""
+                      }${dropClass("output", index(), outputPorts().length)}`}
+                      data-port-key={port().key}
+                      onDrop={(event) => onPortDrop(event, "output", index())}
                     >
-                      <DragGripIcon />
-                    </span>
-                    <input
-                      aria-label={`出口 ${index + 1} 名称`}
-                      onChange={(event) => updateName(setOutputPorts, port.key, event.target.value)}
-                      value={port.name}
-                    />
-                  </div>
-                ))
-              )}
+                      <span
+                        aria-label={`拖动出口 ${index() + 1}`}
+                        class="custom-component-port-drag-handle"
+                        draggable="true"
+                        onDragEnd={clearDrag}
+                        onDragStart={(event) => onPortDragStart(event, "output", port().key)}
+                        title="拖动调整顺序"
+                      >
+                        <DragGripIcon />
+                      </span>
+                      <input
+                        aria-label={`出口 ${index() + 1} 名称`}
+                        onInput={(event) =>
+                          updateName(setOutputPorts, port().key, event.currentTarget.value)
+                        }
+                        value={port().name}
+                      />
+                    </div>
+                  )}
+                </For>
+              </Show>
             </fieldset>
           </div>
 
-          <section aria-label="端口对应关系" className="custom-component-mappings">
+          <section aria-label="端口对应关系" class="custom-component-mappings">
             <div>
-              <p className="custom-component-mappings-title">
-                {isEditing ? "当前端口顺序" : "端口对应关系"}
+              <p class="custom-component-mappings-title">
+                {isEditing() ? "当前端口顺序" : "端口对应关系"}
               </p>
-              <p className="custom-component-mappings-note">
-                {isEditing
+              <p class="custom-component-mappings-note">
+                {isEditing()
                   ? "保存后，组件实例会按新顺序显示；已有连线会继续连接到对应端口。"
                   : "封装后，入口和出口会按顺序连接原电路；名称修改只会改变黑盒外部端口名。"}
               </p>
             </div>
-            {isEditing ? (
-              <p className="custom-component-no-ports">拖动上方手柄即可调整端口顺序。</p>
-            ) : inputNames.length > 0 || outputNames.length > 0 ? (
-              <>
-                <div aria-label="端口摘要" className="custom-component-mapping-summary">
-                  {inputPorts.map((port, index) => (
-                    <div
-                      className="custom-component-mapping-summary-row"
-                      key={`input-summary-${port.key}`}
-                    >
-                      <strong>{port.name || "（未命名）"}</strong>
-                      <span>→ 输入 {index + 1}</span>
-                    </div>
-                  ))}
-                  {outputPorts.map((port, index) => (
-                    <div
-                      className="custom-component-mapping-summary-row"
-                      key={`output-summary-${port.key}`}
-                    >
-                      <strong>{port.name || "（未命名）"}</strong>
-                      <span>→ 输出 {index + 1}</span>
-                    </div>
-                  ))}
-                </div>
-                <details className="custom-component-mapping-details">
-                  <summary>查看详细端口对应关系</summary>
-                  <div className="custom-component-mapping-details-content">
-                    {inputPorts.map((port, index) => {
-                      const boundary = selection?.inputPorts.find(
-                        (candidate) => candidate.key === port.key,
-                      );
-                      if (!boundary) return null;
-                      return (
-                        <div className="custom-component-mapping" key={`input-mapping-${port.key}`}>
-                          <code>I{index}</code>
-                          <span className="custom-component-mapping-name">
-                            当前名：{port.name || "（未命名）"}
-                          </span>
-                          <span>
-                            ← {boundary.externalLabel} → {boundary.internalLabels.join("、")}
-                          </span>
+            <Show
+              fallback={
+                <Show
+                  fallback={<p class="custom-component-no-ports">没有跨出选区的端口。</p>}
+                  when={inputNames().length > 0 || outputNames().length > 0}
+                >
+                  <div aria-label="端口摘要" class="custom-component-mapping-summary">
+                    <For each={inputPorts()} keyed={(port) => port.key}>
+                      {(port, index) => (
+                        <div class="custom-component-mapping-summary-row">
+                          <strong>{port().name || "（未命名）"}</strong>
+                          <span>→ 输入 {index() + 1}</span>
                         </div>
-                      );
-                    })}
-                    {outputPorts.map((port, index) => {
-                      const boundary = selection?.outputPorts.find(
-                        (candidate) => candidate.key === port.key,
-                      );
-                      if (!boundary) return null;
-                      return (
-                        <div
-                          className="custom-component-mapping"
-                          key={`output-mapping-${port.key}`}
-                        >
-                          <code>O{index}</code>
-                          <span className="custom-component-mapping-name">
-                            当前名：{port.name || "（未命名）"}
-                          </span>
-                          <span>
-                            ← {boundary.internalLabel} → {boundary.externalLabels.join("、")}
-                          </span>
+                      )}
+                    </For>
+                    <For each={outputPorts()} keyed={(port) => port.key}>
+                      {(port, index) => (
+                        <div class="custom-component-mapping-summary-row">
+                          <strong>{port().name || "（未命名）"}</strong>
+                          <span>→ 输出 {index() + 1}</span>
                         </div>
-                      );
-                    })}
+                      )}
+                    </For>
                   </div>
-                </details>
-              </>
-            ) : (
-              <p className="custom-component-no-ports">没有跨出选区的端口。</p>
-            )}
+                  <details class="custom-component-mapping-details">
+                    <summary>查看详细端口对应关系</summary>
+                    <div class="custom-component-mapping-details-content">
+                      <For each={inputPorts()} keyed={(port) => port.key}>
+                        {(port, index) => {
+                          const boundary = createMemo(() =>
+                            props.selection?.inputPorts.find(
+                              (candidate) => candidate.key === port().key,
+                            ),
+                          );
+                          return (
+                            <Show when={boundary()}>
+                              {(b) => (
+                                <div class="custom-component-mapping">
+                                  <code>I{index()}</code>
+                                  <span class="custom-component-mapping-name">
+                                    当前名：{port().name || "（未命名）"}
+                                  </span>
+                                  <span>
+                                    ← {b().externalLabel} → {b().internalLabels.join("、")}
+                                  </span>
+                                </div>
+                              )}
+                            </Show>
+                          );
+                        }}
+                      </For>
+                      <For each={outputPorts()} keyed={(port) => port.key}>
+                        {(port, index) => {
+                          const boundary = createMemo(() =>
+                            props.selection?.outputPorts.find(
+                              (candidate) => candidate.key === port().key,
+                            ),
+                          );
+                          return (
+                            <Show when={boundary()}>
+                              {(b) => (
+                                <div class="custom-component-mapping">
+                                  <code>O{index()}</code>
+                                  <span class="custom-component-mapping-name">
+                                    当前名：{port().name || "（未命名）"}
+                                  </span>
+                                  <span>
+                                    ← {b().internalLabel} → {b().externalLabels.join("、")}
+                                  </span>
+                                </div>
+                              )}
+                            </Show>
+                          );
+                        }}
+                      </For>
+                    </div>
+                  </details>
+                </Show>
+              }
+              when={isEditing()}
+            >
+              <p class="custom-component-no-ports">拖动上方手柄即可调整端口顺序。</p>
+            </Show>
           </section>
 
-          {selection ? (
-            <p className="custom-component-selection-summary">
-              已框选 {selection.selectedIds.length} 个元件 · 将生成 {inputPorts.length} 个入口、
-              {outputPorts.length} 个出口
-            </p>
-          ) : null}
-          {error ? (
-            <p className="test-error custom-component-error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          <div className="custom-component-actions">
-            <button className="button button-ghost" onClick={onCancel} type="button">
+          <Show when={props.selection}>
+            {(sel) => (
+              <p class="custom-component-selection-summary">
+                已框选 {sel().selectedIds.length} 个元件 · 将生成 {inputPorts().length} 个入口、
+                {outputPorts().length} 个出口
+              </p>
+            )}
+          </Show>
+          <Show when={error()}>
+            {(err) => (
+              <p class="test-error custom-component-error" role="alert">
+                {err()}
+              </p>
+            )}
+          </Show>
+          <div class="custom-component-actions">
+            <DialogClose class="button button-ghost" type="button">
               取消
-            </button>
-            <button className="button button-primary" disabled={Boolean(error)} type="submit">
-              {isEditing ? "保存修改" : "封装并替换"}
-            </button>
+            </DialogClose>
+            <Button class="button button-primary" disabled={Boolean(error())} type="submit">
+              {isEditing() ? "保存修改" : "封装并替换"}
+            </Button>
           </div>
         </form>
-      </section>
-    </div>
+      </DialogContent>
+    </Dialog>
   );
 }

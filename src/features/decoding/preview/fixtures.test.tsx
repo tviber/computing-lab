@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { DecodingWorkspace } from "../ui/DecodingWorkspace.tsx";
 import { createDecodingPreviewActions, decodingPreviewFixtures } from "./fixtures.ts";
@@ -13,7 +13,9 @@ describe("decoding fixed presentation scenes", () => {
     ({ model }) => {
       const fetch = vi.fn();
       vi.stubGlobal("fetch", fetch);
-      render(<DecodingWorkspace model={model} actions={createDecodingPreviewActions(vi.fn())} />);
+      render(() => (
+        <DecodingWorkspace actions={createDecodingPreviewActions(vi.fn())} model={model} />
+      ));
       expect(screen.getByRole("main", { name: "解码实验区" })).toBeInTheDocument();
       expect(fetch).not.toHaveBeenCalled();
     },
@@ -21,9 +23,9 @@ describe("decoding fixed presentation scenes", () => {
 
   it("records intents instead of starting workers or saving", () => {
     const record = vi.fn();
-    render(
-      <DecodingWorkspace model={scene("initial")} actions={createDecodingPreviewActions(record)} />,
-    );
+    render(() => (
+      <DecodingWorkspace actions={createDecodingPreviewActions(record)} model={scene("initial")} />
+    ));
     fireEvent.click(screen.getByRole("button", { name: "运行 decode" }));
     expect(record).toHaveBeenCalledWith("run");
     expect(screen.getByRole("main", { name: "解码实验区" })).toBeInTheDocument();

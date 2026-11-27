@@ -9,7 +9,7 @@
  * snapshots stay for teacher review only.
  */
 
-import type { LabProjectPayload } from "../../../shared/api/client.ts";
+import type { LabProjectPayload } from "../../../shared/lab/contracts.ts";
 import type { AiResultRow } from "./aiIntake.ts";
 import type { RunSummary, Ticket } from "./contracts.ts";
 

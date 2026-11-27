@@ -13,9 +13,10 @@ async function ruleIds(code: string, filePath = domainPath): Promise<(string | n
 
 describe("pure-layer lint constraints", () => {
   it.each([
-    'export { jsx } from "react/jsx-runtime";',
-    'export { createRoot } from "react-dom/client";',
-    'export { useNavigate } from "@tanstack/react-router";',
+    'export { createSignal } from "solid-js";',
+    'export { render } from "@solidjs/web";',
+    'export { useNavigate } from "@solidjs/router";',
+    'export { Button } from "@ui-sdk/solid/button";',
     'export { useAuth } from "../../../shared/auth";',
     'export { LabAccessGate } from "../../../shared/lab";',
     'export { unsafe } from "../../../shared/lab/saveStatusHook.ts";',

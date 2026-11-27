@@ -1,5 +1,5 @@
 import { LabPreviewPage } from "../../../devtools/lab-preview/LabPreviewPage";
-import { SaveIndicator } from "../../../shared/lab/LabGate";
+import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
 import { labStageTitle } from "../../../shared/lab/labMetadata";
 import { DecodingWorkspace } from "../ui/DecodingWorkspace.tsx";
 import { createDecodingPreviewActions, decodingPreviewFixtures } from "./fixtures.ts";

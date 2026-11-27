@@ -651,7 +651,7 @@ build_candidate() {
   log "building static dist for $sha"
   (cd "$source" && env -i PATH="$BUILD_PATH" HOME="$build_home" \
     VITE_BASE_PATH="$VITE_BASE_PATH" NODE_ENV=production \
-    "$BUN_BIN" run build)
+    "$BUN_BIN" run build:classroom --outDir dist)
   validate_static_tree "$source/dist"
   log "smoking staged dist for $sha"
   (cd "$source" && env -i PATH="$BUILD_PATH" HOME="$build_home" \

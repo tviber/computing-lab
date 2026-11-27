@@ -1,50 +1,53 @@
+import { Button } from "@ui-sdk/solid/button";
+import { For, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon.tsx";
 import type { LogisticRegressionTestSummary } from "../domain/protocol.ts";
 
-export function JudgeVerdictCard({
-  summary,
-  passed,
-  hasNextStage,
-  onNextStage,
-}: {
+export function JudgeVerdictCard(props: {
   summary: LogisticRegressionTestSummary | null;
   passed: boolean;
   hasNextStage: boolean;
   onNextStage?: () => void;
 }) {
-  if (!summary) return null;
-
   return (
-    <section
-      aria-live="polite"
-      className={`logistic-regression-verdict ${passed ? "is-pass" : "is-fail"}`}
-      role="status"
-    >
-      <div className="logistic-regression-verdict-head">
-        <strong className="logistic-regression-verdict-title">
-          <Icon name={passed ? "check" : "warning"} size={15} />
-          {passed ? "通过本关判定" : "尚未通过本关"}
-        </strong>
-        {passed && hasNextStage && onNextStage ? (
-          <button className="button button-primary" onClick={onNextStage} type="button">
-            进入下一关 <Icon name="arrow-right" size={14} />
-          </button>
-        ) : null}
-      </div>
-      <p className="logistic-regression-verdict-detail">{summary.detail}</p>
-      <ul className="logistic-regression-verdict-parts">
-        {summary.parts.map((part) => (
-          <li className={part.ok ? "is-ok" : "is-bad"} key={part.id}>
-            <span className="logistic-regression-part-label">
-              <Icon name={part.ok ? "check" : "x"} size={12} />
-              {part.label}
-            </span>
-            {part.detail ? (
-              <span className="logistic-regression-part-detail">{part.detail}</span>
-            ) : null}
-          </li>
-        ))}
-      </ul>
-    </section>
+    <Show when={props.summary}>
+      {(summary) => (
+        <section
+          aria-live="polite"
+          class={`logistic-regression-verdict ${props.passed ? "is-pass" : "is-fail"}`}
+          role="status"
+        >
+          <div class="logistic-regression-verdict-head">
+            <strong class="logistic-regression-verdict-title">
+              <Icon name={props.passed ? "check" : "warning"} size={15} />
+              {props.passed ? "通过本关判定" : "尚未通过本关"}
+            </strong>
+            <Show when={props.passed && props.hasNextStage && props.onNextStage}>
+              {(onNext) => (
+                <Button class="button button-primary" onClick={() => onNext()()} type="button">
+                  进入下一关 <Icon name="arrow-right" size={14} />
+                </Button>
+              )}
+            </Show>
+          </div>
+          <p class="logistic-regression-verdict-detail">{summary().detail}</p>
+          <ul class="logistic-regression-verdict-parts">
+            <For each={summary().parts}>
+              {(part) => (
+                <li class={part.ok ? "is-ok" : "is-bad"}>
+                  <span class="logistic-regression-part-label">
+                    <Icon name={part.ok ? "check" : "x"} size={12} />
+                    {part.label}
+                  </span>
+                  <Show when={part.detail}>
+                    <span class="logistic-regression-part-detail">{part.detail}</span>
+                  </Show>
+                </li>
+              )}
+            </For>
+          </ul>
+        </section>
+      )}
+    </Show>
   );
 }

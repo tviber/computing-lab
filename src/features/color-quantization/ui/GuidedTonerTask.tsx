@@ -7,7 +7,8 @@
  * by hand, then watch their code make the same judgment.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { PythonCodeWithBlanks, type PythonCodePart } from "../../../shared/ui/PythonCode";
 import { runNearestToner } from "./pyodideRunner.ts";
@@ -36,59 +37,61 @@ function parseBlanks(code: string): [string, string] | null {
   return blue && cond ? [blue[1].trim(), cond[1].trim()] : null;
 }
 
-export function GuidedTonerTask({
-  code,
-  onCodeChange,
-}: {
-  code: string;
-  onCodeChange: (code: string) => void;
-}) {
-  const initial = useMemo(() => parseBlanks(code), []);
-  const [blankBlue, setBlankBlue] = useState(initial?.[0] ?? "");
-  const [blankCond, setBlankCond] = useState(initial?.[1] ?? "");
-  const [check, setCheck] = useState<{
+export function GuidedTonerTask(props: { code: string; onCodeChange: (code: string) => void }) {
+  const initial = untrack(() => parseBlanks(props.code));
+  const [blankBlue, setBlankBlue] = createSignal(initial?.[0] ?? "");
+  const [blankCond, setBlankCond] = createSignal(initial?.[1] ?? "");
+  const [check, setCheck] = createSignal<{
     source: string;
     outputs: (number | null)[] | null;
     error?: string;
   } | null>(null);
-  const [running, setRunning] = useState(false);
-  const lastEmitted = useRef<string | null>(null);
+  const [running, setRunning] = createSignal(false);
+  let lastEmitted: string | null = null;
 
   // If a saved draft arrives after mount, fold it back into the blanks.
-  useEffect(() => {
-    if (code === lastEmitted.current) return;
-    const parsed = parseBlanks(code);
-    if (parsed) {
-      setBlankBlue(parsed[0]);
-      setBlankCond(parsed[1]);
-    }
-  }, [code]);
+  createEffect(
+    () => props.code,
+    (code) => {
+      if (code === lastEmitted) return;
+      const parsed = parseBlanks(code);
+      if (parsed) {
+        setBlankBlue(parsed[0]);
+        setBlankCond(parsed[1]);
+      }
+    },
+  );
 
   const updateBlank = (which: "blue" | "cond", value: string) => {
-    const blue = which === "blue" ? value : blankBlue;
-    const cond = which === "cond" ? value : blankCond;
+    const blue = which === "blue" ? value : blankBlue();
+    const cond = which === "cond" ? value : blankCond();
     if (which === "blue") setBlankBlue(value);
     else setBlankCond(value);
-    const source = assemble(blue, cond);
-    lastEmitted.current = source;
-    onCodeChange(source);
+    const nextSource = assemble(blue, cond);
+    lastEmitted = nextSource;
+    props.onCodeChange(nextSource);
   };
 
-  const source = assemble(blankBlue, blankCond);
-  const current = check?.source === source ? check : null;
-  const passed = current?.outputs?.every(
-    (value, index) => value === practiceColors[index].expected,
+  const source = createMemo(() => assemble(blankBlue(), blankCond()));
+  const current = createMemo(() => {
+    const c = check();
+    return c?.source === source() ? c : null;
+  });
+  const passed = createMemo(() =>
+    current()?.outputs?.every((value, index) => value === practiceColors[index].expected),
   );
+
   const run = async () => {
-    if (!blankBlue.trim() || !blankCond.trim()) {
-      setCheck({ source, outputs: null, error: "先把两个空都填上，再运行。" });
+    const currentSource = source();
+    if (!blankBlue().trim() || !blankCond().trim()) {
+      setCheck({ source: currentSource, outputs: null, error: "先把两个空都填上，再运行。" });
       return;
     }
     setRunning(true);
     setCheck(null);
     try {
       const results = await runNearestToner(
-        source,
+        currentSource,
         practiceColors.map((color) => color.rgb),
         practiceCandidates,
       );
@@ -101,14 +104,19 @@ export function GuidedTonerTask({
           ? value
           : null;
       });
-      setCheck({ source, outputs });
+      setCheck({ source: currentSource, outputs });
     } catch (err) {
-      setCheck({ source, outputs: null, error: err instanceof Error ? err.message : String(err) });
+      setCheck({
+        source: currentSource,
+        outputs: null,
+        error: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setRunning(false);
     }
   };
-  const codeParts: PythonCodePart[] = [
+
+  const codeParts = createMemo<PythonCodePart[]>(() => [
     {
       kind: "code",
       code: `def nearest_toner(r, g, b, toners):
@@ -121,7 +129,7 @@ export function GuidedTonerTask({
     {
       kind: "blank",
       id: "blue",
-      value: blankBlue,
+      value: blankBlue(),
       ariaLabel: "空 1：蓝色通道的距离项",
       minWidth: 16,
       onChange: (value) => updateBlank("blue", value),
@@ -134,7 +142,7 @@ export function GuidedTonerTask({
     {
       kind: "blank",
       id: "condition",
-      value: blankCond,
+      value: blankCond(),
       ariaLabel: "空 2：什么条件下更新 best",
       minWidth: 10,
       onChange: (value) => updateBlank("cond", value),
@@ -147,17 +155,17 @@ export function GuidedTonerTask({
     return best
 `,
     },
-  ];
+  ]);
 
   return (
-    <section aria-labelledby="guided-toner-title" className="quant-guided">
+    <section aria-labelledby="guided-toner-title" class="quant-guided">
       <h3 id="guided-toner-title">小练习：把刚才的规则写成代码</h3>
       <p>
         刚才实验台里的印刷效果，就是这么一个颜色一个颜色算出来的。规则只有一条：
         <strong>每种源色落到离它最近的候选色</strong>
         ——候选是纸白加上已装的墨粉。距离按 RGB 三个通道的平方差相加计算。
       </p>
-      <TonerPrediction outputs={current?.outputs ?? null} />
+      <TonerPrediction outputs={current()?.outputs ?? null} />
 
       <p>
         让代码也选一次。第一个空补蓝色通道的平方差，第二个空决定什么时候用当前候选替换之前的最佳候选。
@@ -165,37 +173,37 @@ export function GuidedTonerTask({
       <PythonCodeWithBlanks
         ariaLabel="nearest_toner 代码填空"
         className="quant-code-fill"
-        parts={codeParts}
+        parts={codeParts()}
       />
 
-      <div className="quant-actions">
-        <button
-          className="button button-secondary"
-          disabled={running}
+      <div class="quant-actions">
+        <Button
+          class="button button-secondary"
+          disabled={running()}
           onClick={() => void run()}
           type="button"
         >
-          {running ? "运行中…（首次需加载 Python）" : "运行检查"}
-        </button>
-        {passed === true ? (
-          <>
-            <span className="quant-badge is-pass">
-              <Icon name="check" size={12} /> 全部一致
-            </span>
-            <span className="quant-guided-next">
-              回实验台把“映射规则”切换成「我写的 nearest_toner」，看它印出的整图。
-            </span>
-          </>
-        ) : null}
-        {passed === false ? (
-          <span className="quant-badge is-fail">还不一致，查看上方六种源色的检查结果。</span>
-        ) : null}
+          {running() ? "运行中…（首次需加载 Python）" : "运行检查"}
+        </Button>
+        <Show when={passed() === true}>
+          <span class="quant-badge is-pass">
+            <Icon name="check" size={12} /> 全部一致
+          </span>
+          <span class="quant-guided-next">
+            回实验台把“映射规则”切换成「我写的 nearest_toner」，看它印出的整图。
+          </span>
+        </Show>
+        <Show when={passed() === false}>
+          <span class="quant-badge is-fail">还不一致，查看上方六种源色的检查结果。</span>
+        </Show>
       </div>
-      {current?.error ? (
-        <pre className="quant-error" role="alert">
-          {current.error}
-        </pre>
-      ) : null}
+      <Show when={current()?.error}>
+        {(err) => (
+          <pre class="quant-error" role="alert">
+            {err()}
+          </pre>
+        )}
+      </Show>
     </section>
   );
 }

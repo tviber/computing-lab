@@ -1,59 +1,60 @@
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
+import { createSignal } from "solid-js";
 import { MathFormula } from "../../../shared/ui/MathFormula";
-import { useId, useState } from "react";
 
 export function LossDerivationCard() {
-  const [showMathAppendix, setShowMathAppendix] = useState(false);
-  const appendixId = useId();
+  const [showMathAppendix, setShowMathAppendix] = createSignal(false);
 
   return (
-    <div className="logistic-regression-role-wrap">
-      <div className="logistic-regression-derivation-grid">
-        <div className="logistic-regression-formula-card">
-          <div className="logistic-regression-formula-head">
-            <span className="logistic-regression-badge-neutral">交叉熵损失</span>
+    <div class="logistic-regression-role-wrap">
+      <div class="logistic-regression-derivation-grid">
+        <div class="logistic-regression-formula-card">
+          <div class="logistic-regression-formula-head">
+            <span class="logistic-regression-badge-neutral">交叉熵损失</span>
           </div>
-          <p className="logistic-regression-role-desc">
+          <p class="logistic-regression-role-desc">
             模型给真实标签的概率越高，损失越接近 0。如果把一条垃圾短信的概率估成 2%，损失就很大。
           </p>
-          <p className="logistic-regression-old-knowledge">
+          <p class="logistic-regression-old-knowledge">
             旧知彩蛋：线性回归 MSE 梯度是“预测 − 真实”乘输入；这里完全同构，只把预测值换成 Sigmoid
             概率 p。
           </p>
-          <p className="logistic-regression-formula-conclusion">
+          <p class="logistic-regression-formula-conclusion">
             <MathFormula>{String.raw`\text{损失} = -\ln\!\left(\text{模型给真实标签的概率}\right)`}</MathFormula>
           </p>
         </div>
 
-        <div className="logistic-regression-formula-card">
-          <div className="logistic-regression-formula-head">
-            <span className="logistic-regression-badge-neutral">梯度与权重更新</span>
+        <div class="logistic-regression-formula-card">
+          <div class="logistic-regression-formula-head">
+            <span class="logistic-regression-badge-neutral">梯度与权重更新</span>
           </div>
-          <p className="logistic-regression-role-desc">
+          <p class="logistic-regression-role-desc">
             按梯度的反方向更新权重。梯度的大小乘以学习率，就是这一步的改变量大小。
           </p>
-          <p className="logistic-regression-formula-conclusion">
+          <p class="logistic-regression-formula-conclusion">
             每次改变量 <MathFormula>{String.raw`\Delta w_j=-\eta\,(p-y)\,x_j`}</MathFormula>
           </p>
         </div>
       </div>
 
-      <div className="logistic-regression-appendix-bar">
-        <button
-          aria-controls={appendixId}
-          aria-expanded={showMathAppendix}
-          className="button button-ghost logistic-regression-toggle-btn disclosure-trigger"
-          onClick={() => setShowMathAppendix((v) => !v)}
-          type="button"
-        >
-          {showMathAppendix ? "收起数学推导" : "数学推导"}
-        </button>
-      </div>
+      <Collapsible
+        class="logistic-regression-role-wrap"
+        onOpenChange={(open) => setShowMathAppendix(open)}
+        open={showMathAppendix()}
+      >
+        <div class="logistic-regression-appendix-bar">
+          <CollapsibleTrigger
+            class="button button-ghost logistic-regression-toggle-btn disclosure-trigger"
+            type="button"
+          >
+            {showMathAppendix() ? "收起数学推导" : "数学推导"}
+          </CollapsibleTrigger>
+        </div>
 
-      {showMathAppendix ? (
-        <div className="logistic-regression-appendix-grid" id={appendixId}>
-          <div className="logistic-regression-derivation-body">
-            <p className="logistic-regression-subhead">从极大似然到最小化交叉熵</p>
-            <ol className="logistic-regression-derivation-steps">
+        <CollapsiblePanel class="logistic-regression-appendix-grid">
+          <div class="logistic-regression-derivation-body">
+            <p class="logistic-regression-subhead">从极大似然到最小化交叉熵</p>
+            <ol class="logistic-regression-derivation-steps">
               <li>
                 标签 <MathFormula>y_i</MathFormula> 只有 1 和 0。观察到垃圾短信时，这条标签的概率是{" "}
                 <MathFormula>p_i</MathFormula>。观察到正常短信时，概率是
@@ -82,9 +83,9 @@ L&=\frac{1}{N}\sum_{i=1}^N\ell_i\\
             </ol>
           </div>
 
-          <div className="logistic-regression-derivation-body">
-            <p className="logistic-regression-subhead">链式法则如何化简权重梯度</p>
-            <ol className="logistic-regression-derivation-steps">
+          <div class="logistic-regression-derivation-body">
+            <p class="logistic-regression-subhead">链式法则如何化简权重梯度</p>
+            <ol class="logistic-regression-derivation-steps">
               <li>
                 先对
                 <strong>
@@ -121,8 +122,8 @@ w_j&\leftarrow w_j-\eta\,(p_i-y_i)\,x_{ij}
               </li>
             </ol>
           </div>
-        </div>
-      ) : null}
+        </CollapsiblePanel>
+      </Collapsible>
     </div>
   );
 }

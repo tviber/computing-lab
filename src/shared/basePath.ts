@@ -30,3 +30,17 @@ export function basePathPrefix(value: string | undefined): string {
   const base = normalizeBasePath(value);
   return base === "/" ? "" : base;
 }
+
+/**
+ * Prefer the configured path when the browser is actually under it. A build
+ * configured for `/computing-lab` can still be previewed at `/`, where the
+ * router must not strip a prefix the location doesn't have.
+ */
+export function resolveRuntimeBasePath(configuredBasePath: string): string {
+  const location = (globalThis as { location?: { pathname: string } }).location;
+  if (configuredBasePath === "/" || !location) return configuredBasePath;
+  const pathname = location.pathname;
+  const isConfiguredPath =
+    pathname === configuredBasePath || pathname.startsWith(`${configuredBasePath}/`);
+  return isConfiguredPath ? configuredBasePath : "/";
+}

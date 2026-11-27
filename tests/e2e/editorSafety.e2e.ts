@@ -127,7 +127,7 @@ test("admin delete and roster removal dialogs contain focus and return it to the
     const dialog = page.getByRole("dialog");
     const cancel = dialog.getByRole("button", { name: "取消" });
     await expect(cancel).toBeFocused();
-    expect(await dialog.evaluate((el) => el.matches(":modal"))).toBe(true);
+    await expect(dialog).toHaveAttribute("aria-modal", "true");
     await cancel.press("Tab");
     await expect(dialog.getByRole("button", { name: /确认删除|确认移出/ })).toBeFocused();
     await page.keyboard.press("Shift+Tab");

@@ -1,12 +1,5 @@
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useState,
-  type ReactNode,
-} from "react";
+import type { JSX } from "@solidjs/web";
+import { createContext, createEffect, createSignal, untrack, useContext } from "solid-js";
 import { api, ApiError } from "../api/client";
 
 /** Account-level role: admin ⊃ teacher ⊃ user. */
@@ -24,11 +17,13 @@ export type AuthState =
   | { status: "anonymous"; session: null }
   | { status: "authenticated"; session: AuthSession };
 
-export type AuthContextValue = AuthState & {
+export type AuthContextValue = {
+  readonly status: AuthState["status"];
+  readonly session: AuthSession | null;
   /** Primary class for the classroom flow (first membership). */
-  primaryMembership: Membership | null;
+  readonly primaryMembership: Membership | null;
   /** The signed-in account's global role. */
-  role: AccountRole | null;
+  readonly role: AccountRole | null;
   login: (input: { studentNo: string; password: string }) => Promise<void>;
   changePassword: (input: { currentPassword: string; newPassword: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -47,23 +42,24 @@ export const ROLE_LABELS: Record<AccountRole, string> = {
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-export function AuthProvider({
-  children,
-  initialState,
-}: {
-  children: ReactNode;
+export function AuthProvider(props: {
+  children?: JSX.Element;
   /** Tests inject a resolved state to skip the network round trip. */
   initialState?: AuthState;
 }) {
-  const [state, setState] = useState<AuthState>(
-    initialState ?? { status: "loading", session: null },
+  const [state, setState] = createSignal<AuthState>(
+    untrack(() => props.initialState) ?? { status: "loading", session: null },
   );
 
-  const refresh = useCallback(async (attempt = 0) => {
+  let retryTimer: ReturnType<typeof setTimeout> | null = null;
+  let disposed = false;
+
+  const refresh = async (attempt = 0): Promise<void> => {
     try {
       const session = await api.get<AuthSession>("/api/auth/me");
-      setState({ status: "authenticated", session });
+      if (!disposed) setState({ status: "authenticated", session });
     } catch (error) {
+      if (disposed) return;
       // A 401 is definitive "not signed in". Anything else (offline, proxy
       // restart, 5xx) is transient: keep the current state and back off,
       // so a blip never bounces a signed-in learner to the login page.
@@ -72,64 +68,76 @@ export function AuthProvider({
         return;
       }
       if (attempt < 3) {
-        setTimeout(() => void refresh(attempt + 1), 1500 * (attempt + 1));
+        retryTimer = setTimeout(() => void refresh(attempt + 1), 1500 * (attempt + 1));
         return;
       }
       setState((current) =>
         current.status === "authenticated" ? current : { status: "anonymous", session: null },
       );
     }
-  }, []);
+  };
 
-  useEffect(() => {
-    if (initialState) return;
-    void refresh();
-  }, [initialState, refresh]);
-
-  // Memberships change outside this tab (a teacher enrolls/removes this
-  // account, an admin edits it). Re-fetch `me` when the tab regains focus so
-  // the new class appears without a manual reload; `refresh` already rides
-  // out transient failures.
-  useEffect(() => {
-    if (initialState) return;
-    const onVisible = () => {
-      if (document.visibilityState === "visible") void refresh();
-    };
-    document.addEventListener("visibilitychange", onVisible);
-    return () => document.removeEventListener("visibilitychange", onVisible);
-  }, [initialState, refresh]);
-
-  const login = useCallback(async (input: { studentNo: string; password: string }) => {
-    const session = await api.post<AuthSession>("/api/auth/login", input);
-    setState({ status: "authenticated", session });
-  }, []);
-
-  const logout = useCallback(async () => {
-    await api.post("/api/auth/logout");
-    setState({ status: "anonymous", session: null });
-  }, []);
-
-  const changePassword = useCallback(
-    async (input: { currentPassword: string; newPassword: string }) => {
-      await api.post("/api/auth/change-password", input);
+  createEffect(
+    () => props.initialState,
+    (initial) => {
+      disposed = false;
+      if (initial) {
+        setState(initial);
+        return () => {
+          disposed = true;
+          if (retryTimer !== null) clearTimeout(retryTimer);
+        };
+      }
+      void refresh();
+      const onVisible = () => {
+        if (document.visibilityState === "visible") void refresh();
+      };
+      document.addEventListener("visibilitychange", onVisible);
+      return () => {
+        disposed = true;
+        if (retryTimer !== null) {
+          clearTimeout(retryTimer);
+          retryTimer = null;
+        }
+        document.removeEventListener("visibilitychange", onVisible);
+      };
     },
-    [],
   );
 
-  const value = useMemo<AuthContextValue>(() => {
-    const primaryMembership = state.session?.memberships[0] ?? null;
-    return {
-      ...state,
-      primaryMembership,
-      role: state.session?.user.role ?? null,
-      login,
-      changePassword,
-      logout,
-      refresh,
-    };
-  }, [state, login, changePassword, logout, refresh]);
+  const login = async (input: { studentNo: string; password: string }) => {
+    const session = await api.post<AuthSession>("/api/auth/login", input);
+    setState({ status: "authenticated", session });
+  };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  const logout = async () => {
+    await api.post("/api/auth/logout");
+    setState({ status: "anonymous", session: null });
+  };
+
+  const changePassword = async (input: { currentPassword: string; newPassword: string }) => {
+    await api.post("/api/auth/change-password", input);
+  };
+
+  const value: AuthContextValue = {
+    get status() {
+      return state().status;
+    },
+    get session() {
+      return state().session;
+    },
+    get primaryMembership() {
+      return state().session?.memberships[0] ?? null;
+    },
+    get role() {
+      return state().session?.user.role ?? null;
+    },
+    login,
+    changePassword,
+    logout,
+    refresh,
+  };
+
+  return <AuthContext value={value}>{props.children}</AuthContext>;
 }
 
 export function useAuth(): AuthContextValue {

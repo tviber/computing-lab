@@ -1,12 +1,15 @@
-import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/react/collapsible";
+import type { JSX } from "@solidjs/web";
+import { Button } from "@ui-sdk/solid/button";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
 import {
-  useId,
-  useRef,
-  useState,
-  useSyncExternalStore,
-  type CSSProperties,
-  type ReactNode,
-} from "react";
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@ui-sdk/solid/dialog";
+import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Icon } from "../ui/Icon";
 import { useScrollEdges } from "../ui/scrollEdges";
 
@@ -22,12 +25,12 @@ export type LabResetControlsProps = {
 
 export type LabPageShellProps = {
   labId: string;
-  rail: ReactNode;
-  collapsedLabel?: ReactNode;
+  rail: JSX.Element;
+  collapsedLabel?: JSX.Element;
   railWidth?: number;
   contentClassName?: string;
   resetControls?: LabResetControlsProps;
-  children: ReactNode;
+  children?: JSX.Element;
 };
 
 function storageKey(labId: string) {
@@ -44,149 +47,144 @@ function readCollapsed(labId: string): boolean {
 
 const narrowRailQuery = "(max-width: 960px)";
 
-function subscribeToNarrowRail(onChange: () => void) {
-  const media = window.matchMedia?.(narrowRailQuery);
-  media?.addEventListener("change", onChange);
-  return () => media?.removeEventListener("change", onChange);
-}
-
 function isNarrowRail() {
   return window.matchMedia?.(narrowRailQuery).matches ?? false;
 }
 
-function LabProgressTools({
-  stageIndex,
-  canReset,
-  resetting,
-  resetError,
-  onReset,
-}: LabResetControlsProps) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  const descriptionId = useId();
-  const [scope, setScope] = useState<LabResetScope["scope"]>("stage");
-  const [showError, setShowError] = useState(false);
-  const [notice, setNotice] = useState("");
+function LabProgressTools(props: LabResetControlsProps) {
+  const [open, setOpen] = createSignal(false);
+  const [scope, setScope] = createSignal<LabResetScope["scope"]>("stage");
+  const [showError, setShowError] = createSignal(false);
+  const [notice, setNotice] = createSignal("");
 
   return (
-    <div className="lab-progress-tools">
-      <button
+    <div class="lab-progress-tools">
+      <Button
+        aria-disabled={props.resetting ? "true" : undefined}
         aria-haspopup="dialog"
-        aria-disabled={resetting || undefined}
         aria-label="重置进度"
-        className="lab-rail-action"
-        disabled={!canReset}
+        class="lab-rail-action"
+        disabled={!props.canReset}
         onClick={() => {
-          if (resetting) return;
+          if (props.resetting) return;
           setScope("stage");
           setShowError(false);
           setNotice("");
-          dialog.current?.showModal();
+          setOpen(true);
         }}
         title="重置进度"
         type="button"
       >
         <Icon name="rotate-ccw" size={16} />
         <span>重置进度</span>
-      </button>
-      <span className="sr-only" role="status">
-        {notice}
+      </Button>
+      <span class="sr-only" role="status">
+        {notice()}
       </span>
-      <dialog
-        aria-describedby={descriptionId}
-        aria-labelledby={titleId}
-        className="lab-reset-dialog"
-        onCancel={(event) => {
-          if (resetting) event.preventDefault();
+      <Dialog
+        dismissible={!props.resetting}
+        onOpenChange={(next) => {
+          if (!next && props.resetting) return;
+          setOpen(next);
         }}
-        ref={dialog}
+        open={open()}
       >
-        <h2 id={titleId}>重置实验进度</h2>
-        <p id={descriptionId}>此操作只影响你自己的记录，清除后无法恢复。</p>
-        <form
-          onSubmit={async (event) => {
-            event.preventDefault();
-            if (!canReset || resetting) return;
-            setShowError(true);
-            if (await onReset(scope === "stage" ? { scope, stageIndex } : { scope })) {
-              dialog.current?.close();
-              setNotice("实验进度已重置。");
-            }
-          }}
-        >
-          <fieldset aria-label="重置范围" className="lab-reset-options" disabled={resetting}>
-            <label>
-              <input
-                checked={scope === "stage"}
-                name="reset-scope"
-                onChange={() => setScope("stage")}
-                type="radio"
-              />
-              <span>
-                <strong>从本关重来</strong>
-                <small>清除本关及依赖它的后续关卡记录，保留不受影响的关卡。</small>
-              </span>
-            </label>
-            <label>
-              <input
-                checked={scope === "lab"}
-                name="reset-scope"
-                onChange={() => setScope("lab")}
-                type="radio"
-              />
-              <span>
-                <strong>重置整个实验</strong>
-                <small>清除所有关卡的记录，从第 1 关开始。</small>
-              </span>
-            </label>
-          </fieldset>
-          {showError && resetError ? (
-            <p className="test-error" role="alert">
-              {resetError}
-            </p>
-          ) : null}
-          <div className="lab-reset-actions">
-            <button
-              className="button button-ghost"
-              disabled={resetting}
-              onClick={() => dialog.current?.close()}
-              type="button"
-            >
-              取消
-            </button>
-            <button
-              className="button lab-reset-confirm"
-              disabled={!canReset || resetting}
-              type="submit"
-            >
-              {resetting ? "重置中…" : "确认重置"}
-            </button>
-          </div>
-        </form>
-      </dialog>
+        <DialogBackdrop class="lab-reset-backdrop" />
+        <DialogContent class="lab-reset-dialog">
+          <DialogTitle>重置实验进度</DialogTitle>
+          <DialogDescription>此操作只影响你自己的记录，清除后无法恢复。</DialogDescription>
+          <form
+            onSubmit={async (event) => {
+              event.preventDefault();
+              if (!props.canReset || props.resetting) return;
+              setShowError(true);
+              const currentScope = scope();
+              if (
+                await props.onReset(
+                  currentScope === "stage"
+                    ? { scope: "stage", stageIndex: props.stageIndex }
+                    : { scope: "lab" },
+                )
+              ) {
+                setOpen(false);
+                setNotice("实验进度已重置。");
+              }
+            }}
+          >
+            <fieldset aria-label="重置范围" class="lab-reset-options" disabled={props.resetting}>
+              <label>
+                <input
+                  checked={scope() === "stage"}
+                  name="reset-scope"
+                  onChange={() => setScope("stage")}
+                  type="radio"
+                />
+                <span>
+                  <strong>从本关重来</strong>
+                  <small>清除本关及依赖它的后续关卡记录，保留不受影响的关卡。</small>
+                </span>
+              </label>
+              <label>
+                <input
+                  checked={scope() === "lab"}
+                  name="reset-scope"
+                  onChange={() => setScope("lab")}
+                  type="radio"
+                />
+                <span>
+                  <strong>重置整个实验</strong>
+                  <small>清除所有关卡的记录，从第 1 关开始。</small>
+                </span>
+              </label>
+            </fieldset>
+            <Show when={showError() && props.resetError}>
+              <p class="test-error" role="alert">
+                {props.resetError}
+              </p>
+            </Show>
+            <div class="lab-reset-actions">
+              <DialogClose class="button button-ghost" disabled={props.resetting} type="button">
+                取消
+              </DialogClose>
+              <Button
+                class="button lab-reset-confirm"
+                disabled={!props.canReset || props.resetting}
+                type="submit"
+              >
+                {props.resetting ? "重置中…" : "确认重置"}
+              </Button>
+            </div>
+          </form>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
 
-export function LabPageShell({
-  labId,
-  rail,
-  collapsedLabel,
-  railWidth = 240,
-  contentClassName,
-  resetControls,
-  children,
-}: LabPageShellProps) {
-  const narrow = useSyncExternalStore(subscribeToNarrowRail, isNarrowRail);
-  const [collapsed, setCollapsed] = useState(() => narrow || readCollapsed(labId));
+export function LabPageShell(props: LabPageShellProps) {
+  const [narrow, setNarrow] = createSignal(isNarrowRail());
+  const [collapsed, setCollapsed] = createSignal(
+    untrack(() => narrow() || readCollapsed(props.labId)),
+  );
   const scrollRef = useScrollEdges<HTMLDivElement>();
+
+  createEffect(
+    () => 0,
+    () => {
+      const media = window.matchMedia?.(narrowRailQuery);
+      if (!media) return;
+      const onChange = () => setNarrow(media.matches);
+      media.addEventListener("change", onChange);
+      return () => media.removeEventListener("change", onChange);
+    },
+  );
 
   const onOpenChange = (open: boolean) => {
     const next = !open;
     setCollapsed(next);
-    if (narrow) return; // Only desktop interactions change the saved desktop preference.
+    if (narrow()) return; // Only desktop interactions change the saved desktop preference.
     try {
-      localStorage.setItem(storageKey(labId), next ? "1" : "0");
+      localStorage.setItem(storageKey(props.labId), next ? "1" : "0");
     } catch {
       // storage unavailable — collapse still works for this mount
     }
@@ -194,41 +192,53 @@ export function LabPageShell({
 
   return (
     <div
-      className={`page-content lab-page-grid${contentClassName ? ` ${contentClassName}` : ""}${collapsed ? " is-collapsed" : ""}`}
-      style={{ "--rail-w": `${railWidth}px` } as CSSProperties}
+      class={`page-content lab-page-grid${props.contentClassName ? ` ${props.contentClassName}` : ""}${collapsed() ? " is-collapsed" : ""}`}
+      style={{ "--rail-w": `${props.railWidth ?? 240}px` } as JSX.CSSProperties}
     >
-      <Collapsible className="lab-rail-zone" open={!collapsed} onOpenChange={onOpenChange}>
-        <div className="lab-rail-bar">
+      <Collapsible class="lab-rail-zone" onOpenChange={onOpenChange} open={!collapsed()}>
+        <div class="lab-rail-bar">
           <CollapsibleTrigger
-            aria-label={collapsed ? "展开关卡栏" : "收起关卡栏"}
-            className="lab-rail-toggle"
-            title={collapsed ? "展开关卡栏" : "收起关卡栏"}
+            aria-label={collapsed() ? "展开关卡栏" : "收起关卡栏"}
+            class="lab-rail-toggle"
+            title={collapsed() ? "展开关卡栏" : "收起关卡栏"}
             type="button"
           >
             <Icon
               name={
-                narrow
-                  ? collapsed
+                narrow()
+                  ? collapsed()
                     ? "chevron-down"
                     : "chevron-up"
-                  : collapsed
+                  : collapsed()
                     ? "panel-left-open"
                     : "panel-left-close"
               }
               size={18}
             />
-            {narrow ? <span>{collapsedLabel ?? "关卡"}</span> : null}
+            <Show when={narrow()}>
+              <span>{props.collapsedLabel ?? "关卡"}</span>
+            </Show>
           </CollapsibleTrigger>
-          {!narrow && collapsed && collapsedLabel ? (
-            <span className="lab-rail-bar-label">{collapsedLabel}</span>
-          ) : null}
+          <Show when={!narrow() && collapsed() && props.collapsedLabel}>
+            <span class="lab-rail-bar-label">{props.collapsedLabel}</span>
+          </Show>
         </div>
-        <CollapsiblePanel className="lab-rail-scroll" keepMounted ref={scrollRef}>
-          {rail}
+        <CollapsiblePanel class="lab-rail-scroll" keepMounted ref={scrollRef}>
+          {props.rail}
         </CollapsiblePanel>
-        {resetControls ? <LabProgressTools {...resetControls} /> : null}
+        <Show when={props.resetControls}>
+          {(controls) => (
+            <LabProgressTools
+              canReset={controls().canReset}
+              onReset={controls().onReset}
+              resetError={controls().resetError}
+              resetting={controls().resetting}
+              stageIndex={controls().stageIndex}
+            />
+          )}
+        </Show>
       </Collapsible>
-      {children}
+      {props.children}
     </div>
   );
 }

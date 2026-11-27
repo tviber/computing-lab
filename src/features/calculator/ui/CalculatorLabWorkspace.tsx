@@ -1,4 +1,9 @@
-import { useMemo, useState, type ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, For, Show } from "solid-js";
+import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/LabPageShell";
+import { StageTask } from "../../../shared/lab/StageTask";
+import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { evaluateGraph } from "../domain/evaluate";
 import { GATE_LABEL, type CircuitGraph, type CircuitNode } from "../domain/graph";
 import {
@@ -9,16 +14,13 @@ import {
   type CalculatorLessonAction,
   type CalculatorLessonState,
 } from "../lesson/state";
-import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/LabPageShell";
-import { StageTask } from "../../../shared/lab/StageTask";
-import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { BusReadout } from "./BusReadout";
+import { AnnotatedText, CalculatorTermGuide } from "./CalculatorTerms";
 import { CircuitCanvas } from "./CircuitCanvas";
+import { CustomComponentDialog, type ComponentizeForm } from "./CustomComponentDialog";
 import { nodeDropPosition } from "./geometry";
 import { StageRail } from "./StageRail";
 import { TestPanel } from "./TestPanel";
-import { AnnotatedText, CalculatorTermGuide } from "./CalculatorTerms";
-import { CustomComponentDialog, type ComponentizeForm } from "./CustomComponentDialog";
 import "./calculator.css";
 
 export type CalculatorLabWorkspaceProps = {
@@ -29,291 +31,321 @@ export type CalculatorLabWorkspaceProps = {
   submitting?: boolean;
   freeNavigation?: boolean;
   resetControls?: LabResetControlsProps;
-  inspect?: { graph: CircuitGraph; meta?: ReactNode } | null;
+  inspect?: { graph: CircuitGraph; meta?: JSX.Element } | null;
 };
 
-export function CalculatorLabWorkspace({
-  state,
-  dispatch,
-  error,
-  onSubmit,
-  submitting = false,
-  freeNavigation = false,
-  resetControls,
-  inspect = null,
-}: CalculatorLabWorkspaceProps) {
-  const [editingComponentName, setEditingComponentName] = useState<string | null>(null);
+export function CalculatorLabWorkspace(props: CalculatorLabWorkspaceProps) {
+  const [editingComponentName, setEditingComponentName] = createSignal<string | null>(null);
 
-  const graph = inspect?.graph ?? graphOf(state);
-  const components = useMemo(() => componentMap(state), [state.unlockedSubmodules]);
-  const componentDefinitions = useMemo(() => componentCatalog(state), [state.unlockedSubmodules]);
-  const stage = stageOf(state);
-  const selectedNode = graph.nodes.find((node) => node.id === state.selectedNodeId);
-  const selectedCustomComponent =
-    selectedNode?.kind === "component"
-      ? state.unlockedSubmodules.find(
+  const submitting = () => props.submitting ?? false;
+  const freeNavigation = () => props.freeNavigation ?? false;
+  const inspect = () => props.inspect ?? null;
+
+  const graph = createMemo(() => inspect()?.graph ?? graphOf(props.state));
+  const components = createMemo(() => componentMap(props.state));
+  const componentDefinitions = createMemo(() => componentCatalog(props.state));
+  const stage = createMemo(() => stageOf(props.state));
+  const selectedNode = createMemo(() =>
+    graph().nodes.find((node) => node.id === props.state.selectedNodeId),
+  );
+  const selectedCustomComponent = createMemo(() => {
+    const selected = selectedNode();
+    return selected?.kind === "component"
+      ? props.state.unlockedSubmodules.find(
           (component) =>
             component.custom &&
-            component.name.toLocaleLowerCase() === (selectedNode.name ?? "").toLocaleLowerCase(),
+            component.name.toLocaleLowerCase() === (selected.name ?? "").toLocaleLowerCase(),
         )
       : undefined;
-  const editingComponent = editingComponentName
-    ? state.unlockedSubmodules.find(
-        (component) =>
-          component.custom &&
-          component.name.toLocaleLowerCase() === editingComponentName.toLocaleLowerCase(),
-      )
-    : undefined;
+  });
+  const editingComponent = createMemo(() => {
+    const targetName = editingComponentName();
+    return targetName
+      ? props.state.unlockedSubmodules.find(
+          (component) =>
+            component.custom &&
+            component.name.toLocaleLowerCase() === targetName.toLocaleLowerCase(),
+        )
+      : undefined;
+  });
 
-  const preview = useMemo(() => evaluateGraph(graph, {}, components), [graph, components]);
+  const preview = createMemo(() => evaluateGraph(graph(), {}, components()));
 
   const placeNode = (node: Pick<CircuitNode, "kind" | "name" | "value">) =>
-    dispatch({ type: "add-node", ...node, ...nodeDropPosition(node, graph, componentDefinitions) });
+    props.dispatch({
+      type: "add-node",
+      ...node,
+      ...nodeDropPosition(node, graph(), componentDefinitions()),
+    });
 
   return (
     <>
       <LabPageShell
-        collapsedLabel={`第 ${state.stageIndex} 关`}
+        collapsedLabel={`第 ${props.state.stageIndex} 关`}
         contentClassName="calculator-layout"
         labId="calculator"
         rail={
           <StageRail
-            freeNavigation={freeNavigation}
-            passedStages={state.passedStages}
-            onPlaceComponent={(name) => placeNode({ kind: "component", name })}
-            onEditCustomComponent={setEditingComponentName}
-            onDeleteCustomComponent={(name) => dispatch({ type: "delete-custom-component", name })}
-            onSelectStage={(index) =>
-              dispatch({ type: "select-stage", stageIndex: index, force: freeNavigation })
+            freeNavigation={freeNavigation()}
+            onDeleteCustomComponent={(name) =>
+              props.dispatch({ type: "delete-custom-component", name })
             }
-            stageIndex={state.stageIndex}
-            unlockedSubmodules={state.unlockedSubmodules}
+            onEditCustomComponent={setEditingComponentName}
+            onPlaceComponent={(name) => placeNode({ kind: "component", name })}
+            onSelectStage={(index) =>
+              props.dispatch({ type: "select-stage", stageIndex: index, force: freeNavigation() })
+            }
+            passedStages={props.state.passedStages}
+            stageIndex={props.state.stageIndex}
+            unlockedSubmodules={props.state.unlockedSubmodules}
           />
         }
         railWidth={232}
-        resetControls={inspect ? undefined : resetControls}
+        resetControls={inspect() ? undefined : props.resetControls}
       >
-        <main aria-label="计算器实验区" className="calculator-workspace">
-          <section className="stage-brief">
-            {stage ? (
-              <StageTask>
-                <AnnotatedText text={stage.description} />
-              </StageTask>
-            ) : null}
-            {stage?.details ? (
-              <details className="stage-details">
-                <summary>为什么？</summary>
-                <p>
-                  <AnnotatedText text={stage.details} />
-                </p>
-              </details>
-            ) : null}
-            {stage && state.passedStages.includes(stage.index) ? (
-              <p className="stage-takeaway">本关收获：{stage.takeaway}</p>
-            ) : null}
-            {stage ? (
-              <HintDisclosure key={stage.id}>
-                <AnnotatedText text={stage.hint} />
-              </HintDisclosure>
-            ) : null}
+        <main aria-label="计算器实验区" class="calculator-workspace">
+          <section class="stage-brief">
+            <Show when={stage()}>
+              {(currentStage) => (
+                <StageTask>
+                  <AnnotatedText text={currentStage().description} />
+                </StageTask>
+              )}
+            </Show>
+            <Show when={stage()?.details}>
+              {(details) => (
+                <details class="stage-details">
+                  <summary>为什么？</summary>
+                  <p>
+                    <AnnotatedText text={details()} />
+                  </p>
+                </details>
+              )}
+            </Show>
+            <Show when={stage() && props.state.passedStages.includes(stage()!.index)}>
+              <p class="stage-takeaway">本关收获：{stage()!.takeaway}</p>
+            </Show>
+            <Show keyed when={stage()}>
+              {(currentStage) => (
+                <HintDisclosure>
+                  <AnnotatedText text={currentStage.hint} />
+                </HintDisclosure>
+              )}
+            </Show>
             <CalculatorTermGuide />
           </section>
 
-          {error ? (
-            <p className="test-error" role="alert">
-              {error}
-            </p>
-          ) : null}
-          {state.message ? (
-            <p
-              className={`lab-message${state.judgeOutcome?.passed ? " is-pass" : ""}`}
-              role="status"
-            >
-              {state.message}
-              <button onClick={() => dispatch({ type: "dismiss-message" })} type="button">
-                知道了
-              </button>
-            </p>
-          ) : null}
+          <Show when={props.error}>
+            {(err) => (
+              <p class="test-error" role="alert">
+                {err()}
+              </p>
+            )}
+          </Show>
+          <Show when={props.state.message}>
+            {(message) => (
+              <p
+                class={`lab-message${props.state.judgeOutcome?.passed ? " is-pass" : ""}`}
+                role="status"
+              >
+                {message()}
+                <Button onClick={() => props.dispatch({ type: "dismiss-message" })} type="button">
+                  知道了
+                </Button>
+              </p>
+            )}
+          </Show>
 
-          {inspect ? inspect.meta : null}
+          <Show when={inspect()}>{(target) => target().meta}</Show>
 
-          {!inspect ? (
-            <section aria-label="元件" className="palette">
-              <p className="eyebrow">元件</p>
-              <div className="palette-items">
-                {stage?.primitives.map((kind) => (
-                  <button
-                    className="palette-chip"
-                    key={kind}
-                    onClick={() => placeNode({ kind })}
-                    type="button"
-                  >
-                    <AnnotatedText text={GATE_LABEL[kind]} />
-                  </button>
-                ))}
-                {stage?.extraPrimitives?.length ? (
-                  <details className="palette-more">
+          <Show when={!inspect()}>
+            <section aria-label="元件" class="palette">
+              <p class="eyebrow">元件</p>
+              <div class="palette-items">
+                <For each={stage()?.primitives ?? []}>
+                  {(kind) => (
+                    <Button class="palette-chip" onClick={() => placeNode({ kind })} type="button">
+                      <AnnotatedText text={GATE_LABEL[kind]} />
+                    </Button>
+                  )}
+                </For>
+                <Show when={(stage()?.extraPrimitives?.length ?? 0) > 0}>
+                  <details class="palette-more">
                     <summary>更多元件</summary>
-                    <div className="palette-items">
-                      {stage.extraPrimitives.map((kind) => (
-                        <button
-                          className="palette-chip"
-                          key={kind}
-                          onClick={() => placeNode({ kind })}
-                          type="button"
-                        >
-                          <AnnotatedText text={GATE_LABEL[kind]} />
-                        </button>
-                      ))}
+                    <div class="palette-items">
+                      <For each={stage()?.extraPrimitives ?? []}>
+                        {(kind) => (
+                          <Button
+                            class="palette-chip"
+                            onClick={() => placeNode({ kind })}
+                            type="button"
+                          >
+                            <AnnotatedText text={GATE_LABEL[kind]} />
+                          </Button>
+                        )}
+                      </For>
                     </div>
                   </details>
-                ) : null}
-                {stage?.constants ? (
-                  <>
-                    <button
-                      className="palette-chip is-const"
-                      onClick={() => placeNode({ kind: "const", value: 1 })}
-                      type="button"
-                    >
-                      常量 1
-                    </button>
-                    <button
-                      className="palette-chip is-const"
-                      onClick={() => placeNode({ kind: "const", value: 0 })}
-                      type="button"
-                    >
-                      常量 0
-                    </button>
-                  </>
-                ) : null}
-              </div>
-            </section>
-          ) : null}
-
-          {stage ? <BusReadout pins={preview.pins} stage={stage} /> : null}
-
-          <CircuitCanvas
-            key={state.stageIndex}
-            components={componentDefinitions}
-            dispatch={dispatch}
-            graph={graph}
-            pendingWire={state.pendingWire}
-            portValues={preview.portValues}
-            readOnly={inspect !== null}
-            selectedNodeId={state.selectedNodeId}
-          />
-
-          {!inspect ? (
-            <>
-              <section className="canvas-help">
-                <p>
-                  点输出端口再点输入端口即可连线；点连线可删除；点输入引脚可切换 0/1
-                  观察电路实时反应；在空白处拖动可框选元件并封装为自定义组件。选中组件后可折叠，隐藏其全部连接线；也可用
-                  Ctrl/Cmd+Z 撤销、Delete 删除。
-                </p>
-                {preview.error ? (
-                  <p className="test-error" role="alert">
-                    电路无法求值：{preview.error.detail}
-                  </p>
-                ) : null}
-              </section>
-
-              <div className="calculator-actions">
-                <button
-                  className="button button-secondary"
-                  onClick={() => dispatch({ type: "run-public-tests" })}
-                  type="button"
-                >
-                  运行公开测试
-                </button>
-                <button
-                  className="button button-secondary"
-                  disabled={state.past[state.past.length - 1]?.stageIndex !== state.stageIndex}
-                  onClick={() => dispatch({ type: "undo" })}
-                  type="button"
-                >
-                  撤销
-                </button>
-                {onSubmit ? (
-                  <button
-                    className="button button-primary"
-                    disabled={submitting}
-                    onClick={onSubmit}
+                </Show>
+                <Show when={stage()?.constants}>
+                  <Button
+                    class="palette-chip is-const"
+                    onClick={() => placeNode({ kind: "const", value: 1 })}
                     type="button"
                   >
-                    {submitting ? "判定中…" : "提交"}
-                  </button>
-                ) : null}
-                <button
-                  className="button button-ghost"
-                  onClick={() => dispatch({ type: "reset-stage" })}
-                  type="button"
-                >
-                  清空本关
-                </button>
-                {state.selectedNodeId ? (
-                  <button
-                    className="button button-ghost"
-                    onClick={() =>
-                      dispatch({ type: "delete-node", id: state.selectedNodeId as string })
-                    }
+                    常量 1
+                  </Button>
+                  <Button
+                    class="palette-chip is-const"
+                    onClick={() => placeNode({ kind: "const", value: 0 })}
+                    type="button"
+                  >
+                    常量 0
+                  </Button>
+                </Show>
+              </div>
+            </section>
+          </Show>
+
+          <Show when={stage()}>
+            {(currentStage) => <BusReadout pins={preview().pins} stage={currentStage()} />}
+          </Show>
+
+          <Show keyed when={props.state.stageIndex}>
+            {(_) => (
+              <CircuitCanvas
+                components={componentDefinitions()}
+                dispatch={props.dispatch}
+                graph={graph()}
+                pendingWire={props.state.pendingWire}
+                portValues={preview().portValues}
+                readOnly={inspect() !== null}
+                selectedNodeId={props.state.selectedNodeId}
+              />
+            )}
+          </Show>
+
+          <Show when={!inspect()}>
+            <section class="canvas-help">
+              <p>
+                点输出端口再点输入端口即可连线；点连线可删除；点输入引脚可切换 0/1
+                观察电路实时反应；在空白处拖动可框选元件并封装为自定义组件。选中组件后可折叠，隐藏其全部连接线；也可用
+                Ctrl/Cmd+Z 撤销、Delete 删除。
+              </p>
+              <Show when={preview().error}>
+                {(err) => (
+                  <p class="test-error" role="alert">
+                    电路无法求值：{err().detail}
+                  </p>
+                )}
+              </Show>
+            </section>
+
+            <div class="calculator-actions">
+              <Button
+                class="button button-secondary"
+                onClick={() => props.dispatch({ type: "run-public-tests" })}
+                type="button"
+              >
+                运行公开测试
+              </Button>
+              <Button
+                class="button button-secondary"
+                disabled={
+                  props.state.past[props.state.past.length - 1]?.stageIndex !==
+                  props.state.stageIndex
+                }
+                onClick={() => props.dispatch({ type: "undo" })}
+                type="button"
+              >
+                撤销
+              </Button>
+              <Show when={props.onSubmit}>
+                {(submit) => (
+                  <Button
+                    class="button button-primary"
+                    disabled={submitting()}
+                    onClick={() => submit()()}
+                    type="button"
+                  >
+                    {submitting() ? "判定中…" : "提交"}
+                  </Button>
+                )}
+              </Show>
+              <Button
+                class="button button-ghost"
+                onClick={() => props.dispatch({ type: "reset-stage" })}
+                type="button"
+              >
+                清空本关
+              </Button>
+              <Show when={props.state.selectedNodeId}>
+                {(selectedId) => (
+                  <Button
+                    class="button button-ghost"
+                    onClick={() => props.dispatch({ type: "delete-node", id: selectedId() })}
                     type="button"
                   >
                     删除选中元件
-                  </button>
-                ) : null}
-                {selectedNode?.kind === "component" ? (
-                  <button
-                    aria-expanded={!selectedNode.collapsed}
-                    className="button button-ghost disclosure-trigger"
-                    onClick={() => dispatch({ type: "toggle-collapse-node", id: selectedNode.id })}
+                  </Button>
+                )}
+              </Show>
+              <Show when={selectedNode()?.kind === "component" ? selectedNode() : undefined}>
+                {(selected) => (
+                  <Button
+                    aria-expanded={!selected().collapsed ? "true" : "false"}
+                    class="button button-ghost disclosure-trigger"
+                    onClick={() =>
+                      props.dispatch({ type: "toggle-collapse-node", id: selected().id })
+                    }
                     type="button"
                   >
-                    {selectedNode.collapsed ? "展开组件" : "折叠组件"}
-                  </button>
-                ) : null}
-                {selectedCustomComponent && selectedNode ? (
-                  <button
-                    className="button button-ghost"
-                    onClick={() => dispatch({ type: "expand-component", id: selectedNode.id })}
+                    {selected().collapsed ? "展开组件" : "折叠组件"}
+                  </Button>
+                )}
+              </Show>
+              <Show when={selectedCustomComponent() && selectedNode()}>
+                {(selected) => (
+                  <Button
+                    class="button button-ghost"
+                    onClick={() => props.dispatch({ type: "expand-component", id: selected().id })}
                     type="button"
                   >
                     拆分回去
-                  </button>
-                ) : null}
-              </div>
-            </>
-          ) : null}
+                  </Button>
+                )}
+              </Show>
+            </div>
 
-          {!inspect ? (
             <TestPanel
-              judgeOutcome={state.judgeOutcome}
-              runOutcome={state.runOutcome}
-              stage={stage}
+              judgeOutcome={props.state.judgeOutcome}
+              runOutcome={props.state.runOutcome}
+              stage={stage()}
             />
-          ) : null}
+          </Show>
         </main>
       </LabPageShell>
-      {editingComponent ? (
-        <CustomComponentDialog
-          component={editingComponent}
-          existingNames={state.unlockedSubmodules.map((component) => component.name)}
-          onCancel={() => setEditingComponentName(null)}
-          onUpdate={(form: ComponentizeForm) => {
-            dispatch({
-              type: "edit-custom-component",
-              name: editingComponent.name,
-              newName: form.name,
-              inputNames: form.inputNames,
-              outputNames: form.outputNames,
-              inputPortKeys: form.inputPortKeys,
-              outputPortKeys: form.outputPortKeys,
-            });
-            setEditingComponentName(null);
-          }}
-        />
-      ) : null}
+      <Show keyed when={editingComponent()}>
+        {(component) => (
+          <CustomComponentDialog
+            component={component}
+            existingNames={props.state.unlockedSubmodules.map((item) => item.name)}
+            onCancel={() => setEditingComponentName(null)}
+            onUpdate={(form: ComponentizeForm) => {
+              props.dispatch({
+                type: "edit-custom-component",
+                name: component.name,
+                newName: form.name,
+                inputNames: form.inputNames,
+                outputNames: form.outputNames,
+                inputPortKeys: form.inputPortKeys,
+                outputPortKeys: form.outputPortKeys,
+              });
+              setEditingComponentName(null);
+            }}
+          />
+        )}
+      </Show>
     </>
   );
 }

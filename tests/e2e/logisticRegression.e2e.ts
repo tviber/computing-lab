@@ -177,15 +177,18 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     page.getByRole("heading", { name: "逻辑回归 - 从短信到数字", exact: true }),
   ).toBeVisible();
 
-  const hints = page.locator(".stage-brief details.hint-disclosure");
+  const hints = page.locator(".stage-brief .hint-disclosure");
   const firstHint = hints.first();
-  const trigger = firstHint.locator("summary");
+  const trigger = firstHint.getByRole("button", { name: "提示" });
   await expect(trigger).toHaveText("提示");
   await trigger.click();
   await expect(firstHint.getByText(LOGISTIC_REGRESSION_STAGES[1].hints[0])).toBeVisible();
-  await expect(hints.nth(1)).not.toHaveAttribute("open", "");
+  await expect(hints.nth(1).getByRole("button", { name: "提示" })).toHaveAttribute(
+    "aria-expanded",
+    "false",
+  );
   await trigger.press("Enter");
-  await expect(firstHint).not.toHaveAttribute("open", "");
+  await expect(trigger).toHaveAttribute("aria-expanded", "false");
   await expectTokenizeLayoutToFit(page);
   let freeSeen = 0;
   for (const item of TOKENIZE_PUZZLE_ITEMS) {
@@ -624,7 +627,7 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   await expect(scoreButton).toBeFocused();
   await expect(scoreButton).toHaveCSS("outline-style", "solid");
   await page.keyboard.press("Enter");
-  await expect(detailDialog.locator("xpath=self::dialog")).toBeVisible();
+  await expect(detailDialog).toHaveAttribute("aria-modal", "true");
   await expect(detailDialog.getByText("6 条示例短信分类")).toBeVisible();
   await expect(detailDialog.getByRole("button", { name: "关闭详情" })).toBeFocused();
 

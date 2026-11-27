@@ -331,22 +331,26 @@
 
 .custom-component-scrim {
   position: fixed;
-  z-index: 20;
+  z-index: 70;
   inset: 0;
-  display: grid;
-  place-items: center;
-  padding: 20px;
   background: rgb(23 40 61 / 30%);
 }
 
 .custom-component-dialog {
-  width: min(620px, 100%);
-  max-height: calc(100vh - 40px);
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  z-index: 71;
+  transform: translate(-50%, -50%);
+  width: min(620px, calc(100% - 40px));
+  max-height: calc(100dvh - 40px);
   overflow: auto;
+  margin: 0;
   padding: 20px;
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
   background: var(--surface);
+  color: var(--primary);
   box-shadow: var(--shadow-md);
 }
 
@@ -1127,6 +1131,7 @@
   font-size: 1rem;
 }
 
+body:has(.custom-component-dialog) .calculator-lab .full-adder-guide,
 .calculator-lab:has(.custom-component-dialog) .full-adder-guide {
   display: none;
 }
@@ -1193,13 +1198,12 @@
     grid-column: 2;
   }
 
-  .custom-component-scrim {
-    align-items: end;
-    padding: 10px;
-  }
-
   .custom-component-dialog {
-    max-height: calc(100vh - 20px);
+    top: auto;
+    bottom: 10px;
+    transform: translateX(-50%);
+    width: min(620px, calc(100% - 20px));
+    max-height: calc(100dvh - 20px);
     padding: 16px;
   }
 }

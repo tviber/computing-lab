@@ -13,7 +13,7 @@ import {
   type DecodingStageDef,
 } from "../domain/stages.ts";
 
-export type { SaveStatus } from "../../../shared/api/client";
+export type { SaveStatus } from "../../../shared/lab/contracts";
 import {
   markSaveStatus,
   markSyncConflict,

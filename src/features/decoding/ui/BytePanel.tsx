@@ -1,4 +1,5 @@
-import { lazy, Suspense, useId, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createSignal, createUniqueId, For, lazy, Loading, Match, Show, Switch } from "solid-js";
 import { BMP_FIELD_OFFSETS, BMP_PROFILE } from "../domain/bmp.ts";
 import { bitsToByte, CHAR_TABLE } from "../domain/encoding.ts";
 import type { LabPayload } from "../domain/protocol.ts";
@@ -16,179 +17,193 @@ const BMP_FIELDS = [
   { start: BMP_FIELD_OFFSETS.height, label: "高", question: "整张图有多少行？" },
 ];
 
-function BmpBytes({
-  bytes,
-  allowHeightPractice,
-}: {
-  bytes: number[];
-  allowHeightPractice: boolean;
-}) {
-  const [field, setField] = useState(BMP_FIELDS[0]);
-  const [expanded, setExpanded] = useState(false);
-  const [practicing, setPracticing] = useState(false);
-  const readerId = useId();
-  const tableId = useId();
+function BmpBytes(props: { bytes: number[]; allowHeightPractice: boolean }) {
+  const [field, setField] = createSignal(BMP_FIELDS[0]);
+  const [expanded, setExpanded] = createSignal(false);
+  const [practicing, setPracticing] = createSignal(false);
+  const readerId = createUniqueId();
+  const tableId = createUniqueId();
   const previewLength = BMP_PROFILE.pixelOffset + 2 * BMP_PROFILE.bytesPerPixel;
+
   return (
-    <div className="decoding-byte-reader">
-      <div className="decoding-byte-key">
-        <h4>{practicing ? "这张图有几行像素？" : "在文件头里找线索"}</h4>
-        {practicing ? (
+    <div class="decoding-byte-reader">
+      <div class="decoding-byte-key">
+        <h4>{practicing() ? "这张图有几行像素？" : "在文件头里找线索"}</h4>
+        <Show
+          fallback={
+            <>
+              <div aria-label="定位文件头字段" class="decoding-byte-fields" role="group">
+                <For each={BMP_FIELDS}>
+                  {(item) => (
+                    <Button
+                      aria-pressed={field() === item ? "true" : "false"}
+                      class="choice-surface"
+                      onClick={() => setField(item)}
+                      type="button"
+                    >
+                      {item.label}{" "}
+                      <code>
+                        #{item.start}–{item.start + 3}
+                      </code>
+                    </Button>
+                  )}
+                </For>
+              </div>
+              <p aria-live="polite">
+                {field().question} 找到 #{field().start - (field().start % 10)} 行的 +
+                {field().start % 10} 列，从这里连读 4 格。低位在前，这叫小端。
+              </p>
+            </>
+          }
+          when={practicing()}
+        >
           <p>
             宽度占 #{BMP_FIELD_OFFSETS.width}–{BMP_FIELD_OFFSETS.width + 3}
             。紧接着的四格存着高度。找到它们，再填入行数。
           </p>
-        ) : (
-          <>
-            <div className="decoding-byte-fields" role="group" aria-label="定位文件头字段">
-              {BMP_FIELDS.map((item) => (
-                <button
-                  type="button"
-                  key={item.start}
-                  className="choice-surface"
-                  aria-pressed={field === item}
-                  onClick={() => setField(item)}
-                >
-                  {item.label}{" "}
-                  <code>
-                    #{item.start}–{item.start + 3}
-                  </code>
-                </button>
-              ))}
-            </div>
-            <p aria-live="polite">
-              {field.question} 找到 #{field.start - (field.start % 10)} 行的 +{field.start % 10}{" "}
-              列，从这里连读 4 格。低位在前，这叫小端。
-            </p>
-          </>
-        )}
-        <details className="decoding-bit-clue">
+        </Show>
+        <details class="decoding-bit-clue">
           <summary>四格怎么合成一个数？</summary>
           <p>
             从左往右，四格分别乘以 1、256、256²、256³，再相加。例如 <code>[2, 1, 0, 0]</code> 读作 2
             + 1 × 256 = 258。
           </p>
         </details>
-        {allowHeightPractice ? (
-          <button
-            type="button"
-            className="decoding-practice-toggle"
-            aria-expanded={practicing}
+        <Show when={props.allowHeightPractice}>
+          <Button
             aria-controls={readerId}
-            onClick={() => setPracticing(!practicing)}
+            aria-expanded={practicing() ? "true" : "false"}
+            class="decoding-practice-toggle"
+            onClick={() => setPracticing((p) => !p)}
+            type="button"
           >
-            {practicing ? "返回字段导览" : "试读图像高度"}
-          </button>
-        ) : null}
+            {practicing() ? "返回字段导览" : "试读图像高度"}
+          </Button>
+        </Show>
       </div>
       <div id={readerId}>
-        {practicing ? (
-          <Suspense fallback={<p role="status">正在加载读数练习…</p>}>
-            <BmpHeightPractice bytes={bytes} />
-          </Suspense>
-        ) : (
-          <>
-            <div id={tableId}>
-              <ByteTable
-                bytes={expanded ? bytes : bytes.slice(0, previewLength)}
-                label="BMP 字节，行首加列号是字节编号"
-                headerLength={BMP_PROFILE.pixelOffset}
-                fieldStart={field.start}
-              />
-            </div>
-            <p className="decoding-byte-legend">
-              <span>文件头</span>
-              <span>像素数据 · 每 3 格存一个像素</span>
-            </p>
-            {bytes.length > previewLength ? (
-              <button
-                className="decoding-byte-more"
-                type="button"
-                aria-controls={tableId}
-                aria-expanded={expanded}
-                onClick={() => setExpanded(!expanded)}
-              >
-                {expanded ? "收起后续字节" : `展开其余 ${bytes.length - previewLength} 字节`}
-              </button>
-            ) : null}
-          </>
-        )}
+        <Show
+          fallback={
+            <>
+              <div id={tableId}>
+                <ByteTable
+                  bytes={expanded() ? props.bytes : props.bytes.slice(0, previewLength)}
+                  fieldStart={field().start}
+                  headerLength={BMP_PROFILE.pixelOffset}
+                  label="BMP 字节，行首加列号是字节编号"
+                />
+              </div>
+              <p class="decoding-byte-legend">
+                <span>文件头</span>
+                <span>像素数据 · 每 3 格存一个像素</span>
+              </p>
+              <Show when={props.bytes.length > previewLength}>
+                <Button
+                  aria-controls={tableId}
+                  aria-expanded={expanded() ? "true" : "false"}
+                  class="decoding-byte-more"
+                  onClick={() => setExpanded((e) => !e)}
+                  type="button"
+                >
+                  {expanded()
+                    ? "收起后续字节"
+                    : `展开其余 ${props.bytes.length - previewLength} 字节`}
+                </Button>
+              </Show>
+            </>
+          }
+          when={practicing()}
+        >
+          <Loading fallback={<p role="status">正在加载读数练习…</p>}>
+            <BmpHeightPractice bytes={props.bytes} />
+          </Loading>
+        </Show>
       </div>
     </div>
   );
 }
 
-export function BytePanel({
-  payload,
-  allowHeightPractice = false,
-}: {
-  payload: LabPayload;
-  allowHeightPractice?: boolean;
-}) {
-  if (payload.kind === "files") return null;
-
-  const byteCount =
-    payload.kind === "codes"
-      ? payload.codes.length
-      : payload.kind === "bits"
-        ? payload.groups.length
-        : payload.bytes.length;
+export function BytePanel(props: { payload: LabPayload; allowHeightPractice?: boolean }) {
+  const byteCount = () => {
+    const p = props.payload;
+    if (p.kind === "codes") return p.codes.length;
+    if (p.kind === "bits") return p.groups.length;
+    if (p.kind === "bmp") return p.bytes.length;
+    return 0;
+  };
 
   return (
-    <section aria-label="原始数据" className="byte-panel">
-      <div className="byte-panel-head">
-        <h3>原始数据</h3>
-        <span className="decoding-panel-note">
-          {byteCount} 字节 · {payload.kind === "bits" ? "二进制" : "十进制"}
-        </span>
-      </div>
+    <Show when={props.payload.kind !== "files"}>
+      <section aria-label="原始数据" class="byte-panel">
+        <div class="byte-panel-head">
+          <h3>原始数据</h3>
+          <span class="decoding-panel-note">
+            {byteCount()} 字节 · {props.payload.kind === "bits" ? "二进制" : "十进制"}
+          </span>
+        </div>
 
-      {payload.kind === "bmp" ? (
-        <BmpBytes bytes={payload.bytes} allowHeightPractice={allowHeightPractice} />
-      ) : payload.kind === "bits" ? (
-        <>
-          <ol className="bit-stream" role="list">
-            {payload.groups.map((group, i) => (
-              <li className="bit-group" key={i} title={`十进制 ${bitsToByte(group)}`}>
-                <code>{group}</code>
-                <span className="bit-index">#{i}</span>
-              </li>
-            ))}
+        <Switch>
+          <Match when={props.payload.kind === "bmp" ? props.payload : null}>
+            {(bmp) => (
+              <BmpBytes
+                allowHeightPractice={props.allowHeightPractice ?? false}
+                bytes={bmp().bytes}
+              />
+            )}
+          </Match>
+          <Match when={props.payload.kind === "bits" ? props.payload : null}>
+            {(bits) => (
+              <>
+                <ol class="bit-stream" role="list">
+                  <For each={bits().groups}>
+                    {(group, i) => (
+                      <li class="bit-group" title={`十进制 ${bitsToByte(group)}`}>
+                        <code>{group}</code>
+                        <span class="bit-index">#{i()}</span>
+                      </li>
+                    )}
+                  </For>
+                </ol>
+                <Show when={bits().groups.length > 0}>
+                  <details class="decoding-bit-clue">
+                    <summary>试读第一组</summary>
+                    <p>
+                      <code>{bits().groups[0]}</code> 中为 1 的位相加：
+                      {[...bits().groups[0]]
+                        .flatMap((bit, index) => (bit === "1" ? [2 ** (7 - index)] : []))
+                        .join(" + ") || "0"}{" "}
+                      = {bitsToByte(bits().groups[0])}。在字符编码表里找这个数。
+                    </p>
+                  </details>
+                </Show>
+              </>
+            )}
+          </Match>
+          <Match when={props.payload.kind === "codes" ? props.payload : null}>
+            {(codes) => (
+              <ol aria-label="按顺序读取的字节" class="byte-stream" role="list">
+                <For each={codes().codes}>
+                  {(byte, index) => <li title={`data[${index()}]`}>{byte}</li>}
+                </For>
+              </ol>
+            )}
+          </Match>
+        </Switch>
+
+        <details class="char-table" open={props.payload.kind === "codes"}>
+          <summary>字符编码表</summary>
+          <ol role="list">
+            <For each={CHAR_TABLE}>
+              {({ char, code }) => (
+                <li>
+                  <span class="char-glyph">{char}</span>
+                  <span class="char-code">{code}</span>
+                </li>
+              )}
+            </For>
           </ol>
-          {payload.groups.length > 0 ? (
-            <details className="decoding-bit-clue">
-              <summary>试读第一组</summary>
-              <p>
-                <code>{payload.groups[0]}</code> 中为 1 的位相加：
-                {[...payload.groups[0]]
-                  .flatMap((bit, index) => (bit === "1" ? [2 ** (7 - index)] : []))
-                  .join(" + ") || "0"}{" "}
-                = {bitsToByte(payload.groups[0])}。在字符编码表里找这个数。
-              </p>
-            </details>
-          ) : null}
-        </>
-      ) : (
-        <ol aria-label="按顺序读取的字节" className="byte-stream" role="list">
-          {payload.codes.map((byte, index) => (
-            <li key={index} title={`data[${index}]`}>
-              {byte}
-            </li>
-          ))}
-        </ol>
-      )}
-
-      <details className="char-table" open={payload.kind === "codes"}>
-        <summary>字符编码表</summary>
-        <ol role="list">
-          {CHAR_TABLE.map(({ char, code }) => (
-            <li key={code}>
-              <span className="char-glyph">{char}</span>
-              <span className="char-code">{code}</span>
-            </li>
-          ))}
-        </ol>
-      </details>
-    </section>
+        </details>
+      </section>
+    </Show>
   );
 }

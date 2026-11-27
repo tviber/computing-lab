@@ -1,33 +1,52 @@
-# computing-lab
+# 计算实验室
 
-校内信息技术实验运行时：一个 Vite + React SPA，加一个极简 Node API。包含「实现ALU」
-（`calculator`）、「解码侦探」（`decoding`）、「设计餐馆系统」（`lunch-shift`）、
-「逻辑回归」（`logistic-regression`）、「空间采样」（`image-sampling`）和「颜色量化」
-（`color-quantization`）六个实验。管理员可通过
-`/admin/labs` 管理实验开放状态；隐藏后学生和教师无法访问，管理员仍可访问实验。
-另有任务单功能（模板 → 班级布置 → 学生作答 → 批改）。
+默认是一个纯前端 SolidJS + Vite 在线实验站，使用 Bun 1.2.17，保持单一 package。
+访客无需账号即可完整体验七个实验：实现 ALU、解码侦探、设计餐馆系统、统计基础、
+逻辑回归、空间采样、颜色量化。进度与草稿保存在当前浏览器；本地判题通过后解锁关卡。
 
-## 本地开发
+## 纯前端在线实验（默认）
 
 ```sh
 bun install --frozen-lockfile
-node server/db/seed.ts
-node server/index.ts
 bun run dev
+bun run build
+bun run vite preview
 ```
 
-默认种子会创建班级 `2026-高一信息技术-01`、邀请码 `CLASS26`、管理员账号
-`admin` 和教师账号 `teacher`。密码可分别用 `LAB_ADMIN_PASSWORD`、
-`LAB_TEACHER_PASSWORD` 覆盖。
+将 `dist/` 发布到 Vercel 或任何支持 SPA 回退的静态托管服务即可。仓库提供
+`vercel.json`；其他平台将页面路径回退到 `index.html`，资源路径仍直接提供静态文件。
+默认开发服务器不代理 `/api`，构建产物不包含登录、班级、教师看板、管理后台、任务单
+或校内 API 客户端，也不需要设置后端环境变量。
 
-学生流程是：管理员创建账号并分配班级 → `/login` 登录 → 首页进入
-`/classes/:classId/labs/<lab>`（如 `calculator`）→ 完成各关卡 → 提交，
-由服务端隐藏用例判定并解锁后续关卡。教师和管理员可在
-`/classes/:classId/dashboard` 查看班级进度；管理员分别在 `/admin`、`/admin/classes`、
-`/admin/labs` 管理账号、班级和实验开放状态。
+浏览器存储按实验隔离，刷新后可继续；清除网站数据会清除本地进度，设备间不会自动同步。
+本地模式使用公开练习数据；校内模式使用服务端隐藏用例，两者复用相同判题函数与关卡规则。
+Pyodide 与 AI 模型均随静态站点发布，不依赖校内服务。
 
-旧实验和 Slidev 在线课件已经从运行时、构建链路和测试中移除；它们的教学 idea 集中
-记录在 [docs/retired-labs.md](docs/retired-labs.md)。
+## 校内课堂与服务端自托管（可选）
+
+使用 Node 24 LTS（至少 24.15）和 Bun 1.2.17：
+
+```sh
+node server/db/seed.ts
+bun run dev:server
+# 在另一终端运行校内版前端
+bun run dev:classroom
+```
+
+种子仅用于本地演示。部署时配置 `LAB_DB_PATH`、`LAB_ADMIN_PASSWORD`、
+`LAB_TEACHER_PASSWORD` 等变量；真实账号、域名、密钥与运维材料放在 gitignored `local/`。
+
+```sh
+bun run build:classroom  # dist-classroom/
+bun run build:server     # dist-server/index.js + schema.sql
+bun run start:server
+```
+
+也可直接 `node server/index.ts` 启动 API。它自动提供同级的 `dist-classroom/`；
+分开部署时由反向代理将 `/api/*` 转发给 API，其他路径提供校内前端。
+构建后的 API 仍需要生产 npm 依赖与可写的 SQLite 数据目录。
+校内版保留账号认证、实验可见性、草稿版本冲突保护、隐藏用例判题、教师看板、班级成员和任务单闭环。
+部署流程与可选 SSH 发布模板见 [docs/deployment.md](docs/deployment.md)。
 
 ## 质量门槛
 
@@ -56,15 +75,13 @@ bun run test:caddy
 
 ## 架构边界
 
-- `src/app` 只负责路由和页面编排；每门实验的课程语义在
-  `src/features/<lab>/{domain,lesson,ui}` 内闭合，任务单在
-  `src/features/task-sheets` 内闭合。
-- CI 和开发推荐 Node 24 LTS（至少 24.15）及 Bun 1.2.17。`server/` 使用 Node 单进程，负责认证、草稿、判题和班级看板；隐藏用例只在
-  `server/`；各实验的 project/draft/judge 走 `server/routes/labRoutes.ts`
-  的共用薄管线，判题协议类型由 `src/features/<lab>/domain` 共享给服务端。
-- `src/shared/{auth,api,layout,lab}` 只保留认证、请求、应用顶栏和实验页
-  薄封装（加载、自动保存、入口守卫）等仍有真实消费者的基础设施。
-- 数据库中的旧 `lab_id` 记录不会被迁移脚本主动删除；它们已没有对应路由或服务端处理器，
-  不影响当前 calculator 流程。
+- 默认入口 `src/main.tsx → src/app/showcase`；校内入口 `src/classroom-main.tsx → src/app/App.tsx`。
+  Vite 在构建时选择 HTML 入口，两个产物目录独立；前端运行时不按环境变量隐藏后台页面。
+- `src/features/<lab>/{domain,lesson}` 保存单一关卡、纯计算和判题规则。实验 UI 使用
+  `src/shared/lab/runtime.tsx` 注入的能力，不读取账号、班级路由或 HTTP 客户端。
+- `src/app/showcase` 提供浏览器存储和公开数据；`src/app/classroom` 提供 API 适配器。
+  `server/judge` 保留隐藏用例与数据库事务，调用同一组纯判题函数。
+- `src/shared/layout` 通过账号插槽接收宿主 UI；默认构建不会沿顶栏引入认证模块。
+- 架构测试遍历包括动态导入的依赖图，确保展示版不触达校内模块和服务端。
 
-部署说明见 [docs/deployment.md](docs/deployment.md)。
+详细说明见 [docs/architecture.md](docs/architecture.md)。

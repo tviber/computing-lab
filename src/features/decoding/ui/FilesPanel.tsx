@@ -7,7 +7,8 @@
  * output is itself the lesson (letter soup is still a "readable" string).
  */
 
-import { useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createSignal, For, Show } from "solid-js";
 import type { PixelMatrix } from "../domain/bmp.ts";
 import type { DecoderChoice, LabPayload } from "../domain/protocol.ts";
 import { FILE_HELPERS, runDecode } from "../runtime/pyodideRunner.ts";
@@ -25,13 +26,12 @@ export function FilesPanel(props: {
     expectDecoder?: DecoderChoice,
   ) => void;
 }) {
-  const { payload, verdicts, onVerdict } = props;
-  const [runs, setRuns] = useState<Record<number, FileRun>>({});
-  const [running, setRunning] = useState<{ file: number; decoder: DecoderChoice } | null>(null);
-  const [errors, setErrors] = useState<Record<number, string>>({});
-  const [dims, setDims] = useState<Record<number, { w: number; h: number }>>({});
+  const [runs, setRuns] = createSignal<Record<number, FileRun>>({});
+  const [running, setRunning] = createSignal<{ file: number; decoder: DecoderChoice } | null>(null);
+  const [errors, setErrors] = createSignal<Record<number, string>>({});
+  const [dims, setDims] = createSignal<Record<number, { w: number; h: number }>>({});
 
-  const dimOf = (index: number) => dims[index] ?? { w: 8, h: 8 };
+  const dimOf = (index: number) => dims()[index] ?? { w: 8, h: 8 };
 
   const setDim = (index: number, patch: Partial<{ w: number; h: number }>) => {
     const next = { ...dimOf(index), ...patch };
@@ -51,7 +51,7 @@ export function FilesPanel(props: {
       // A pinned verdict on this decoder tracks the fresh run output —
       // expectDecoder makes the write conditional on the CURRENT pin, so a
       // re-pin during the run isn't silently rolled back.
-      onVerdict(index, { decoder: "text", text }, "text");
+      props.onVerdict(index, { decoder: "text", text }, "text");
     } catch (error) {
       setErrors((prev) => ({
         ...prev,
@@ -84,7 +84,7 @@ export function FilesPanel(props: {
       const pixels = result as PixelMatrix;
       setRuns((prev) => ({ ...prev, [index]: { ...prev[index], pixels } }));
       setErrors((prev) => ({ ...prev, [index]: "" }));
-      onVerdict(index, { decoder: "image", pixels }, "image");
+      props.onVerdict(index, { decoder: "image", pixels }, "image");
     } catch (error) {
       setErrors((prev) => ({
         ...prev,
@@ -96,123 +96,139 @@ export function FilesPanel(props: {
   };
 
   return (
-    <section aria-label="文件列表" className="files-panel">
-      <div className="decoding-panel-heading">
+    <section aria-label="文件列表" class="files-panel">
+      <div class="decoding-panel-heading">
         <h3>档案室 · 三个文件</h3>
       </div>
-      <ol className="files-list">
-        {payload.files.map((file, i) => {
-          const run = runs[i] ?? {};
-          const verdict = verdicts[i] ?? null;
-          const dim = dimOf(i);
-          const busy = running !== null;
-          return (
-            <li className="file-card" key={file.id}>
-              <header className="file-card-head">
-                <code className="file-name">{file.id}</code>
-                <span className="file-meta">meta：{file.meta}</span>
-              </header>
-              <ol
-                aria-label={`${file.id} 字节`}
-                className="byte-stream is-compact"
-                role="list"
-                tabIndex={0}
-              >
-                {file.bytes.map((byte, bi) => (
-                  <li key={bi} title={`data[${bi}]`}>
-                    {byte}
-                  </li>
-                ))}
-              </ol>
-              <div className="file-actions">
-                <button
-                  className="button button-secondary"
-                  disabled={busy}
-                  onClick={() => void runText(i, file.bytes)}
-                  type="button"
+      <ol class="files-list">
+        <For each={props.payload.files}>
+          {(file, i) => {
+            const run = () => runs()[i()] ?? {};
+            const verdict = () => props.verdicts[i()] ?? null;
+            const dim = () => dimOf(i());
+            const busy = () => running() !== null;
+            return (
+              <li class="file-card">
+                <header class="file-card-head">
+                  <code class="file-name">{file.id}</code>
+                  <span class="file-meta">meta：{file.meta}</span>
+                </header>
+                <ol
+                  aria-label={`${file.id} 字节`}
+                  class="byte-stream is-compact"
+                  role="list"
+                  tabindex={0}
                 >
-                  {running?.file === i && running.decoder === "text" ? "解码中…" : "按字符编码解码"}
-                </button>
-                <span className="file-image-run">
-                  <button
-                    className="button button-secondary"
-                    disabled={busy}
-                    onClick={() => void runImage(i, file.bytes)}
+                  <For each={file.bytes}>
+                    {(byte, bi) => <li title={`data[${bi()}]`}>{byte}</li>}
+                  </For>
+                </ol>
+                <div class="file-actions">
+                  <Button
+                    class="button button-secondary"
+                    disabled={busy()}
+                    onClick={() => void runText(i(), file.bytes)}
                     type="button"
                   >
-                    {running?.file === i && running.decoder === "image" ? "解码中…" : "按图像解码"}
-                  </button>
-                  <label>
-                    宽
-                    <input
-                      aria-label="图像宽度"
-                      disabled={busy}
-                      max={32}
-                      min={1}
-                      onChange={(e) => setDim(i, { w: Number(e.target.value) })}
-                      type="number"
-                      value={dim.w}
-                    />
-                  </label>
-                  <label>
-                    高
-                    <input
-                      aria-label="图像高度"
-                      disabled={busy}
-                      max={32}
-                      min={1}
-                      onChange={(e) => setDim(i, { h: Number(e.target.value) })}
-                      type="number"
-                      value={dim.h}
-                    />
-                  </label>
-                </span>
-              </div>
-              {errors[i] ? (
-                <p className="file-error" role="alert">
-                  {errors[i]}
-                </p>
-              ) : null}
-              {run.text !== undefined ? (
-                <p className="file-result">
-                  <span className="file-result-label">按字符编码 →</span>
-                  <code className="file-result-text">{run.text || "（空串）"}</code>
-                </p>
-              ) : null}
-              {run.pixels ? (
-                <div className="file-result">
-                  <span className="file-result-label">按图像 →</span>
-                  <PixelCanvas ariaLabel="图像解码预览" pixels={run.pixels} pixelSize={14} />
+                    {running()?.file === i() && running()?.decoder === "text"
+                      ? "解码中…"
+                      : "按字符编码解码"}
+                  </Button>
+                  <span class="file-image-run">
+                    <Button
+                      class="button button-secondary"
+                      disabled={busy()}
+                      onClick={() => void runImage(i(), file.bytes)}
+                      type="button"
+                    >
+                      {running()?.file === i() && running()?.decoder === "image"
+                        ? "解码中…"
+                        : "按图像解码"}
+                    </Button>
+                    <label>
+                      宽
+                      <input
+                        aria-label="图像宽度"
+                        disabled={busy()}
+                        max={32}
+                        min={1}
+                        onChange={(e) => setDim(i(), { w: Number(e.currentTarget.value) })}
+                        onInput={(e) => setDim(i(), { w: Number(e.currentTarget.value) })}
+                        type="number"
+                        value={dim().w}
+                      />
+                    </label>
+                    <label>
+                      高
+                      <input
+                        aria-label="图像高度"
+                        disabled={busy()}
+                        max={32}
+                        min={1}
+                        onChange={(e) => setDim(i(), { h: Number(e.currentTarget.value) })}
+                        onInput={(e) => setDim(i(), { h: Number(e.currentTarget.value) })}
+                        type="number"
+                        value={dim().h}
+                      />
+                    </label>
+                  </span>
                 </div>
-              ) : null}
-              <div className="file-verdict" role="radiogroup" aria-label={`${file.id} 的判定`}>
-                <span>判定它是：</span>
-                <label className={verdict?.decoder === "text" ? "is-picked" : ""}>
-                  <input
-                    checked={verdict?.decoder === "text"}
-                    disabled={run.text === undefined}
-                    onChange={() => onVerdict(i, { decoder: "text", text: run.text ?? "" })}
-                    type="radio"
-                  />
-                  一段文字
-                </label>
-                <label className={verdict?.decoder === "image" ? "is-picked" : ""}>
-                  <input
-                    checked={verdict?.decoder === "image"}
-                    disabled={!run.pixels}
-                    onChange={() => onVerdict(i, { decoder: "image", pixels: run.pixels })}
-                    type="radio"
-                  />
-                  一张图像
-                </label>
-                {verdict ? <span className="file-verdict-done">已记下判定 ✓</span> : null}
-                {run.text === undefined || !run.pixels ? (
-                  <span className="file-verdict-hint">先点对应的「解码」跑一遍才能选</span>
-                ) : null}
-              </div>
-            </li>
-          );
-        })}
+                <Show when={errors()[i()]}>
+                  {(err) => (
+                    <p class="file-error" role="alert">
+                      {err()}
+                    </p>
+                  )}
+                </Show>
+                <Show when={run().text !== undefined}>
+                  <p class="file-result">
+                    <span class="file-result-label">按字符编码 →</span>
+                    <code class="file-result-text">{run().text || "（空串）"}</code>
+                  </p>
+                </Show>
+                <Show when={run().pixels}>
+                  {(pixels) => (
+                    <div class="file-result">
+                      <span class="file-result-label">按图像 →</span>
+                      <PixelCanvas ariaLabel="图像解码预览" pixelSize={14} pixels={pixels()} />
+                    </div>
+                  )}
+                </Show>
+                <div aria-label={`${file.id} 的判定`} class="file-verdict" role="radiogroup">
+                  <span>判定它是：</span>
+                  <label class={verdict()?.decoder === "text" ? "is-picked" : ""}>
+                    <input
+                      checked={verdict()?.decoder === "text"}
+                      disabled={run().text === undefined}
+                      onChange={() =>
+                        props.onVerdict(i(), { decoder: "text", text: run().text ?? "" })
+                      }
+                      type="radio"
+                    />
+                    一段文字
+                  </label>
+                  <label class={verdict()?.decoder === "image" ? "is-picked" : ""}>
+                    <input
+                      checked={verdict()?.decoder === "image"}
+                      disabled={!run().pixels}
+                      onChange={() =>
+                        props.onVerdict(i(), { decoder: "image", pixels: run().pixels })
+                      }
+                      type="radio"
+                    />
+                    一张图像
+                  </label>
+                  <Show when={verdict()}>
+                    <span class="file-verdict-done">已记下判定 ✓</span>
+                  </Show>
+                  <Show when={run().text === undefined || !run().pixels}>
+                    <span class="file-verdict-hint">先点对应的「解码」跑一遍才能选</span>
+                  </Show>
+                </div>
+              </li>
+            );
+          }}
+        </For>
       </ol>
     </section>
   );

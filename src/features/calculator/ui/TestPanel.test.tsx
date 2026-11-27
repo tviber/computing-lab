@@ -1,9 +1,9 @@
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, within } from "@solidjs/testing-library";
 import { describe, expect, it } from "vitest";
-import { TestPanel } from "./TestPanel";
-import { getStage } from "../domain/stages";
 import type { CaseResult } from "../domain/evaluate";
+import { getStage } from "../domain/stages";
 import type { JudgeOutcome } from "../lesson/state";
+import { TestPanel } from "./TestPanel";
 
 const stage3 = getStage(4)!; // add4: buses A, B, 真实和（5 位）, 存进 4 位字的结果
 const stage5 = getStage(6)!; // sub4: signed R bus
@@ -32,13 +32,13 @@ describe("TestPanel", () => {
       actual: { S3: 0, S2: 1, S1: 1, S0: 0, Cout: 0 },
       error: null,
     };
-    render(
+    render(() => (
       <TestPanel
         judgeOutcome={null}
         runOutcome={{ results: [passResult("0 + 0"), failed], score: 1, total: 2 }}
         stage={stage3}
-      />,
-    );
+      />
+    ));
 
     const row = screen.getByRole("rowheader", { name: "3 + 4 = 7" }).closest("tr")!;
     // 真实和（5 位）= Cout S3..S0: expected 00111 (7), actual 00110 (6).
@@ -63,13 +63,13 @@ describe("TestPanel", () => {
       actual: { R3: 1, R2: 1, R1: 1, R0: 1 },
       error: null,
     };
-    render(
+    render(() => (
       <TestPanel
         judgeOutcome={null}
         runOutcome={{ results: [result], score: 1, total: 1 }}
         stage={stage5}
-      />,
-    );
+      />
+    ));
     const row = screen.getByRole("rowheader", { name: "0 - 1 → 1111" }).closest("tr")!;
     expect(row).toHaveTextContent("1111（15）");
     expect(row).toHaveTextContent("（补码 -1）");
@@ -85,13 +85,13 @@ describe("TestPanel", () => {
       actual: { R3: 1, R2: 1, R1: 1, R0: 1 },
       error: null,
     };
-    render(
+    render(() => (
       <TestPanel
         judgeOutcome={null}
         runOutcome={{ results: [result], score: 1, total: 1 }}
         stage={stage7}
-      />,
-    );
+      />
+    ));
 
     const row = screen.getByRole("rowheader", { name: "乘：3 × 5 → 1111" }).closest("tr")!;
     expect(row).toHaveTextContent("1111（15）");
@@ -117,7 +117,7 @@ describe("TestPanel", () => {
       componentsRevision: null,
       unlockedSubmodules: null,
     };
-    render(<TestPanel judgeOutcome={judgeOutcome} runOutcome={null} stage={stage5} />);
+    render(() => <TestPanel judgeOutcome={judgeOutcome} runOutcome={null} stage={stage5} />);
 
     const block = screen.getByText("最小反例").closest(".test-counterexample")!;
     expect(block).toHaveTextContent("0 - 1 → 1111");
@@ -143,13 +143,13 @@ describe("TestPanel", () => {
       actual: { R3: 1, R2: 1, R1: 0, R0: 0, Extra: 0 },
       error: null,
     };
-    render(
+    render(() => (
       <TestPanel
         judgeOutcome={null}
         runOutcome={{ results: [result], score: 0, total: 1 }}
         stage={getStage(8)!}
-      />,
-    );
+      />
+    ));
     const row = screen.getByRole("rowheader", { name: "异或" }).closest("tr")!;
     // R bus renders as a number; the uncovered pin stays as pin=值.
     expect(row).toHaveTextContent("1100（12）");

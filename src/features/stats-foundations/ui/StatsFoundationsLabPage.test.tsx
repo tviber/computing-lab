@@ -1,4 +1,4 @@
-import { screen } from "@testing-library/react";
+import { screen } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt, studentAuthState } from "../../../test/router-test-helpers";
 

@@ -1,4 +1,5 @@
-import { fireEvent, screen, within } from "@testing-library/react";
+import { fireEvent, screen, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt } from "../../test/router-test-helpers";
 import type { AuthState } from "../../shared/auth";
@@ -90,11 +91,13 @@ describe("HomePage lab visibility", () => {
     expect(screen.getAllByRole("article")).toHaveLength(3);
 
     fireEvent.click(within(filterGroup).getByRole("button", { name: /数据与编码/ }));
+    flush();
     expect(screen.getAllByRole("article")).toHaveLength(2);
     expect(screen.queryByRole("heading", { name: "实现ALU" })).toBeNull();
     expect(screen.getByRole("heading", { name: "解码侦探" })).toBeVisible();
 
     fireEvent.click(within(filterGroup).getByRole("button", { name: /全部/ }));
+    flush();
     expect(screen.getAllByRole("article")).toHaveLength(3);
   });
 
@@ -136,6 +139,7 @@ describe("HomePage lab visibility", () => {
     expect(within(screen.getByRole("figure")).getByText("空间采样")).toBeVisible();
 
     fireEvent.click(screen.getByRole("button", { name: "实现ALU" }));
+    flush();
     expect(within(screen.getByRole("figure")).getByText("实现ALU")).toBeVisible();
   });
 

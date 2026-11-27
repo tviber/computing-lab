@@ -7,7 +7,7 @@ import ts from "typescript";
 import { LAB_REGISTRY } from "../../server/labs.ts";
 import { LAB_IDS, labMetadata } from "../shared/lab/labMetadata.ts";
 import { APP_LABS } from "./labRegistry.ts";
-import { router } from "./router.tsx";
+import { appRoutes, router } from "./router.tsx";
 
 const srcRoot = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const appRoot = join(srcRoot, "app");
@@ -187,7 +187,7 @@ describe("architecture boundaries", () => {
     ).toEqual([]);
   });
 
-  it("keeps feature domain logic independent of React and UI", () => {
+  it("keeps feature domain logic independent of UI frameworks and UI modules", () => {
     const domainFiles = sourceFiles(featuresRoot).filter((file) => {
       const parts = relative(featuresRoot, file).split(sep);
       return parts[1] === "domain";
@@ -197,7 +197,7 @@ describe("architecture boundaries", () => {
         .filter((specifier) => {
           const resolved = resolveImport(file, specifier);
           return (
-            /^react(?:-|\/|$)/.test(specifier) ||
+            /^(?:solid-js|@solidjs\/|@ui-sdk\/|react(?:-|\/|$))/.test(specifier) ||
             (resolved !== null && /(?:^|[/\\])ui(?:[/\\]|$)/.test(resolved))
           );
         })
@@ -228,8 +228,10 @@ describe("architecture boundaries", () => {
                 ? isWithin(target, join(featureRoot, "domain")) ||
                   (layer === "lesson" && isWithin(target, join(featureRoot, "lesson"))) ||
                   target === join(sharedRoot, "lab/saveStatus") ||
-                  target === join(sharedRoot, "lab/saveStatus.ts")
-                : !/^(react(?:-dom)?(?:\/|$)|@tanstack\/react-router(?:\/|$)|node:)/.test(
+                  target === join(sharedRoot, "lab/saveStatus.ts") ||
+                  target === join(sharedRoot, "lab/judging") ||
+                  target === join(sharedRoot, "lab/judging.ts")
+                : !/^(solid-js(?:\/|$)|@solidjs\/|@ui-sdk\/|react(?:-dom)?(?:\/|$)|node:)/.test(
                     specifier,
                   );
               if (!allowed) failures.add(`${relative(srcRoot, dependency)} -> ${specifier}`);
@@ -276,6 +278,41 @@ it("does not load feature UI or secondary route pages in the initial module grap
   expect(unexpected).toEqual([]);
 });
 
+it("keeps every showcase dependency, including lazy imports, free of classroom and server code", () => {
+  const dependencies = runtimeDependencies(join(srcRoot, "main.tsx"));
+  expect(
+    [...dependencies]
+      .filter(
+        (path) =>
+          /[/\\](server|auth|api|classroom|task-sheets)[/\\]/.test(path) ||
+          (/[/\\](App|router|HomePage|LabRedirectPage)\.tsx$/.test(path) &&
+            isWithin(path, appRoot) &&
+            !isWithin(path, join(appRoot, "showcase"))) ||
+          /[/\\](?:Admin\w*|Teacher\w*|Task\w*|ClassMembers|StudentLabPreview|Login|Profile)Page\.tsx$/.test(
+            path,
+          ),
+      )
+      .map((path) => relative(srcRoot, path)),
+  ).toEqual([]);
+});
+
+it("keeps labs independent of host authentication, routing, API clients and task sheets", () => {
+  for (const id of LAB_IDS) {
+    expect(
+      violations(
+        join(featuresRoot, id),
+        (specifier, target) =>
+          /shared\/(auth|api)|\/server\//.test(specifier) ||
+          (target !== null &&
+            (isWithin(target, appRoot) || isWithin(target, join(featuresRoot, "task-sheets")))),
+      ),
+    ).toEqual([]);
+    for (const file of sourceFiles(join(featuresRoot, id))) {
+      expect(readFileSync(file, "utf8")).not.toMatch(/useParams|\/api\/classes\//);
+    }
+  }
+});
+
 it("keeps the real decoding workspace independent of controller execution, lesson state and backend", () => {
   const dependencies = runtimeDependencies(join(featuresRoot, "decoding/ui/DecodingWorkspace.tsx"));
   const forbidden = [...dependencies].filter(
@@ -304,14 +341,14 @@ it("keeps lab metadata, frontend registry, router, and server visibility registr
   for (const id of LAB_IDS) {
     const reg = LAB_REGISTRY.find((entry) => entry.id === id);
     expect(reg?.stageCount).toBe(APP_LABS[id].dashboardStages.length);
-    expect(router.routesByPath[`/labs/${id}`]).toBeDefined();
-    expect(router.routesByPath[`/classes/$classId/labs/${id}`]).toBeDefined();
+    expect(router.match(`/labs/${id}`).length).toBeGreaterThan(0);
+    expect(router.match(`/classes/c1/labs/${id}`).length).toBeGreaterThan(0);
   }
 });
 
 it("preserves lazy lab component preloading through the guarded route", () => {
-  const route = router.routesByPath["/classes/$classId/labs/decoding"];
-  const guardedComponent = route?.options.component as { preload?: () => Promise<void> };
+  const route = appRoutes.find((entry) => entry.path === "/classes/:classId/labs/decoding");
+  const guardedComponent = route?.component as { preload?: () => Promise<void> } | undefined;
   const labComponent = APP_LABS.decoding.component as unknown as {
     preload?: () => Promise<void> | undefined;
   };
@@ -321,7 +358,7 @@ it("preserves lazy lab component preloading through the guarded route", () => {
   const preload = vi.fn(() => new Promise<void>(() => {}));
   labComponent.preload = preload;
   try {
-    expect(guardedComponent.preload?.()).toBeUndefined();
+    expect(guardedComponent?.preload?.()).toBeUndefined();
     expect(preload).toHaveBeenCalledOnce();
   } finally {
     labComponent.preload = originalPreload;

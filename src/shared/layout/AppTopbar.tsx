@@ -1,74 +1,68 @@
-import { Link } from "@tanstack/react-router";
-import type { ReactNode } from "react";
-import { AccountMenu } from "../auth";
+import type { JSX } from "@solidjs/web";
+import { Show } from "solid-js";
+import { HostAccount } from "./host";
+import { AppLink } from "../ui/AppLink";
 import "./app-layout.css";
 
 export type AppTopbarProps = {
-  children?: ReactNode;
-  context?: ReactNode;
-  leading?: ReactNode;
-  nav?: ReactNode;
+  children?: JSX.Element;
+  context?: JSX.Element;
+  leading?: JSX.Element;
+  nav?: JSX.Element;
   showAccount?: boolean;
   showHomeLink?: boolean;
-  subtitle?: ReactNode;
+  subtitle?: JSX.Element;
   title?: string;
 };
 
-export function AppTopbar({
-  children,
-  context,
-  leading,
-  nav,
-  showAccount = true,
-  showHomeLink = true,
-  subtitle,
-  title,
-}: AppTopbarProps) {
+export function AppTopbar(props: AppTopbarProps) {
   return (
-    <header className="app-topbar">
-      <div className="app-topbar-left">
-        {leading}
-        <Link aria-label="计算实验室首页" className="app-brand-mark" to="/">
+    <header class="app-topbar">
+      <div class="app-topbar-left">
+        {props.leading}
+        <AppLink aria-label="计算实验室首页" class="app-brand-mark" href="/">
           <img alt="" src="/assets/brand-logo.png" />
-        </Link>
-        <div className="app-topbar-heading">
-          {title ? <h1>{title}</h1> : <span className="app-brand-name">计算实验室</span>}
-          {subtitle ? <p>{subtitle}</p> : null}
+        </AppLink>
+        <div class="app-topbar-heading">
+          <Show when={props.title} fallback={<span class="app-brand-name">计算实验室</span>}>
+            <h1>{props.title}</h1>
+          </Show>
+          <Show when={props.subtitle}>
+            <p>{props.subtitle}</p>
+          </Show>
         </div>
-        {nav}
+        {props.nav}
       </div>
-      <div className="app-topbar-actions">
-        {showHomeLink ? (
-          <Link className="app-home-link" to="/">
+      <div class="app-topbar-actions">
+        <Show when={props.showHomeLink ?? true}>
+          <AppLink class="app-home-link" href="/">
             返回首页
-          </Link>
-        ) : null}
-        {context}
-        {children}
-        {showAccount ? <AccountMenu /> : null}
+          </AppLink>
+        </Show>
+        {props.context}
+        {props.children}
+        <Show when={props.showAccount ?? true}>
+          <HostAccount />
+        </Show>
       </div>
     </header>
   );
 }
 
-export function AppPageLayout({
-  children,
-  className,
-  topbar,
-  topbarProps,
-  footer,
-}: {
-  children: ReactNode;
-  footer?: ReactNode;
+export function AppPageLayout(props: {
+  children?: JSX.Element;
+  footer?: JSX.Element;
+  class?: string;
   className?: string;
-  topbar?: ReactNode;
+  topbar?: JSX.Element;
   topbarProps?: Omit<AppTopbarProps, "children">;
 }) {
+  const extraClass = () => props.class ?? props.className;
   return (
-    <div className={`page-layout${className ? ` ${className}` : ""}`}>
-      <AppTopbar {...topbarProps}>{topbar}</AppTopbar>
-      <div className="page-layout-content">{children}</div>
-      {footer}
+    <div class={`page-layout${extraClass() ? ` ${extraClass()}` : ""}`}>
+      <AppTopbar {...props.topbarProps}>{props.topbar}</AppTopbar>
+      <div class="page-layout-content">{props.children}</div>
+      {props.footer}
     </div>
   );
 }

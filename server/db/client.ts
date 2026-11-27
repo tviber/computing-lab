@@ -1,5 +1,5 @@
 import { DatabaseSync } from "node:sqlite";
-import { mkdirSync, readFileSync } from "node:fs";
+import { existsSync, mkdirSync, readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
@@ -8,11 +8,26 @@ const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
 export const SCHEMA_VERSION = 22;
 
-export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
+/** Nearest package root, so the default database does not follow the caller's CWD. */
+export function findPackageRoot(start: string = here): string {
+  let directory = start;
+  for (;;) {
+    if (existsSync(resolve(directory, "package.json"))) return directory;
+    const parent = dirname(directory);
+    if (parent === directory) return process.cwd();
+    directory = parent;
+  }
+}
+
+export function resolveDbPath(start: string, configuredPath?: string): string {
+  return configuredPath ? resolve(configuredPath) : resolve(findPackageRoot(start), "data/lab.db");
+}
+
+export const dbPath = resolveDbPath(here, process.env.LAB_DB_PATH);
 
 let singleton: DatabaseSync | undefined;
 
-/** Process-wide database handle (LAB_DB_PATH or ./data/lab.db). */
+/** Process-wide database handle (LAB_DB_PATH or <package root>/data/lab.db). */
 export function getDb(): DatabaseSync {
   if (!singleton) {
     mkdirSync(dirname(dbPath), { recursive: true });

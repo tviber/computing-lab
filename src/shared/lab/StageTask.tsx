@@ -1,16 +1,10 @@
-import type { ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
 
-export function StageTask({
-  children,
-  title = "本关任务",
-}: {
-  children: ReactNode;
-  title?: string;
-}) {
+export function StageTask(props: { children?: JSX.Element; title?: string }) {
   return (
-    <div className="lab-stage-task">
-      <h2>{title}</h2>
-      <p>{children}</p>
+    <div class="lab-stage-task">
+      <h2>{props.title ?? "本关任务"}</h2>
+      <p>{props.children}</p>
     </div>
   );
 }

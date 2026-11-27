@@ -721,3 +721,28 @@
   margin: 14px 0;
   padding: 10px 12px;
 }
+
+[data-slot="drawer-backdrop"].ts-review-drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  background: rgb(23 40 61 / 32%);
+}
+
+[data-slot="drawer-viewport"]:has(> .ts-review-drawer) {
+  position: fixed;
+  inset: 0;
+  z-index: 61;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.ts-review-drawer {
+  pointer-events: auto;
+}
+
+.ts-review-actions {
+  display: flex;
+  gap: 10px;
+}

@@ -1,5 +1,15 @@
-import { useParams } from "@tanstack/react-router";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useParams } from "@solidjs/router";
+import { Button } from "@ui-sdk/solid/button";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Match,
+  onCleanup,
+  Show,
+  Switch,
+} from "solid-js";
 import { api, describeApiError } from "../../shared/api/client";
 import { useAuth } from "../../shared/auth";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
@@ -42,61 +52,82 @@ const STATUS_LABELS: Record<string, string> = {
 };
 
 export function TaskAssignmentPage() {
-  const { classId, assignmentId } = useParams({ strict: false }) as {
-    classId?: string;
-    assignmentId?: string;
-  };
-  const { status } = useAuth();
-  const [payload, setPayload] = useState<Payload | null>(null);
-  const [answers, setAnswers] = useState<AnswerMap>({});
-  const [error, setError] = useState<string | null>(null);
-  const [savedAt, setSavedAt] = useState<string | null>(null);
-  const [submitting, setSubmitting] = useState(false);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const url =
-    classId && assignmentId
-      ? `/api/classes/${classId}/task-assignments/${assignmentId}/response`
-      : null;
+  const params = useParams<{ classId?: string; assignmentId?: string }>();
+  const auth = useAuth();
+  const [payload, setPayload] = createSignal<Payload | null>(null);
+  const [answers, setAnswers] = createSignal<AnswerMap>({});
+  const [error, setError] = createSignal<string | null>(null);
+  const [savedAt, setSavedAt] = createSignal<string | null>(null);
+  const [submitting, setSubmitting] = createSignal(false);
+  const [reloadTick, setReloadTick] = createSignal(0);
 
-  const load = useCallback(() => {
-    if (!url) return;
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  onCleanup(() => {
+    if (timer) clearTimeout(timer);
+  });
+
+  const url = createMemo(() =>
+    params.classId && params.assignmentId
+      ? `/api/classes/${params.classId}/task-assignments/${params.assignmentId}/response`
+      : null,
+  );
+
+  const load = () => setReloadTick((n) => n + 1);
+
+  const fetchKey = createMemo(() => {
+    const u = url();
+    return auth.status === "authenticated" && u ? `${u}\0${reloadTick()}` : "";
+  });
+
+  createEffect(fetchKey, (key) => {
+    if (!key) return;
+    const currentUrl = key.slice(0, key.indexOf("\0"));
+    let active = true;
     void api
-      .get<Payload>(url)
+      .get<Payload>(currentUrl)
       .then((p) => {
+        if (!active) return;
         setPayload(p);
         setAnswers(p.response.answers ?? {});
       })
-      .catch((caught) => setError(describeApiError(caught)));
-  }, [url]);
+      .catch((caught) => {
+        if (active) setError(describeApiError(caught));
+      });
+    return () => {
+      active = false;
+    };
+  });
 
-  useEffect(() => {
-    if (status === "authenticated") load();
-  }, [status, load]);
-
-  const editable =
-    payload !== null &&
-    (payload.response.status === "not_started" ||
-      payload.response.status === "in_progress" ||
-      payload.response.status === "returned");
+  const editable = createMemo(() => {
+    const p = payload();
+    return (
+      p !== null &&
+      (p.response.status === "not_started" ||
+        p.response.status === "in_progress" ||
+        p.response.status === "returned")
+    );
+  });
 
   const setAnswer = (qid: string, value: AnswerValue) => {
-    if (!editable || !url) return;
-    const next = { ...answers, [qid]: value };
+    const currentUrl = url();
+    if (!editable() || !currentUrl) return;
+    const next = { ...answers(), [qid]: value };
     setAnswers(next);
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = setTimeout(() => {
+    if (timer) clearTimeout(timer);
+    timer = setTimeout(() => {
       void api
-        .put(url, { answers: next })
+        .put(currentUrl, { answers: next })
         .then((r) => setSavedAt((r as { savedAt: string }).savedAt))
         .catch((caught) => setError(describeApiError(caught)));
     }, 600);
   };
 
   const submit = () => {
-    if (!url || !window.confirm("提交后不能再修改，确定提交？")) return;
+    const currentUrl = url();
+    if (!currentUrl || !window.confirm("提交后不能再修改，确定提交？")) return;
     setSubmitting(true);
     void api
-      .post(`${url}/submit`)
+      .post(`${currentUrl}/submit`)
       .then(() => {
         setSubmitting(false);
         load();
@@ -107,108 +138,125 @@ export function TaskAssignmentPage() {
       });
   };
 
-  if (status === "loading" || (status === "authenticated" && !payload && !error)) {
-    return (
-      <p className="home-loading" role="status">
-        正在载入…
-      </p>
-    );
-  }
-
-  const assignment = payload?.assignment;
-  const response = payload?.response;
-  const statusKey = response?.status ?? "not_started";
-  const overdue =
-    assignment?.dueAt && response?.status !== "submitted" && response?.status !== "reviewed"
-      ? new Date(assignment.dueAt).getTime() < Date.now()
+  const assignment = createMemo(() => payload()?.assignment);
+  const response = createMemo(() => payload()?.response);
+  const statusKey = createMemo(() => response()?.status ?? "not_started");
+  const overdue = createMemo(() => {
+    const a = assignment();
+    const r = response();
+    return a?.dueAt && r?.status !== "submitted" && r?.status !== "reviewed"
+      ? new Date(a.dueAt).getTime() < Date.now()
       : false;
+  });
 
   return (
-    <AppPageLayout className="dashboard-page">
-      <main className="page-content">
-        <div className="dashboard-heading">
-          <div className="dashboard-heading-copy">
-            <p className="eyebrow">任务单</p>
-            <h1>{assignment?.title ?? "任务单"}</h1>
-            <p>
-              <span className={`ts-task-badge ${statusKey}`}>{STATUS_LABELS[statusKey]}</span>{" "}
-              {assignment?.dueAt
-                ? `截止 ${new Date(assignment.dueAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-                : "无截止时间"}
-              {overdue ? "（已过截止，仍可提交，会标记为迟交）" : ""}
-            </p>
-          </div>
-          <span aria-live="polite" className="save-indicator">
-            {editable && savedAt ? (
-              <>
-                草稿已保存 <Icon name="check" size={12} />
-              </>
-            ) : null}
-          </span>
-        </div>
-
-        {error ? (
-          <p className="test-error" role="alert">
-            {error}
-          </p>
-        ) : null}
-
-        {response?.status === "returned" ? (
-          <p className="test-error" role="alert">
-            老师退回了这份任务单，请修改后重新提交。
-          </p>
-        ) : null}
-
-        {response && (response.status === "submitted" || response.status === "reviewed") ? (
-          <div className="ts-stat-strip" role="status">
-            <p className="ts-stat-row">
-              <span className="q-label">得分</span>
-              <span className="ts-stat-pct">
-                {response.finalScore ?? "—"} / {response.finalTotal ?? "—"}
+    <Switch
+      fallback={
+        <AppPageLayout class="dashboard-page">
+          <main class="page-content">
+            <div class="dashboard-heading">
+              <div class="dashboard-heading-copy">
+                <p class="eyebrow">任务单</p>
+                <h1>{assignment()?.title ?? "任务单"}</h1>
+                <p>
+                  <span class={`ts-task-badge ${statusKey()}`}>{STATUS_LABELS[statusKey()]}</span>{" "}
+                  {assignment()?.dueAt
+                    ? `截止 ${new Date(assignment()!.dueAt!).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                    : "无截止时间"}
+                  {overdue() ? "（已过截止，仍可提交，会标记为迟交）" : ""}
+                </p>
+              </div>
+              <span aria-live="polite" class="save-indicator">
+                <Show when={editable() && savedAt()}>
+                  草稿已保存 <Icon name="check" size={12} />
+                </Show>
               </span>
-              <span className="ts-stat-detail">
-                {response.status === "reviewed"
-                  ? "老师已批改"
-                  : "客观题已自动判分，简答题待老师批改"}
-              </span>
-            </p>
-            {response.review?.comment ? (
-              <p className="ts-stat-row">
-                <span className="q-label">评语</span>
-                <span>{response.review.comment}</span>
+            </div>
+
+            <Show when={error()}>
+              {(msg) => (
+                <p class="test-error" role="alert">
+                  {msg()}
+                </p>
+              )}
+            </Show>
+
+            <Show when={response()?.status === "returned"}>
+              <p class="test-error" role="alert">
+                老师退回了这份任务单，请修改后重新提交。
               </p>
-            ) : null}
-          </div>
-        ) : null}
+            </Show>
 
-        <div className="ts-answer-list">
-          {(payload?.schema.questions ?? []).map((q, i) => (
-            <QuestionAnswer
-              grading={response?.grading?.[q.id]}
-              index={i}
-              key={q.id}
-              onChange={(v) => setAnswer(q.id, v)}
-              q={q}
-              readOnly={!editable}
-              review={response?.review?.questions[q.id]}
-              value={answers[q.id]}
-            />
-          ))}
-        </div>
-
-        {editable ? (
-          <div className="ts-actions">
-            <button
-              className="button button-primary"
-              disabled={submitting}
-              onClick={submit}
-              type="button"
+            <Show
+              when={
+                response() &&
+                (response()!.status === "submitted" || response()!.status === "reviewed")
+              }
             >
-              {response?.status === "returned" ? "重新提交" : "提交"}
-            </button>
-          </div>
-        ) : null}
-      </main>
-    </AppPageLayout>
+              <div class="ts-stat-strip" role="status">
+                <p class="ts-stat-row">
+                  <span class="q-label">得分</span>
+                  <span class="ts-stat-pct">
+                    {response()?.finalScore ?? "—"} / {response()?.finalTotal ?? "—"}
+                  </span>
+                  <span class="ts-stat-detail">
+                    {response()?.status === "reviewed"
+                      ? "老师已批改"
+                      : "客观题已自动判分，简答题待老师批改"}
+                  </span>
+                </p>
+                <Show when={response()?.review?.comment}>
+                  {(comment) => (
+                    <p class="ts-stat-row">
+                      <span class="q-label">评语</span>
+                      <span>{comment()}</span>
+                    </p>
+                  )}
+                </Show>
+              </div>
+            </Show>
+
+            <div class="ts-answer-list">
+              <For each={payload()?.schema.questions ?? []}>
+                {(q, index) => (
+                  <QuestionAnswer
+                    grading={response()?.grading?.[q.id]}
+                    index={index()}
+                    onChange={(v) => setAnswer(q.id, v)}
+                    q={q}
+                    readOnly={!editable()}
+                    review={response()?.review?.questions[q.id]}
+                    value={answers()[q.id]}
+                  />
+                )}
+              </For>
+            </div>
+
+            <Show when={editable()}>
+              <div class="ts-actions">
+                <Button
+                  class="button button-primary"
+                  disabled={submitting()}
+                  onClick={submit}
+                  type="button"
+                >
+                  {response()?.status === "returned" ? "重新提交" : "提交"}
+                </Button>
+              </div>
+            </Show>
+          </main>
+        </AppPageLayout>
+      }
+    >
+      <Match
+        when={
+          auth.status === "loading" || (auth.status === "authenticated" && !payload() && !error())
+        }
+      >
+        <p class="home-loading" role="status">
+          正在载入…
+        </p>
+      </Match>
+    </Switch>
   );
 }

@@ -1,6 +1,5 @@
-import { StatsSlider } from "./StatsSlider";
+import { createMemo, For, Show } from "solid-js";
 import { MathFormula } from "../../../shared/ui/MathFormula";
-import { ConceptQuestion } from "./ConceptQuestion.tsx";
 import type { LinearRegressionDraft } from "../domain/protocol.ts";
 import type { StatsConceptQuestion } from "../domain/stages.ts";
 import {
@@ -13,6 +12,8 @@ import {
   LINEAR_SLOPE_MIN,
   roundTo,
 } from "../domain/statsMath.ts";
+import { ConceptQuestion } from "./ConceptQuestion.tsx";
+import { StatsSlider } from "./StatsSlider";
 
 type Props = {
   draft: LinearRegressionDraft;
@@ -27,6 +28,8 @@ const PAD = { left: 52, right: 24, top: 20, bottom: 44 };
 const X_MAX = 32;
 const Y_MIN = LINEAR_INTERCEPT_MIN;
 const Y_MAX = 90;
+const Y_TICKS = [-40, -20, 0, 20, 40, 60, 80];
+const X_TICKS = [0, 5, 10, 15, 20, 25, 30];
 
 function mapX(temp: number): number {
   return PAD.left + (temp / X_MAX) * (SVG_W - PAD.left - PAD.right);
@@ -38,46 +41,45 @@ function mapY(cups: number): number {
 
 const optimal = computeOptimalLinearFit();
 
-export function LinearRegressionPanel({ draft, question, passed, onChange }: Props) {
-  const fit = evaluateLinearFit(draft.slope, draft.intercept);
-
-  const mseGood = fit.mse <= LINEAR_MSE_THRESHOLD;
+export function LinearRegressionPanel(props: Props) {
+  const fit = createMemo(() => evaluateLinearFit(props.draft.slope, props.draft.intercept));
+  const mseGood = createMemo(() => fit().mse <= LINEAR_MSE_THRESHOLD);
 
   return (
-    <div className="sf-panel">
-      <div className="sf-metrics-row">
-        <div className={`sf-metric-card ${mseGood ? "is-good" : ""}`}>
-          <span className="sf-metric-label">均方误差 MSE</span>
-          <strong className="sf-metric-value">{roundTo(fit.mse, 2)}</strong>
-          <span className="sf-metric-sub">
+    <div class="sf-panel">
+      <div class="sf-metrics-row">
+        <div class={`sf-metric-card ${mseGood() ? "is-good" : ""}`}>
+          <span class="sf-metric-label">均方误差 MSE</span>
+          <strong class="sf-metric-value">{roundTo(fit().mse, 2)}</strong>
+          <span class="sf-metric-sub">
             目标 ≤ {LINEAR_MSE_THRESHOLD}（理论最优 ≈ {roundTo(optimal.mse, 2)}）
           </span>
         </div>
-        <div className="sf-metric-card">
-          <span className="sf-metric-label">当前直线公式</span>
-          <strong className="sf-metric-value sf-mono">
-            y = {roundTo(fit.slope, 2)}x {fit.intercept >= 0 ? "+" : "−"}{" "}
-            {Math.abs(roundTo(fit.intercept, 1))}
+        <div class="sf-metric-card">
+          <span class="sf-metric-label">当前直线公式</span>
+          <strong class="sf-metric-value sf-mono">
+            y = {roundTo(fit().slope, 2)}x {fit().intercept >= 0 ? "+" : "−"}{" "}
+            {Math.abs(roundTo(fit().intercept, 1))}
           </strong>
-          <span className="sf-metric-sub">
-            调斜率 w，直线绕 (0, b) 旋转；调截距 b，直线上下平移
-          </span>
+          <span class="sf-metric-sub">调斜率 w，直线绕 (0, b) 旋转；调截距 b，直线上下平移</span>
         </div>
-        <div className="sf-metric-card">
-          <span className="sf-metric-label">预测 30°C 销量</span>
-          <strong className="sf-metric-value">{Math.round(fit.predictAt30)} 杯</strong>
-          <span className="sf-metric-sub">实际 30°C 那天卖了 76 杯</span>
+        <div class="sf-metric-card">
+          <span class="sf-metric-label">预测 30°C 销量</span>
+          <strong class="sf-metric-value">{Math.round(fit().predictAt30)} 杯</strong>
+          <span class="sf-metric-sub">实际 30°C 那天卖了 76 杯</span>
         </div>
       </div>
 
-      <div className="sf-workspace-grid">
-        <div className="sf-chart-card">
-          <div className="sf-chart-header">
+      <div class="sf-workspace-grid">
+        <div class="sf-chart-card">
+          <div class="sf-chart-header">
             <h3>气温 (°C) vs 冰奶茶销量 (杯)</h3>
-            <label className="sf-toggle">
+            <label class="sf-toggle">
               <input
-                checked={draft.showSquares}
-                onChange={(e) => onChange({ ...draft, showSquares: e.target.checked })}
+                checked={props.draft.showSquares}
+                onChange={(e) =>
+                  props.onChange({ ...props.draft, showSquares: e.currentTarget.checked })
+                }
                 type="checkbox"
               />
               <span>显示残差方块（面积 = 误差²）</span>
@@ -85,62 +87,66 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
           </div>
 
           <svg
-            role="img"
             aria-label="线性回归散点图与残差方块"
-            className="sf-svg"
+            class="sf-svg"
+            role="img"
             viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           >
             {/* Grid lines */}
-            {[-40, -20, 0, 20, 40, 60, 80].map((yVal) => (
-              <g key={`gy-${yVal}`}>
-                <line
-                  className="sf-grid-line"
-                  x1={PAD.left}
-                  x2={SVG_W - PAD.right}
-                  y1={mapY(yVal)}
-                  y2={mapY(yVal)}
-                />
-                <text className="sf-axis-tick" textAnchor="end" x={PAD.left - 8} y={mapY(yVal) + 4}>
-                  {yVal}
-                </text>
-              </g>
-            ))}
-            {[0, 5, 10, 15, 20, 25, 30].map((xVal) => (
-              <g key={`gx-${xVal}`}>
-                <line
-                  className="sf-grid-line"
-                  x1={mapX(xVal)}
-                  x2={mapX(xVal)}
-                  y1={PAD.top}
-                  y2={SVG_H - PAD.bottom}
-                />
-                <text className="sf-axis-tick" textAnchor="middle" x={mapX(xVal)} y={SVG_H - 22}>
-                  {xVal}°C
-                </text>
-              </g>
-            ))}
+            <For each={Y_TICKS}>
+              {(yVal) => (
+                <g>
+                  <line
+                    class="sf-grid-line"
+                    x1={PAD.left}
+                    x2={SVG_W - PAD.right}
+                    y1={mapY(yVal)}
+                    y2={mapY(yVal)}
+                  />
+                  <text class="sf-axis-tick" text-anchor="end" x={PAD.left - 8} y={mapY(yVal) + 4}>
+                    {yVal}
+                  </text>
+                </g>
+              )}
+            </For>
+            <For each={X_TICKS}>
+              {(xVal) => (
+                <g>
+                  <line
+                    class="sf-grid-line"
+                    x1={mapX(xVal)}
+                    x2={mapX(xVal)}
+                    y1={PAD.top}
+                    y2={SVG_H - PAD.bottom}
+                  />
+                  <text class="sf-axis-tick" text-anchor="middle" x={mapX(xVal)} y={SVG_H - 22}>
+                    {xVal}°C
+                  </text>
+                </g>
+              )}
+            </For>
 
             {/* Axes */}
             <line
-              className="sf-axis-line"
+              class="sf-axis-line"
               x1={PAD.left}
               x2={SVG_W - PAD.right}
               y1={mapY(0)}
               y2={mapY(0)}
             />
             <line
-              className="sf-axis-line"
+              class="sf-axis-line"
               x1={PAD.left}
               x2={PAD.left}
               y1={PAD.top}
               y2={SVG_H - PAD.bottom}
             />
-            <text className="sf-axis-label" textAnchor="middle" x={SVG_W / 2} y={SVG_H - 4}>
+            <text class="sf-axis-label" text-anchor="middle" x={SVG_W / 2} y={SVG_H - 4}>
               当天最高气温 (°C)
             </text>
             <text
-              className="sf-axis-label"
-              textAnchor="middle"
+              class="sf-axis-label"
+              text-anchor="middle"
               transform={`rotate(-90 16 ${SVG_H / 2})`}
               x={16}
               y={SVG_H / 2}
@@ -151,85 +157,84 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
             <defs>
               <clipPath id="sf-fit-plot">
                 <rect
+                  height={SVG_H - PAD.top - PAD.bottom}
+                  width={SVG_W - PAD.left - PAD.right}
                   x={PAD.left}
                   y={PAD.top}
-                  width={SVG_W - PAD.left - PAD.right}
-                  height={SVG_H - PAD.top - PAD.bottom}
                 />
               </clipPath>
             </defs>
-            <g clipPath="url(#sf-fit-plot)">
-              {fit.residuals.map((pt) => {
-                const cx = mapX(pt.temp);
-                const cyActual = mapY(pt.cups);
-                const cyPred = mapY(pt.predicted);
-                const side = Math.abs(cyActual - cyPred);
-                const topY = Math.min(cyActual, cyPred);
-                return (
-                  <g key={`res-${pt.day}`}>
-                    {draft.showSquares && side > 1 && (
-                      <rect
-                        className="sf-residual-square"
-                        height={side}
-                        width={side}
-                        x={cx}
-                        y={topY}
-                      />
-                    )}
-                    <line className="sf-residual-line" x1={cx} x2={cx} y1={cyActual} y2={cyPred} />
-                  </g>
-                );
-              })}
+            <g clip-path="url(#sf-fit-plot)">
+              <For each={fit().residuals}>
+                {(pt) => {
+                  const cx = mapX(pt.temp);
+                  const cyActual = mapY(pt.cups);
+                  const cyPred = mapY(pt.predicted);
+                  const side = Math.abs(cyActual - cyPred);
+                  const topY = Math.min(cyActual, cyPred);
+                  return (
+                    <g>
+                      <Show when={props.draft.showSquares && side > 1}>
+                        <rect
+                          class="sf-residual-square"
+                          height={side}
+                          width={side}
+                          x={cx}
+                          y={topY}
+                        />
+                      </Show>
+                      <line class="sf-residual-line" x1={cx} x2={cx} y1={cyActual} y2={cyPred} />
+                    </g>
+                  );
+                }}
+              </For>
 
               {/* Fitted line */}
               <line
-                className="sf-fit-line"
+                class="sf-fit-line"
                 x1={mapX(0)}
                 x2={mapX(X_MAX)}
-                y1={mapY(fit.intercept)}
-                y2={mapY(fit.slope * X_MAX + fit.intercept)}
+                y1={mapY(fit().intercept)}
+                y2={mapY(fit().slope * X_MAX + fit().intercept)}
               />
             </g>
-            <circle className="sf-marker-dot" cx={mapX(0)} cy={mapY(fit.intercept)} r={5}>
-              <title>截距 (0, {fit.intercept})</title>
+            <circle class="sf-marker-dot" cx={mapX(0)} cy={mapY(fit().intercept)} r={5}>
+              <title>截距 (0, {fit().intercept})</title>
             </circle>
             {/* Data points */}
-            {fit.residuals.map((pt) => (
-              <circle
-                className="sf-data-dot"
-                cx={mapX(pt.temp)}
-                cy={mapY(pt.cups)}
-                key={`pt-${pt.day}`}
-                r={5}
-              >
-                <title>
-                  第 {pt.day} 天：{pt.temp}°C，实际 {pt.cups} 杯，预测 {roundTo(pt.predicted, 1)} 杯
-                </title>
-              </circle>
-            ))}
+            <For each={fit().residuals}>
+              {(pt) => (
+                <circle class="sf-data-dot" cx={mapX(pt.temp)} cy={mapY(pt.cups)} r={5}>
+                  <title>
+                    第 {pt.day} 天：{pt.temp}°C，实际 {pt.cups} 杯，预测 {roundTo(pt.predicted, 1)}{" "}
+                    杯
+                  </title>
+                </circle>
+              )}
+            </For>
           </svg>
         </div>
 
-        <div className="sf-controls-card">
+        <div class="sf-controls-card">
           <h3>动手调直线</h3>
           <StatsSlider
             label="斜率 w（每升高 1°C 多卖几杯）"
-            value={draft.slope}
-            min={LINEAR_SLOPE_MIN}
             max={LINEAR_SLOPE_MAX}
+            min={LINEAR_SLOPE_MIN}
+            onChange={(slope) => props.onChange({ ...props.draft, slope })}
             step={0.1}
-            onChange={(slope) => onChange({ ...draft, slope })}
+            value={props.draft.slope}
           />
           <StatsSlider
             label="截距 b（基准偏移量）"
-            value={draft.intercept}
-            min={LINEAR_INTERCEPT_MIN}
             max={LINEAR_INTERCEPT_MAX}
+            min={LINEAR_INTERCEPT_MIN}
+            onChange={(intercept) => props.onChange({ ...props.draft, intercept })}
             step={1}
-            onChange={(intercept) => onChange({ ...draft, intercept })}
+            value={props.draft.intercept}
           />
 
-          <div className="sf-note-box">
+          <div class="sf-note-box">
             <strong>小发现：</strong>
             每个红色正方形的边长就是「实际销量 − 预测销量」的绝对值，面积就是误差的平方。把 10
             个正方形的面积加起来再除以 10，就是{" "}
@@ -239,14 +244,16 @@ export function LinearRegressionPanel({ draft, question, passed, onChange }: Pro
         </div>
       </div>
 
-      {question && (
-        <ConceptQuestion
-          question={question}
-          answer={draft.answer}
-          passed={passed}
-          onAnswer={(answer) => onChange({ ...draft, answer })}
-        />
-      )}
+      <Show when={props.question}>
+        {(q) => (
+          <ConceptQuestion
+            answer={props.draft.answer}
+            onAnswer={(answer) => props.onChange({ ...props.draft, answer })}
+            passed={props.passed}
+            question={q()}
+          />
+        )}
+      </Show>
     </div>
   );
 }

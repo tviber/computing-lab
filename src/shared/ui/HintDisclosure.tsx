@@ -1,16 +1,21 @@
-import type { ReactNode } from "react";
+import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
+import type { JSX } from "@solidjs/web";
 
 type HintDisclosureProps = {
   /** The hint body, pre-formatted by the lab (plain text or annotated JSX). */
-  children: ReactNode;
+  children?: JSX.Element;
 };
 
-/** Native disclosure used by every lab to keep hint styling and interaction consistent. */
-export function HintDisclosure({ children }: HintDisclosureProps) {
+/** Collapsible disclosure used by every lab to keep hint styling and interaction consistent. */
+export function HintDisclosure(props: HintDisclosureProps) {
   return (
-    <details className="hint-disclosure">
-      <summary>提示</summary>
-      <div className="hint-disclosure-content">{children}</div>
-    </details>
+    <Collapsible class="hint-disclosure">
+      <CollapsibleTrigger class="disclosure-trigger hint-disclosure-trigger" type="button">
+        提示
+      </CollapsibleTrigger>
+      <CollapsiblePanel class="hint-disclosure-content" keepMounted>
+        {props.children}
+      </CollapsiblePanel>
+    </Collapsible>
   );
 }
