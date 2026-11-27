@@ -10,15 +10,7 @@ import {
   type RouteDefinition,
   type RouterHistory,
 } from "@solidjs/router";
-import {
-  createEffect,
-  createMemo,
-  Errored,
-  lazy,
-  Loading,
-  untrack,
-  type Component,
-} from "solid-js";
+import { createEffect, createMemo, Errored, lazy, Loading, type Component } from "solid-js";
 import { normalizeBasePath, resolveRuntimeBasePath } from "../shared/basePath";
 import { isStaffRole, useAuth } from "../shared/auth";
 import { LabAccessGate } from "../shared/lab/LabGate";
@@ -74,13 +66,7 @@ function GuardedLabRoute(props: { labId: LabId }) {
     return sid && cid && visibleClass() ? { sid, cid, labId: props.labId } : null;
   });
 
-  const recentVisitKey = createMemo(() => {
-    const visit = recentVisit();
-    return visit ? `${visit.sid}\0${visit.cid}\0${visit.labId}` : "";
-  });
-
-  createEffect(recentVisitKey, () => {
-    const visit = untrack(recentVisit);
+  createEffect(recentVisit, (visit) => {
     if (visit) {
       rememberRecentLab(visit.sid, { labId: visit.labId, classId: visit.cid });
     }
@@ -206,12 +192,6 @@ const devRoutes: RouteDefinition[] = import.meta.env.DEV
         path: "/__dev/labs/decoding",
         component: lazy(() => import("../features/decoding/preview/DecodingPreviewPage"), {
           export: "DecodingPreviewPage",
-        }),
-      },
-      {
-        path: "/__dev/labs/lunch-shift-ai",
-        component: lazy(() => import("../features/lunch-shift/ai/AiIntakePocPage"), {
-          export: "AiIntakePocPage",
         }),
       },
     ]

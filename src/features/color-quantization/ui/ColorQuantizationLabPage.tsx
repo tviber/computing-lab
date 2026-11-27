@@ -3,14 +3,11 @@ import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
-import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
+import { LabSaveIndicator, useLabSession } from "../../../shared/lab/useLabSession";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
-import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
-import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { Icon } from "../../../shared/ui/Icon";
 import type { QuantJudgeResult, QuantSubmission } from "../domain/protocol.ts";
@@ -27,6 +24,7 @@ import {
   stageOf,
   transitionQuantLesson,
   type QuantLessonAction,
+  type QuantLessonState,
   type StageDraft,
 } from "../lesson/state.ts";
 import { ChooseTonersPanel } from "./ChooseTonersPanel.tsx";
@@ -58,11 +56,18 @@ export function ColorQuantizationLabPage() {
     warmPyodide();
   });
 
-  const project = useLabProject<StageDraft, Record<never, never>, QuantLessonAction>(() => ({
-    scopeId: runtime.scopeId,
+  const session = useLabSession<
+    StageDraft,
+    Record<never, never>,
+    QuantLessonAction,
+    QuantLessonState
+  >(() => ({
+    scopeId: () => runtime.scopeId,
+    ready: () => runtime.ready,
     labId: "color-quantization",
-    ready: runtime.ready,
-    stageIndex: state().stageIndex,
+    state,
+    dispatch,
+    draftOf: (stageIndex) => draftOf(state(), stageIndex),
     onResetSuccess: () => setSubmitError(null),
     toAction: (proj, meta) => ({
       type: "load-project",
@@ -75,8 +80,8 @@ export function ColorQuantizationLabPage() {
       freeNavigation: proj.staffFreeNavigation ?? isStaff(),
       isReset: meta?.isReset,
     }),
-    dispatch,
   }));
+  const { project } = session;
 
   createEffect(
     () => project.projectLoaded,
@@ -88,44 +93,6 @@ export function ColorQuantizationLabPage() {
       actions.forEach((action) => dispatch(action));
     },
   );
-
-  const reconcileConflict = (s: number) =>
-    reconcileConflictedStage({
-      fetchProject: project.fetchProject,
-      stageIndex: s,
-      onResolved: (stageIndex, proj) =>
-        dispatch({
-          type: "resolve-save-conflict",
-          stageIndex,
-          draft: proj.drafts?.[stageIndex],
-          revision: proj.draftRevisions?.[stageIndex],
-        }),
-      onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
-    });
-
-  useAutosaveDraft<StageDraft>(() => {
-    const currentState = state();
-    return {
-      flushPreservedDrafts: project.flushPreservedDrafts,
-      saveStatuses: project.projectLoaded ? currentState.saveStatusByStage : undefined,
-      scopeId: runtime.scopeId,
-      labId: "color-quantization",
-      saveStatus:
-        project.projectLoaded && !project.resetting
-          ? statusForStage(currentState.saveStatusByStage, currentState.stageIndex)
-          : "idle",
-      stageIndex: currentState.stageIndex,
-      draftOf: (index) => draftOf(state(), index),
-      deps: [currentState.drafts],
-      expectedGeneration: project.projectGeneration,
-      resetVersion: project.saveGeneration,
-      expectedRevisionOf: (s) => state().draftRevisions[s] ?? 0,
-      onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-      onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-      onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-      onConflict: (s) => reconcileConflict(s),
-    };
-  });
 
   const canSubmit = () => {
     const currentStage = stage();
@@ -178,26 +145,7 @@ export function ColorQuantizationLabPage() {
   return (
     <AppPageLayout
       class="quant-lab"
-      topbar={
-        <SaveIndicator
-          onDiscardLocal={
-            state().conflictedLocalDrafts[state().stageIndex] !== undefined
-              ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state().stageIndex })
-              : undefined
-          }
-          onRestoreLocal={
-            state().conflictedLocalDrafts[state().stageIndex] !== undefined
-              ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state().stageIndex })
-              : undefined
-          }
-          onRetrySync={() => reconcileConflict(state().stageIndex)}
-          status={statusForStage(state().saveStatusByStage, state().stageIndex)}
-          unresolvedSyncConflict={syncConflictForStage(
-            state().unresolvedSyncConflicts,
-            state().stageIndex,
-          )}
-        />
-      }
+      topbar={<LabSaveIndicator controls={session.saveIndicator} />}
       topbarProps={{
         subtitle: stage()?.englishTitle,
         title: labStageTitle("color-quantization", stage()?.title),

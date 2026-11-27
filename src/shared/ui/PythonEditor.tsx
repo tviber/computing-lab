@@ -49,7 +49,7 @@ const BASE_EXTENSIONS = [
 export function PythonEditor(props: {
   ariaLabel: string;
   ariaDescribedBy?: string;
-  className?: string;
+  class?: string;
   editable?: boolean;
   height?: string;
   onChange: (value: string) => void;
@@ -145,7 +145,7 @@ export function PythonEditor(props: {
 
   return (
     <div
-      class={`python-editor${props.className ? ` ${props.className}` : ""}`}
+      class={`python-editor${props.class ? ` ${props.class}` : ""}`}
       ref={(el) => {
         hostEl = el;
       }}

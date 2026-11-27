@@ -172,7 +172,7 @@ export function GuidedTonerTask(props: { code: string; onCodeChange: (code: stri
       </p>
       <PythonCodeWithBlanks
         ariaLabel="nearest_toner 代码填空"
-        className="quant-code-fill"
+        class="quant-code-fill"
         parts={codeParts()}
       />
 

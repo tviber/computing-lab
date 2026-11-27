@@ -246,11 +246,7 @@ export function GuidedCellTask(props: { code: string; onCodeChange: (code: strin
       </div>
 
       <p>再补全这段代码里的两个空，让它在所有这些区域上都给出和规则一致的结果：</p>
-      <PythonCodeWithBlanks
-        ariaLabel="cell_value 代码填空"
-        className="code-fill"
-        parts={codeParts()}
-      />
+      <PythonCodeWithBlanks ariaLabel="cell_value 代码填空" class="code-fill" parts={codeParts()} />
 
       <div class="guided-actions">
         <Button

@@ -1,7 +1,6 @@
 import { defineConfig, loadEnv } from "vite";
 import { fileURLToPath } from "node:url";
 import solid from "@solidjs/vite-plugin";
-import tailwindcss from "@tailwindcss/vite";
 import { basePathForVite } from "./src/shared/basePath.ts";
 
 export default defineConfig(({ mode }) => {
@@ -15,7 +14,6 @@ export default defineConfig(({ mode }) => {
     base,
     plugins: [
       solid(),
-      tailwindcss(),
       ...(classroom
         ? [
             {

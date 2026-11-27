@@ -1,3 +1,128 @@
+/*
+ * The reset this app actually relies on, spelled out after dropping Tailwind.
+ * Kept in a low-priority layer so component styles and the base rules below
+ * still win without selector-specificity workarounds.
+ */
+@layer base {
+  *,
+  *::before,
+  *::after,
+  ::backdrop {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    border: 0 solid;
+  }
+
+  html {
+    line-height: 1.5;
+    tab-size: 4;
+    -webkit-text-size-adjust: 100%;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-size: inherit;
+    font-weight: inherit;
+  }
+
+  a {
+    color: inherit;
+    text-decoration: inherit;
+  }
+
+  code,
+  kbd,
+  samp,
+  pre {
+    font-family: var(--font-mono);
+    font-size: 1em;
+  }
+
+  small {
+    font-size: 80%;
+  }
+
+  sub,
+  sup {
+    position: relative;
+    font-size: 75%;
+    line-height: 0;
+    vertical-align: baseline;
+  }
+
+  sub {
+    bottom: -0.25em;
+  }
+
+  sup {
+    top: -0.5em;
+  }
+
+  table {
+    border-collapse: collapse;
+    border-color: inherit;
+    text-indent: 0;
+  }
+
+  ol,
+  ul,
+  menu {
+    list-style: none;
+  }
+
+  img,
+  svg,
+  video,
+  canvas,
+  audio,
+  iframe,
+  embed,
+  object {
+    display: block;
+    vertical-align: middle;
+  }
+
+  img,
+  video {
+    max-width: 100%;
+    height: auto;
+  }
+
+  button,
+  input,
+  select,
+  optgroup,
+  textarea {
+    border-radius: 0;
+    background-color: transparent;
+    color: inherit;
+    font: inherit;
+    font-feature-settings: inherit;
+    font-variation-settings: inherit;
+    letter-spacing: inherit;
+    opacity: 1;
+  }
+
+  textarea {
+    resize: vertical;
+  }
+
+  ::placeholder {
+    color: color-mix(in oklab, currentcolor 50%, transparent);
+    opacity: 1;
+  }
+
+  :disabled {
+    cursor: default;
+  }
+}
+
 :root {
   color: var(--primary);
   background: var(--canvas);

@@ -255,13 +255,13 @@ export function TeacherDashboardPage() {
     return { counts, total: currentRows.length };
   });
 
-  const detailResetKey = createMemo(
-    () => `${classId() ?? ""}\0${kind()}\0${lab().id}\0${auth.status}`,
+  createEffect(
+    () => [classId() ?? "", kind(), lab().id, auth.status] as const,
+    () => {
+      ++detailSeq;
+      setDetailOpen(false);
+    },
   );
-  createEffect(detailResetKey, () => {
-    ++detailSeq;
-    setDetailOpen(false);
-  });
 
   const load = () => {
     const cid = untrack(classId);

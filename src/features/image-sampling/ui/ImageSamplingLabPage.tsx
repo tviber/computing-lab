@@ -3,14 +3,11 @@ import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
-import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
+import { LabSaveIndicator, useLabSession } from "../../../shared/lab/useLabSession";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
-import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
-import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
 import type { SamplingJudgeResult, SamplingSubmission } from "../domain/protocol.ts";
@@ -28,6 +25,7 @@ import {
   stageOf,
   transitionSamplingLesson,
   type SamplingLessonAction,
+  type SamplingLessonState,
   type StageDraft,
 } from "../lesson/state.ts";
 import { ChooseSizePanel } from "./ChooseSizePanel.tsx";
@@ -39,18 +37,17 @@ import { RecognitionPanel } from "./RecognitionPanel.tsx";
 import "./imageSampling.css";
 
 function samplingJudgeNote(stage: SamplingStageDef): string {
-  const resolutionSource = () =>
-    stage.requiresChooseSize ? "choose_size(images) 算出的" : "你选的";
-  const axisNote = () =>
+  const resolutionSource = stage.requiresChooseSize ? "choose_size(images) 算出的" : "你选的";
+  const axisNote =
     stage.mode === "square"
       ? "本关只允许正方形（宽=高）。"
       : stage.mode === "tall"
         ? "本关要求高度大于宽度（高 > 宽）。"
         : "本关宽和高可以不同。";
-  return `${resolutionSource()} ${stage.mode === "square" ? "n×n" : "宽×高"}会套用到判题图谱上。接收端凭格子图认人，至少 ${Math.round(stage.requiredAccuracy * 100)}% 的成员仍能被认出才算通过，且格子数不超过 ${stage.cellBudget}。${
+  return `${resolutionSource} ${stage.mode === "square" ? "n×n" : "宽×高"}会套用到判题图谱上。接收端凭格子图认人，至少 ${Math.round(stage.requiredAccuracy * 100)}% 的成员仍能被认出才算通过，且格子数不超过 ${stage.cellBudget}。${
     stage.requiresChooseSize
-      ? `本关必须先写并运行 choose_size(images)，不能手动指定分辨率。${axisNote()}`
-      : axisNote()
+      ? `本关必须先写并运行 choose_size(images)，不能手动指定分辨率。${axisNote}`
+      : axisNote
   }`;
 }
 
@@ -75,11 +72,18 @@ export function ImageSamplingLabPage() {
     warmPyodide();
   });
 
-  const project = useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>(() => ({
-    scopeId: runtime.scopeId,
+  const session = useLabSession<
+    StageDraft,
+    Record<never, never>,
+    SamplingLessonAction,
+    SamplingLessonState
+  >(() => ({
+    scopeId: () => runtime.scopeId,
+    ready: () => runtime.ready,
     labId: "image-sampling",
-    ready: runtime.ready,
-    stageIndex: state().stageIndex,
+    state,
+    dispatch,
+    draftOf: (stageIndex) => draftOf(state(), stageIndex),
     onResetSuccess: () => setSubmitError(null),
     toAction: (proj, meta) => ({
       type: "load-project",
@@ -92,8 +96,8 @@ export function ImageSamplingLabPage() {
       freeNavigation: proj.staffFreeNavigation ?? isStaff(),
       isReset: meta?.isReset,
     }),
-    dispatch,
   }));
+  const { project } = session;
 
   createEffect(
     () => project.projectLoaded,
@@ -105,44 +109,6 @@ export function ImageSamplingLabPage() {
       actions.forEach((action) => dispatch(action));
     },
   );
-
-  const reconcileConflict = (s: number) =>
-    reconcileConflictedStage({
-      fetchProject: project.fetchProject,
-      stageIndex: s,
-      onResolved: (stageIndex, proj) =>
-        dispatch({
-          type: "resolve-save-conflict",
-          stageIndex,
-          draft: proj.drafts?.[stageIndex],
-          revision: proj.draftRevisions?.[stageIndex],
-        }),
-      onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
-    });
-
-  useAutosaveDraft<StageDraft>(() => {
-    const currentState = state();
-    return {
-      flushPreservedDrafts: project.flushPreservedDrafts,
-      saveStatuses: project.projectLoaded ? currentState.saveStatusByStage : undefined,
-      scopeId: runtime.scopeId,
-      labId: "image-sampling",
-      saveStatus:
-        project.projectLoaded && !project.resetting
-          ? statusForStage(currentState.saveStatusByStage, currentState.stageIndex)
-          : "idle",
-      stageIndex: currentState.stageIndex,
-      draftOf: (index) => draftOf(state(), index),
-      deps: [currentState.drafts],
-      expectedGeneration: project.projectGeneration,
-      resetVersion: project.saveGeneration,
-      expectedRevisionOf: (s) => state().draftRevisions[s] ?? 0,
-      onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-      onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-      onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-      onConflict: (s) => reconcileConflict(s),
-    };
-  });
 
   const onSubmit = async () => {
     const scopeId = runtime.scopeId;
@@ -200,26 +166,7 @@ export function ImageSamplingLabPage() {
   return (
     <AppPageLayout
       class="sampling-lab"
-      topbar={
-        <SaveIndicator
-          onDiscardLocal={
-            state().conflictedLocalDrafts[state().stageIndex] !== undefined
-              ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state().stageIndex })
-              : undefined
-          }
-          onRestoreLocal={
-            state().conflictedLocalDrafts[state().stageIndex] !== undefined
-              ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state().stageIndex })
-              : undefined
-          }
-          onRetrySync={() => reconcileConflict(state().stageIndex)}
-          status={statusForStage(state().saveStatusByStage, state().stageIndex)}
-          unresolvedSyncConflict={syncConflictForStage(
-            state().unresolvedSyncConflicts,
-            state().stageIndex,
-          )}
-        />
-      }
+      topbar={<LabSaveIndicator controls={session.saveIndicator} />}
       topbarProps={{
         subtitle: stage()?.englishTitle,
         title: labStageTitle("image-sampling", stage()?.title),

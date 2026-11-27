@@ -105,7 +105,7 @@ export function ChooseSizePanel(props: {
       </p>
       <PythonEditor
         ariaLabel="choose_size 代码"
-        className="code-editor"
+        class="code-editor"
         height="200px"
         onChange={(value) => props.onCodeChange(value)}
         value={source()}

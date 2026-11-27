@@ -99,7 +99,7 @@ export function FreeMapPanel(props: {
       </p>
       <PythonEditor
         ariaLabel="map_color 代码"
-        className="quant-editor"
+        class="quant-editor"
         height="240px"
         onChange={(value) => props.onCodeChange(value)}
         value={source()}

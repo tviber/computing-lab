@@ -2,11 +2,8 @@ import { useSearchParams } from "@solidjs/router";
 import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
-import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
+import { LabSaveIndicator, useLabSession } from "../../../shared/lab/useLabSession";
 import { labStageTitle } from "../../../shared/lab/labMetadata";
-import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
-import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
-import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import type { CircuitGraph } from "../domain/graph";
 import type {
@@ -21,6 +18,7 @@ import {
   stageOf,
   transitionCalculatorLesson,
   type CalculatorLessonAction,
+  type CalculatorLessonState,
 } from "../lesson/state";
 import { CalculatorLabWorkspace } from "./CalculatorLabWorkspace";
 import { AnnotatedText } from "./CalculatorTerms";
@@ -60,33 +58,77 @@ function CalculatorProjectPage() {
   const stage = createMemo(() => stageOf(state()));
   const stageIndex = createMemo(() => state().stageIndex);
 
-  const project = useLabProject<CircuitGraph, CalculatorProjectPayload, CalculatorLessonAction>(
-    () => ({
-      scopeId: runtime.scopeId,
-      labId: "calculator",
-      ready: runtime.ready,
-      stageIndex: state().stageIndex,
-      stageAffectedByReset: calculatorStageAffectedByReset,
-      onResetSuccess: () => setSubmitError(null),
-      toAction: (loaded, meta) => ({
-        type: "load-project",
-        currentStage: loaded.currentStage,
-        passedStages: loaded.passedStages,
-        guideAcknowledged: loaded.fullAdderGuideAcknowledged,
-        draftNotice: loaded.draftNotices?.join(" "),
-        unlockedSubmodules: loaded.unlockedSubmodules,
-        draftRevisions: loaded.draftRevisions,
-        componentsRevision: loaded.draftRevisions?.components ?? 0,
-        drafts: Object.fromEntries(
-          Object.entries(loaded.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-        ),
-        stageIndex: meta?.isReset ? loaded.currentStage : untrack(requestedStage),
-        forceStage: untrack(isStaff),
-        isReset: meta?.isReset,
+  const session = useLabSession<
+    CircuitGraph,
+    CalculatorProjectPayload,
+    CalculatorLessonAction,
+    CalculatorLessonState
+  >(() => ({
+    scopeId: () => runtime.scopeId,
+    ready: () => runtime.ready,
+    labId: "calculator",
+    state,
+    dispatch,
+    draftOf: (stageIndex) => graphOf(state(), stageIndex),
+    stageAffectedByReset: calculatorStageAffectedByReset,
+    onResetSuccess: () => setSubmitError(null),
+    hasConflictBackup: (current) =>
+      current.conflictedLocalDrafts[current.stageIndex] !== undefined ||
+      current.conflictedComponents !== null,
+    actions: {
+      saved: (stageIndex, revision, componentsRevision, componentsSeq) => ({
+        type: "mark-saved",
+        stageIndex,
+        revision,
+        componentsRevision,
+        componentsSeq,
       }),
-      dispatch,
+      resolvedConflict: (stageIndex, loaded) => ({
+        type: "resolve-save-conflict",
+        stageIndex,
+        draft: loaded.drafts?.[stageIndex],
+        revision: loaded.draftRevisions?.[stageIndex],
+        unlockedSubmodules: loaded.unlockedSubmodules,
+        componentsRevision: loaded.draftRevisions?.components,
+      }),
+    },
+    autosave: {
+      bodyFor: (stageIndex, draft) => {
+        const current = state();
+        return {
+          stageIndex,
+          graph: draft,
+          ...(current.componentsChanged ? { components: current.unlockedSubmodules } : {}),
+        };
+      },
+      holdSend: (_stageIndex, draft) => {
+        const known = new Set(state().unlockedSubmodules.map((component) => component.name));
+        return draft.nodes.some(
+          (node) => node.kind === "component" && node.name !== undefined && !known.has(node.name),
+        );
+      },
+      deps: (current) => [graph(), current.unlockedSubmodules, current.saveStatusByStage],
+      expectedComponentsRevisionOf: (current) => current.componentsRevision,
+      componentsSeqOf: (current) => current.componentsEditSeq,
+    },
+    toAction: (loaded, meta) => ({
+      type: "load-project",
+      currentStage: loaded.currentStage,
+      passedStages: loaded.passedStages,
+      guideAcknowledged: loaded.fullAdderGuideAcknowledged,
+      draftNotice: loaded.draftNotices?.join(" "),
+      unlockedSubmodules: loaded.unlockedSubmodules,
+      draftRevisions: loaded.draftRevisions,
+      componentsRevision: loaded.draftRevisions?.components ?? 0,
+      drafts: Object.fromEntries(
+        Object.entries(loaded.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+      ),
+      stageIndex: meta?.isReset ? loaded.currentStage : untrack(requestedStage),
+      forceStage: untrack(isStaff),
+      isReset: meta?.isReset,
     }),
-  );
+  }));
+  const { project } = session;
 
   const urlSyncKey = createMemo(() => {
     if (!project.projectLoaded || !runtime.scopeId) return "";
@@ -99,68 +141,6 @@ function CalculatorProjectPage() {
     if (!key) return;
     const current = untrack(() => state().stageIndex);
     setSearchParams({ stage: current === 1 ? undefined : String(current) }, { replace: true });
-  });
-
-  const reconcileConflict = (s: number) =>
-    reconcileConflictedStage<CircuitGraph, CalculatorProjectPayload>({
-      fetchProject: project.fetchProject,
-      stageIndex: s,
-      onResolved: (resolvedStageIndex, loaded) =>
-        dispatch({
-          type: "resolve-save-conflict",
-          stageIndex: resolvedStageIndex,
-          draft: loaded.drafts?.[resolvedStageIndex],
-          revision: loaded.draftRevisions?.[resolvedStageIndex],
-          unlockedSubmodules: loaded.unlockedSubmodules,
-          componentsRevision: loaded.draftRevisions?.components,
-        }),
-      onSyncError: (failedStageIndex) =>
-        dispatch({ type: "mark-save-sync-error", stageIndex: failedStageIndex }),
-    });
-
-  useAutosaveDraft<CircuitGraph>(() => {
-    const current = state();
-    const currentGraph = graph();
-    return {
-      scopeId: runtime.scopeId,
-      labId: "calculator",
-      saveStatus:
-        project.projectLoaded && !project.resetting
-          ? statusForStage(current.saveStatusByStage, current.stageIndex)
-          : "idle",
-      expectedGeneration: project.projectGeneration,
-      resetVersion: project.saveGeneration,
-      stageIndex: current.stageIndex,
-      saveStatuses: project.projectLoaded ? current.saveStatusByStage : undefined,
-      flushPreservedDrafts: project.flushPreservedDrafts,
-      draftOf: (s) => graphOf(current, s),
-      bodyFor: (index, draft) => ({
-        stageIndex: index,
-        graph: draft,
-        ...(current.componentsChanged ? { components: current.unlockedSubmodules } : {}),
-      }),
-      holdSend: (_stage, draft) => {
-        const known = new Set(current.unlockedSubmodules.map((component) => component.name));
-        return draft.nodes.some(
-          (node) => node.kind === "component" && node.name !== undefined && !known.has(node.name),
-        );
-      },
-      deps: [currentGraph, current.unlockedSubmodules, current.saveStatusByStage],
-      expectedRevisionOf: (s) => current.draftRevisions[s] ?? 0,
-      expectedComponentsRevisionOf: () => current.componentsRevision,
-      componentsSeqOf: () => current.componentsEditSeq,
-      onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-      onSaved: (s, revision, componentsRevision, componentsSeq) =>
-        dispatch({
-          type: "mark-saved",
-          stageIndex: s,
-          revision,
-          componentsRevision,
-          componentsSeq,
-        }),
-      onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-      onConflict: (s) => reconcileConflict(s),
-    };
   });
 
   const onSubmit = async () => {
@@ -210,14 +190,6 @@ function CalculatorProjectPage() {
     );
   });
 
-  const hasConflictBackup = createMemo(() => {
-    const current = state();
-    return (
-      current.conflictedLocalDrafts[current.stageIndex] !== undefined ||
-      current.conflictedComponents !== null
-    );
-  });
-
   return (
     <AppPageLayout
       class="calculator-lab"
@@ -233,24 +205,7 @@ function CalculatorProjectPage() {
       }
       topbar={
         <div class="calculator-status">
-          <SaveIndicator
-            onDiscardLocal={
-              hasConflictBackup()
-                ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state().stageIndex })
-                : undefined
-            }
-            onRestoreLocal={
-              hasConflictBackup()
-                ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state().stageIndex })
-                : undefined
-            }
-            onRetrySync={() => reconcileConflict(state().stageIndex)}
-            status={statusForStage(state().saveStatusByStage, state().stageIndex)}
-            unresolvedSyncConflict={syncConflictForStage(
-              state().unresolvedSyncConflicts,
-              state().stageIndex,
-            )}
-          />
+          <LabSaveIndicator controls={session.saveIndicator} />
         </div>
       }
       topbarProps={{

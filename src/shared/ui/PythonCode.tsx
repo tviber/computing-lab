@@ -45,16 +45,13 @@ function highlightedRange(
   return nodes;
 }
 
-export function PythonCode(props: { ariaLabel?: string; className?: string; code: string }) {
+export function PythonCode(props: { ariaLabel?: string; class?: string; code: string }) {
   const highlighted = createMemo(() => {
     const tree = pythonLanguage.parser.parse(props.code);
     return highlightedRange(props.code, tree, 0, props.code.length);
   });
   return (
-    <pre
-      aria-label={props.ariaLabel}
-      class={`python-code${props.className ? ` ${props.className}` : ""}`}
-    >
+    <pre aria-label={props.ariaLabel} class={`python-code${props.class ? ` ${props.class}` : ""}`}>
       <code>{highlighted()}</code>
     </pre>
   );
@@ -67,7 +64,7 @@ export function PythonCode(props: { ariaLabel?: string; className?: string; code
  */
 export function PythonCodeWithBlanks(props: {
   ariaLabel: string;
-  className?: string;
+  class?: string;
   parts: PythonCodePart[];
 }) {
   const parsed = createMemo(() => {
@@ -91,10 +88,7 @@ export function PythonCodeWithBlanks(props: {
   });
 
   return (
-    <pre
-      aria-label={props.ariaLabel}
-      class={`python-code${props.className ? ` ${props.className}` : ""}`}
-    >
+    <pre aria-label={props.ariaLabel} class={`python-code${props.class ? ` ${props.class}` : ""}`}>
       <code>
         <For each={parsed().ranges} keyed={(entry) => entry.key}>
           {(entry) => {

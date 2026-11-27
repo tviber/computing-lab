@@ -2,14 +2,11 @@ import { useSearchParams } from "@solidjs/router";
 import { createMemo, createSignal, Match, Show, Switch, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
-import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
+import { LabSaveIndicator, useLabSession } from "../../../shared/lab/useLabSession";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
-import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
-import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
 import { MathText } from "../../../shared/ui/MathFormula";
@@ -33,6 +30,7 @@ import {
   summaryForStage,
   transitionLogisticRegressionLesson,
   type LogisticRegressionLessonAction,
+  type LogisticRegressionLessonState,
 } from "../lesson/state.ts";
 import { ExperiencePanel } from "./ExperiencePanel.tsx";
 import { ScorePanel } from "./ScorePanel.tsx";
@@ -66,15 +64,18 @@ export function LogisticRegressionLabPage() {
 
   const stage = createMemo(() => stageOf(state()));
 
-  const project = useLabProject<
+  const session = useLabSession<
     LogisticRegressionDraft,
     LogisticRegressionProjectExtras,
-    LogisticRegressionLessonAction
+    LogisticRegressionLessonAction,
+    LogisticRegressionLessonState
   >(() => ({
-    scopeId: runtime.scopeId,
+    scopeId: () => runtime.scopeId,
+    ready: () => runtime.ready,
     labId: "logistic-regression",
-    ready: runtime.ready,
-    stageIndex: state().stageIndex,
+    state,
+    dispatch,
+    draftOf: (stageIndex) => (stageIndex === 5 ? undefined : draftOf(state(), stageIndex)),
     onResetSuccess: () => {
       setSubmitError(null);
       setJudgedStage(null);
@@ -91,46 +92,8 @@ export function LogisticRegressionLabPage() {
       trainedSettings: loaded.trainedSettings,
       isReset: meta?.isReset,
     }),
-    dispatch,
   }));
-
-  const reconcileConflict = (s: number) =>
-    reconcileConflictedStage({
-      fetchProject: project.fetchProject,
-      stageIndex: s,
-      onResolved: (stageIndex, loaded) =>
-        dispatch({
-          type: "resolve-save-conflict",
-          stageIndex,
-          draft: loaded.drafts?.[stageIndex],
-          revision: loaded.draftRevisions?.[stageIndex],
-        }),
-      onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
-    });
-
-  useAutosaveDraft<LogisticRegressionDraft>(() => {
-    const currentState = state();
-    return {
-      flushPreservedDrafts: project.flushPreservedDrafts,
-      saveStatuses: project.projectLoaded ? currentState.saveStatusByStage : undefined,
-      scopeId: runtime.scopeId,
-      labId: "logistic-regression",
-      saveStatus:
-        project.projectLoaded && !project.resetting
-          ? statusForStage(currentState.saveStatusByStage, currentState.stageIndex)
-          : "idle",
-      stageIndex: currentState.stageIndex,
-      draftOf: (index) => (index === 5 ? undefined : draftOf(state(), index)),
-      deps: [currentState.drafts],
-      expectedGeneration: project.projectGeneration,
-      resetVersion: project.saveGeneration,
-      expectedRevisionOf: (s) => state().draftRevisions[s] ?? 0,
-      onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-      onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-      onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-      onConflict: (s) => reconcileConflict(s),
-    };
-  });
+  const { project } = session;
 
   const submitJudge = async (
     stageIndex: number,
@@ -175,26 +138,7 @@ export function LogisticRegressionLabPage() {
   return (
     <AppPageLayout
       class="logistic-regression-lab"
-      topbar={
-        <SaveIndicator
-          onDiscardLocal={
-            state().conflictedLocalDrafts[state().stageIndex] !== undefined
-              ? () => dispatch({ type: "discard-conflict-draft", stageIndex: state().stageIndex })
-              : undefined
-          }
-          onRestoreLocal={
-            state().conflictedLocalDrafts[state().stageIndex] !== undefined
-              ? () => dispatch({ type: "restore-conflict-draft", stageIndex: state().stageIndex })
-              : undefined
-          }
-          onRetrySync={() => reconcileConflict(state().stageIndex)}
-          status={statusForStage(state().saveStatusByStage, state().stageIndex)}
-          unresolvedSyncConflict={syncConflictForStage(
-            state().unresolvedSyncConflicts,
-            state().stageIndex,
-          )}
-        />
-      }
+      topbar={<LabSaveIndicator controls={session.saveIndicator} />}
       topbarProps={{
         title: labStageTitle("logistic-regression", stage()?.title),
       }}
