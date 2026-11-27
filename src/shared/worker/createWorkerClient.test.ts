@@ -1,6 +1,14 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { createWorkerClient, WORKER_LOAD_TIMEOUT_MS } from "./createWorkerClient.ts";
-import { PYODIDE_LOAD_TIMEOUT_MESSAGE, PYODIDE_RUN_TIMEOUT_MESSAGE } from "./workerErrors.ts";
+import {
+  createWorkerClient,
+  WORKER_IDLE_TIMEOUT_MS,
+  WORKER_LOAD_TIMEOUT_MS,
+} from "./createWorkerClient.ts";
+import {
+  PYODIDE_LOAD_TIMEOUT_MESSAGE,
+  PYODIDE_RUN_TIMEOUT_MESSAGE,
+  PYODIDE_WORKER_RELEASED_MESSAGE,
+} from "./workerErrors.ts";
 
 type Message = Record<string, unknown> & { id: number };
 
@@ -98,5 +106,100 @@ describe("createWorkerClient", () => {
     FakeWorker.instances[0].onerror?.();
     await expect(run).rejects.toThrow(PYODIDE_RUN_TIMEOUT_MESSAGE);
     expect(FakeWorker.instances[0].terminated).toBe(true);
+  });
+
+  it("releases an idle worker and cold-starts on the next run", async () => {
+    const client = createWorkerClient(spawn, { pageLifecycle: false });
+    client.warm();
+    expect(FakeWorker.instances).toHaveLength(1);
+    vi.advanceTimersByTime(WORKER_IDLE_TIMEOUT_MS);
+    expect(FakeWorker.instances[0].terminated).toBe(true);
+
+    const next = client.run({ code: "again" });
+    expect(FakeWorker.instances).toHaveLength(2);
+    FakeWorker.instances[1].emit({ id: 1, ok: true, result: 2 });
+    await expect(next).resolves.toEqual({ result: 2 });
+  });
+
+  it("lets warm() respawn after an idle release", () => {
+    const client = createWorkerClient(spawn, { pageLifecycle: false });
+    client.warm();
+    vi.advanceTimersByTime(WORKER_IDLE_TIMEOUT_MS);
+    expect(FakeWorker.instances[0].terminated).toBe(true);
+
+    client.warm();
+    expect(FakeWorker.instances).toHaveLength(2);
+    expect(FakeWorker.instances[1].terminated).toBe(false);
+  });
+
+  it("starts the idle countdown only after the last run settles", async () => {
+    const client = createWorkerClient(spawn, { idleTimeoutMs: 1000, pageLifecycle: false });
+    const run = client.run({ code: "x" });
+    const worker = FakeWorker.instances[0];
+    worker.emit({ id: 1, phase: "executing" });
+    vi.advanceTimersByTime(999);
+    expect(worker.terminated).toBe(false);
+    worker.emit({ id: 1, ok: true, result: 1 });
+    await expect(run).resolves.toEqual({ result: 1 });
+    vi.advanceTimersByTime(999);
+    expect(worker.terminated).toBe(false);
+    vi.advanceTimersByTime(1);
+    expect(worker.terminated).toBe(true);
+  });
+
+  it("cancels a scheduled idle release when a run starts", async () => {
+    const client = createWorkerClient(spawn, { idleTimeoutMs: 1000, pageLifecycle: false });
+    client.warm();
+    const worker = FakeWorker.instances[0];
+    vi.advanceTimersByTime(500);
+
+    const run = client.run({ code: "x" });
+    vi.advanceTimersByTime(500);
+    expect(worker.terminated).toBe(false);
+    worker.emit({ id: 1, ok: true, result: 1 });
+    await expect(run).resolves.toEqual({ result: 1 });
+  });
+
+  it("does not let the idle countdown interrupt an executing timeout", async () => {
+    const client = createWorkerClient(spawn, { idleTimeoutMs: 1000, pageLifecycle: false });
+    const run = client.run({ code: "x" });
+    const worker = FakeWorker.instances[0];
+    worker.emit({ id: 1, phase: "executing" });
+    vi.advanceTimersByTime(1000);
+    expect(worker.terminated).toBe(false);
+    vi.advanceTimersByTime(14_000);
+    await expect(run).rejects.toThrow(PYODIDE_RUN_TIMEOUT_MESSAGE);
+    expect(worker.terminated).toBe(true);
+  });
+
+  it("releases on pagehide and rejects the in-flight run", async () => {
+    const client = createWorkerClient(spawn, { pageLifecycle: true });
+    const run = client.run({ code: "x" });
+    FakeWorker.instances[0].emit({ id: 1, phase: "executing" });
+    window.dispatchEvent(new Event("pagehide"));
+    await expect(run).rejects.toThrow(PYODIDE_WORKER_RELEASED_MESSAGE);
+    expect(FakeWorker.instances[0].terminated).toBe(true);
+
+    const next = client.run({ code: "again" });
+    expect(FakeWorker.instances).toHaveLength(2);
+    FakeWorker.instances[1].emit({ id: 2, ok: true, result: 3 });
+    await expect(next).resolves.toEqual({ result: 3 });
+  });
+
+  it("releases when the tab becomes hidden", async () => {
+    const client = createWorkerClient(spawn, { pageLifecycle: true });
+    client.warm();
+    const visibility = Object.getOwnPropertyDescriptor(document, "visibilityState");
+    Object.defineProperty(document, "visibilityState", {
+      configurable: true,
+      value: "hidden",
+    });
+    try {
+      document.dispatchEvent(new Event("visibilitychange"));
+      expect(FakeWorker.instances[0].terminated).toBe(true);
+    } finally {
+      if (visibility) Object.defineProperty(document, "visibilityState", visibility);
+      else Reflect.deleteProperty(document, "visibilityState");
+    }
   });
 });
