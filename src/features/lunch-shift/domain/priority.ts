@@ -41,13 +41,13 @@ export function checkPriorityTable(raw: unknown): { table: number[] | null; erro
   if (!Array.isArray(raw) || raw.length !== PRIORITY_TABLE_SIZE) {
     return {
       table: null,
-      errors: ["还没有可用的结果表，运行 priority 后才算得出 124 个值。"],
+      errors: ["还没有运行 priority。请先运行一次，等函数返回 124 个值。"],
     };
   }
   const table: number[] = [];
   for (const [index, value] of raw.entries()) {
     if (typeof value !== "number" || !Number.isFinite(value)) {
-      return { table: null, errors: [`结果表第 ${index + 1} 个值不是有限数字。`] };
+      return { table: null, errors: [`priority 返回的第 ${index + 1} 个值不是有限数字。`] };
     }
     table.push(value);
   }

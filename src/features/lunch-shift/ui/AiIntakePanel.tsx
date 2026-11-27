@@ -9,19 +9,21 @@
  * unconfirmed ones keep the AI's ticket. The submission is normalized
  * rows only — no model, no vectors.
  *
- * Predictions are cached per order set: re-running after an edit to
- * need_confirm only re-evaluates the Python function, not the model —
- * the classroom feedback loop stays near-instant.
+ * The practice stage opens with two hand-checked orders, then plots the
+ * whole set on similarity × margin so the student sees where the misses
+ * land before writing a threshold. Predictions are cached per order set:
+ * editing need_confirm only re-runs Python, not the model.
  */
 
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createSignal, For, Show } from "solid-js";
+import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import {
   predictTicket,
   textsToEmbed,
   type TicketPrediction,
   type Vector,
 } from "../domain/aiIntake.ts";
+import { sameTicket } from "../domain/contracts.ts";
 import { checkPriorityTable } from "../domain/priority.ts";
 import type {
   AiDraft,
@@ -31,11 +33,12 @@ import type {
   LunchTestSummary,
 } from "../domain/protocol.ts";
 import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErrors.ts";
+import { INTAKE_SCENARIO } from "../domain/scenarios.ts";
 import { AI_CONFIRM_BUDGET, AI_PASS_CORRECT, AI_SERVED_MIN } from "../domain/stages.ts";
 import { CodeEditor } from "./CodeEditor.tsx";
 import { embedTexts, loadEmbedder, type EmbedInfo, type EmbedProgress } from "./embedRunner.ts";
 import { runNeedConfirm, runPriorityTable } from "./pyodideRunner.ts";
-import { QUEUE_STARTER } from "./QueuePanel.tsx";
+import { QUEUE_STARTER, QueueResultView } from "./QueuePanel.tsx";
 
 export const NEED_CONFIRM_STARTER = `def need_confirm(similarity, margin):
     if similarity < 0.85:
@@ -50,6 +53,7 @@ type PreviewRow = {
   request: string;
   prediction: TicketPrediction;
   confirmed: boolean;
+  correct?: boolean;
 };
 
 function ticketText(prediction: TicketPrediction): string {
@@ -71,6 +75,251 @@ function weakestField(prediction: TicketPrediction): string {
 
 function fmt(score: number): string {
   return score.toFixed(3);
+}
+
+type TriageDecision = "direct" | "ask";
+
+const TRIAGE_CASES = [
+  {
+    id: "P06",
+    title: "「想快一点，但不想加钱」",
+    draft: "鸡腿饭 · 加蛋 · 7 号桌 · 普通",
+    draftNote: "AI 对时效的判断只领先第二名 0.001。",
+    directTone: "neutral",
+    askTone: "neutral",
+    direct:
+      "AI 这次记对了，但它对「加急还是普通」只领先 0.001。下一句相似的话就可能被记成加急，厨房会把它插到普通单前面。",
+    ask: "顾客确认：我只想快一点，没有加急。小票没有变，但接单台多停了 1 拍。",
+  },
+  {
+    id: "P10",
+    title: "「辣子照旧」",
+    draft: "牛肉面 · 少辣 · 6 号桌 · 普通",
+    draftNote: "AI 不知道这位顾客平时吃多辣。",
+    directTone: "mistake",
+    askTone: "success",
+    direct:
+      "AI 不知道顾客平时吃多辣，只能把「照旧」猜成少辣。厨房照这张票做，顾客收到的很可能不是他常点的那碗。",
+    ask: "顾客确认：和以前一样，重辣。小票改对，接单台停 1 拍。",
+  },
+] as const;
+
+function TriageIntro(props: { orders: { id: string; request: string }[] }) {
+  const [decisions, setDecisions] = createSignal<Record<string, TriageDecision>>({});
+  const cases = createMemo(() =>
+    TRIAGE_CASES.flatMap((item) => {
+      const order = props.orders.find((entry) => entry.id === item.id);
+      return order ? [{ ...item, request: order.request }] : [];
+    }),
+  );
+  const decide = (id: string, decision: TriageDecision) =>
+    setDecisions((current) => ({ ...current, [id]: decision }));
+
+  return (
+    <Show when={cases().length >= 2}>
+      <section class="lunch-triage">
+        <p class="eyebrow">先当一次质检员</p>
+        <h2>这两张小票，你会直接出票吗？</h2>
+        <p>
+          下面两张单，AI
+          都已经写好了草稿。它没有告诉你自己有多确定。你先凭顾客的原话判断：直接交给厨房，还是请顾客再说一遍？
+        </p>
+        <div class="lunch-triage-grid">
+          <For each={cases()}>
+            {(item) => (
+              <article class="lunch-triage-card">
+                <p class="lunch-triage-title">{item.title}</p>
+                <blockquote>“{item.request}”</blockquote>
+                <div class="lunch-triage-draft">
+                  <span>AI 草稿</span>
+                  <b>{item.draft}</b>
+                  <small>{item.draftNote}</small>
+                </div>
+                <div class="lunch-triage-actions">
+                  <Button
+                    aria-pressed={decisions()[item.id] === "direct" ? "true" : "false"}
+                    class="button button-secondary"
+                    onClick={() => decide(item.id, "direct")}
+                    type="button"
+                  >
+                    直接出票
+                  </Button>
+                  <Button
+                    aria-pressed={decisions()[item.id] === "ask" ? "true" : "false"}
+                    class="button button-secondary"
+                    onClick={() => decide(item.id, "ask")}
+                    type="button"
+                  >
+                    停 1 拍，问顾客
+                  </Button>
+                </div>
+                <Show when={decisions()[item.id]}>
+                  {(decision) => (
+                    <p
+                      class={`lunch-feedback ${
+                        decision() === "ask" ? item.askTone : item.directTone
+                      }`}
+                      role="status"
+                    >
+                      {decision() === "ask" ? item.ask : item.direct}
+                    </p>
+                  )}
+                </Show>
+              </article>
+            )}
+          </For>
+        </div>
+        <Show when={Object.keys(decisions()).length >= 2}>
+          <p class="lunch-note">
+            这两单都处在 AI 拿不准的位置：P10 已经猜错了，P06 只以 0.001
+            的优势分对。确认能让小票更稳，但每确认一次都要多停 1 拍。下面把剩下的 10
+            张单也交给它，你要写一个函数，替你把该问的单挑出来。
+          </p>
+        </Show>
+      </section>
+    </Show>
+  );
+}
+
+function ConfidenceScatter(props: { rows: PreviewRow[] }) {
+  const geometry = createMemo(() => {
+    const rows = props.rows;
+    const width = 640;
+    const height = 300;
+    const left = 64;
+    const right = 612;
+    const top = 26;
+    const bottom = 248;
+    const similarities = rows.map((row) => row.prediction.similarity);
+    const margins = rows.map((row) => row.prediction.margin);
+    const xMin = Math.max(0, Math.min(0.9, Math.floor(Math.min(...similarities) * 20) / 20 - 0.02));
+    const xMax = Math.min(1, Math.max(0.98, Math.ceil(Math.max(...similarities) * 20) / 20 + 0.01));
+    const yMax = Math.max(0.05, Math.ceil(Math.max(...margins) * 50) / 50 + 0.01);
+    const px = (value: number) => left + ((value - xMin) / (xMax - xMin)) * (right - left);
+    const py = (value: number) => bottom - (value / yMax) * (bottom - top);
+    const xTicks = [0, 1, 2, 3, 4].map((i) => xMin + ((xMax - xMin) * i) / 4);
+    const yTicks = [0, 1, 2, 3].map((i) => (yMax * i) / 3);
+    return { width, height, left, right, top, bottom, xMin, xMax, yMax, px, py, xTicks, yTicks };
+  });
+
+  const pointClass = (row: PreviewRow) => {
+    const status = row.correct === false ? "wrong" : row.correct === true ? "right" : "neutral";
+    return `lunch-scatter-dot ${status}${row.confirmed ? " confirmed" : ""}`;
+  };
+
+  return (
+    <figure class="lunch-scatter">
+      <svg
+        aria-label="订单的 similarity 和 margin 散点图，红点是 AI 记错的订单"
+        role="img"
+        viewBox={`0 0 ${geometry().width} ${geometry().height}`}
+      >
+        <For each={geometry().yTicks}>
+          {(tick) => (
+            <>
+              <line
+                class="lunch-scatter-grid"
+                x1={geometry().left}
+                x2={geometry().right}
+                y1={geometry().py(tick)}
+                y2={geometry().py(tick)}
+              />
+              <text class="lunch-scatter-tick" x={geometry().left - 10} y={geometry().py(tick) + 4}>
+                {tick.toFixed(2)}
+              </text>
+            </>
+          )}
+        </For>
+        <For each={geometry().xTicks}>
+          {(tick) => (
+            <>
+              <line
+                class="lunch-scatter-grid"
+                x1={geometry().px(tick)}
+                x2={geometry().px(tick)}
+                y1={geometry().top}
+                y2={geometry().bottom}
+              />
+              <text
+                class="lunch-scatter-tick"
+                text-anchor="middle"
+                x={geometry().px(tick)}
+                y={geometry().bottom + 18}
+              >
+                {tick.toFixed(2)}
+              </text>
+            </>
+          )}
+        </For>
+        <line
+          class="lunch-scatter-axis"
+          x1={geometry().left}
+          x2={geometry().right}
+          y1={geometry().bottom}
+          y2={geometry().bottom}
+        />
+        <line
+          class="lunch-scatter-axis"
+          x1={geometry().left}
+          x2={geometry().left}
+          y1={geometry().top}
+          y2={geometry().bottom}
+        />
+        <text
+          class="lunch-scatter-label"
+          text-anchor="middle"
+          x={(geometry().left + geometry().right) / 2}
+          y={geometry().height - 8}
+        >
+          similarity（越靠右，AI 越像见过这种说法）
+        </text>
+        <text class="lunch-scatter-label" x={geometry().left - 46} y={geometry().top - 8}>
+          margin
+        </text>
+        <For each={props.rows}>
+          {(row) => {
+            const x = () => geometry().px(row.prediction.similarity);
+            const y = () => geometry().py(row.prediction.margin);
+            const labelY = () => (y() < geometry().top + 18 ? y() + 16 : y() - 10);
+            return (
+              <g>
+                <circle class={pointClass(row)} cx={x()} cy={y()} r={6}>
+                  <title>
+                    {row.id}：similarity {fmt(row.prediction.similarity)}，margin{" "}
+                    {fmt(row.prediction.margin)}
+                    {row.correct === false ? "，AI 记错" : ""}
+                    {row.confirmed ? "，已要求确认" : ""}
+                  </title>
+                </circle>
+                <text class="lunch-scatter-id" text-anchor="middle" x={x()} y={labelY()}>
+                  {row.id}
+                </text>
+              </g>
+            );
+          }}
+        </For>
+      </svg>
+      <figcaption>
+        每个点是一张订单。红点是 AI
+        记错的单，空心圈是你要求顾客再确认的单。先看红点落在哪个角落，再决定 need_confirm
+        该在哪些分数上拦一下。
+      </figcaption>
+      <div class="lunch-scatter-legend">
+        <span>
+          <i class="right" />
+          记对
+        </span>
+        <span>
+          <i class="wrong" />
+          记错
+        </span>
+        <span>
+          <i class="ring" />
+          已确认
+        </span>
+      </div>
+    </figure>
+  );
 }
 
 export function AiIntakePanel<D extends AiIntakeDraft>(props: {
@@ -113,6 +362,34 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
   const intakeResult = () =>
     !isFinal() && props.result?.kind === "ai-intake" ? props.result : null;
   const finalResult = () => (isFinal() && props.result?.kind === "final" ? props.result : null);
+
+  const intakeCaught = () => intakeResult()?.orders?.filter((order) => order.rescued) ?? [];
+  const intakeWasted = () =>
+    intakeResult()?.orders?.filter((order) => order.confirmed && !order.rescued) ?? [];
+  const finalCaught = () => finalResult()?.orders?.filter((order) => order.rescued) ?? [];
+  const finalWasted = () =>
+    finalResult()?.orders?.filter((order) => order.confirmed && !order.rescued) ?? [];
+  const finalStalledLate = () => {
+    const result = finalResult();
+    if (!result) return [];
+    const run = result.run;
+    const heldAt = new Map<string, number>();
+    for (const event of run?.events ?? []) {
+      if (event.action === "held") heldAt.set(event.orderId, event.tick);
+    }
+    return (result.orders ?? [])
+      .filter((order) => order.confirmed && !order.onTime)
+      .map((order) => {
+        const runOrder = run?.orders.find((entry) => entry.id === order.id);
+        return {
+          id: order.id,
+          table: runOrder?.table,
+          heldTick: heldAt.get(order.id),
+          delivered: order.delivered,
+          wait: order.wait,
+        };
+      });
+  };
 
   // Start the model download as soon as the stage opens — it's vendored
   // locally and warm by the time the student finishes reading the task.
@@ -177,12 +454,19 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       ) {
         throw new Error("need_confirm 要对每张订单返回 True 或 False。");
       }
-      const rows = orders.map((order, index) => ({
-        id: order.id,
-        request: order.request,
-        prediction: predictions[index],
-        confirmed: confirms[index],
-      }));
+      const rows = orders.map((order, index) => {
+        const prediction = predictions[index];
+        const expected = !isFinal()
+          ? INTAKE_SCENARIO.orders.find((entry) => entry.id === order.id)?.expected
+          : undefined;
+        return {
+          id: order.id,
+          request: order.request,
+          prediction,
+          confirmed: confirms[index],
+          correct: expected ? sameTicket(prediction.ticket, expected) : undefined,
+        };
+      });
       setPreview(rows);
       const results = rows.map((row) => ({
         id: row.id,
@@ -192,7 +476,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       if (isFinal()) {
         const priority = checkPriorityTable(await runPriorityTable(queueCode));
         if (priority.errors.length > 0 || priority.table === null) {
-          throw new Error(priority.errors[0] ?? "priority 结果表不合法");
+          throw new Error(priority.errors[0] ?? "priority 返回的值不完整。");
         }
         props.onChange({
           ...props.draft,
@@ -204,7 +488,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       } else {
         props.onChange({ ...props.draft, confirmCode, results });
       }
-      setRunNote(cached ? "只用了缓存的预测，很快吧。" : null);
+      setRunNote(cached ? "预测结果已经缓存，这次只重新执行了 need_confirm。" : null);
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -214,20 +498,21 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
 
   const passText = () =>
     isFinal()
-      ? `${AI_PASS_CORRECT} 张小票全对、确认 ≤${AI_CONFIRM_BUDGET} 次、记对且准时 ≥${AI_SERVED_MIN} 张过关`
-      : `${AI_PASS_CORRECT} 张小票全对、确认 ≤${AI_CONFIRM_BUDGET} 次过关`;
+      ? "正式订单要求 12 张全对、确认不超过 4 次，并且至少 11 张既记对又准时。"
+      : "练习要求 12 张单全部记对，且确认不超过 4 次。";
 
   return (
     <section class="lunch-challenge">
       <p>
-        AI 接单模型就在浏览器里跑，不上服务器。它给每张订单记一张小票，并报告{" "}
-        <code>similarity</code>（最有把握的候选有多像）和 <code>margin</code>
-        （第一名领先第二名多少）。你的 need_confirm 决定哪几单让顾客再确认一遍，确认必对，但接单台停
-        1 拍。{passText()}。
+        AI 接单台在浏览器里运行，不上服务器。它先听顾客的原话，再写一张小票，并给出两个分数：
+        <code>similarity</code> 表示这次判断和它记住的说法有多接近；
+        <code>margin</code> 表示第一名比第二名领先多少。分数低的单，AI 更容易猜错。你的{" "}
+        <code>need_confirm</code> 决定哪些单要先请顾客再说一遍。确认过的单一定记对，但接单台会停 1
+        拍。{passText()}
       </p>
 
       <p class="lunch-note" role="status">
-        模型 <code>bge-small-zh-v1.5</code>：
+        本地模型 <code>bge-small-zh-v1.5</code>：
         {modelStatus() === "loading"
           ? "加载中…"
           : modelStatus() === "ready"
@@ -245,7 +530,11 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
         )}
       </Show>
 
-      <p class="eyebrow">决定要不要确认的函数</p>
+      <Show when={!isFinal()}>
+        <TriageIntro orders={props.orders} />
+      </Show>
+
+      <p class="eyebrow">你写的确认规则</p>
       <CodeEditor
         ariaLabel="need_confirm 函数代码"
         disabled={running()}
@@ -254,7 +543,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       />
 
       <Show when={isFinal()}>
-        <p class="eyebrow">排队的函数（沿用第三关，照样跑正式订单）</p>
+        <p class="eyebrow">厨房排单函数（沿用第三关）</p>
         <CodeEditor
           ariaLabel="priority 函数代码"
           disabled={running()}
@@ -272,7 +561,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
           onClick={() => void run()}
           type="button"
         >
-          {running() ? "推理中…" : "运行，听 12 张订单"}
+          {running() ? "推理中…" : `让 AI 读这 ${props.orders.length} 张单`}
         </Button>
         <Button
           class="button button-primary"
@@ -280,10 +569,10 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
           onClick={() => props.onSubmit()}
           type="button"
         >
-          {props.submitting ? "判定中…" : isFinal() ? "提交晚餐高峰" : "提交智能接单"}
+          {props.submitting ? "判定中…" : isFinal() ? "提交晚餐高峰" : "提交这版确认规则"}
         </Button>
         <Show when={!ready()}>
-          <span class="submit-note">还没有运行结果，先运行一次。</span>
+          <span class="submit-note">还没有运行 need_confirm，先让 AI 读一遍订单。</span>
         </Show>
       </div>
 
@@ -298,42 +587,59 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
 
       <Show when={preview()}>
         {(rows) => (
-          <div class="lunch-table-wrap">
-            <table class="lunch-orders-table">
-              <thead>
-                <tr>
-                  <th>订单</th>
-                  <th>顾客说</th>
-                  <th>AI 记的小票</th>
-                  <th>similarity</th>
-                  <th>margin</th>
-                  <th>处理</th>
-                </tr>
-              </thead>
-              <tbody>
-                <For each={rows()}>
-                  {(row) => (
+          <>
+            <Show when={!isFinal()}>
+              <section class="lunch-scatter-panel">
+                <p class="eyebrow">先看错单落在哪</p>
+                <ConfidenceScatter rows={rows()} />
+              </section>
+            </Show>
+            <details class="lunch-reference" open={isFinal()}>
+              <summary>看每一张订单的判断</summary>
+              <div class="lunch-table-wrap">
+                <table class="lunch-orders-table">
+                  <thead>
                     <tr>
-                      <td>
-                        <b>{row.id}</b>
-                      </td>
-                      <td>
-                        <small>{row.request}</small>
-                      </td>
-                      <td>{ticketText(row.prediction)}</td>
-                      <td>
-                        {fmt(row.prediction.similarity)}
-                        <br />
-                        <small>较弱：{weakestField(row.prediction)}</small>
-                      </td>
-                      <td>{fmt(row.prediction.margin)}</td>
-                      <td>{row.confirmed ? "再确认 +1 拍" : "直接记"}</td>
+                      <th>订单</th>
+                      <th>顾客说</th>
+                      <th>AI 记的小票</th>
+                      <th>similarity</th>
+                      <th>margin</th>
+                      <Show when={!isFinal()}>
+                        <th>AI 记对</th>
+                      </Show>
+                      <th>处理</th>
                     </tr>
-                  )}
-                </For>
-              </tbody>
-            </table>
-          </div>
+                  </thead>
+                  <tbody>
+                    <For each={rows()}>
+                      {(row) => (
+                        <tr>
+                          <td>
+                            <b>{row.id}</b>
+                          </td>
+                          <td>
+                            <small>{row.request}</small>
+                          </td>
+                          <td>{ticketText(row.prediction)}</td>
+                          <td>
+                            {fmt(row.prediction.similarity)}
+                            <br />
+                            <small>较弱：{weakestField(row.prediction)}</small>
+                          </td>
+                          <td>{fmt(row.prediction.margin)}</td>
+                          <Show when={!isFinal()}>
+                            <td>{row.correct === false ? "✗" : "✓"}</td>
+                          </Show>
+                          <td>{row.confirmed ? "再确认 +1 拍" : "直接记"}</td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            </details>
+          </>
         )}
       </Show>
 
@@ -361,46 +667,70 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
               }
             >
               {res().correct === res().total && res().confirmed <= AI_CONFIRM_BUDGET
-                ? "过关：AI 记错的你都挑出来再确认了，预算也没超。"
+                ? "过关：AI 记错的单都被你挑出来确认了，确认次数也在 4 次以内。"
                 : res().confirmed > AI_CONFIRM_BUDGET
-                  ? `确认 ${res().confirmed} 次超了 ${AI_CONFIRM_BUDGET} 次上限，只挑最没把握的问。`
-                  : `记错 ${res().total - res().correct} 张——把确认留给 AI 真正听错的那几单。`}
+                  ? `你确认了 ${res().confirmed} 次，超过 4 次上限。只在 AI 明显没把握时再问。`
+                  : `还有 ${res().total - res().correct} 张单记错了。先看散点图里红点落在哪，再把确认留给那些单。`}
             </p>
-            <div class="lunch-table-wrap">
-              <table class="lunch-orders-table">
-                <thead>
-                  <tr>
-                    <th>订单</th>
-                    <th>顾客说</th>
-                    <th>记的小票</th>
-                    <th>正确小票</th>
-                    <th>确认</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={res().orders ?? []}>
-                    {(order: AiIntakeOrderResult) => (
-                      <tr>
-                        <td>
-                          <b>{order.id}</b>
-                        </td>
-                        <td>
-                          <small>{order.request}</small>
-                        </td>
-                        <td>
-                          {order.correct ? "✓ " : "✗ "}
-                          {`${order.produced.item}·${order.produced.note}·${order.produced.table}号·${order.produced.urgent ? "加急" : "普通"}`}
-                        </td>
-                        <td>
-                          <small>{`${order.expected.item}·${order.expected.note}·${order.expected.table}号·${order.expected.urgent ? "加急" : "普通"}`}</small>
-                        </td>
-                        <td>{order.confirmed ? "已确认" : "—"}</td>
-                      </tr>
-                    )}
-                  </For>
-                </tbody>
-              </table>
-            </div>
+            <Show when={intakeCaught().length > 0}>
+              <p class="lunch-feedback success">
+                你的规则拦下了 AI 的错票：
+                {intakeCaught()
+                  .map((order) => order.id)
+                  .join("、")}
+                。
+              </p>
+            </Show>
+            <Show when={intakeWasted().length > 0}>
+              <p class="lunch-feedback neutral">
+                这些单 AI 本来就记对了，确认多停了 1 拍：
+                {intakeWasted()
+                  .map((order) => order.id)
+                  .join("、")}
+                。
+              </p>
+            </Show>
+            <details
+              class="lunch-reference"
+              open={res().correct !== res().total || res().confirmed > AI_CONFIRM_BUDGET}
+            >
+              <summary>逐单看结果</summary>
+              <div class="lunch-table-wrap">
+                <table class="lunch-orders-table">
+                  <thead>
+                    <tr>
+                      <th>订单</th>
+                      <th>顾客说</th>
+                      <th>最终小票</th>
+                      <th>正确小票</th>
+                      <th>确认</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={res().orders ?? []}>
+                      {(order: AiIntakeOrderResult) => (
+                        <tr>
+                          <td>
+                            <b>{order.id}</b>
+                          </td>
+                          <td>
+                            <small>{order.request}</small>
+                          </td>
+                          <td>
+                            {order.correct ? "✓ " : "✗ "}
+                            {`${order.produced.item}·${order.produced.note}·${order.produced.table}号·${order.produced.urgent ? "加急" : "普通"}`}
+                          </td>
+                          <td>
+                            <small>{`${order.expected.item}·${order.expected.note}·${order.expected.table}号·${order.expected.urgent ? "加急" : "普通"}`}</small>
+                          </td>
+                          <td>{order.confirmed ? "已确认" : "—"}</td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </section>
         )}
       </Show>
@@ -441,37 +771,109 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
               res().served >= AI_SERVED_MIN
                 ? "过关：接单和高峰排队一起扛住了。"
                 : res().correct < AI_PASS_CORRECT
-                  ? `记错 ${res().total - res().correct} 张，把确认留给 AI 真正听错的那几单。`
+                  ? `还有 ${res().total - res().correct} 张小票记错。把确认留给 AI 真正听错的那几单。`
                   : res().confirmed > AI_CONFIRM_BUDGET
-                    ? `确认 ${res().confirmed} 次超了 ${AI_CONFIRM_BUDGET} 次上限，只挑最没把握的问。`
-                    : `小票都对了但只 ${res().served} 张记对且准时，确认停拍拖慢了出餐，把确认再省一点，或让 priority 多拉等太久的单。`}
+                    ? `你确认了 ${res().confirmed} 次，超过 4 次上限。只在 AI 明显没把握时再问。`
+                    : `小票都对了，但只有 ${res().served} 张既记对又准时。先看回放里哪一桌被确认停拍拖慢了，再调整 priority。`}
             </p>
-            <div class="lunch-table-wrap">
-              <table class="lunch-orders-table">
-                <thead>
-                  <tr>
-                    <th>订单</th>
-                    <th>小票</th>
-                    <th>确认</th>
-                    <th>送达</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <For each={res().orders ?? []}>
-                    {(order: AiOrderResult) => (
-                      <tr>
-                        <td>
-                          <b>{order.id}</b>
-                        </td>
-                        <td>{order.correct ? "记对了" : "记错了"}</td>
-                        <td>{order.confirmed ? "已确认" : "—"}</td>
-                        <td>{order.onTime ? "记对且准时" : "没算分"}</td>
-                      </tr>
+
+            <Show when={finalCaught().length > 0}>
+              <p class="lunch-feedback success">
+                你的 need_confirm 拦下了 AI 原本会记错的单：
+                {finalCaught()
+                  .map((order) => order.id)
+                  .join("、")}
+                。
+              </p>
+            </Show>
+            <Show when={finalWasted().length > 0}>
+              <p class="lunch-feedback neutral">
+                这些单 AI 本来就记对了，确认多占了接单台 1 拍：
+                {finalWasted()
+                  .map((order) => order.id)
+                  .join("、")}
+                。
+              </p>
+            </Show>
+            <Show when={finalStalledLate().length > 0}>
+              <div class="lunch-feedback neutral">
+                <strong>确认之后没赶上准时的单</strong>
+                <ul class="lunch-late-list">
+                  <For each={finalStalledLate()}>
+                    {(order) => (
+                      <li>
+                        <b>{order.id}</b>
+                        {order.table ? `（${order.table} 号桌）` : ""}
+                        {order.heldTick !== undefined
+                          ? ` 在第 ${order.heldTick} 拍停在接单台等顾客确认`
+                          : " 在接单台等顾客确认"}
+                        {order.delivered === false
+                          ? "，最后没送到。"
+                          : order.wait !== undefined
+                            ? `，送到时已经等了 ${order.wait} 拍。`
+                            : "，最后没能准时送到。"}
+                      </li>
                     )}
                   </For>
-                </tbody>
-              </table>
-            </div>
+                </ul>
+              </div>
+            </Show>
+
+            <Show when={res().run}>
+              {(run) => <QueueResultView autoPlay run={run()} title="晚餐高峰回放" />}
+            </Show>
+
+            <details class="lunch-reference">
+              <summary>逐单看送达结果</summary>
+              <div class="lunch-table-wrap">
+                <table class="lunch-orders-table">
+                  <thead>
+                    <tr>
+                      <th>订单</th>
+                      <th>小票</th>
+                      <th>确认</th>
+                      <th>送达</th>
+                      <th>说明</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <For each={res().orders ?? []}>
+                      {(order: AiOrderResult) => (
+                        <tr>
+                          <td>
+                            <b>{order.id}</b>
+                          </td>
+                          <td>{order.correct ? "记对了" : "记错了"}</td>
+                          <td>{order.confirmed ? "已确认" : "—"}</td>
+                          <td>
+                            {order.delivered === false
+                              ? "没送到"
+                              : order.wait !== undefined
+                                ? `送到，等了 ${order.wait} 拍`
+                                : order.onTime
+                                  ? "准时"
+                                  : "超时"}
+                          </td>
+                          <td>
+                            {order.rescued
+                              ? order.onTime
+                                ? "拦下了 AI 的错票"
+                                : "拦下错票，但确认后超时"
+                              : order.confirmed && !order.rescued
+                                ? "AI 本来记对，确认多停 1 拍"
+                                : !order.correct
+                                  ? "小票记错"
+                                  : order.onTime
+                                    ? "记对且准时"
+                                    : "记对了，但没准时"}
+                          </td>
+                        </tr>
+                      )}
+                    </For>
+                  </tbody>
+                </table>
+              </div>
+            </details>
           </section>
         )}
       </Show>

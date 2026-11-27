@@ -1,8 +1,9 @@
 /**
  * Stage 1 · 订单旅程: the guided three-station walkthrough of one order —
- * record the ticket, choose the cook order, deliver to the right table.
- * Completed steps stay visible read-only (images, the question and the
- * chosen answer) so students can look back after finishing.
+ * record the ticket, choose the cook order, deliver to the table on the
+ * ticket. A wrong ticket is allowed into the kitchen: the consequence
+ * strip shows how the error travels to the stove and the runner before
+ * the student rewrites it.
  */
 
 import { Button } from "@ui-sdk/solid/button";
@@ -13,6 +14,19 @@ import type { TrainingOrder } from "../domain/scenarios.ts";
 import { TickExplainer } from "./TickExplainer.tsx";
 
 const STEP_ORDER = ["record", "cook", "deliver", "done"] as const;
+const TICKS = [1, 2, 3, 4] as const;
+const TICKET_FIELDS = [
+  { label: "菜品", value: (ticket: TrainingDraft["ticket"]) => ticket?.item ?? "" },
+  { label: "备注", value: (ticket: TrainingDraft["ticket"]) => ticket?.note ?? "" },
+  {
+    label: "桌号",
+    value: (ticket: TrainingDraft["ticket"]) => (ticket?.table ? `${ticket.table} 号桌` : ""),
+  },
+  {
+    label: "是否加急",
+    value: (ticket: TrainingDraft["ticket"]) => (ticket ? (ticket.urgent ? "加急" : "普通") : ""),
+  },
+] as const;
 
 function ticketSummary(ticket: TrainingDraft["ticket"]): string {
   if (!ticket) return "—";
@@ -26,10 +40,71 @@ function ticketDifferences(
   const differences: string[] = [];
   if (ticket.item !== expected.item) differences.push(`菜品应为${expected.item}`);
   if (ticket.note !== expected.note) differences.push(`备注应为${expected.note}`);
-  if (ticket.table !== expected.table) differences.push(`桌号应为 ${expected.table}，写错会送错桌`);
+  if (ticket.table !== expected.table) differences.push(`桌号应为 ${expected.table}`);
   if (ticket.urgent !== expected.urgent)
     differences.push(expected.urgent ? "顾客说了赶时间，应选加急" : "顾客说不赶时间，应选普通");
   return differences;
+}
+
+type RaceOrder = {
+  label: string;
+  cookTicks: number;
+  start: number;
+  done: number;
+};
+
+function CookRace(props: { urgentFirst: boolean; normalLabel: string }) {
+  const sequence = (): { urgent: RaceOrder; normal: RaceOrder } =>
+    props.urgentFirst
+      ? {
+          urgent: { label: "2 号桌 · 鸡腿饭", cookTicks: 1, start: 1, done: 1 },
+          normal: { label: props.normalLabel, cookTicks: 3, start: 2, done: 4 },
+        }
+      : {
+          normal: { label: props.normalLabel, cookTicks: 3, start: 1, done: 3 },
+          urgent: { label: "2 号桌 · 鸡腿饭", cookTicks: 1, start: 4, done: 4 },
+        };
+
+  const cell = (order: RaceOrder, tick: number) => {
+    if (tick === order.done) return "done";
+    if (tick >= order.start && tick < order.done) return "cooking";
+    return "waiting";
+  };
+
+  return (
+    <div aria-label="两单在四拍里的制作进度" class="lunch-race">
+      <div class="lunch-race-head">
+        <span />
+        <For each={TICKS}>{(tick) => <span>第 {tick} 拍</span>}</For>
+      </div>
+      <For each={[true, false] as const}>
+        {(isUrgent) => {
+          const order = () => (isUrgent ? sequence().urgent : sequence().normal);
+          return (
+            <div class="lunch-race-row">
+              <span class="lunch-race-label">
+                <b>{order().label}</b>
+                <small>
+                  {props.urgentFirst === isUrgent ? "先做" : "后做"} · 要做 {order().cookTicks} 拍
+                </small>
+              </span>
+              <For each={TICKS}>
+                {(tick) => (
+                  <span class={`lunch-race-cell ${cell(order(), tick)}`}>
+                    {cell(order(), tick) === "done"
+                      ? "出餐"
+                      : cell(order(), tick) === "cooking"
+                        ? "做"
+                        : ""}
+                  </span>
+                )}
+              </For>
+            </div>
+          );
+        }}
+      </For>
+    </div>
+  );
 }
 
 export function TrainingPanel(props: {
@@ -40,8 +115,8 @@ export function TrainingPanel(props: {
   onChange: (draft: TrainingDraft) => void;
   onSubmit: () => void;
 }) {
-  const [error, setError] = createSignal<string | null>(null);
   const [form, setForm] = createSignal({ item: "", note: "", table: "", urgent: "" });
+  const [compareOther, setCompareOther] = createSignal(false);
   const stepIndex = () => STEP_ORDER.indexOf(props.draft.step);
   const recordDone = () => stepIndex() >= 1;
   const cookDone = () => stepIndex() >= 2;
@@ -55,39 +130,81 @@ export function TrainingPanel(props: {
       table: currentForm.table,
       urgent: currentForm.urgent === "true",
     };
-    const differences = ticketDifferences(ticket, props.training.ticket);
-    if (differences.length > 0) {
-      setError(differences.join("；") + "。请修改小票。");
-      props.onChange({ ...props.draft, ticket });
-      return;
-    }
-    setError(null);
     props.onChange({ ...props.draft, step: "cook", ticket });
   };
 
-  const completedWell = () => props.draft.kitchenChoice === "urgent";
+  const reviseTicket = () => {
+    const ticket = props.draft.ticket;
+    setForm({
+      item: ticket?.item ?? "",
+      note: ticket?.note ?? "",
+      table: ticket?.table ?? "",
+      urgent: ticket ? String(ticket.urgent) : "",
+    });
+    setCompareOther(false);
+    props.onChange({ ...props.draft, step: "record", ticket: null });
+  };
+
+  const redeliver = () => {
+    props.onChange({ ...props.draft, step: "deliver", deliveredTable: null });
+  };
+
+  const differences = () =>
+    props.draft.ticket ? ticketDifferences(props.draft.ticket, props.training.ticket) : [];
+  const ticketOk = () => recordDone() && differences().length === 0;
+  const deliveryOk = () => props.draft.deliveredTable === props.training.ticket.table;
+  const orderDataOk = () => ticketOk() && deliveryOk();
+  const completedWell = () => orderDataOk() && props.draft.kitchenChoice === "urgent";
+
+  const consequenceSteps = () => {
+    const ticket = props.draft.ticket;
+    if (!ticket) return [];
+    const expected = props.training.ticket;
+    const steps: { who: string; text: string }[] = [];
+    if (ticket.item !== expected.item || ticket.note !== expected.note) {
+      steps.push({
+        who: "厨房",
+        text: `照着这张票做了${ticket.item}，备注「${ticket.note}」。顾客点的其实是${expected.item}，备注「${expected.note}」。`,
+      });
+    }
+    if (ticket.table !== expected.table) {
+      steps.push({
+        who: "送餐员",
+        text: `把餐端到 ${ticket.table} 号桌。${expected.table} 号桌的顾客还在等自己的菜。`,
+      });
+    }
+    if (ticket.urgent !== expected.urgent) {
+      steps.push({
+        who: "厨房",
+        text: expected.urgent
+          ? "这单本该优先做，却按普通单排在了后面。"
+          : "这单没付加急费，却被当成加急单插到了前面。",
+      });
+    }
+    return steps;
+  };
+
   const cookingResult = () =>
     props.draft.kitchenChoice === "urgent"
-      ? "你先做加急单：它在第 1 拍就做好了，比排在后面少等 3 拍；普通单第 4 拍才做好。"
+      ? "你先做了加急单。它在第 1 拍出餐，普通单在第 4 拍出餐，比反过来做少了 3 拍等待。"
       : props.draft.kitchenChoice === "normal"
-        ? "你先做普通单：它在第 3 拍做好，加急单到第 4 拍才做好，比先做它多等 3 拍。"
-        : "两份餐已做好。厨房里的先后顺序会影响等待时间。";
+        ? "你先做了普通单。它在第 3 拍出餐，加急单等到第 4 拍才出餐，比先做加急单多等了 3 拍。"
+        : "两份餐已经做好。厨房先做哪一张，会改变另一张的等待时间。";
 
-  const readonlyTicketFields = () =>
-    [
-      ["菜品", props.draft.ticket?.item ?? ""],
-      ["备注", props.draft.ticket?.note ?? ""],
-      ["桌号", props.draft.ticket?.table ? `${props.draft.ticket.table} 号桌` : ""],
-      ["是否加急", props.draft.ticket ? (props.draft.ticket.urgent ? "加急" : "普通") : ""],
-    ] as const;
+  const normalChoiceLabel = () => {
+    const ticket = props.draft.ticket;
+    return ticket ? `${ticket.table} 号桌 · ${ticket.item}` : "5 号桌 · 牛肉面";
+  };
+
+  const normalChoiceUrgent = () => props.draft.ticket?.urgent ?? false;
 
   return (
     <section class="lunch-journey">
-      {/* 1 / 3 记小票 —— 写对后保留成只读卡 */}
+      {/* 1 / 3 记小票 */}
       <p class="eyebrow">订单旅程 · 1 / 3</p>
       <h2>把顾客的话记成小票</h2>
       <p>
-        你是前台接单员。厨房不直接听顾客说话，只认你记的小票；小票上任何地方记错，餐都可能做错或送错。店里有个付费选项：顾客多付几块钱可以把单子加成「加急」，后厨优先做。你记的「加急/普通」写的就是这个。
+        你是前台接单员。厨房不直接听顾客说话，只认你写的小票；送餐员也按小票上的桌号送餐。顾客如果多付几块钱，可以把订单标成「加急」，后厨会优先做。
       </p>
       <img
         alt="前台接单员把小票夹到板上，柜台前顾客在说话"
@@ -97,98 +214,104 @@ export function TrainingPanel(props: {
       <blockquote class="lunch-ticket-quote">“{props.training.request}”</blockquote>
       <Show
         fallback={
-          <>
-            <Show when={error()}>
-              {(err) => (
-                <p class="lunch-feedback mistake" role="alert">
-                  {err()}
-                </p>
-              )}
-            </Show>
-            <Show when={error() && form().item}>
-              <p class="lunch-note">
-                按这张票：厨房会做 <b>{form().item}</b>，并送往 <b>{form().table || "—"} 号桌</b>。
-              </p>
-            </Show>
-            <form onSubmit={submitTicket}>
-              <div class="lunch-form-grid">
-                <label class="field-select">
-                  菜品
-                  <select
-                    onChange={(e) => setForm((f) => ({ ...f, item: e.currentTarget.value }))}
-                    required
-                    value={form().item}
-                  >
-                    <option value="">请选择</option>
-                    <For each={DISHES}>{(dish) => <option value={dish}>{dish}</option>}</For>
-                  </select>
-                </label>
-                <label class="field-select">
-                  备注
-                  <select
-                    onChange={(e) => setForm((f) => ({ ...f, note: e.currentTarget.value }))}
-                    required
-                    value={form().note}
-                  >
-                    <option value="">请选择</option>
-                    <For each={NOTES}>{(note) => <option value={note}>{note}</option>}</For>
-                  </select>
-                </label>
-                <label class="field-select">
-                  桌号
-                  <select
-                    onChange={(e) => setForm((f) => ({ ...f, table: e.currentTarget.value }))}
-                    required
-                    value={form().table}
-                  >
-                    <option value="">请选择</option>
-                    <For each={TABLES}>
-                      {(table) => <option value={table}>{table} 号桌</option>}
-                    </For>
-                  </select>
-                </label>
-                <label class="field-select">
-                  是否加急
-                  <select
-                    onChange={(e) => setForm((f) => ({ ...f, urgent: e.currentTarget.value }))}
-                    required
-                    value={form().urgent}
-                  >
-                    <option value="">请选择</option>
-                    <option value="false">普通</option>
-                    <option value="true">加急</option>
-                  </select>
-                </label>
-              </div>
-              <div class="submit-row">
-                <Button class="button button-primary" type="submit">
-                  把小票交给厨房 →
-                </Button>
-              </div>
-            </form>
-          </>
+          <form onSubmit={submitTicket}>
+            <div class="lunch-form-grid">
+              <label class="field-select">
+                菜品
+                <select
+                  onChange={(e) => setForm((f) => ({ ...f, item: e.currentTarget.value }))}
+                  required
+                  value={form().item}
+                >
+                  <option value="">请选择</option>
+                  <For each={DISHES}>{(dish) => <option value={dish}>{dish}</option>}</For>
+                </select>
+              </label>
+              <label class="field-select">
+                备注
+                <select
+                  onChange={(e) => setForm((f) => ({ ...f, note: e.currentTarget.value }))}
+                  required
+                  value={form().note}
+                >
+                  <option value="">请选择</option>
+                  <For each={NOTES}>{(note) => <option value={note}>{note}</option>}</For>
+                </select>
+              </label>
+              <label class="field-select">
+                桌号
+                <select
+                  onChange={(e) => setForm((f) => ({ ...f, table: e.currentTarget.value }))}
+                  required
+                  value={form().table}
+                >
+                  <option value="">请选择</option>
+                  <For each={TABLES}>{(table) => <option value={table}>{table} 号桌</option>}</For>
+                </select>
+              </label>
+              <label class="field-select">
+                是否加急
+                <select
+                  onChange={(e) => setForm((f) => ({ ...f, urgent: e.currentTarget.value }))}
+                  required
+                  value={form().urgent}
+                >
+                  <option value="">请选择</option>
+                  <option value="false">普通</option>
+                  <option value="true">加急</option>
+                </select>
+              </label>
+            </div>
+            <div class="submit-row">
+              <Button class="button button-primary" type="submit">
+                把小票交给厨房 →
+              </Button>
+              <span class="submit-note">写错了也没关系，可以看看厨房会怎么处理。</span>
+            </div>
+          </form>
         }
         when={recordDone()}
       >
-        <div class="lunch-feedback success" role="status">
-          <strong>✓ 小票交到厨房了</strong>
-          <span>{ticketSummary(props.draft.ticket)}</span>
-        </div>
         <div aria-label="你记的小票" class="lunch-form-grid">
-          <For each={readonlyTicketFields()}>
-            {([label, value]) => (
+          <For each={TICKET_FIELDS}>
+            {(field) => (
               <label class="field-select">
-                {label}
-                <select disabled value={value}>
-                  <option value={value}>{value || "—"}</option>
+                {field.label}
+                <select disabled value={field.value(props.draft.ticket)}>
+                  <option value={field.value(props.draft.ticket)}>
+                    {field.value(props.draft.ticket) || "—"}
+                  </option>
                 </select>
               </label>
             )}
           </For>
         </div>
+
+        <Show when={differences().length > 0}>
+          <div class="lunch-consequence" role="alert">
+            <strong>这张小票已经进厨房了</strong>
+            <p>厨房和送餐员都只按小票办事。下面是这张票跑下去会发生的事：</p>
+            <ol class="lunch-consequence-steps">
+              <For each={consequenceSteps()}>
+                {(step) => (
+                  <li class="lunch-consequence-step">
+                    <b>{step.who}</b>
+                    <span>{step.text}</span>
+                  </li>
+                )}
+              </For>
+            </ol>
+            <div class="submit-row">
+              <Button class="button button-secondary" onClick={reviseTicket} type="button">
+                回前台改小票
+              </Button>
+              <span class="submit-note">改好之后，再让厨房做一次。</span>
+            </div>
+          </div>
+        </Show>
       </Show>
 
-      {/* 2 / 3 先做哪张 —— 选完后保留成只读卡 */}
+      {/* 2 / 3 先做哪张 */}
       <Show when={stepIndex() >= 1}>
         <p class="eyebrow">订单旅程 · 2 / 3</p>
         <img
@@ -198,7 +321,7 @@ export function TrainingPanel(props: {
         />
         <h2>两张订单，先做哪一张？</h2>
         <p>加急的订单超过 9 拍就算超时，普通订单超过 18 拍就算超时。</p>
-        <p>现在假设你是厨师，以下两个订单，你会先做哪一个：</p>
+        <p>两份餐都还没下锅。你会先做哪一份？</p>
         <details class="lunch-reference">
           <summary>「拍」是什么</summary>
           <TickExplainer />
@@ -225,12 +348,8 @@ export function TrainingPanel(props: {
               <label class="choice-surface lunch-choice-card">
                 <input name="choice" required type="radio" value="normal" />
                 <span>
-                  <b>
-                    {props.draft.ticket
-                      ? `${props.draft.ticket.table} 号桌 · ${props.draft.ticket.item}`
-                      : "5 号桌 · 牛肉面"}
-                  </b>
-                  <small>{props.draft.ticket?.urgent ? "加急" : "普通"} · 制作需要 3 拍</small>
+                  <b>{normalChoiceLabel()}</b>
+                  <small>{normalChoiceUrgent() ? "加急" : "普通"} · 制作需要 3 拍</small>
                 </span>
               </label>
               <Button class="button button-primary" type="submit">
@@ -261,84 +380,75 @@ export function TrainingPanel(props: {
                 type="radio"
               />
               <span>
-                <b>
-                  {props.draft.ticket
-                    ? `${props.draft.ticket.table} 号桌 · ${props.draft.ticket.item}`
-                    : "5 号桌 · 牛肉面"}
-                </b>
-                <small>{props.draft.ticket?.urgent ? "加急" : "普通"} · 制作需要 3 拍</small>
+                <b>{normalChoiceLabel()}</b>
+                <small>{normalChoiceUrgent() ? "加急" : "普通"} · 制作需要 3 拍</small>
               </span>
             </label>
           </div>
-          <div class={`lunch-feedback ${completedWell() ? "success" : "neutral"}`} role="status">
-            <strong>
-              {completedWell() ? "✓ 先做加急单，少等 3 拍" : "先做了普通单，加急顾客多等 3 拍"}
-            </strong>
-            <span>
-              {completedWell()
-                ? "加急单在第 1 拍完成，普通单在第 4 拍完成。"
-                : "两份餐都能做出来，但加急的顾客等得更久。"}
-            </span>
+
+          <div class="lunch-race-toolbar">
+            <strong>{compareOther() ? "换成另一种顺序" : "你的制作顺序"}</strong>
+            <Button
+              class="button button-secondary"
+              onClick={() => setCompareOther((value) => !value)}
+              type="button"
+            >
+              {compareOther() ? "回到我的顺序" : "看看换成另一种顺序"}
+            </Button>
           </div>
+          <CookRace
+            normalLabel={normalChoiceLabel()}
+            urgentFirst={
+              compareOther()
+                ? props.draft.kitchenChoice === "normal"
+                : props.draft.kitchenChoice === "urgent"
+            }
+          />
+          <p class="lunch-note">
+            两张单都在第 4 拍前出餐，所以都还没有超时。你选的是{" "}
+            {props.draft.kitchenChoice === "urgent" ? "先做加急单" : "先做普通单"}。
+          </p>
         </Show>
       </Show>
 
-      {/* 3 / 3 送餐 —— 送对后保留成只读卡 */}
+      {/* 3 / 3 送餐 */}
       <Show when={stepIndex() >= 2}>
         <p class="eyebrow">订单旅程 · 3 / 3</p>
         <img
-          alt="送餐员端着餐盘走向贴有数字5的餐桌"
+          alt="送餐员端着餐盘走向贴有桌号的餐桌"
           class="lunch-journey-img"
           src="/assets/lunch-shift/journey-deliver.webp"
         />
         <h2>这份餐送到哪一桌？</h2>
         <p>
-          你是送餐员，按小票送餐，送错桌这份餐就白做了。小票：
+          你是送餐员。你只能看小票，不能回头问顾客。这张小票写的是：
           <b>{ticketSummary(props.draft.ticket)}</b>
         </p>
         <Show
           fallback={
-            <>
-              <Show when={error()}>
-                {(err) => (
-                  <p class="lunch-feedback mistake" role="alert">
-                    {err()}
-                  </p>
-                )}
-              </Show>
-              <form
-                onSubmit={(event) => {
-                  event.preventDefault();
-                  const table = new FormData(event.currentTarget).get("table");
-                  if (typeof table !== "string") return;
-                  if (table !== props.draft.ticket?.table) {
-                    setError(
-                      `小票写的是 ${props.draft.ticket?.table ?? "—"} 号桌，送去 ${table} 号桌会送错。请再核对一次。`,
-                    );
-                    return;
-                  }
-                  setError(null);
-                  props.onChange({ ...props.draft, step: "done", deliveredTable: table });
-                }}
-              >
-                <label class="field-select">
-                  送到
-                  <select name="table" required>
-                    <option disabled selected value="">
-                      请选择
-                    </option>
-                    <For each={TABLES}>
-                      {(table) => <option value={table}>{table} 号桌</option>}
-                    </For>
-                  </select>
-                </label>
-                <div class="submit-row">
-                  <Button class="button button-primary" type="submit">
-                    送餐 →
-                  </Button>
-                </div>
-              </form>
-            </>
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                const table = new FormData(event.currentTarget).get("table");
+                if (typeof table !== "string" || !table) return;
+                props.onChange({ ...props.draft, step: "done", deliveredTable: table });
+              }}
+            >
+              <label class="field-select">
+                送到
+                <select name="table" required>
+                  <option disabled selected value="">
+                    请选择
+                  </option>
+                  <For each={TABLES}>{(table) => <option value={table}>{table} 号桌</option>}</For>
+                </select>
+              </label>
+              <div class="submit-row">
+                <Button class="button button-primary" type="submit">
+                  送餐 →
+                </Button>
+              </div>
+            </form>
           }
           when={stepIndex() >= 3}
         >
@@ -355,13 +465,47 @@ export function TrainingPanel(props: {
 
       <Show when={props.draft.step === "done"}>
         <div
-          class={`lunch-feedback ${completedWell() ? "success victory" : "neutral"}`}
+          class={`lunch-feedback ${orderDataOk() ? "success victory" : "mistake"}`}
           role="status"
         >
-          <strong>{completedWell() ? "✓ 订单送对了！" : "流程完成，但加急单等得更久"}</strong>
+          <strong>
+            {!orderDataOk()
+              ? "订单跑完了，但中途出了错"
+              : completedWell()
+                ? "✓ 订单送到了"
+                : "订单送到了，不过加急顾客多等了 3 拍"}
+          </strong>
           <span>{ticketSummary(props.draft.ticket)}</span>
         </div>
-        <h2>一张订单送到了顾客手里</h2>
+
+        <Show when={!orderDataOk()}>
+          <ul class="lunch-order-fix" role="alert">
+            <For each={differences()}>{(text) => <li>{text}</li>}</For>
+            <Show when={!deliveryOk()}>
+              <li>
+                小票写的是 {props.training.ticket.table} 号桌，实际送到了{" "}
+                {props.draft.deliveredTable ?? "—"} 号桌。
+              </li>
+            </Show>
+          </ul>
+          <div class="submit-row">
+            <Show
+              fallback={
+                <Button class="button button-secondary" onClick={reviseTicket} type="button">
+                  回前台改小票
+                </Button>
+              }
+              when={ticketOk()}
+            >
+              <Button class="button button-secondary" onClick={redeliver} type="button">
+                回到送餐这一步
+              </Button>
+            </Show>
+            <span class="submit-note">先把小票和送达的桌号改对，再提交这一关。</span>
+          </div>
+        </Show>
+
+        <h2>一张订单走到了顾客手里</h2>
         <div aria-label="刚才经过的系统流程" class="lunch-system-chain">
           <span>顾客提出需求</span>
           <i>→</i>
@@ -372,24 +516,26 @@ export function TrainingPanel(props: {
           <span>送到对应顾客</span>
         </div>
         <p class="lunch-note">{cookingResult()}</p>
-        <Show
-          fallback={
-            <div class="submit-row">
-              <Button
-                class="button button-primary"
-                disabled={props.submitting}
-                onClick={() => props.onSubmit()}
-                type="button"
-              >
-                {props.submitting ? "提交中…" : "完成订单旅程 →"}
-              </Button>
-            </div>
-          }
-          when={props.passed}
-        >
-          <p class="stage-takeaway">
-            已通过：订单就是数据，一旦系统中某个环节出错，后面的流程全部跟着错。
-          </p>
+        <Show when={orderDataOk()}>
+          <Show
+            fallback={
+              <div class="submit-row">
+                <Button
+                  class="button button-primary"
+                  disabled={props.submitting}
+                  onClick={() => props.onSubmit()}
+                  type="button"
+                >
+                  {props.submitting ? "提交中…" : "完成订单旅程 →"}
+                </Button>
+              </div>
+            }
+            when={props.passed}
+          >
+            <p class="stage-takeaway">
+              已通过：厨房照着小票做菜，送餐员照着小票送桌。小票上的字段写错了，后面的人也只能照着错下去。
+            </p>
+          </Show>
         </Show>
       </Show>
     </section>

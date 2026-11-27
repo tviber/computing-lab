@@ -60,7 +60,8 @@ export type Scenario = {
 
 export type OrderResult = {
   id: string;
-  request: string;
+  /** Customer wording. Stripped from replays shipped with the final grade. */
+  request?: string;
   correct: boolean | null;
   delivered: boolean;
   onTime: boolean;

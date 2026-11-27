@@ -17,11 +17,16 @@ import {
   COMPENSATE_PASS_REVIEWS,
   COMPENSATE_PASS_SPEND,
   COMPENSATE_SNACK_COST,
+  COMPENSATE_TABLE_SIZE,
+  compensateCost,
+  compensateIndex,
   compensateLateOrders,
   evaluateCompensation,
   MENU_PRICES,
   REVIEW_RISK,
   REVIEW_RISK_TIERS,
+  reviewRisk,
+  type CompensateLateOrder,
 } from "../domain/compensate.ts";
 import type { CompensateDraft, LunchTestSummary } from "../domain/protocol.ts";
 import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErrors.ts";
@@ -48,8 +53,111 @@ const RISK_ROWS = REVIEW_RISK_TIERS.flatMap((tier) =>
     rates: REVIEW_RISK[tier.key][kind],
   })),
 );
+const COMPENSATE_CHOICE_VALUES = [0, 1, 2] as const;
 
 const reviewsText = (points: number) => `${points / 100}`;
+
+function sampleLateOrders(orders: readonly CompensateLateOrder[]): CompensateLateOrder[] {
+  const picked: CompensateLateOrder[] = [];
+  const add = (predicate: (order: CompensateLateOrder) => boolean) => {
+    const found = orders.find((order) => !picked.includes(order) && predicate(order));
+    if (found) picked.push(found);
+  };
+  add((order) => order.delivered && order.overtime === 7 && order.price === 12);
+  add((order) => !order.delivered && order.price === 22 && !order.urgent);
+  add((order) => order.urgent && order.delivered && order.overtime === 1);
+  for (const order of orders) {
+    if (picked.length >= 3) break;
+    if (!picked.includes(order)) picked.push(order);
+  }
+  return picked.slice(0, 3);
+}
+
+function TryoutBoard(props: { orders: readonly CompensateLateOrder[] }) {
+  const samples = createMemo(() => sampleLateOrders(props.orders));
+  const [choices, setChoices] = createSignal<Record<string, number>>({});
+  const choiceOf = (id: string) => choices()[id] ?? 0;
+  const setChoice = (id: string, value: number) =>
+    setChoices((current) => ({ ...current, [id]: value }));
+
+  const table = createMemo(() => {
+    const result = new Array<number>(COMPENSATE_TABLE_SIZE).fill(0);
+    for (const order of samples()) {
+      result[compensateIndex(order.urgent, order.overtime, order.delivered, order.price)] =
+        choiceOf(order.id);
+    }
+    return result;
+  });
+  const bill = createMemo(() => evaluateCompensation(props.orders, table()));
+
+  return (
+    <section class="lunch-tryout">
+      <p class="eyebrow">先手动试一次</p>
+      <h2>这三张单，你会怎么补？</h2>
+      <p>
+        先改下面三张典型问题单，其他 8
+        张暂时按不补偿算。每次切换都会重算整张账单，你可以直接看到花费和预计差评怎么变。
+      </p>
+      <div class="lunch-tryout-list">
+        <For each={samples()}>
+          {(order) => {
+            const risk = () =>
+              reviewRisk(order.urgent, order.overtime, order.delivered, choiceOf(order.id));
+            const cost = () => compensateCost(order.delivered, order.price, choiceOf(order.id));
+            return (
+              <article class="lunch-tryout-card">
+                <div class="lunch-tryout-head">
+                  <b>{order.id}</b>
+                  <span>
+                    {order.delivered ? `送到了，超时 ${order.overtime} 拍` : "没送到"} ·{" "}
+                    {order.urgent ? "加急" : "普通"} · {order.price} 元
+                  </span>
+                </div>
+                <div
+                  aria-label={`${order.id} 的补偿选择`}
+                  class="lunch-tryout-choices"
+                  role="group"
+                >
+                  <For each={COMPENSATE_CHOICE_VALUES}>
+                    {(value) => (
+                      <Button
+                        aria-pressed={choiceOf(order.id) === value ? "true" : "false"}
+                        class="button button-secondary lunch-tryout-choice"
+                        onClick={() => setChoice(order.id, value)}
+                        type="button"
+                      >
+                        {COMPENSATE_CHOICES[value]}
+                      </Button>
+                    )}
+                  </For>
+                </div>
+                <p class="lunch-tryout-line">
+                  差评率 {risk()}% · 这一单花 {cost()} 元
+                </p>
+              </article>
+            );
+          }}
+        </For>
+      </div>
+      <div aria-label="试算账单" class="lunch-stat-row">
+        <span>
+          <b>{reviewsText(bill().badReviewPoints)}</b>
+          试算后的整张账单预计差评（单）
+        </span>
+        <span>
+          <b>{bill().spend}</b>
+          试算后的整张账单补偿花费（元）
+        </span>
+      </div>
+      <div class="submit-row">
+        <Button class="button button-secondary" onClick={() => setChoices({})} type="button">
+          把试算清空
+        </Button>
+        <span class="submit-note">试算不会计分，只帮你看清每一档补偿的代价。</span>
+      </div>
+    </section>
+  );
+}
 
 export function CompensatePanel(props: {
   draft: CompensateDraft;
@@ -108,21 +216,21 @@ export function CompensatePanel(props: {
   return (
     <section class="lunch-challenge">
       <p>
-        晚高峰 20 单还是按先来先做跑完的，有 {lateOrders.length}
-        张出了问题：有的送晚了，有的没送到。排法不能改了，能改的只有补救：每张问题单补偿几档，由
+        晚高峰 20 单还是按先来先做跑完的，其中有 {lateOrders.length}
+        张出了问题：有的送晚了，有的没送到。排法已经不能改了，能改的只有补救。每张问题单补偿几档，由你写的
         compensate 决定。
       </p>
       <div class="lunch-params">
         <ul>
           <li>
-            <code>compensate(urgent, overtime, delivered, price)</code>：urgent
-            是不是加急单，overtime 超过等待上限几拍，delivered 最后有没有送到（True 或
-            False），price 是这单的金额（元）。
+            <code>compensate(urgent, overtime, delivered, price)</code>：urgent 表示是不是加急单；
+            overtime 表示超过等待上限几拍；delivered 表示最后有没有送到（True 或 False）；price
+            是这单的金额（元）。
           </li>
-          <li>返回 0 不补偿：不花钱，按店里的历史差评率认账。</li>
+          <li>返回 0 表示不补偿：不花钱，按店里的历史差评率认账。</li>
           <li>
-            返回 1 送小食：一张 {COMPENSATE_SNACK_COST} 元；返回 2 退款：送到的退一半（price ÷ 2
-            向上取整），没送到的全退（price 元）。
+            返回 1 表示送小食：一张 {COMPENSATE_SNACK_COST} 元。返回 2 表示退款：送到的退一半（price
+            ÷ 2 向上取整），没送到的全退（price 元）。
           </li>
           <li>
             菜单价：
@@ -131,17 +239,17 @@ export function CompensatePanel(props: {
               .join("，")}
             。
           </li>
-          <li>没送到的单 overtime 按等到第 30 拍算（可能还是 0），看 delivered 最靠谱。</li>
+          <li>没送到的单，overtime 按等到第 30 拍算，可能还是 0，所以看 delivered 更可靠。</li>
           <li>
-            过关线：预计差评 ≤ {reviewsText(COMPENSATE_PASS_REVIEWS)} 单，补偿总花费 ≤{" "}
-            {COMPENSATE_PASS_SPEND} 元，两条都要压住。
+            过关线：预计差评不超过 {reviewsText(COMPENSATE_PASS_REVIEWS)} 单，补偿总花费不超过{" "}
+            {COMPENSATE_PASS_SPEND} 元，两条都要满足。
           </li>
         </ul>
       </div>
 
       <details class="lunch-reference" open>
         <summary>店里的历史差评率</summary>
-        <p class="lunch-note">同样的遭遇，加急顾客一直更没耐心。</p>
+        <p class="lunch-note">同样的等待和补偿，加急顾客给出差评的概率更高。</p>
         <div class="lunch-table-wrap">
           <table class="lunch-orders-table">
             <thead>
@@ -166,9 +274,11 @@ export function CompensatePanel(props: {
         </div>
       </details>
 
+      <TryoutBoard orders={lateOrders} />
+
       <details class="lunch-reference">
         <summary>看这 {lateOrders.length} 张问题单</summary>
-        <p class="lunch-note">就是 compensate 会收到的参数，一张单一行。</p>
+        <p class="lunch-note">这是 compensate 会收到的参数，一张单一行。</p>
         <div class="lunch-table-wrap">
           <table class="lunch-orders-table">
             <thead>
@@ -218,7 +328,7 @@ export function CompensatePanel(props: {
           onClick={() => void run()}
           type="button"
         >
-          {running() ? "运行中…" : "运行，算一遍账"}
+          {running() ? "运行中…" : "用这版补偿规则算一遍"}
         </Button>
         <Button
           class="button button-primary"
@@ -229,7 +339,7 @@ export function CompensatePanel(props: {
           {props.submitting ? "判定中…" : "提交附加挑战"}
         </Button>
         <Show when={!ready()}>
-          <span class="submit-note">还没有算出的结果表。</span>
+          <span class="submit-note">还没有运行 compensate，请先算一遍。</span>
         </Show>
       </div>
 
@@ -259,12 +369,14 @@ export function CompensatePanel(props: {
                 <b>{s().spend}</b>
                 补偿花费（元）
               </span>
-              <span>
-                <b>
-                  {reviewsText(s().bestReviewPoints)} / {s().bestSpend} 元
-                </b>
-                最优（花费 ≤ {COMPENSATE_PASS_SPEND} 元）
-              </span>
+              <Show when={props.submitted}>
+                <span>
+                  <b>
+                    {reviewsText(s().bestReviewPoints)} / {s().bestSpend} 元
+                  </b>
+                  过关后的最优参考
+                </span>
+              </Show>
             </div>
             <p
               class={
@@ -274,14 +386,14 @@ export function CompensatePanel(props: {
               }
             >
               {s().badReviewPoints <= COMPENSATE_PASS_REVIEWS && s().spend <= COMPENSATE_PASS_SPEND
-                ? "预计差评和花费都压线内，这版能过关。"
+                ? "预计差评和花费都在线内，这一版能过关。"
                 : [
                     s().badReviewPoints <= COMPENSATE_PASS_REVIEWS
                       ? ""
-                      : `预计差评超过 ${reviewsText(COMPENSATE_PASS_REVIEWS)} 单的线`,
+                      : `预计差评 ${reviewsText(s().badReviewPoints)} 单，超过了 ${reviewsText(COMPENSATE_PASS_REVIEWS)} 单的上限`,
                     s().spend <= COMPENSATE_PASS_SPEND
                       ? ""
-                      : `补偿花费超过 ${COMPENSATE_PASS_SPEND} 元的线`,
+                      : `补偿花费 ${s().spend} 元，超过了 ${COMPENSATE_PASS_SPEND} 元的预算`,
                   ]
                     .filter(Boolean)
                     .join("；") + "。"}
