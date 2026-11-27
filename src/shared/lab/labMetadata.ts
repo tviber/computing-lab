@@ -44,7 +44,7 @@ export const labMetadata = {
   "lunch-shift": {
     title: "设计餐馆系统",
     description:
-      "送对一张订单，教 AI 听懂顾客的各种说法、写函数排出先做哪张——12 张订单全对全准时才算真本事。",
+      "午市高峰的小餐馆只有一个灶台和一位送餐员。你负责接单、安排付费加急和普通单的先后，再用有限预算补偿超时顾客。",
     category: "information-systems",
   },
   "stats-foundations": {

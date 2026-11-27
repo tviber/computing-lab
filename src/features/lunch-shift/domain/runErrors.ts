@@ -8,11 +8,11 @@
 
 export function friendlyRunError(raw: string): string {
   const syntax = /SyntaxError:.*line (\d+)/.exec(raw);
-  if (syntax) return `第 ${syntax[1]} 行附近语法写错了——检查括号、引号和冒号。（${raw}）`;
+  if (syntax) return `第 ${syntax[1]} 行附近语法写错了。请检查括号、引号和冒号。（${raw}）`;
   const name = /NameError: name '(\w+)' is not defined/.exec(raw);
-  if (name) return `${name[1]} 没有定义过——是不是拼错了，或者运行顺序放反了？（${raw}）`;
-  if (/IndentationError/.test(raw)) return `缩进不对——函数体每行前面要留一样的空格。（${raw}）`;
-  if (/TypeError/.test(raw)) return `类型用错了——检查每个名字里装的是词还是数。（${raw}）`;
+  if (name) return `${name[1]} 没有定义过。请检查是不是拼错了，或者运行顺序放反了。（${raw}）`;
+  if (/IndentationError/.test(raw)) return `缩进不对。函数体每行前面要留一样的空格。（${raw}）`;
+  if (/TypeError/.test(raw)) return `类型用错了。请检查每个名字里装的是词还是数。（${raw}）`;
   return raw;
 }
 
@@ -80,5 +80,5 @@ export function describeFullWidthPunctuation(code: string): string | null {
   const hits = findFullWidthPunctuation(code);
   if (hits.length === 0) return null;
   const first = hits[0];
-  return `第 ${first.line} 行有中文标点「${first.ch}」——换成半角的符号（字符串里写中文词没问题）。`;
+  return `第 ${first.line} 行有中文标点「${first.ch}」。请换成半角的符号，字符串里写中文词没有问题。`;
 }

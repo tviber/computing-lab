@@ -93,6 +93,12 @@ describe("lunch-shift judge", () => {
     if (good.testSummary.kind !== "ai-intake") return;
     expect(good.testSummary.correct).toBe(12);
     expect(good.testSummary.confirmed).toBe(4);
+    const p06 = good.testSummary.orders?.find((order) => order.id === "P06");
+    expect(p06?.correct).toBe(true);
+    expect(p06?.rescued).toBe(true);
+    const p03 = good.testSummary.orders?.find((order) => order.id === "P03");
+    expect(p03?.correct).toBe(true);
+    expect(p03?.rescued).toBe(false);
   });
 
   it("stage 2 fails when a stray confirmation leaves the real miss wrong", () => {
@@ -314,6 +320,11 @@ describe("lunch-shift judge", () => {
     const f11 = outcome.testSummary.orders?.find((order) => order.id === "F11");
     expect(f11?.correct).toBe(true);
     expect(f11?.confirmed).toBe(true);
+    expect(f11?.rescued).toBe(true);
+    expect(outcome.testSummary.run?.orders).toHaveLength(12);
+    const replayRow = outcome.testSummary.run?.orders[0];
+    expect(replayRow).not.toHaveProperty("request");
+    expect(replayRow).not.toHaveProperty("expected");
     const rows = db
       .prepare(
         "SELECT COUNT(*) AS n FROM submissions WHERE lab_id='lunch-shift' AND stage_index=4 AND passed=1",

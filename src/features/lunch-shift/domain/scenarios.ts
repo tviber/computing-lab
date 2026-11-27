@@ -5,12 +5,13 @@
  * stay server-only.
  *
  * Order-set properties (locked by engine.test.ts):
- *  - INTAKE set: the AI model misses 2 of 12 outright —
- *    P06 「想快一点但不想加钱」 → 加急 (true 普通, catchable by low
- *    margin) and P10 「辣子照旧」 → 少辣 (true 无备注 — “照旧” refers
- *    to the customer's usual, which the AI cannot know, so it should
- *    ask rather than guess; catchable by low similarity) — so
- *    need_confirm has real work to do on both signals.
+ *  - INTAKE set: the AI model misses P10 outright — 「辣子照旧」 →
+ *    少辣 (true 无备注 — “照旧” means the customer's usual, which is
+ *    the standard preparation; the AI has no history, so it should ask
+ *    rather than guess. Catchable by low similarity). P06 「想快一点但
+ *    不想加钱」 stays 普通 but with
+ *    a near-zero margin, so its urgency answer can flip on the next
+ *    phrasing and the margin signal still asks for a confirmation.
  *  - QUEUE set (小票已录对): FIFO 8/12 on-time, urgent-first 11/12, and
  *    urgent + wait-boost reaches 12/12 for every threshold T in 8..16.
  *  - RUSH set: an optional denser 20-order round for fast finishers.
@@ -77,13 +78,13 @@ export function trainingOrderFor(seed: string): TrainingOrder {
 /**
  * Stage 2 智能接单·练习 — 12 orders the local AI reads. The restaurant
  * sells a paid 加急 option, so urgency is phrased as paying for speed
- * (要加急 / 付费加急 / 走加急通道…). Two orders are designed model
- * misses: P06 wants speed without paying (想快一点但不想加钱 → reads
- * 急, margin ≈0.01 — the margin signal catches it) and P10 orders the
- * spice "as usual" (辣子照旧 → reads 少辣, similarity ≈0.57 — "usual"
- * depends on history the AI doesn't have, so guessing is exactly what
- * need_confirm exists for; only the similarity signal flags it) —
- * an honest need_confirm must send both back to the customer.
+ * (要加急 / 付费加急 / 走加急通道…). Two orders exercise the two
+ * confidence signals: P06 wants speed without paying and sits on a
+ * near-zero urgency margin (the value may flip, so margin should ask),
+ * while P10 asks for the usual preparation (辣子照旧 → reads 少辣,
+ * similarity ≈0.57 — "usual" depends on history the AI doesn't have;
+ * only the similarity signal flags it). An honest need_confirm sends
+ * both back to the customer.
  */
 export const INTAKE_FIXTURES: FixtureOrder[] = [
   {

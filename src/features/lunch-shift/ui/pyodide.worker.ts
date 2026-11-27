@@ -87,7 +87,7 @@ async function runRequest(pyodide: PyodideInterface, request: RunRequest): Promi
                 name === "compensate"
                   ? `urgent=${index >= 1922}, overtime=${Math.floor((index % 1922) / 62)}, delivered=${index % 62 >= 31}, price=${index % 31}`
                   : `urgent=${index >= 62}, wait=${(index % 62) >> 1}, cook=${index % 2 === 0 ? 1 : 3}`;
-              throw new Error(`${name}(${args}) 没有返回数——是不是有的情况忘了写 return？`);
+              throw new Error(`${name}(${args}) 没有返回数。是不是有的情况忘了写 return？`);
             }
             return value;
           }),

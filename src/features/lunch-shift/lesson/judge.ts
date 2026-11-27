@@ -93,6 +93,7 @@ export function evaluateLunchShiftSubmission(
         request: order.request,
         correct,
         confirmed: row.confirmed,
+        rescued: row.confirmed && !sameTicket(row.ticket, order.expected!),
         produced: row.confirmed ? order.expected! : row.ticket,
         expected: order.expected!,
       };
@@ -214,8 +215,23 @@ export function evaluateLunchShiftSubmission(
         id: order.id,
         correct: order.correct === true,
         confirmed: confirmStalls.has(order.id),
+        rescued:
+          confirmStalls.has(order.id) &&
+          order.expected !== undefined &&
+          !sameTicket(results.find((entry) => entry.id === order.id)?.ticket, order.expected),
+        delivered: order.delivered,
+        wait: order.wait,
         onTime: order.correct === true && order.onTime,
       })),
+      run: (() => {
+        const orders = run.orders.map((order) => {
+          const copy = { ...order };
+          delete copy.expected;
+          delete copy.request;
+          return copy;
+        });
+        return { ...run, orders };
+      })(),
     };
   }
 

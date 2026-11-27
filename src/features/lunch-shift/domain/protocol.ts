@@ -77,6 +77,8 @@ export type AiIntakeOrderResult = {
   correct: boolean;
   /** This order was sent back for customer confirmation. */
   confirmed: boolean;
+  /** The AI ticket would have been wrong, and confirmation saved it. */
+  rescued?: boolean;
   produced: Ticket;
   expected: Ticket;
 };
@@ -87,6 +89,11 @@ export type AiOrderResult = {
   correct: boolean;
   /** This order was sent back for customer confirmation. */
   confirmed: boolean;
+  /** The AI ticket would have been wrong, and confirmation saved it. */
+  rescued?: boolean;
+  delivered?: boolean;
+  /** Ticks from arrival to delivery; absent when the order never arrived. */
+  wait?: number;
   onTime: boolean;
 };
 
@@ -126,6 +133,8 @@ export type LunchTestSummary =
       /** Orders sent back for confirmation — budgeted at AI_CONFIRM_BUDGET. */
       confirmed: number;
       orders?: AiOrderResult[];
+      /** Replayable run, stripped of expected tickets before it leaves the judge. */
+      run?: RunSummary;
     }
   | {
       kind: "compensate";

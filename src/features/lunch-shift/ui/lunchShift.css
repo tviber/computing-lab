@@ -48,6 +48,10 @@
 .lunch-feedback.neutral {
   background: var(--subtle);
 }
+.lunch-feedback.warning {
+  background: var(--warning-soft);
+  border-color: var(--warning-border);
+}
 .lunch-feedback strong {
   font-weight: 650;
 }
@@ -492,4 +496,469 @@ ul.lunch-order-fix {
 }
 .lab-stage-bonus[open] summary {
   color: var(--accent);
+}
+
+/* Stage 1 — the lunch-rush premise. */
+.lunch-story {
+  margin: var(--space-3) 0 var(--space-4);
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.lunch-story h2 {
+  margin: var(--space-1) 0 var(--space-2);
+}
+.lunch-story p {
+  margin: var(--space-1) 0;
+  color: var(--secondary);
+}
+
+/* Stage 1 — a wrong ticket is allowed into the kitchen. */
+.lunch-consequence {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-panel);
+  background: var(--danger-soft);
+}
+.lunch-consequence > p {
+  margin: var(--space-1) 0 var(--space-3);
+  color: var(--secondary);
+  font-size: 13px;
+}
+.lunch-consequence-steps {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.lunch-consequence-step {
+  display: flex;
+  gap: var(--space-3);
+  align-items: baseline;
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--surface);
+  font-size: 13px;
+  opacity: 0;
+  animation: lunch-consequence-in 0.35s ease-out forwards;
+}
+.lunch-consequence-step:nth-child(2) {
+  animation-delay: 0.8s;
+}
+.lunch-consequence-step:nth-child(3) {
+  animation-delay: 1.6s;
+}
+.lunch-consequence-step b {
+  min-width: 4em;
+  color: var(--danger, #b23b2d);
+}
+
+@keyframes lunch-consequence-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Stage 1 — four-tick comparison of the two cook orders. */
+.lunch-race-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-2);
+}
+.lunch-race {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: var(--space-2) 0 var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--subtle);
+}
+.lunch-race-head,
+.lunch-race-row {
+  display: grid;
+  grid-template-columns: minmax(150px, 1.4fr) repeat(4, minmax(48px, 1fr));
+  gap: 4px;
+  align-items: stretch;
+}
+.lunch-race-head {
+  color: var(--muted);
+  font-size: 11px;
+  text-align: center;
+}
+.lunch-race-label {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 4px 6px;
+  font-size: 12px;
+}
+.lunch-race-label small {
+  color: var(--secondary);
+}
+.lunch-race-cell {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 38px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-mini);
+  background: var(--surface);
+  color: var(--muted);
+  font-size: 11px;
+}
+.lunch-race-cell.cooking {
+  border-color: var(--accent-line);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.lunch-race-cell.done {
+  border-color: var(--success-border, var(--accent));
+  background: var(--success-soft, var(--accent-soft));
+  color: var(--primary);
+  font-weight: 650;
+}
+
+/* Stage 2 — human triage before the code box. */
+.lunch-triage {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-panel);
+  background: var(--accent-soft);
+}
+.lunch-triage h2 {
+  margin: var(--space-1) 0 var(--space-2);
+}
+.lunch-triage-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+.lunch-triage-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.lunch-triage-title {
+  margin: 0;
+  font-weight: 650;
+}
+.lunch-triage-card blockquote {
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-left: 2px solid var(--accent-line);
+  background: var(--subtle);
+  border-radius: 0 var(--radius-mini) var(--radius-mini) 0;
+  font-size: 13px;
+}
+.lunch-triage-draft {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: var(--space-2) var(--space-3);
+  border: 1px dashed var(--border-strong, var(--border));
+  border-radius: var(--radius-control);
+  font-size: 13px;
+}
+.lunch-triage-draft span {
+  color: var(--muted);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+}
+.lunch-triage-draft small {
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.lunch-triage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.lunch-triage-actions .button[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.lunch-triage-card .lunch-feedback {
+  margin: 0;
+  font-size: 13px;
+}
+
+/* Stage 2 — raw AI run and confidence scatter. */
+.lunch-ai-preview {
+  margin: var(--space-3) 0;
+  padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.lunch-ai-preview-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+.lunch-ai-preview-head p {
+  margin: var(--space-1) 0;
+}
+.lunch-ai-preview .lunch-scatter {
+  margin-top: var(--space-3);
+}
+.lunch-scatter {
+  margin: 0;
+}
+.lunch-scatter svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.lunch-scatter-grid {
+  stroke: var(--border);
+  stroke-width: 1;
+  stroke-dasharray: 3 4;
+}
+.lunch-scatter-axis {
+  stroke: var(--secondary);
+  stroke-width: 1.4;
+}
+.lunch-scatter-tick {
+  fill: var(--muted);
+  font-size: 10px;
+  text-anchor: end;
+}
+.lunch-scatter-label {
+  fill: var(--secondary);
+  font-size: 11px;
+}
+.lunch-scatter-dot {
+  stroke-width: 1.5;
+}
+.lunch-scatter-dot.right {
+  fill: var(--success, #3f7d52);
+  stroke: var(--success-border, #3f7d52);
+}
+.lunch-scatter-dot.wrong {
+  fill: var(--danger, #b23b2d);
+  stroke: var(--danger-border, #b23b2d);
+}
+.lunch-scatter-dot.neutral {
+  fill: var(--accent);
+  stroke: var(--accent);
+}
+.lunch-scatter-dot.confirmed {
+  fill: var(--surface);
+  stroke-width: 3;
+}
+.lunch-scatter-dot.selected {
+  stroke-width: 3;
+}
+.lunch-scatter-point {
+  cursor: pointer;
+}
+.lunch-scatter-point:focus {
+  outline: none;
+}
+.lunch-scatter-point:focus-visible .lunch-scatter-dot {
+  stroke: var(--accent);
+  stroke-width: 3;
+}
+.lunch-scatter-halo {
+  fill: none;
+  stroke: var(--accent);
+  stroke-dasharray: 2 3;
+  stroke-width: 1;
+}
+.lunch-scatter-id {
+  fill: var(--secondary);
+  font-size: 9px;
+}
+.lunch-scatter figcaption {
+  margin-top: var(--space-2);
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+.lunch-scatter-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-3);
+  margin-top: var(--space-2);
+  color: var(--secondary);
+  font-size: 12px;
+}
+.lunch-scatter-legend span {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.lunch-scatter-legend i {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+.lunch-scatter-legend i.right {
+  background: var(--success, #3f7d52);
+}
+.lunch-scatter-legend i.wrong {
+  background: var(--danger, #b23b2d);
+}
+.lunch-scatter-legend i.ring {
+  border: 2px solid var(--secondary);
+  background: var(--surface);
+}
+.lunch-scatter-detail {
+  margin-top: var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-control);
+  background: var(--subtle);
+}
+.lunch-scatter-detail p {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: 0 0 2px;
+  font-size: 13px;
+}
+.lunch-scatter-detail small {
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.6;
+}
+
+/* Stage 3 — two playable presets before the editor. */
+.lunch-demo {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--subtle);
+}
+.lunch-demo > p {
+  margin: var(--space-1) 0;
+}
+.lunch-replay-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin: var(--space-3) 0;
+}
+.lunch-replay-tab[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--primary);
+}
+.lunch-replay-stage {
+  margin-top: var(--space-3);
+}
+.lunch-demo .lunch-result {
+  margin-top: var(--space-3);
+}
+
+/* Stage 5 — hand calculation before the function. */
+.lunch-tryout {
+  margin: var(--space-3) 0;
+  padding: var(--space-3);
+  border: 1px solid var(--accent-line);
+  border-radius: var(--radius-panel);
+  background: var(--accent-soft);
+}
+.lunch-tryout h2 {
+  margin: var(--space-1) 0 var(--space-2);
+}
+.lunch-tryout-list {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+  gap: var(--space-3);
+  margin: var(--space-3) 0;
+}
+.lunch-tryout-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-panel);
+  background: var(--surface);
+}
+.lunch-tryout-head {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.lunch-tryout-head span {
+  color: var(--secondary);
+  font-size: 12px;
+}
+.lunch-tryout-choices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.lunch-tryout-choice[aria-pressed="true"] {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--primary);
+}
+.lunch-tryout-line {
+  margin: 0;
+  color: var(--secondary);
+  font-size: 12px;
+}
+.lunch-tryout-delta {
+  margin: 0;
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+@media (max-width: 640px) {
+  .lunch-ai-preview-head {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .lunch-replay-tabs .button {
+    flex: 1 1 100%;
+  }
+  .lunch-race-head {
+    display: none;
+  }
+  .lunch-race-row {
+    grid-template-columns: 1fr repeat(4, minmax(38px, 1fr));
+  }
+  .lunch-race-label {
+    min-width: 0;
+  }
+  .lunch-consequence-step {
+    flex-direction: column;
+    gap: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lunch-consequence-step {
+    opacity: 1;
+    animation: none;
+  }
 }

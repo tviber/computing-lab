@@ -47,14 +47,14 @@ export function checkCompensateTable(raw: unknown): {
   if (raw === null || raw === undefined) {
     return {
       table: null,
-      errors: [`还没有可用的结果表，运行 compensate 后才算得出 ${COMPENSATE_TABLE_SIZE} 个值。`],
+      errors: [`还没有运行 compensate。请先运行一次，等函数返回 ${COMPENSATE_TABLE_SIZE} 个值。`],
     };
   }
   if (!Array.isArray(raw) || raw.length !== COMPENSATE_TABLE_SIZE) {
     return {
       table: null,
       errors: [
-        `结果表长度不对，应是 ${COMPENSATE_TABLE_SIZE} 个值（2 种是否加急 × 31 种超时 × 2 种是否送到 × 31 种金额）。`,
+        `compensate 返回的值不够长：应是 ${COMPENSATE_TABLE_SIZE} 个值（2 种是否加急 × 31 种超时 × 2 种是否送到 × 31 种金额）。`,
       ],
     };
   }
