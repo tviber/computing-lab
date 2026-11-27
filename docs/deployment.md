@@ -74,9 +74,13 @@ SHA of a successful push CI run on `main`.
 
 ### Provisioning
 
-- Install `release.sh`, `bundle-cache.sh`, and `receive-release.sh` from `deploy/` under
+- Install `reconcile.sh`, `fsync.py`, `release.sh`, `bundle-cache.sh`, and
+  `receive-release.sh` from `deploy/` under
   `/usr/local/libexec/computing-lab/`, owned by root and not writable by the
-  publisher. Keep the existing coordinated reconciler and API deployer.
+  publisher. The repository reconciler is the joint-release implementation; do
+  not keep a hand-maintained host copy. Keep the host-local API deployer.
+  Do not install `deploy/systemd/computing-lab-reconcile.*`: the timer and
+  webhook paths are retired.
 - Create a locked system account `computing-lab-git` without login or sudo, and
   `install -d -m 0700 -o computing-lab-git -g computing-lab-git /var/cache/computing-lab-git`.
   Install the executable cache helper and release script first, then the receiver.
@@ -113,6 +117,7 @@ restricted CI key authorizes the contents of the archive.
 Check the active versions in `/srv/computing-lab/state/current.sha` and
 `/srv/computing-lab-api/state/deployed.sha`. Inspect a push release with
 `journalctl -u computing-lab-push-<sha>.service`. If SSH delivery is unavailable,
-an administrator can still start `computing-lab-release@<sha>.service` to
-download directly from GitHub. A SHA already serving both frontend and API is
-a health-checked no-op.
+an administrator can still run
+`sudo /usr/local/libexec/computing-lab/release.sh <sha>` to download the
+archive directly from GitHub and run the same prepare/activate contract. A SHA
+already serving both frontend and API is a health-checked no-op.

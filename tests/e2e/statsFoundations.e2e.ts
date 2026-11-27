@@ -2,10 +2,21 @@ import { expect, test, type Locator } from "@playwright/test";
 
 async function moveSlider(slider: Locator, value: number) {
   const step = Number(await slider.getAttribute("step"));
-  const steps = Math.round((value - Number(await slider.inputValue())) / step);
   await slider.focus();
-  for (let i = 0; i < Math.abs(steps); i++) {
-    await slider.press(steps > 0 ? "ArrowRight" : "ArrowLeft");
+  let stalled = 0;
+  for (let attempt = 0; attempt < 500; attempt++) {
+    const current = await slider.inputValue();
+    if (Math.abs(Number(current) - value) <= step / 2) break;
+    await slider.press(value > Number(current) ? "ArrowRight" : "ArrowLeft");
+    // The slider is a controlled input: a render carrying an older draft can
+    // land after the key and undo it. Wait briefly for the key to land; if it
+    // was dropped, retry from the value that is actually on screen.
+    const changed = await expect(slider)
+      .not.toHaveValue(current, { timeout: 250 })
+      .then(() => true)
+      .catch(() => false);
+    stalled = changed ? 0 : stalled + 1;
+    if (stalled >= 20) throw new Error(`slider stalled at ${current} moving to ${value}`);
   }
   await expect(slider).toHaveValue(String(value));
 }
