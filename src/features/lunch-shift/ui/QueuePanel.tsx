@@ -355,6 +355,11 @@ export function QueuePanel(props: {
   const shownRun = () => localRun() ?? judgedRun();
   const shownProbes = () => localProbes() ?? judgedProbes();
   const allTableErrors = createMemo(() => [...judgedErrors(), ...tableErrors()]);
+  const probeScore = () => {
+    const probes = shownProbes();
+    if (!probes || probes.length === 0) return null;
+    return `${probes.filter((row) => row.passed).length} / ${probes.length}`;
+  };
   const replayRun = () => {
     const id = replaySource();
     if (id === "mine") return shownRun();
@@ -364,7 +369,10 @@ export function QueuePanel(props: {
     const id = replaySource();
     if (id === "fifo") return "预设：按到店顺序做";
     if (id === "urgent") return "预设：有加急就先做";
-    if (id === "mine") return "我的规则：这一轮回放";
+    if (id === "mine") {
+      const score = probeScore();
+      return score ? `我的规则：这一轮回放 · 抽检 ${score}` : "我的规则：这一轮回放";
+    }
     return "餐馆回放";
   };
   const showReplay = (id: "fifo" | "urgent" | "mine") => {

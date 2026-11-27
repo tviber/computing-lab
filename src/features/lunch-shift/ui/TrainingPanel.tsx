@@ -301,9 +301,7 @@ export function TrainingPanel(props: {
           </For>
         </div>
 
-        <Show when={differences().length > 0}>
-          <p class="lunch-note">小票已经交到厨房。先继续走完这一单，看看会发生什么。</p>
-        </Show>
+        <p class="lunch-note">小票已经交到厨房。接下来，厨房和送餐员都按这张票办事。</p>
       </Show>
 
       {/* 2 / 3 先做哪张 */}
@@ -505,18 +503,18 @@ export function TrainingPanel(props: {
           <span>{ticketSummary(props.draft.ticket)}</span>
         </div>
 
-        <h2>一张订单走到了顾客手里</h2>
-        <div aria-label="刚才经过的系统流程" class="lunch-system-chain">
-          <span>顾客提出需求</span>
-          <i>→</i>
-          <span>你录入订单数据</span>
-          <i>→</i>
-          <span>厨房按数据制作</span>
-          <i>→</i>
-          <span>送到对应顾客</span>
-        </div>
-        <p class="lunch-note">{cookingResult()}</p>
         <Show when={orderDataOk()}>
+          <h2>一张订单走到了顾客手里</h2>
+          <div aria-label="刚才经过的系统流程" class="lunch-system-chain">
+            <span>顾客提出需求</span>
+            <i>→</i>
+            <span>你录入订单数据</span>
+            <i>→</i>
+            <span>厨房按数据制作</span>
+            <i>→</i>
+            <span>送到对应顾客</span>
+          </div>
+          <p class="lunch-note">{cookingResult()}</p>
           <Show
             fallback={
               <div class="submit-row">

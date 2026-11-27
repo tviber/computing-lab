@@ -430,6 +430,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
   const [error, setError] = createSignal<string | null>(null);
   const [preview, setPreview] = createSignal<PreviewRow[] | null>(null);
   const [previewMode, setPreviewMode] = createSignal<"raw" | "run" | null>(null);
+  const [previewStale, setPreviewStale] = createSignal(false);
 
   // Model predictions keyed by the order set — an edit to need_confirm
   // or priority does not re-embed 300+ texts, so a rerun is Python-fast.
@@ -544,6 +545,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       const { predictions } = await predict();
       setPreview(makePreviewRows(predictions));
       setPreviewMode("raw");
+      setPreviewStale(false);
       setRunNote("AI 已经读完订单。先看红点落在哪，再写 need_confirm。");
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
@@ -580,6 +582,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
       const rows = makePreviewRows(predictions, confirms);
       setPreview(rows);
       setPreviewMode("run");
+      setPreviewStale(false);
       const results = rows.map((row) => ({
         id: row.id,
         ticket: row.prediction.ticket,
@@ -673,6 +676,11 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
           >
             {(rows) => (
               <>
+                <Show when={previewStale()}>
+                  <p class="lunch-note" role="status">
+                    代码已修改。散点图里仍是上一轮的确认圈，重新运行后会更新。
+                  </p>
+                </Show>
                 <ConfidenceScatter mode={previewMode() === "run" ? "run" : "raw"} rows={rows()} />
                 <OrderPreviewTable rows={rows()} showCorrect />
               </>
@@ -691,8 +699,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
             setPreview(null);
             setPreviewMode(null);
           } else {
-            setPreview((rows) => rows?.map((row) => ({ ...row, confirmed: false })) ?? null);
-            setPreviewMode((mode) => (mode === null ? null : "raw"));
+            setPreviewStale(preview()?.some((row) => row.confirmed) ?? false);
           }
           setRunNote(null);
         }}

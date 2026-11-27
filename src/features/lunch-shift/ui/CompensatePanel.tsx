@@ -60,7 +60,16 @@ const RISK_ROWS = REVIEW_RISK_TIERS.flatMap((tier) =>
 const COMPENSATE_CHOICE_VALUES = [0, 1, 2] as const;
 
 const reviewsText = (points: number) => `${points / 100}`;
-const signed = (value: number, digits = 2) => `${value > 0 ? "+" : ""}${value.toFixed(digits)}`;
+const reviewDeltaText = (current: number, baseline: number) => {
+  const diff = (current - baseline) / 100;
+  if (Math.abs(diff) < 0.005) return "差评不变";
+  return diff < 0 ? `少 ${Math.abs(diff).toFixed(2)} 单差评` : `多 ${diff.toFixed(2)} 单差评`;
+};
+const spendDeltaText = (current: number, baseline: number) => {
+  const diff = current - baseline;
+  if (diff === 0) return "花费不变";
+  return diff > 0 ? `多花 ${diff.toFixed(0)} 元` : `少花 ${Math.abs(diff).toFixed(0)} 元`;
+};
 
 function sampleLateOrders(orders: readonly CompensateLateOrder[]): CompensateLateOrder[] {
   const picked: CompensateLateOrder[] = [];
@@ -140,10 +149,11 @@ function TryoutBoard(props: { orders: readonly CompensateLateOrder[] }) {
                 <p class="lunch-tryout-line">
                   差评率 {risk()}% · 这一单花 {cost()} 元
                 </p>
-                <p class="lunch-tryout-delta">
-                  比不补偿：差评 {signed((risk() - baseRisk()) / 100)} 单 · 花费 {signed(cost(), 0)}{" "}
-                  元
-                </p>
+                <Show when={choiceOf(order.id) > 0}>
+                  <p class="lunch-tryout-delta">
+                    比不补偿：{reviewDeltaText(risk(), baseRisk())}，{spendDeltaText(cost(), 0)}
+                  </p>
+                </Show>
               </article>
             );
           }}
@@ -158,13 +168,15 @@ function TryoutBoard(props: { orders: readonly CompensateLateOrder[] }) {
           <b>{bill().spend}</b>
           整张账单补偿花费（元）
         </span>
-        <span>
-          <b>
-            {signed((bill().badReviewPoints - noCompBill.badReviewPoints) / 100)} 单 /{" "}
-            {signed(bill().spend - noCompBill.spend, 0)} 元
-          </b>
-          相对全不补偿
-        </span>
+        <Show when={Object.values(choices()).some((value) => value > 0)}>
+          <span>
+            <b>
+              {reviewDeltaText(bill().badReviewPoints, noCompBill.badReviewPoints)}，
+              {spendDeltaText(bill().spend, noCompBill.spend)}
+            </b>
+            相对全不补偿
+          </span>
+        </Show>
       </div>
       <p class="lunch-note">
         全不补偿的账单：预计差评 {reviewsText(noCompBill.badReviewPoints)} 单，花费 0 元。
