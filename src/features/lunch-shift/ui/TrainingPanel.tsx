@@ -164,13 +164,18 @@ export function TrainingPanel(props: {
     if (ticket.item !== expected.item || ticket.note !== expected.note) {
       steps.push({
         who: "厨房",
-        text: `照着这张票做了${ticket.item}，备注「${ticket.note}」。顾客点的其实是${expected.item}，备注「${expected.note}」。`,
+        text: `照着这张票做了${ticket.item}，备注「${ticket.note}」。顾客点的其实是${expected.item}，备注「${expected.note}」。菜端上桌时，顾客愣住了：“我没点这个。”`,
       });
     }
-    if (ticket.table !== expected.table) {
+    if (!deliveryOk()) {
       steps.push({
         who: "送餐员",
-        text: `把餐端到 ${ticket.table} 号桌。${expected.table} 号桌的顾客还在等自己的菜。`,
+        text: `把餐端到 ${props.draft.deliveredTable ?? "?"} 号桌。${expected.table} 号桌的顾客还在等自己的菜。`,
+      });
+    } else if (ticket.table !== expected.table) {
+      steps.push({
+        who: "送餐员",
+        text: `这次你把餐送对了，但小票上写的是 ${ticket.table} 号桌。换一位送餐员照票送，就会送到错桌。`,
       });
     }
     if (ticket.urgent !== expected.urgent) {
@@ -200,12 +205,21 @@ export function TrainingPanel(props: {
 
   return (
     <section class="lunch-journey">
+      <section class="lunch-story">
+        <p class="eyebrow">午市高峰 · 小满餐馆</p>
+        <h2>一个灶台，一位送餐员</h2>
+        <p>午市一到，门口就排起队。厨房只有一个灶台，出餐口只有一位送餐员。</p>
+        <p>
+          为了多接单，店里卖「加急券」：顾客多付 3 元，厨房保证从下单起 9 拍内出餐；普通单的承诺是
+          18 拍。
+        </p>
+        <p>你是前台接单员。厨房不直接听顾客说话，只认你写的小票；送餐员也按小票上的桌号送餐。</p>
+      </section>
+
       {/* 1 / 3 记小票 */}
       <p class="eyebrow">订单旅程 · 1 / 3</p>
       <h2>把顾客的话记成小票</h2>
-      <p>
-        你是前台接单员。厨房不直接听顾客说话，只认你写的小票；送餐员也按小票上的桌号送餐。顾客如果多付几块钱，可以把订单标成「加急」，后厨会优先做。
-      </p>
+      <p>先听清这位顾客要什么，再把小票交给厨房。</p>
       <img
         alt="前台接单员把小票夹到板上，柜台前顾客在说话"
         class="lunch-journey-img"
@@ -288,26 +302,7 @@ export function TrainingPanel(props: {
         </div>
 
         <Show when={differences().length > 0}>
-          <div class="lunch-consequence" role="alert">
-            <strong>这张小票已经进厨房了</strong>
-            <p>厨房和送餐员都只按小票办事。下面是这张票跑下去会发生的事：</p>
-            <ol class="lunch-consequence-steps">
-              <For each={consequenceSteps()}>
-                {(step) => (
-                  <li class="lunch-consequence-step">
-                    <b>{step.who}</b>
-                    <span>{step.text}</span>
-                  </li>
-                )}
-              </For>
-            </ol>
-            <div class="submit-row">
-              <Button class="button button-secondary" onClick={reviseTicket} type="button">
-                回前台改小票
-              </Button>
-              <span class="submit-note">改好之后，再让厨房做一次。</span>
-            </div>
-          </div>
+          <p class="lunch-note">小票已经交到厨房。先继续走完这一单，看看会发生什么。</p>
         </Show>
       </Show>
 
@@ -464,6 +459,38 @@ export function TrainingPanel(props: {
       </Show>
 
       <Show when={props.draft.step === "done"}>
+        <Show when={!orderDataOk()}>
+          <div class="lunch-consequence" role="alert">
+            <strong>送餐现场</strong>
+            <p>厨房和送餐员都只按小票办事。你刚才这一单是这样跑完的：</p>
+            <ol class="lunch-consequence-steps">
+              <For each={consequenceSteps()}>
+                {(step) => (
+                  <li class="lunch-consequence-step">
+                    <b>{step.who}</b>
+                    <span>{step.text}</span>
+                  </li>
+                )}
+              </For>
+            </ol>
+            <div class="submit-row">
+              <Show
+                fallback={
+                  <Button class="button button-secondary" onClick={reviseTicket} type="button">
+                    回前台改小票
+                  </Button>
+                }
+                when={ticketOk()}
+              >
+                <Button class="button button-secondary" onClick={redeliver} type="button">
+                  回到送餐这一步
+                </Button>
+              </Show>
+              <span class="submit-note">把出错的环节改对，再重走这一单。</span>
+            </div>
+          </div>
+        </Show>
+
         <div
           class={`lunch-feedback ${orderDataOk() ? "success victory" : "mistake"}`}
           role="status"
@@ -477,33 +504,6 @@ export function TrainingPanel(props: {
           </strong>
           <span>{ticketSummary(props.draft.ticket)}</span>
         </div>
-
-        <Show when={!orderDataOk()}>
-          <ul class="lunch-order-fix" role="alert">
-            <For each={differences()}>{(text) => <li>{text}</li>}</For>
-            <Show when={!deliveryOk()}>
-              <li>
-                小票写的是 {props.training.ticket.table} 号桌，实际送到了{" "}
-                {props.draft.deliveredTable ?? "—"} 号桌。
-              </li>
-            </Show>
-          </ul>
-          <div class="submit-row">
-            <Show
-              fallback={
-                <Button class="button button-secondary" onClick={reviseTicket} type="button">
-                  回前台改小票
-                </Button>
-              }
-              when={ticketOk()}
-            >
-              <Button class="button button-secondary" onClick={redeliver} type="button">
-                回到送餐这一步
-              </Button>
-            </Show>
-            <span class="submit-note">先把小票和送达的桌号改对，再提交这一关。</span>
-          </div>
-        </Show>
 
         <h2>一张订单走到了顾客手里</h2>
         <div aria-label="刚才经过的系统流程" class="lunch-system-chain">

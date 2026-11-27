@@ -225,7 +225,7 @@ function Replay(props: { run: RunSummary; autoPlay?: boolean }) {
             }
             return current + 1;
           }),
-        420,
+        650,
       );
       return () => window.clearInterval(timer);
     },
@@ -310,8 +310,8 @@ export function QueueResultView(props: { run: RunSummary; title: string; autoPla
           实际送达
         </span>
       </div>
-      <LateOrders run={props.run} />
       <Replay autoPlay={props.autoPlay} run={props.run} />
+      <LateOrders run={props.run} />
       <Show when={picks().length > 0}>
         <details class="lunch-pick-table">
           <summary>每一拍怎么选的</summary>
@@ -339,7 +339,11 @@ export function QueuePanel(props: {
   const [experiments, setExperiments] = createSignal<Record<string, RunSummary>>({});
   const [rushRun, setRushRun] = createSignal<RunSummary | null>(null);
   const [localProbes, setLocalProbes] = createSignal<ProbeRow[] | null>(null);
-  const [demo, setDemo] = createSignal<{ id: "fifo" | "urgent"; run: RunSummary } | null>(null);
+  const [presetRuns, setPresetRuns] = createSignal<Partial<Record<"fifo" | "urgent", RunSummary>>>(
+    {},
+  );
+  const [replaySource, setReplaySource] = createSignal<"fifo" | "urgent" | "mine" | null>(null);
+  let replayStageEl: HTMLDivElement | undefined;
 
   const source = () => (props.draft.code.trim() ? props.draft.code : QUEUE_STARTER);
   const judgedRun = () => (props.result?.kind === "queue" ? (props.result.run ?? null) : null);
@@ -351,6 +355,24 @@ export function QueuePanel(props: {
   const shownRun = () => localRun() ?? judgedRun();
   const shownProbes = () => localProbes() ?? judgedProbes();
   const allTableErrors = createMemo(() => [...judgedErrors(), ...tableErrors()]);
+  const replayRun = () => {
+    const id = replaySource();
+    if (id === "mine") return shownRun();
+    return id ? (presetRuns()[id] ?? null) : null;
+  };
+  const replayTitle = () => {
+    const id = replaySource();
+    if (id === "fifo") return "预设：按到店顺序做";
+    if (id === "urgent") return "预设：有加急就先做";
+    if (id === "mine") return "我的规则：这一轮回放";
+    return "餐馆回放";
+  };
+  const showReplay = (id: "fifo" | "urgent" | "mine") => {
+    setReplaySource(id);
+    window.requestAnimationFrame(() => {
+      replayStageEl?.scrollIntoView?.({ behavior: "smooth", block: "center" });
+    });
+  };
 
   const priority = () => props.draft.priority;
 
@@ -382,6 +404,7 @@ export function QueuePanel(props: {
         }),
       );
       setLocalRun(simulate(QUEUE_SCENARIO, { priority: table }).result);
+      showReplay("mine");
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -390,10 +413,9 @@ export function QueuePanel(props: {
   };
 
   const runPreset = (id: "fifo" | "urgent") => {
-    setDemo({
-      id,
-      run: simulate(QUEUE_SCENARIO, { priority: presetTable(id) }).result,
-    });
+    const run = simulate(QUEUE_SCENARIO, { priority: presetTable(id) }).result;
+    setPresetRuns((current) => ({ ...current, [id]: run }));
+    showReplay(id);
   };
 
   const extraArea = createMemo(() => {
@@ -420,28 +442,52 @@ export function QueuePanel(props: {
     <section class="lunch-challenge">
       <p>
         厨房和出餐台每一拍都会调用同一个 <code>priority(urgent, wait, cook)</code>
-        ：哪张单的返回值最大，就先做哪张。运行之后，页面会拿 12 个排队瞬间检查你的规则，答对 11
-        张过关。
+        ：哪张单的返回值最大，就先做哪张。先看两种简单排法的回放，再写自己的规则。
       </p>
 
       <section class="lunch-demo">
         <p class="eyebrow">先看两种简单排法</p>
-        <p>写规则之前，先让厨房按这两种做法各跑一轮。点击后，下面的餐馆回放会从第一拍开始播放。</p>
-        <div class="submit-row">
-          <Button class="button button-secondary" onClick={() => runPreset("fifo")} type="button">
+        <p>点标签切换同一块餐馆回放。看看这两种做法各自漏掉了谁。</p>
+        <div aria-label="选择回放来源" class="lunch-replay-tabs" role="group">
+          <Button
+            aria-pressed={replaySource() === "fifo" ? "true" : "false"}
+            class="button button-secondary lunch-replay-tab"
+            onClick={() => runPreset("fifo")}
+            type="button"
+          >
             按到店顺序做
           </Button>
-          <Button class="button button-secondary" onClick={() => runPreset("urgent")} type="button">
+          <Button
+            aria-pressed={replaySource() === "urgent" ? "true" : "false"}
+            class="button button-secondary lunch-replay-tab"
+            onClick={() => runPreset("urgent")}
+            type="button"
+          >
             有加急就先做
           </Button>
+          <Button
+            aria-pressed={replaySource() === "mine" ? "true" : "false"}
+            class="button button-secondary lunch-replay-tab"
+            disabled={!shownRun()}
+            onClick={() => showReplay("mine")}
+            type="button"
+          >
+            我的规则
+          </Button>
         </div>
-        <Show when={demo()}>
-          {(current) => (
-            <QueueResultView
-              autoPlay
-              run={current().run}
-              title={current().id === "fifo" ? "预设：按到店顺序做" : "预设：有加急就先做"}
-            />
+        <Show
+          fallback={<p class="lunch-note">先选一种排法，回放会从第一拍开始播放。</p>}
+          when={replayRun()}
+        >
+          {(run) => (
+            <div
+              class="lunch-replay-stage"
+              ref={(element) => {
+                replayStageEl = element;
+              }}
+            >
+              <QueueResultView autoPlay run={run()} title={replayTitle()} />
+            </div>
           )}
         </Show>
       </section>
@@ -538,6 +584,7 @@ export function QueuePanel(props: {
           setLocalRun(null);
           setLocalProbes(null);
           setTableErrors([]);
+          if (replaySource() === "mine") setReplaySource(null);
           props.onChange({ code, priority: null });
         }}
         value={source()}
@@ -576,9 +623,6 @@ export function QueuePanel(props: {
         </ul>
       </Show>
       <Show when={shownProbes()}>{(probes) => <ProbeResults probes={probes()} />}</Show>
-      <Show when={shownRun()}>
-        {(r) => <QueueResultView run={r()} title="这一轮的完整结果（不计分）" />}
-      </Show>
 
       <Show when={extraArea()}>
         {(extra) => (

@@ -6,9 +6,10 @@
  *
  * Order-set properties (locked by engine.test.ts):
  *  - INTAKE set: the AI model misses P10 outright — 「辣子照旧」 →
- *    少辣 (true 无备注 — “照旧” refers to the customer's usual, which
- *    the AI cannot know, so it should ask rather than guess; catchable
- *    by low similarity). P06 「想快一点但不想加钱」 stays 普通 but with
+ *    少辣 (true 无备注 — “照旧” means the customer's usual, which is
+ *    the standard preparation; the AI has no history, so it should ask
+ *    rather than guess. Catchable by low similarity). P06 「想快一点但
+ *    不想加钱」 stays 普通 but with
  *    a near-zero margin, so its urgency answer can flip on the next
  *    phrasing and the margin signal still asks for a confirmation.
  *  - QUEUE set (小票已录对): FIFO 8/12 on-time, urgent-first 11/12, and
@@ -80,7 +81,7 @@ export function trainingOrderFor(seed: string): TrainingOrder {
  * (要加急 / 付费加急 / 走加急通道…). Two orders exercise the two
  * confidence signals: P06 wants speed without paying and sits on a
  * near-zero urgency margin (the value may flip, so margin should ask),
- * while P10 orders the spice "as usual" (辣子照旧 → reads 少辣,
+ * while P10 asks for the usual preparation (辣子照旧 → reads 少辣,
  * similarity ≈0.57 — "usual" depends on history the AI doesn't have;
  * only the similarity signal flags it). An honest need_confirm sends
  * both back to the customer.
