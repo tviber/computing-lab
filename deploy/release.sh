@@ -25,8 +25,9 @@ static() {
     "$reconciler" "$@"
 }
 compare() {
-  curl --fail --silent --show-error --proto '=https' --connect-timeout 8 --max-time 20 \
-    --max-filesize 4194304 "https://api.github.com/repos/tviber/computing-lab/compare/$1...$2?per_page=1" \
+  curl --fail --silent --show-error --compressed --proto '=https' --connect-timeout 8 \
+    --max-time 90 --retry 3 --retry-delay 2 --retry-all-errors --max-filesize 4194304 \
+    "https://api.github.com/repos/tviber/computing-lab/compare/$1...$2?per_page=1" \
     | /usr/bin/python3 -c 'import json,sys; print(json.load(sys.stdin)["status"])'
 }
 require_forward_release() {
