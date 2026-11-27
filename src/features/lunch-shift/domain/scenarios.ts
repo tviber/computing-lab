@@ -162,6 +162,50 @@ export const INTAKE_FIXTURES: FixtureOrder[] = [
 
 export const INTAKE_SCENARIO = buildScenario("P", INTAKE_FIXTURES);
 
+export type TriageDecision = "direct" | "ask";
+
+export type TriageTone = "warning" | "neutral" | "mistake" | "success";
+
+export type IntakeTriageCase = {
+  id: string;
+  title: string;
+  draft: string;
+  draftNote: string;
+  directTone: TriageTone;
+  askTone: TriageTone;
+  direct: string;
+  ask: string;
+};
+
+/**
+ * Hand-checked triage warm-up cases for stage 2 (P06 near-zero urgency
+ * margin, P10 unknown "as usual" spice preference).
+ */
+export const INTAKE_TRIAGE_CASES: readonly IntakeTriageCase[] = [
+  {
+    id: "P06",
+    title: "「想快一点，但不想加钱」",
+    draft: "鸡腿饭 · 加蛋 · 7 号桌 · 普通",
+    draftNote: "AI 写成了普通，但它没有解释自己有多确定。",
+    directTone: "warning",
+    askTone: "neutral",
+    direct:
+      "你赌对了，这次 AI 刚好记对。可它对「加急还是普通」只领先一点点；换一种说法，它就可能把这单记成加急，厨房会把它插到普通单前面。",
+    ask: "你让顾客确认了一次。小票没有变，接单台白停了 1 拍。谨慎有成本，但这次的风险确实只差一点点。",
+  },
+  {
+    id: "P10",
+    title: "「辣子照旧」",
+    draft: "牛肉面 · 少辣 · 6 号桌 · 普通",
+    draftNote: "AI 不知道这位顾客平时吃多辣。",
+    directTone: "mistake",
+    askTone: "success",
+    direct:
+      "AI 不知道顾客平时怎么吃，只能把「照旧」猜成少辣。厨房照这张票做，顾客收到的会是一碗额外少了辣的面。",
+    ask: "顾客确认：照平时做就行，不用特别备注。AI 多加的「少辣」被删掉，小票改成无备注，接单台停 1 拍。",
+  },
+];
+
 /**
  * Stage 3 修排队 — tickets already correct; only queueing is graded.
  * Ladder (engine.test.ts locks this): FIFO 8/12, urgent-first 11/12

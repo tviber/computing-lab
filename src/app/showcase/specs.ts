@@ -55,6 +55,7 @@ import {
 } from "../../features/stats-foundations/domain/stages";
 import type { LabId } from "../../shared/lab/labMetadata";
 import type { JudgeProject, LabJudgeError } from "../../shared/lab/judging";
+import { reconcileCalculatorProject, resetCalculatorLibrary } from "./resetCalculator";
 
 export type LocalProject = JudgeProject & {
   drafts: Record<string, unknown>;
@@ -66,7 +67,8 @@ export type LocalProject = JudgeProject & {
 };
 
 type Result = { passed: boolean; [key: string]: unknown };
-type LocalSpec = {
+
+export type LocalSpec = {
   stages: readonly { index: number }[];
   sanitize: (stage: number, body: Record<string, unknown>) => unknown;
   evaluate: (
@@ -77,6 +79,20 @@ type LocalSpec = {
   next: (passed: number[]) => number;
   affected?: (from: number, stage: number) => boolean;
   extras?: (project: LocalProject) => Record<string, unknown>;
+  /** Extra runSummaries keys mirrored alongside `s<stage>` on judge and cleared on reset. */
+  summaryKeys?: Readonly<Partial<Record<number, string>>>;
+  /** Optional load-time project reconciliation; returns notices if the project was mutated. */
+  onLoad?: (project: LocalProject) => string[] | void;
+  /** Additional OCC check evaluated before committing a draft save. */
+  hasSaveConflict?: (project: LocalProject, body: Record<string, unknown>) => boolean;
+  /** Additional state updates applied atomically during a save. */
+  onSave?: (project: LocalProject, stage: number, body: Record<string, unknown>) => void;
+  /** Extra revision metadata merged into save responses. */
+  saveMetadata?: (project: LocalProject, applied: boolean) => Record<string, unknown>;
+  /** Additional state cleanup during stage/lab reset; may return user-facing notices. */
+  onReset?: (project: LocalProject, affected: (stage: number) => boolean) => string[] | void;
+  /** Marks a lab-owned onboarding guide as acknowledged. */
+  onAcknowledgeGuide?: (project: LocalProject) => void;
 };
 
 function verdict(value: { result: Result } | LabJudgeError): Result | LabJudgeError {
@@ -87,6 +103,29 @@ export const localSpecs: Record<LabId, LocalSpec> = {
   calculator: {
     stages: CALCULATOR_STAGES,
     sanitize: (_stage, body) => sanitizeGraph(body.graph),
+    onLoad: (project) => reconcileCalculatorProject(project),
+    hasSaveConflict: (project, body) =>
+      body.components !== undefined &&
+      body.expectedComponentsRevision !== (project.draftRevisions.components ?? 0),
+    onSave: (project, _stage, body) => {
+      if (body.components === undefined) return;
+      const originalLibrary = project.unlockedSubmodules;
+      project.unlockedSubmodules = mergeCustomComponents(
+        project.unlockedSubmodules as ComponentDef[],
+        body.components,
+      );
+      project.draftRevisions.components = (project.draftRevisions.components ?? 0) + 1;
+      reconcileCalculatorProject(project, originalLibrary);
+    },
+    saveMetadata: (project, applied) => ({
+      componentsRevision: applied
+        ? project.draftRevisions.components
+        : (project.draftRevisions.components ?? 0),
+    }),
+    onReset: (project, affected) => resetCalculatorLibrary(project, affected),
+    onAcknowledgeGuide: (project) => {
+      project.fullAdderGuideAcknowledged = true;
+    },
     evaluate: (project, stage, body) => {
       const evaluation = evaluateCalculatorSubmission(
         project,
@@ -166,6 +205,7 @@ export const localSpecs: Record<LabId, LocalSpec> = {
   },
   "lunch-shift": {
     stages: LUNCH_STAGES,
+    summaryKeys: { 2: "intake", 3: "queue", 4: "final", 5: "compensate" },
     sanitize: (stage, body) => sanitizeLunchDraft(stage, body.draft),
     evaluate: (project, stage, body) =>
       verdict(evaluateLunchShiftSubmission(project, stage, body.draft, INTAKE_SCENARIO)),
@@ -181,10 +221,18 @@ export const localSpecs: Record<LabId, LocalSpec> = {
   "logistic-regression": {
     stages: LOGISTIC_REGRESSION_STAGES,
     sanitize: (stage, body) => sanitizeLogisticRegressionDraft(stage, body.draft),
-    evaluate: (project, stage, body) =>
-      verdict(
+    onReset: (project, affected) => {
+      if (affected(4)) delete project.trainedSettings;
+    },
+    evaluate: (project, stage, body) => {
+      const outcome = verdict(
         evaluateLogisticRegressionSubmission(project, stage, body.draft, project.trainedSettings),
-      ),
+      );
+      if (!("error" in outcome) && outcome.passed && outcome.trainedSettings) {
+        project.trainedSettings = outcome.trainedSettings as LocalProject["trainedSettings"];
+      }
+      return outcome;
+    },
     next: nextLogisticRegressionStage,
   },
   "stats-foundations": {

@@ -14,6 +14,7 @@ import {
   clarifiedText,
   cosine,
   normalizedResults,
+  orderSetCacheKey,
   sanitizeAiResults,
   parseClarified,
   PRACTICE_ORDERS,
@@ -232,5 +233,19 @@ describe("textsToEmbed", () => {
     expect(texts).toContain("8号桌");
     expect(texts).toContain("不急着");
     expect(new Set(texts).size).toBe(texts.length);
+  });
+});
+
+describe("orderSetCacheKey", () => {
+  it("distinguishes boundary shifts that raw string concatenation would collide on", () => {
+    const a = orderSetCacheKey([
+      { id: "P1", request: "0牛肉面" },
+      { id: "P2", request: "鸡腿饭" },
+    ]);
+    const b = orderSetCacheKey([
+      { id: "P10", request: "牛肉面" },
+      { id: "P2", request: "鸡腿饭" },
+    ]);
+    expect(a).not.toBe(b);
   });
 });
