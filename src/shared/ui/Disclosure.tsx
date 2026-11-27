@@ -1,6 +1,6 @@
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
 import type { JSX } from "@solidjs/web";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createEffect, createSignal, Show, untrack } from "solid-js";
 import { Icon } from "./Icon";
 
 export type DisclosureProps = {
@@ -23,7 +23,9 @@ export type DisclosureProps = {
  * shared chevron icon, so summary rows look and behave the same everywhere.
  */
 export function Disclosure(props: DisclosureProps) {
-  const [innerOpen, setInnerOpen] = createSignal(props.defaultOpen ?? false);
+  const [innerOpen, setInnerOpen] = createSignal(
+    untrack(() => props.open ?? props.defaultOpen ?? false),
+  );
 
   createEffect(
     () => props.open,

@@ -301,7 +301,7 @@ export function QuantExplorer(props: {
             </Show>
             已装 {props.draft.toners.length} / {props.stage.tonerSlots} 槽
             {overSlots()
-              ? `打印机只有 ${props.stage.tonerSlots} 个槽，超出的 ${props.draft.toners.length - props.stage.tonerSlots!} 种装不进去，这样提交必定失败。`
+              ? `，打印机只有 ${props.stage.tonerSlots} 个槽，超出的 ${props.draft.toners.length - props.stage.tonerSlots!} 种装不进去，这样提交必定失败。`
               : " · 纸白永远免费"}
           </p>
           <Show when={props.stage.probes.length > 0}>

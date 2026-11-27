@@ -42,9 +42,33 @@ it("swaps the four-tick cook comparison when the student asks for the other orde
   expect(screen.getByText(/先做 · 要做 3 拍/)).toBeInTheDocument();
 });
 
-it("lets a wrong ticket through and names who follows the bad data", () => {
+it("lets a wrong ticket through without revealing the consequence immediately", () => {
   renderPanel({ step: "cook", ticket: { ...training.ticket, table: "3" } });
-  expect(screen.getByText("这张小票已经进厨房了")).toBeInTheDocument();
+  expect(screen.getByText(/小票已经交到厨房/)).toBeInTheDocument();
+  expect(screen.queryByText("送餐现场")).not.toBeInTheDocument();
+});
+
+it("shows the same neutral note when the ticket is correct", () => {
+  renderPanel({ step: "cook" });
+  expect(
+    screen.getByText("小票已经交到厨房。接下来，厨房和送餐员都按这张票办事。"),
+  ).toBeInTheDocument();
+});
+
+it("shows the delivery failure only after the order finishes", () => {
+  renderPanel({
+    step: "done",
+    ticket: { ...training.ticket, table: "3" },
+    deliveredTable: "3",
+  });
+  expect(screen.getByText("送餐现场")).toBeInTheDocument();
   expect(screen.getByText(/把餐端到 3 号桌/)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: "回前台改小票" })).toBeInTheDocument();
+  expect(screen.queryByText("一张订单走到了顾客手里")).not.toBeInTheDocument();
+});
+
+it("shows the completed system chain when the order was handled correctly", () => {
+  renderPanel({ step: "done", deliveredTable: "5" });
+  expect(screen.getByText("一张订单走到了顾客手里")).toBeInTheDocument();
+  expect(screen.getByText("送到对应顾客")).toBeInTheDocument();
 });

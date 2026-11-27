@@ -281,15 +281,9 @@ function Replay(props: { run: RunSummary; autoPlay?: boolean }) {
           onChange={(next) => onSeek(String(next))}
           step={1}
           value={step()}
-          valueText={`${step() + 1} / ${Math.max(frames().length, 1)} 帧`}
+          valueText={`第 ${step() + 1} 帧`}
         />
-        <strong>
-          {current()
-            ? `第 ${current()!.tick} 拍 · ${step() + 1} / ${frames().length} 帧`
-            : frames().length
-              ? `第 1 / ${frames().length} 帧`
-              : "没有事件"}
-        </strong>
+        <strong>{frames().length ? `共 ${frames().length} 帧` : "没有事件"}</strong>
       </div>
     </div>
   );
@@ -415,6 +409,7 @@ export function QueuePanel(props: {
         }),
       );
       setLocalRun(simulate(QUEUE_SCENARIO, { priority: table }).result);
+      showReplay("mine");
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -579,6 +574,7 @@ export function QueuePanel(props: {
           setLocalRun(null);
           setLocalProbes(null);
           setTableErrors([]);
+          if (replaySource() === "mine") setReplaySource(null);
           props.onChange({ code, priority: null });
         }}
         value={source()}
@@ -617,9 +613,6 @@ export function QueuePanel(props: {
         </ul>
       </Show>
       <Show when={shownProbes()}>{(probes) => <ProbeResults probes={probes()} />}</Show>
-      <Show when={shownRun()}>
-        {(r) => <QueueResultView run={r()} title="这一轮的完整结果（不计分）" />}
-      </Show>
 
       <Show when={extraArea()}>
         {(extra) => (

@@ -10,6 +10,10 @@ export function ConceptQuestion(props: {
   const answered = createMemo(() =>
     props.answer === props.question.correct ? new Set([props.question.id]) : new Set<string>(),
   );
+  const wrongPick = () =>
+    props.answer !== null && props.answer !== props.question.correct
+      ? { promptId: props.question.id, option: props.answer }
+      : null;
 
   return (
     <ConceptChecklist
@@ -17,6 +21,7 @@ export function ConceptQuestion(props: {
       onAnswer={(_, optionIndex) => props.onAnswer(optionIndex)}
       prompts={[props.question]}
       title="直觉小问答"
+      wrongPick={wrongPick()}
     />
   );
 }

@@ -1,5 +1,6 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import type { LikelihoodDraft } from "../domain/protocol.ts";
@@ -199,22 +200,16 @@ export function LikelihoodPanel(props: Props) {
 
         <div class="sf-controls-card">
           <h3>猜测硬币的偏向程度</h3>
-          <div class="sf-slider-group">
-            <div class="sf-slider-head">
-              <label for="sf-coin-p">正面朝上的概率 p</label>
-              <span class="sf-mono">{roundTo(props.draft.p, 2)}</span>
-            </div>
-            <input
-              id="sf-coin-p"
-              max={COIN_P_MAX}
-              min={COIN_P_MIN}
-              onChange={(e) => props.onChange({ ...props.draft, p: Number(e.currentTarget.value) })}
-              onInput={(e) => props.onChange({ ...props.draft, p: Number(e.currentTarget.value) })}
-              step={0.01}
-              type="range"
-              value={props.draft.p}
-            />
-          </div>
+          <LabeledSlider
+            label="正面朝上的概率 p"
+            max={Math.round(COIN_P_MAX * 100)}
+            min={Math.round(COIN_P_MIN * 100)}
+            onChange={(percent) => props.onChange({ ...props.draft, p: percent / 100 })}
+            step={1}
+            value={Math.round(props.draft.p * 100)}
+            valueText={String(roundTo(props.draft.p, 2))}
+            valueClass="sf-mono"
+          />
 
           <div class="sf-note-box">
             <strong>为什么是连乘？</strong>

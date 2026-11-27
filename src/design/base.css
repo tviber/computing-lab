@@ -344,8 +344,10 @@ p {
   color: currentColor;
 }
 
-.disclosure-trigger .disclosure-chevron .ui-icon {
-  transition: rotate 140ms ease-out;
+@media (prefers-reduced-motion: no-preference) {
+  .disclosure-trigger .disclosure-chevron .ui-icon {
+    transition: rotate 140ms ease-out;
+  }
 }
 
 .disclosure-trigger[aria-expanded="true"] .disclosure-chevron .ui-icon {

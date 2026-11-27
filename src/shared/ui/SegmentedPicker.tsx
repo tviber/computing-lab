@@ -42,17 +42,24 @@ export function SegmentedPicker<T extends string>(props: SegmentedPickerProps<T>
       value={props.value}
     >
       <SegmentedControlIndicator />
-      <For each={props.options}>
-        {(option) => (
-          <SegmentedControlItem
-            class={`segmented-picker-item${props.itemClass ? ` ${props.itemClass}` : ""}${option.class ? ` ${option.class}` : ""}`}
-            {...option.data}
-            disabled={option.disabled}
-            value={option.value}
-          >
-            {option.label}
-          </SegmentedControlItem>
-        )}
+      {/* Key by value, not by the inline option object, so a parent that rebuilds
+          its options array does not recreate (and blur) every item. */}
+      <For each={props.options.map((option) => option.value)}>
+        {(value) => {
+          const option = () =>
+            props.options.find((candidate) => candidate.value === value) ??
+            props.options[0] ?? { value: value, label: null };
+          return (
+            <SegmentedControlItem
+              class={`segmented-picker-item${props.itemClass ? ` ${props.itemClass}` : ""}${option().class ? ` ${option().class}` : ""}`}
+              {...option().data}
+              disabled={option().disabled}
+              value={value}
+            >
+              {option().label}
+            </SegmentedControlItem>
+          );
+        }}
       </For>
     </SegmentedControl>
   );

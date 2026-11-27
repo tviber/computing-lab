@@ -70,7 +70,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
       "桌上有一张纸条，只留下一串数字，没有署名，也没有单词。旁边贴着课堂上那张字符编码表。它到底在说什么？",
     task: "提交 decode(data) 还原出的单词。每个人的密码纸都不一样，它随你的账号生成。",
     hint: "Python 的 chr(code) 返回 code 对应的字符。",
-    judgeNote: "判定比对你提交的字符串与本关为你生成的那张密码纸。别人抄不了你的答案。",
+    judgeNote: "程序比对你提交的字符串与本关为你生成的那张密码纸。别人抄不了你的答案。",
     takeaway: "字符编码是「字符 ↔ 数值」的约定：一串数看不懂，配上约定就变成了单词。",
     example: {
       input: "data = [67, 65, 84]\ndecode(data)",
@@ -125,7 +125,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     description:
       "每 8 位是一个字节。比如 01001000 写成十进制是 72、对应字符 'H'；int(s, 2) 可以把二进制字符串 s 转成十进制数。",
     task: "提交 decode(data) 还原出的整句话。data 是一组 8 位 0/1 字符串。",
-    judgeNote: "判定比对你提交的句子与本关密文；概念题也必须全部答对。",
+    judgeNote: "程序比对你提交的句子与本关密文；概念题也必须全部答对。",
     takeaway: "二进制和十进制是同一个数的两种写法。写法是一层，数值对应哪个字符是另一层。",
     example: {
       input: 'data = ["01001000", "01101001"]\ndecode(data)',
@@ -201,7 +201,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
       "不用从零写：把格式约定逐条对到代码里的空上。题面会用到两种「倒序」写法：reversed(xs) 给出倒着取的 xs（常用在 for 里，原列表不变），xs.reverse() 则把 xs 这个列表就地翻转。",
     task: "补全 decode(data) 里的空，提交它还原出的像素矩阵。",
     hint: "像素数据的起点不用背，它写在文件头里：data[10] 开始存着一个整数。约定本身（B、G、R 顺序、最下面一行在最前面）都写在代码注释里，逐条对上去；翻转列表用 xs.reverse()（就地翻转原列表；reversed(xs) 只是倒着取、不改动它）。",
-    judgeNote: "判定比对整张像素矩阵。",
+    judgeNote: "程序比对整张像素矩阵。",
     takeaway: "你一个字节都没改：数据没变，换的是解释规则。不同的 decoder 恢复出不同的信息。",
     example: {
       input: [
@@ -337,7 +337,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
       "三个没有扩展名的片段摆在面前。手里有两个现成的 decoder：decode_as_text 和 decode_as_image。",
     task: "为每个文件选定正确的 decoder，并提交该 decoder 的真实输出。",
     hint: "两个 decoder 用在错误的输入上「也能跑」。跑得出结果不代表解释对了。元数据是发送方留下的提示。",
-    judgeNote: "判定核对每个文件的 decoder 选择与对应的解码输出。",
+    judgeNote: "程序核对每个文件的 decoder 选择与对应的解码输出。",
     takeaway: "bytes 本身没有类型魔法：文件格式、字符编码和元数据，才告诉程序该怎么解释它们。",
     starterCode: "",
     prompts: [
@@ -373,7 +373,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     description: "现成的 decode_bmp(data) 已经备好，它返回像素矩阵。你要做的只是取出藏着的情报。",
     task: "补全 decode(data) 里的空，提交它还原出的那句话。",
     hint: "像素矩阵先按行摊平；R 是 [r, g, b] 里的第 0 个分量；取出的编码值用 chr() 变回字符。",
-    judgeNote: "判定比对提取出的字符串。",
+    judgeNote: "程序比对提取出的字符串。",
     takeaway: "同一份文件里，不同区域可以有不同解释规则。decoder 也可以串起来用。",
     example: {
       input: [
@@ -448,7 +448,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     description: "和第 3 关确认的格式约定逐行对照。注释里是同事写错的版本。",
     task: "修好 decode(data)，提交它跑出的像素矩阵。还原出的应该还是那只猫。",
     hint: "同事的错法各不相同：起点写死了、行列对调了、读错了数组、通道顺序记反了、行序漏了。每个空都对回第 3 关的约定。行序那空要把列表就地翻转：pixels.reverse()。",
-    judgeNote: "判定比对整张像素矩阵，每个空都不能错。",
+    judgeNote: "程序比对整张像素矩阵，每个空都不能错。",
     takeaway: "decoder 里每个常量都是一条约定。写错任何一条，同一份数据就变成乱码。",
     example: {
       input: [

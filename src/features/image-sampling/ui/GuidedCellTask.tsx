@@ -230,7 +230,7 @@ export function GuidedCellTask(props: { code: string; onCodeChange: (code: strin
                     { value: "0", label: "0" },
                     { value: "1", label: "1" },
                   ]}
-                  value={guess() === undefined ? "" : String(guess())}
+                  value={guess() == null ? "" : String(guess())}
                 />
                 <Show when={guess() !== null}>
                   <span

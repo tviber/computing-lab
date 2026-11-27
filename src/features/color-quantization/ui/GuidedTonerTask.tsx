@@ -163,7 +163,7 @@ export function GuidedTonerTask(props: { code: string; onCodeChange: (code: stri
       <p>
         刚才实验台里的印刷效果，就是这么一个颜色一个颜色算出来的。规则只有一条：
         <strong>每种源色落到离它最近的候选色</strong>
-        候选色是纸白加上已装的墨粉。距离按 RGB 三个通道的平方差相加计算。
+        ，候选色包括纸白和已装的墨粉。距离按 RGB 三个通道的平方差相加计算。
       </p>
       <TonerPrediction outputs={current()?.outputs ?? null} />
 

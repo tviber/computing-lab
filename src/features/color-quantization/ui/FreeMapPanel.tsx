@@ -76,7 +76,7 @@ export function FreeMapPanel(props: {
       const disallowed = next.filter((v) => v >= 0 && !fixedLoadout.includes(v));
       if (disallowed.length) {
         throw new Error(
-          `粉盒里只装了 ${fixedLoadout.map((i) => TONER_RACK[i].name).join("、")}` +
+          `粉盒里只装了 ${fixedLoadout.map((i) => TONER_RACK[i].name).join("、")}，` +
             `不能映射到 ${TONER_RACK[disallowed[0]].name}。`,
         );
       }
