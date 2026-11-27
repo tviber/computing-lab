@@ -44,7 +44,7 @@ describe("TrainPanel deferred parameter consistency", () => {
 
     fireEvent.click(
       within(screen.getByRole("radiogroup", { name: "学习率预设" })).getByRole("radio", {
-        name: "较大 η = 0.8",
+        name: /较大/,
       }),
     );
     flush();

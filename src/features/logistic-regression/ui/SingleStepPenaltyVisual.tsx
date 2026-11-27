@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { createMemo, For } from "solid-js";
 import { binaryLogLoss } from "../domain/logisticRegression.ts";
 
@@ -63,6 +64,9 @@ export function SingleStepPenaltyVisual(props: {
             {penaltyBadge().label}
           </span>
         </div>
+        <p class="logistic-regression-muted-note">
+          <MathFormula>{String.raw`y=${props.trueY},\quad p=${props.predP.toFixed(2)},\quad \ell=-\ln(${(props.trueY === 1 ? props.predP : 1 - props.predP).toFixed(2)})\approx${props.loss.toFixed(3)}`}</MathFormula>
+        </p>
         <svg
           aria-label="预测概率与损失"
           class="logistic-regression-svg-chart"

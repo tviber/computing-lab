@@ -1,6 +1,8 @@
+import { MathText } from "../../../shared/ui/MathFormula";
 import { Button } from "@ui-sdk/solid/button";
 import { For, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon.tsx";
+import { isMathJudgePart } from "../domain/mathContent.ts";
 import type { LogisticRegressionTestSummary } from "../domain/protocol.ts";
 
 export function JudgeVerdictCard(props: {
@@ -37,10 +39,16 @@ export function JudgeVerdictCard(props: {
                 <li class={part.ok ? "is-ok" : "is-bad"}>
                   <span class="logistic-regression-part-label">
                     <Icon name={part.ok ? "check" : "x"} size={12} />
-                    {part.label}
+                    <Show when={isMathJudgePart(part.id)} fallback={part.label}>
+                      <MathText>{part.label}</MathText>
+                    </Show>
                   </span>
                   <Show when={part.detail}>
-                    <span class="logistic-regression-part-detail">{part.detail}</span>
+                    <span class="logistic-regression-part-detail">
+                      <Show when={isMathJudgePart(part.id)} fallback={part.detail}>
+                        <MathText>{part.detail!}</MathText>
+                      </Show>
+                    </span>
                   </Show>
                 </li>
               )}

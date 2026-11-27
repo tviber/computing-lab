@@ -173,8 +173,8 @@ export function evaluateLogisticRegressionSubmission(
         label: "没有已知词时的预测",
         ok: priorOk,
         detail: priorOk
-          ? `偏置 b = ${draft.bias.toFixed(1)}（空消息概率 ${pct(evalRes.emptyProbability)} < 50%）`
-          : `偏置 b = ${draft.bias.toFixed(1)} ≥ 0 会导致全是新词的短信被默认判为垃圾`,
+          ? `偏置 $b=${draft.bias.toFixed(1)}$（空消息概率 ${pct(evalRes.emptyProbability)} < 50%）`
+          : `偏置 $b=${draft.bias.toFixed(1)}\\ge0$ 会导致全是新词的短信被默认判为垃圾`,
       },
       conceptCheck.part,
     ];
@@ -203,13 +203,13 @@ export function evaluateLogisticRegressionSubmission(
     const parts: LogisticRegressionPartSummary[] = [
       {
         id: "train-loss",
-        label: "训练损失（≤ 0.08）",
+        label: "训练损失（$\\le0.08$）",
         ok: trOk,
         detail: `当前训练损失 ${finalEpoch.trainLoss.toFixed(4)}`,
       },
       {
         id: "val-loss",
-        label: "验证损失（≤ 0.12）",
+        label: "验证损失（$\\le0.12$）",
         ok: valOk,
         detail: `当前验证损失 ${finalEpoch.valLoss.toFixed(4)}（每条都预测 50% 时为 0.6931）`,
       },

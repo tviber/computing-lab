@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
 import { Disclosure } from "../../../shared/ui/Disclosure";
@@ -105,6 +106,12 @@ export function SampleBytes(props: { raw: string; pixels: PixelMatrix | null }) 
                   </For>
                 </select>
               </label>
+              <p>
+                图上行坐标{" "}
+                <MathFormula>{String.raw`y=${g().h}-1-${rowIndex()}=${g().h - 1 - rowIndex()}`}</MathFormula>
+                ；像素在数据区中的字节索引{" "}
+                <MathFormula>{String.raw`i=3(y_{\mathrm{file}}w+x)`}</MathFormula>。
+              </p>
               <div
                 aria-label="样例像素通道"
                 class="decoding-sample-scroll"
@@ -119,7 +126,13 @@ export function SampleBytes(props: { raw: string; pixels: PixelMatrix | null }) 
                   <thead>
                     <tr>
                       <th scope="col">通道</th>
-                      <For each={cols()}>{(column) => <th scope="col">x={column}</th>}</For>
+                      <For each={cols()}>
+                        {(column) => (
+                          <th scope="col">
+                            <MathFormula>{String.raw`x=${column}`}</MathFormula>
+                          </th>
+                        )}
+                      </For>
                     </tr>
                   </thead>
                   <tbody>

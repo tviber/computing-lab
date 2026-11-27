@@ -56,7 +56,7 @@
   align-items: center;
   border: 1px solid var(--scrim);
   border-radius: var(--radius-mini);
-  color: #fff;
+  color: var(--on-accent);
   display: inline-flex;
   font-size: 10px;
   font-weight: 700;

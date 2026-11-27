@@ -1,6 +1,6 @@
 import type { Context } from "hono";
 import type { AccountRole } from "../auth/session.ts";
-import type { AppVariables } from "../http/context.ts";
+import type { AppVariables } from "./context.ts";
 
 export const STUDENT_NO = /^[A-Za-z0-9_-]{2,32}$/;
 

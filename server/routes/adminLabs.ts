@@ -1,7 +1,11 @@
 import { Hono } from "hono";
 import { jsonError, type AppVariables } from "../http/context.ts";
 import { labInfo, setLabVisibility } from "../labs.ts";
-import { readBoolean, readJsonObject, readOptionalNullableStringArray } from "./adminValidation.ts";
+import {
+  readBoolean,
+  readJsonObject,
+  readOptionalNullableStringArray,
+} from "../http/validation.ts";
 
 export function adminLabsRoutes() {
   const app = new Hono<{ Variables: AppVariables }>();

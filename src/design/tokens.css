@@ -7,6 +7,7 @@
   --secondary: #526579;
   --muted: #5f6e81;
   --accent: #1769d2;
+  --on-accent: #ffffff;
   --accent-soft: #edf5ff;
   --focus: #79afea;
   --focus-ring: var(--accent);
@@ -30,6 +31,17 @@
   --danger-soft: #fdf1ef;
   --danger-border: #f0cfcb;
   --danger-ink: #991b1b;
+  /* Statistics series retain their brighter palette independently of UI status colors. */
+  --stats-correct: #16a34a;
+  --stats-error: #ef4444;
+  --stats-error-ink: #dc2626;
+  --stats-warning: #f59e0b;
+  --stats-warning-ink: #b45309;
+  --stats-accent: #2563eb;
+  --stats-neutral: #cbd5e1;
+  --stats-neutral-fill: #64748b;
+  --stats-neutral-border: #94a3b8;
+  --stats-neutral-ink: #475569;
   --accent-ink: #0c4ca4;
   --accent-line: #b6d4f4;
   --border-strong: #b8c3ce;

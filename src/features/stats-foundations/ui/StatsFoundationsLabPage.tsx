@@ -9,6 +9,7 @@ import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
+import { MathText } from "../../../shared/ui/MathFormula";
 import type {
   ConditionalProbDraft,
   LikelihoodDraft,
@@ -170,12 +171,14 @@ export function StatsFoundationsLabPage() {
               <Show keyed when={stage()}>
                 {(currentStage) => (
                   <StageBrief
-                    description={currentStage.description}
-                    hints={currentStage.hints}
-                    judgeNote={currentStage.judgeNote}
+                    description={<MathText>{currentStage.description}</MathText>}
+                    hints={currentStage.hints.map((hint) => (
+                      <MathText>{hint}</MathText>
+                    ))}
+                    judgeNote={<MathText>{currentStage.judgeNote}</MathText>}
                     passed={passed()}
-                    takeaway={currentStage.takeaway}
-                    task={currentStage.task}
+                    takeaway={<MathText>{currentStage.takeaway}</MathText>}
+                    task={<MathText>{currentStage.task}</MathText>}
                   />
                 )}
               </Show>
@@ -216,7 +219,7 @@ export function StatsFoundationsLabPage() {
                     class={`sf-feedback ${judge().passed ? "is-pass" : "is-fail"}`}
                     role="status"
                   >
-                    {judge().feedback}
+                    <MathText>{judge().feedback}</MathText>
                   </div>
                 )}
               </Show>

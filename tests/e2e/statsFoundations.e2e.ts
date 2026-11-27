@@ -128,10 +128,12 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   await submit.click();
   await page.getByRole("button", { name: /进入第 3 关/ }).click();
   await expectBlueTheme();
-  await page.getByRole("radio", { name: "负对数似然 −ln L(p)" }).click();
-  const coin = page.getByRole("slider", { name: "正面朝上的概率 p" });
+  await page.getByRole("radio", { name: /负对数似然/ }).click();
+  const coin = page.getByRole("slider", { name: /正面朝上的概率/ });
   await coin.press("Home");
-  await expect(page.locator(".sf-metric-value").nth(1)).toHaveText("6.698 × 10-10");
+  await expect(page.locator(".sf-metric-value").nth(1).locator("annotation")).toHaveText(
+    String.raw`6.698\times10^{-10}`,
+  );
   await moveSlider(coin, 73);
   await page.getByRole("button", { name: /连乘|相乘变成加法/ }).click();
   await submit.click();

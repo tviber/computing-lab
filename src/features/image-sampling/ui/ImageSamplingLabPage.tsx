@@ -1,3 +1,4 @@
+import { MathText } from "../../../shared/ui/MathFormula";
 import { useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
@@ -44,7 +45,7 @@ function samplingJudgeNote(stage: SamplingStageDef): string {
       : stage.mode === "tall"
         ? "本关要求高度大于宽度（高 > 宽）。"
         : "本关宽和高可以不同。";
-  return `${resolutionSource} ${stage.mode === "square" ? "n×n" : "宽×高"}会套用到判题图谱上。接收端凭格子图认人，至少 ${Math.round(stage.requiredAccuracy * 100)}% 的成员仍能被认出才算通过，且格子数不超过 ${stage.cellBudget}。${
+  return `${resolutionSource} ${stage.mode === "square" ? "$n\\times n$" : "$\\text{宽}\\times\\text{高}$"}会套用到判题图谱上。接收端凭格子图认人，至少 ${Math.round(stage.requiredAccuracy * 100)}% 的成员仍能被认出才算通过，且格子数不超过 ${stage.cellBudget}。${
     stage.requiresChooseSize
       ? `本关必须先写并运行 choose_size(images)，不能手动指定分辨率。${axisNote}`
       : axisNote
@@ -194,12 +195,12 @@ export function ImageSamplingLabPage() {
               <Show when={stage()}>
                 {(current) => (
                   <StageBrief
-                    description={current().description}
-                    hints={[current().hint]}
-                    judgeNote={samplingJudgeNote(current())}
+                    description={<MathText>{current().description}</MathText>}
+                    hints={[<MathText>{current().hint}</MathText>]}
+                    judgeNote={<MathText>{samplingJudgeNote(current())}</MathText>}
                     passed={state().passedStages.includes(current().index)}
-                    takeaway={current().takeaway}
-                    task={current().mission}
+                    takeaway={<MathText>{current().takeaway}</MathText>}
+                    task={<MathText>{current().mission}</MathText>}
                   />
                 )}
               </Show>

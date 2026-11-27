@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { createMemo, For, Show } from "solid-js";
 import {
   BLIND_GUESS_LOSS,
@@ -94,6 +95,10 @@ export function LossChartSvg(props: {
             </Show>
           </div>
         </div>
+        <p class="logistic-regression-muted-note">
+          盲猜基线：<MathFormula>{String.raw`p=0.5,\quad -\ln(0.5)=\ln2\approx0.693`}</MathFormula>
+          。
+        </p>
         <svg
           aria-label="每轮损失变化曲线"
           class="logistic-regression-svg-chart"
@@ -134,7 +139,7 @@ export function LossChartSvg(props: {
             y2={yOfLoss(BLIND_GUESS_LOSS)}
           />
           <text fill="var(--warn)" font-size="9" x={PAD_L + 4} y={yOfLoss(BLIND_GUESS_LOSS) - 4}>
-            p=0.5 时 ln2 ≈ 0.693
+            盲猜基线
           </text>
           <Show when={bgdPts().length > 0}>
             <polyline

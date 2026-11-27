@@ -1,3 +1,6 @@
+import { SubmissionFeedback } from "../../features/stats-foundations/ui/SubmissionFeedback";
+import { isMathJudgePart } from "../../features/logistic-regression/domain/mathContent";
+import { MathText } from "../../shared/ui/MathFormula";
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from "@ui-sdk/solid/dialog";
@@ -710,9 +713,36 @@ export function TeacherDashboardPage() {
                               return (
                                 <li class={ok ? "is-pass" : "is-fail"}>
                                   <span>
-                                    {check.label}
+                                    <Show
+                                      when={
+                                        lab().id === "logistic-regression" &&
+                                        isMathJudgePart(check.id)
+                                      }
+                                      fallback={check.label}
+                                    >
+                                      <MathText>{check.label}</MathText>
+                                    </Show>
                                     <Show when={check.detail}>
-                                      {(det) => <small>{det()}</small>}
+                                      {(det) => (
+                                        <small>
+                                          <Switch fallback={det()}>
+                                            <Match when={lab().id === "stats-foundations"}>
+                                              <SubmissionFeedback
+                                                detail={det()}
+                                                summary={d().testSummary.detail ?? ""}
+                                              />
+                                            </Match>
+                                            <Match
+                                              when={
+                                                lab().id === "logistic-regression" &&
+                                                isMathJudgePart(check.id)
+                                              }
+                                            >
+                                              <MathText>{det()}</MathText>
+                                            </Match>
+                                          </Switch>
+                                        </small>
+                                      )}
                                     </Show>
                                   </span>
                                   <span class="drawer-category-score">

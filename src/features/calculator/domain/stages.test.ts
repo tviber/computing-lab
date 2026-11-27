@@ -36,11 +36,11 @@ describe("calculator stage pin order", () => {
     expect(getStage(5)?.description).toContain("逐位取反再加 1");
     expect(getStage(5)?.description).toContain("0 表示零或正数，1 表示负数");
     expect(getStage(5)?.details).toContain("5 位二进制补码");
-    expect(getStage(5)?.details).toContain("1≤A≤15");
+    expect(getStage(5)?.details).toContain(String.raw`$1\le A\le15$`);
     expect(getStage(5)?.details).toContain("符号位");
     expect(getStage(6)?.description).toContain("Neg4");
     expect(getStage(6)?.details).toContain("5 位二进制补码");
-    expect(getStage(6)?.details).toContain("A < B");
+    expect(getStage(6)?.details).toContain("$A<B$");
   });
 
   it("has a non-empty takeaway for every stage", () => {

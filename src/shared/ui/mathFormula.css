@@ -1,7 +1,14 @@
-.math-formula-block {
-  display: block;
+.math-formula {
+  display: inline-block;
+  min-inline-size: 0;
   max-inline-size: 100%;
   overflow-x: auto;
+  vertical-align: middle;
+  padding-block: 0.15em;
+}
+
+.math-formula-block {
+  display: block;
   padding-block: 0.25em;
 }
 

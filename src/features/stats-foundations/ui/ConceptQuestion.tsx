@@ -1,5 +1,6 @@
 import { createMemo } from "solid-js";
 import { ConceptChecklist } from "../../../shared/lab/ConceptChecklist";
+import { MathText } from "../../../shared/ui/MathFormula";
 import type { StatsConceptQuestion } from "../domain/stages.ts";
 
 export function ConceptQuestion(props: {
@@ -20,6 +21,7 @@ export function ConceptQuestion(props: {
       answered={answered()}
       onAnswer={(_, optionIndex) => props.onAnswer(optionIndex)}
       prompts={[props.question]}
+      renderText={(text) => <MathText>{text}</MathText>}
       title="直觉小问答"
       wrongPick={wrongPick()}
     />

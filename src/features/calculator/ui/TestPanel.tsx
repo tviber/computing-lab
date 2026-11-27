@@ -13,7 +13,7 @@ import { readBus } from "../domain/bus";
 import type { Bit } from "../domain/graph";
 import type { BusDef, StageDef } from "../domain/stages";
 import type { JudgeOutcome, RunOutcome } from "../lesson/state";
-import { AnnotatedText } from "./CalculatorTerms";
+import { AnnotatedText, AnnotatedMathText } from "./CalculatorTerms";
 
 const ERROR_HINTS: Record<string, string> = {
   cycle: "这里形成了环：某个元件的输出绕回来成了自己的输入。沿着导线找回路，删掉其中一根。",
@@ -120,7 +120,8 @@ function CounterexampleBlock(props: {
         <div>
           <dt>用例</dt>
           <dd>
-            {props.counterexample.name}（<AnnotatedText text={props.counterexample.category} />）
+            <AnnotatedMathText text={props.counterexample.name} />（
+            <AnnotatedText text={props.counterexample.category} />）
           </dd>
         </div>
         <div>
@@ -250,7 +251,7 @@ export function TestPanel(props: {
                   {(result) => (
                     <tr class={result.passed ? "is-pass" : "is-fail"}>
                       <th scope="row">
-                        <AnnotatedText text={result.name} />
+                        <AnnotatedMathText text={result.name} />
                       </th>
                       <td>
                         <Show fallback={<Icon name="x" size={13} />} when={result.passed}>

@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { AccountRole } from "../auth/session.ts";
 import { newId, withTransaction } from "../db/client.ts";
 import { jsonError, type AppVariables } from "../http/context.ts";
-import { readJsonObject, readString, readTrimmedNonEmpty, STUDENT_NO } from "./adminValidation.ts";
+import { readJsonObject, readString, readTrimmedNonEmpty, STUDENT_NO } from "../http/validation.ts";
 
 export function adminClassesRoutes() {
   const app = new Hono<{ Variables: AppVariables }>();

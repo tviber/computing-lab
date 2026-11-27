@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 /**
  * Judge verdict display for the quantization lab: how many prints stay
  * unique, the budget usage (toner slots or mapping overrides), and the
@@ -56,7 +57,9 @@ export function QuantResultPanel(props: { outcome: QuantJudgeResult; stage: Quan
           <dt>接收端仍能认出</dt>
           <dd>
             {props.outcome.identified} / {props.outcome.total} 张
-            <span class="quant-verdict-sub">（要求 ≥ {required()} 张）</span>
+            <span class="quant-verdict-sub">
+              （要求 <MathFormula>{String.raw`\ge ${required()}`}</MathFormula> 张）
+            </span>
           </dd>
         </div>
         <div>

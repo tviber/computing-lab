@@ -94,7 +94,7 @@ it("lets the learner retry a field and a number independently, then return to th
 
 it("only works through the first binary group on request", () => {
   render(() => <BytePanel payload={{ kind: "bits", groups: ["01001000", "01001001"] }} />);
-  const clue = screen.getByText(/64 \+ 8 = 72/);
+  const clue = screen.getByText(/64 \+ 8 = 72/).closest(".math-formula")!;
   expect(clue).not.toBeVisible();
   fireEvent.click(screen.getByText("试读第一组"));
   flush();

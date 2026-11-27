@@ -531,7 +531,7 @@
 }
 
 .admin-modal::backdrop {
-  background: rgb(23 40 61 / 42%);
+  background: color-mix(in srgb, var(--primary) 42%, transparent);
 }
 
 .admin-modal {
