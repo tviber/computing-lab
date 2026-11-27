@@ -66,6 +66,7 @@ export function LunchShiftLabPage() {
     labId: "lunch-shift",
     state,
     dispatch,
+    dispatchSession: dispatch,
     draftOf: (stageIndex) => draftOf(state(), stageIndex),
     stageAffectedByReset: lunchStageAffectedByReset,
     onResetSuccess: () => {

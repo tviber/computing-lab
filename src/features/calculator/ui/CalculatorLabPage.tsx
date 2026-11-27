@@ -69,6 +69,7 @@ function CalculatorProjectPage() {
     labId: "calculator",
     state,
     dispatch,
+    dispatchSession: dispatch,
     draftOf: (stageIndex) => graphOf(state(), stageIndex),
     stageAffectedByReset: calculatorStageAffectedByReset,
     onResetSuccess: () => setSubmitError(null),

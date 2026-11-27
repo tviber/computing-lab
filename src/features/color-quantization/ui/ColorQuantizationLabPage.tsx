@@ -67,6 +67,7 @@ export function ColorQuantizationLabPage() {
     labId: "color-quantization",
     state,
     dispatch,
+    dispatchSession: dispatch,
     draftOf: (stageIndex) => draftOf(state(), stageIndex),
     onResetSuccess: () => setSubmitError(null),
     toAction: (proj, meta) => ({

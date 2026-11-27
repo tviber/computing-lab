@@ -28,6 +28,31 @@ export type LabSessionState<TDraft> = {
   conflictedLocalDrafts: Partial<Record<number, TDraft>>;
 };
 
+/**
+ * The save/sync actions every lab reducer must understand. Pages pass their
+ * own dispatch here so the hook's default actions are checked against each
+ * lesson's action union instead of being asserted into it.
+ */
+export type LabSessionAction<TDraft> =
+  | { type: "mark-saving"; stageIndex: number }
+  | {
+      type: "mark-saved";
+      stageIndex: number;
+      revision?: number;
+      componentsRevision?: number;
+      componentsSeq?: number;
+    }
+  | { type: "mark-save-error"; stageIndex: number }
+  | { type: "mark-save-sync-error"; stageIndex: number }
+  | {
+      type: "resolve-save-conflict";
+      stageIndex: number;
+      draft: TDraft;
+      revision?: number;
+    }
+  | { type: "restore-conflict-draft"; stageIndex: number }
+  | { type: "discard-conflict-draft"; stageIndex: number };
+
 export type LabSessionAutosaveOptions<TDraft, TState extends LabSessionState<TDraft>> = {
   /** Override which project state allows autosave (defaults to projectLoaded). */
   ready?: (project: { projectLoaded: boolean; loadError: string | null }) => boolean;
@@ -44,6 +69,7 @@ export type LabSessionOptions<TDraft, TExtras, TAction, TState extends LabSessio
   labId: string;
   state: () => TState;
   dispatch: (action: TAction) => void;
+  dispatchSession: (action: LabSessionAction<TDraft>) => void;
   draftOf: (stageIndex: number) => TDraft | undefined;
   toAction: UseLabProjectOptions<TDraft, TExtras, TAction>["toAction"];
   onResetSuccess?: () => void;
@@ -98,8 +124,6 @@ export function useLabSession<TDraft, TExtras, TAction, TState extends LabSessio
 ) {
   const latestOptions = () => getOptions();
 
-  const sessionAction = (action: unknown) => action as TAction;
-
   const project = useLabProject<TDraft, TExtras, TAction>(() => {
     const options = latestOptions();
     return {
@@ -120,18 +144,20 @@ export function useLabSession<TDraft, TExtras, TAction, TState extends LabSessio
       fetchProject: project.fetchProject,
       stageIndex,
       onResolved: (resolvedStage, loaded) => {
-        const action =
-          options.actions?.resolvedConflict?.(resolvedStage, loaded) ??
-          sessionAction({
+        const resolvedAction = options.actions?.resolvedConflict?.(resolvedStage, loaded);
+        if (resolvedAction) {
+          options.dispatch(resolvedAction);
+        } else {
+          options.dispatchSession({
             type: "resolve-save-conflict",
             stageIndex: resolvedStage,
-            draft: loaded.drafts?.[resolvedStage],
+            draft: loaded.drafts[resolvedStage],
             revision: loaded.draftRevisions?.[resolvedStage],
           });
-        options.dispatch(action);
+        }
       },
       onSyncError: (failedStage) =>
-        options.dispatch(sessionAction({ type: "mark-save-sync-error", stageIndex: failedStage })),
+        options.dispatchSession({ type: "mark-save-sync-error", stageIndex: failedStage }),
     });
   };
 
@@ -159,7 +185,7 @@ export function useLabSession<TDraft, TExtras, TAction, TState extends LabSessio
       deps: autosave?.deps?.(currentState) ?? [currentState.drafts],
       expectedGeneration: project.projectGeneration,
       resetVersion: project.saveGeneration,
-      expectedRevisionOf: (stageIndex) => currentState.draftRevisions[stageIndex] ?? 0,
+      expectedRevisionOf: (stageIndex) => options.state().draftRevisions[stageIndex] ?? 0,
       bodyFor: autosave?.bodyFor,
       holdSend: autosave?.holdSend,
       expectedComponentsRevisionOf: autosave?.expectedComponentsRevisionOf
@@ -168,16 +194,21 @@ export function useLabSession<TDraft, TExtras, TAction, TState extends LabSessio
       componentsSeqOf: autosave?.componentsSeqOf
         ? () => autosave.componentsSeqOf?.(options.state()) ?? 0
         : undefined,
-      onSaving: (stageIndex) =>
-        options.dispatch(sessionAction({ type: "mark-saving", stageIndex })),
+      onSaving: (stageIndex) => options.dispatchSession({ type: "mark-saving", stageIndex }),
       onSaved: (stageIndex, revision, componentsRevision, componentsSeq) => {
-        const action =
-          options.actions?.saved?.(stageIndex, revision, componentsRevision, componentsSeq) ??
-          sessionAction({ type: "mark-saved", stageIndex, revision });
-        options.dispatch(action);
+        const savedAction = options.actions?.saved?.(
+          stageIndex,
+          revision,
+          componentsRevision,
+          componentsSeq,
+        );
+        if (savedAction) {
+          options.dispatch(savedAction);
+        } else {
+          options.dispatchSession({ type: "mark-saved", stageIndex, revision });
+        }
       },
-      onError: (stageIndex) =>
-        options.dispatch(sessionAction({ type: "mark-save-error", stageIndex })),
+      onError: (stageIndex) => options.dispatchSession({ type: "mark-save-error", stageIndex }),
       onConflict: reconcileConflict,
     };
   });
@@ -200,12 +231,10 @@ export function useLabSession<TDraft, TExtras, TAction, TState extends LabSessio
         current.conflictedLocalDrafts[current.stageIndex] !== undefined;
       if (!hasBackup) return undefined;
       return () =>
-        options.dispatch(
-          sessionAction({
-            type: "restore-conflict-draft",
-            stageIndex: latestOptions().state().stageIndex,
-          }),
-        );
+        options.dispatchSession({
+          type: "restore-conflict-draft",
+          stageIndex: latestOptions().state().stageIndex,
+        });
     },
     onDiscardLocal: () => {
       const options = latestOptions();
@@ -215,12 +244,10 @@ export function useLabSession<TDraft, TExtras, TAction, TState extends LabSessio
         current.conflictedLocalDrafts[current.stageIndex] !== undefined;
       if (!hasBackup) return undefined;
       return () =>
-        options.dispatch(
-          sessionAction({
-            type: "discard-conflict-draft",
-            stageIndex: latestOptions().state().stageIndex,
-          }),
-        );
+        options.dispatchSession({
+          type: "discard-conflict-draft",
+          stageIndex: latestOptions().state().stageIndex,
+        });
     },
   };
 

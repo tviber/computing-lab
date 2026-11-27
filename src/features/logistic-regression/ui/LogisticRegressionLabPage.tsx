@@ -75,6 +75,7 @@ export function LogisticRegressionLabPage() {
     labId: "logistic-regression",
     state,
     dispatch,
+    dispatchSession: dispatch,
     draftOf: (stageIndex) => (stageIndex === 5 ? undefined : draftOf(state(), stageIndex)),
     onResetSuccess: () => {
       setSubmitError(null);

@@ -73,6 +73,7 @@ export function StatsFoundationsLabPage() {
     labId: "stats-foundations",
     state,
     dispatch,
+    dispatchSession: dispatch,
     draftOf: (stageIndex) => draftOf(state(), stageIndex),
     onResetSuccess: () => {
       setSubmitError(null);

@@ -83,6 +83,7 @@ export function ImageSamplingLabPage() {
     labId: "image-sampling",
     state,
     dispatch,
+    dispatchSession: dispatch,
     draftOf: (stageIndex) => draftOf(state(), stageIndex),
     onResetSuccess: () => setSubmitError(null),
     toAction: (proj, meta) => ({
