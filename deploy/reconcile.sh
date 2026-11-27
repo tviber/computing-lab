@@ -3,6 +3,10 @@ set -Eeuo pipefail
 
 # Computing Lab host-side static reconciler.
 # This script is intentionally Bash-only and has no application runtime.
+#
+# Commands: prepare <sha> <archive> <sha256>, activate <sha>, status, hold,
+# resume, cleanup. The SSH release coordinator drives prepare/activate for each
+# pushed archive; the former standalone codeload/webhook timer path is retired.
 umask 027
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
@@ -39,13 +43,6 @@ fi
 DEPLOY_TEST_MODE="$REQUESTED_TEST_MODE"
 
 DEPLOY_ROOT="${DEPLOY_ROOT:-/srv/computing-lab}"
-SOURCE_KIND="${SOURCE_KIND:-codeload}"
-SOURCE_REPO="${SOURCE_REPO:-tviber/computing-lab}"
-SOURCE_REF="${SOURCE_REF:-main}"
-ARCHIVE_BASE_URLS="${ARCHIVE_BASE_URLS:-https://codeload.github.com}"
-GITHUB_API_BASE="${GITHUB_API_BASE:-https://api.github.com}"
-GITHUB_TOKEN_FILE="${GITHUB_TOKEN_FILE:-/etc/computing-lab/github.token}"
-CURL_BIN="${CURL_BIN:-/usr/bin/curl}"
 BUN_BIN="${BUN_BIN:-}"
 PYTHON_BIN="${PYTHON_BIN:-python3}"
 FLOCK_BIN="${FLOCK_BIN:-flock}"
@@ -63,20 +60,12 @@ TX_FILE="$STATE_DIR/transaction"
 HOLD_FILE="$STATE_DIR/hold"
 CURRENT_MARKER="$STATE_DIR/current.sha"
 PREVIOUS_MARKER="$STATE_DIR/previous.sha"
-TARGET_FILE="$STATE_DIR/target.sha"
-TARGET_FAILED_FILE="$STATE_DIR/target.failed"
-API_ETAG_FILE="$STATE_DIR/github-main.etag"
-API_SHA_FILE="$STATE_DIR/github-main.sha"
 ARCHIVE_SHA256=''
-TARGET_FROM_WEBHOOK=0
-ARCHIVE_FILE=''
 UNPACK_DIR=''
 
 LOCK_FD=''
 LOCK_HELD=0
 STAGING_DIR=''
-RELEASE_CREATED=''
-TARGET_SHA=''
 
 log() { printf 'computing-lab-deploy: %s\n' "$*"; }
 die() { printf 'computing-lab-deploy: %s\n' "$*" >&2; exit 1; }
@@ -176,7 +165,6 @@ validate_base() {
 validate_config() {
   [[ "$DEPLOY_ROOT" == /* && "$DEPLOY_ROOT" != "/" && "$DEPLOY_ROOT" != */..* ]] \
     || die 'DEPLOY_ROOT must be an absolute non-root path'
-  [[ "$SOURCE_KIND" == codeload && "$SOURCE_REPO" == tviber/computing-lab && "$SOURCE_REF" == main ]] || die 'source must be tviber/computing-lab main via codeload'
   [[ "$VITE_BASE_PATH" == "/" ]] || die 'production reconciler requires VITE_BASE_PATH=/'
   [[ "$DEPLOY_TEST_MODE" == 0 || "$DEPLOY_TEST_MODE" == 1 ]] || die 'DEPLOY_TEST_MODE must be 0 or 1'
   [[ "$DEPLOY_CONFIG" == /* && -f "$DEPLOY_CONFIG" && ! -L "$DEPLOY_CONFIG" ]] \
@@ -185,8 +173,6 @@ validate_config() {
     || die 'PYTHON_BIN must be an absolute executable non-symlink path'
   [[ "$FLOCK_BIN" == /* && -x "$FLOCK_BIN" && ! -L "$FLOCK_BIN" ]] \
     || die 'FLOCK_BIN must be an absolute executable non-symlink path'
-  [[ "$GITHUB_API_BASE" == https://* ]] || die 'GITHUB_API_BASE must use HTTPS'
-  [[ "$CURL_BIN" == /* && -x "$CURL_BIN" && ! -L "$CURL_BIN" ]] || die 'CURL_BIN must be an absolute executable'
   [[ -n "$BUN_BIN" && "$BUN_BIN" == /* && -x "$BUN_BIN" && ! -L "$BUN_BIN" ]] \
     || die 'BUN_BIN must be an absolute, executable, non-symlink path'
   [[ "$KEEP_RELEASES" =~ ^[1-9][0-9]*$ ]] || die 'KEEP_RELEASES must be positive'
@@ -197,7 +183,6 @@ validate_config() {
   validate_trusted_file "$DEPLOY_CONFIG" DEPLOY_CONFIG config root
   validate_trusted_file "$PYTHON_BIN" PYTHON_BIN binary root
   validate_trusted_file "$FLOCK_BIN" FLOCK_BIN binary root
-  validate_trusted_file "$CURL_BIN" CURL_BIN binary root
 }
 
 ensure_root_safety() {
@@ -283,22 +268,9 @@ validate_lock_path() {
 
 on_exit() {
   local status=$?
-  if [[ "$status" != 0 && -n "$TARGET_SHA" && -f "$TARGET_FILE" && "$(<"$TARGET_FILE")" == "$TARGET_SHA" ]]; then
-    local attempts=0
-    [[ -f "$TARGET_FAILED_FILE" ]] && attempts="$(awk -F= -v sha="$TARGET_SHA" '$1==sha {print $2}' "$TARGET_FAILED_FILE")"
-    [[ "$attempts" =~ ^[0-9]+$ ]] || attempts=0
-    attempts=$((attempts + 1))
-    if (( attempts >= 2 )); then
-      atomic_write "$TARGET_FAILED_FILE" "$TARGET_SHA"
-      log "target $TARGET_SHA failed twice; automatic retries stopped"
-    else
-      atomic_write "$TARGET_FAILED_FILE" "$TARGET_SHA=$attempts"
-    fi
-  fi
   if [[ -n "$STAGING_DIR" && -d "$STAGING_DIR" ]]; then
     rm -rf "$STAGING_DIR"
   fi
-  [[ -z "$ARCHIVE_FILE" ]] || rm -f "$ARCHIVE_FILE"
   [[ -z "$UNPACK_DIR" ]] || rm -rf "$UNPACK_DIR"
   release_lock
   exit "$status"
@@ -448,7 +420,7 @@ if values.get("SOURCE_KIND") is None:
     if values.get("GITEE_REF") != "main":
         raise SystemExit(1)
 else:
-    if values.get("SOURCE_KIND") != "codeload" or values.get("SOURCE_REF") != "main":
+    if values.get("SOURCE_KIND") not in {"codeload", "ssh"} or values.get("SOURCE_REF") != "main":
         raise SystemExit(1)
     if values.get("SOURCE_REPO") != "tviber/computing-lab":
         raise SystemExit(1)
@@ -550,84 +522,18 @@ test_fail_phase() {
   kill -KILL "$$"
 }
 
-validate_target_file() {
-  [[ -e "$TARGET_FILE" || -L "$TARGET_FILE" ]] || return 0
-  "$PYTHON_BIN" - "$TARGET_FILE" "$DEPLOY_TEST_MODE" <<'PY'
-import os, stat, sys
-p, test = sys.argv[1:]
-i = os.lstat(p)
-if stat.S_ISLNK(i.st_mode) or not stat.S_ISREG(i.st_mode): raise SystemExit("state/target.sha must be a regular non-symlink file")
-if test != "1" and (i.st_uid, i.st_gid) != (os.geteuid(), os.getegid()): raise SystemExit("state/target.sha must be owned by computing-lab")
-if stat.S_IMODE(i.st_mode) & 0o022: raise SystemExit("state/target.sha has unsafe permissions")
-PY
-}
-
-api_main_sha() {
-  local headers="$WORK_DIR/api.headers" body="$WORK_DIR/api.json" code token
-  mkdir -p "$WORK_DIR"
-  local args=(--fail --silent --show-error --proto '=https' --tlsv1.2 -m 30 -D "$headers" -o "$body" -w '%{http_code}')
-  if [[ -f "$API_ETAG_FILE" ]]; then args+=(-H "If-None-Match: $(<"$API_ETAG_FILE")"); fi
-  if [[ -f "$GITHUB_TOKEN_FILE" ]]; then
-    validate_trusted_file "$GITHUB_TOKEN_FILE" GITHUB_TOKEN_FILE token root
-    token="$(<"$GITHUB_TOKEN_FILE")"
-    args+=(-H "Authorization: Bearer $token")
-  fi
-  code="$("$CURL_BIN" "${args[@]}" "$GITHUB_API_BASE/repos/$SOURCE_REPO/commits/main" 2>/dev/null)" || code=000
-  if [[ "$code" == 304 ]]; then
-    [[ -f "$API_SHA_FILE" ]] && cat "$API_SHA_FILE" || return 1
-    return
-  fi
-  [[ "$code" == 200 ]] || return 1
-  local sha etag
-  sha="$("$PYTHON_BIN" -c 'import json,sys; print(json.load(open(sys.argv[1])).get("sha", ""))' "$body" 2>/dev/null)" || return 1
-  is_sha "$sha" || return 1
-  etag="$(awk 'BEGIN{IGNORECASE=1} /^ETag:/{sub(/\r$/, ""); sub(/^[^:]*:[[:space:]]*/, ""); print; exit}' "$headers")"
-  [[ -z "$etag" ]] || { atomic_write "$API_ETAG_FILE" "$etag"; atomic_write "$API_SHA_FILE" "$sha"; }
-  printf '%s' "$sha"
-}
-
-resolve_target_sha() {
-  validate_target_file
-  if [[ -e "$TARGET_FILE" ]]; then
-    TARGET_FROM_WEBHOOK=1
-    TARGET_SHA="$(<"$TARGET_FILE")"
-    is_sha "$TARGET_SHA" || die 'state/target.sha must contain a full lowercase SHA'
-    return
-  fi
-  TARGET_FROM_WEBHOOK=0
-  TARGET_SHA="$(api_main_sha 2>/dev/null || true)"
-  if ! is_sha "$TARGET_SHA"; then TARGET_SHA=''; log 'GitHub API unavailable and no webhook target; reconcile is a no-op'; return 1; fi
-}
-
-fetch_archive() {
-  local sha="$1" destination="$2" base
-  local -a bases
-  IFS=' ' read -r -a bases <<<"$ARCHIVE_BASE_URLS"
-  for base in "${bases[@]}"; do
-    [[ "$base" == https://* ]] || continue
-    if "$CURL_BIN" --fail --proto '=https' --tlsv1.2 --retry 3 --retry-delay 5 -m 600 -o "$destination" "$base/$SOURCE_REPO/tar.gz/$sha"; then
-      [[ -s "$destination" ]] || continue
-      (( $(stat -c %s "$destination") <= 268435456 )) || die 'source archive exceeds 256MB limit'
-      ARCHIVE_SHA256="$(sha256_file "$destination")"
-      log "downloaded archive sha256=$ARCHIVE_SHA256"
-      return 0
-    fi
-  done
-  die "all codeload archive bases failed for $sha"
-}
-
 extract_archive() {
   local archive="$1" destination="$2" sha="$3"
   tar -tzf "$archive" >/dev/null || die 'source archive listing failed'
   "$PYTHON_BIN" - "$archive" "$sha" <<'PY'
-import pathlib, subprocess, sys, tarfile
+import pathlib, sys, tarfile
 path, sha = sys.argv[1:]
 with tarfile.open(path, "r:gz") as archive:
     members = archive.getmembers()
     roots = set()
     for member in members:
         name = pathlib.PurePosixPath(member.name)
-        if name.is_absolute() or ".." in name.parts or member.isdev(): raise SystemExit("unsafe source archive member")
+        if name.is_absolute() or ".." in name.parts or not (member.isdir() or member.isfile()): raise SystemExit("unsafe source archive member")
         roots.add(name.parts[0] if name.parts else "")
     if roots != {"computing-lab-" + sha}: raise SystemExit("archive top-level directory does not match target SHA")
 PY
@@ -664,7 +570,7 @@ build_candidate() {
   manifest="$(dist_manifest_digest "$STAGING_DIR/release/dist")"
   cat >"$STAGING_DIR/release/release.env" <<EOF
 SOURCE_SHA=$sha
-SOURCE_KIND=codeload
+SOURCE_KIND=ssh
 SOURCE_REF=main
 ARCHIVE_SHA256=$ARCHIVE_SHA256
 SOURCE_REPO=tviber/computing-lab
@@ -677,10 +583,8 @@ EOF
   fsync_path "$STAGING_DIR/release/release.env" "$STAGING_DIR/release/dist" "$STAGING_DIR/release"
 }
 
-publish_candidate() {
-  local sha="$1" old_current old_previous release="$RELEASES_DIR/$1" candidate="$STAGING_DIR/release"
-  old_current="$(read_link_sha "$CURRENT_LINK")"
-  old_previous="$(read_link_sha "$PREVIOUS_LINK")"
+register_candidate() {
+  local sha="$1" release="$RELEASES_DIR/$1" candidate="$STAGING_DIR/release"
   if [[ -e "$release" ]]; then
     if ! validate_release "$sha"; then
       quarantine_release "$sha"
@@ -691,9 +595,15 @@ publish_candidate() {
   if [[ ! -e "$release" ]]; then
     mv "$candidate" "$release"
     fsync_path "$RELEASES_DIR"
-    RELEASE_CREATED=1
   fi
   validate_release "$sha" || die 'candidate release failed strict validation'
+}
+
+activate_release() {
+  local sha="$1" old_current old_previous
+  old_current="$(read_link_sha "$CURRENT_LINK")"
+  old_previous="$(read_link_sha "$PREVIOUS_LINK")"
+  [[ "$old_current" != "$sha" ]] || return 0
   write_transaction publish prepared "$old_current" "$old_previous" "$sha" "$old_current"
   atomic_link "$RELEASES_DIR/$sha" "$CURRENT_LINK"
   test_fail_phase after-current
@@ -730,75 +640,41 @@ cleanup_releases() {
   done
 }
 
-reconcile() {
+coordinated_release() {
+  local operation="$1" sha="${2:-}" archive="${3:-}" digest="${4:-}"
+  is_sha "$sha" || die 'expected a full release SHA'
   validate_config
-  "$BUN_BIN" --version | grep -Fxq '1.2.17' || die 'BUN_BIN version must be exactly 1.2.17'
   init_layout
   acquire_lock
   recover_transaction
   validate_active_releases
   validate_markers
-  [[ -e "$HOLD_FILE" ]] && { log 'hold is active; reconcile is a strict no-op'; return 0; }
-  if ! resolve_target_sha; then return 0; fi
-  [[ ! -f "$TARGET_FAILED_FILE" || "$(cut -d= -f1 "$TARGET_FAILED_FILE")" != "$TARGET_SHA" || "$(cut -d= -f2 "$TARGET_FAILED_FILE")" != "$TARGET_SHA" ]] || { log "target $TARGET_SHA is marked failed; no-op"; return 0; }
-  local current
-  current="$(read_link_sha "$CURRENT_LINK")"
-  if [[ "$current" == "$TARGET_SHA" ]]; then
-    validate_release "$TARGET_SHA" || die 'current release metadata is incomplete or tampered'
-    log "target $TARGET_SHA already current; strict no-op"
-    return 0
-  fi
-  local archive="$WORK_DIR/$TARGET_SHA.$$.tar.gz" unpack="$WORK_DIR/$TARGET_SHA.$$.unpack"
-  ARCHIVE_FILE="$archive"
-  UNPACK_DIR="$unpack"
-  fetch_archive "$TARGET_SHA" "$archive"
-  mkdir "$unpack"
-  extract_archive "$archive" "$unpack" "$TARGET_SHA"
-  local source="$unpack/computing-lab-$TARGET_SHA"
-  if [[ "$TARGET_FROM_WEBHOOK" == 0 ]]; then
-    [[ "$(api_main_sha 2>/dev/null || true)" == "$TARGET_SHA" ]] || die 'GitHub main moved before build'
-  fi
-  build_candidate "$TARGET_SHA" "$source"
-  if [[ "$TARGET_FROM_WEBHOOK" == 0 ]]; then
-    [[ "$(api_main_sha 2>/dev/null || true)" == "$TARGET_SHA" ]] || die 'GitHub main moved during build; stale release refused'
-  fi
-  publish_candidate "$TARGET_SHA"
-  remove_file "$TARGET_FILE"
-  remove_file "$TARGET_FAILED_FILE"
-  rm -rf "$archive" "$unpack"
-  ARCHIVE_FILE=''
-  UNPACK_DIR=''
-  rm -rf "$STAGING_DIR"
-  STAGING_DIR=''
-  cleanup_releases
-}
+  [[ ! -e "$HOLD_FILE" ]] || die 'hold is active'
 
-rollback() {
-  validate_config
-  init_layout
-  acquire_lock
-  recover_transaction
-  validate_active_releases
-  validate_markers
-  local current previous
-  current="$(read_link_sha "$CURRENT_LINK")"
-  previous="$(read_link_sha "$PREVIOUS_LINK")"
-  [[ -n "$current" && -n "$previous" ]] || die 'rollback requires current and previous releases'
-  validate_release "$current" || die 'current release is invalid'
-  validate_release "$previous" || die 'previous release is invalid'
-  atomic_write "$HOLD_FILE" "rollback $(date -u +%Y-%m-%dT%H:%M:%SZ)"
-  write_transaction rollback prepared "$current" "$previous" "$previous" "$current"
-  atomic_link "$RELEASES_DIR/$previous" "$CURRENT_LINK"
-  test_fail_phase after-current
-  write_transaction rollback current-switched "$current" "$previous" "$previous" "$current"
-  atomic_link "$RELEASES_DIR/$current" "$PREVIOUS_LINK"
-  test_fail_phase after-previous
-  write_transaction rollback previous-switched "$current" "$previous" "$previous" "$current"
-  atomic_write "$CURRENT_MARKER" "$previous"
-  atomic_write "$PREVIOUS_MARKER" "$current"
-  test_fail_phase after-markers
-  clear_transaction
-  log "rolled back to $previous; hold remains active"
+  case "$operation" in
+    prepare)
+      [[ $# == 4 && "$digest" =~ ^[0-9a-f]{64}$ && -f "$archive" && ! -L "$archive" ]] || die 'expected a pushed archive and SHA-256'
+      [[ "$(sha256_file "$archive")" == "$digest" ]] || die 'archive checksum mismatch'
+      if validate_release "$sha"; then
+        [[ "$(meta_value "$RELEASES_DIR/$sha/release.env" ARCHIVE_SHA256)" == "$digest" ]] \
+          || die 'prepared release has a different archive checksum'
+        log "static release $sha is already prepared"
+        return 0
+      fi
+      "$BUN_BIN" --version | grep -Fxq '1.2.17' || die 'BUN_BIN version must be exactly 1.2.17'
+      ARCHIVE_SHA256="$digest"
+      UNPACK_DIR="$(mktemp -d "$WORK_DIR/$sha.unpack.XXXXXXXX")"
+      extract_archive "$archive" "$UNPACK_DIR" "$sha"
+      build_candidate "$sha" "$UNPACK_DIR/computing-lab-$sha"
+      register_candidate "$sha"
+      ;;
+    activate)
+      [[ $# == 2 ]] || die 'expected a prepared release SHA'
+      validate_release "$sha" || die 'prepared release is invalid'
+      activate_release "$sha"
+      cleanup_releases
+      ;;
+  esac
 }
 
 status_command() {
@@ -809,10 +685,8 @@ status_command() {
   previous="$(read_link_sha "$PREVIOUS_LINK")"
   marker="$(read_marker "$CURRENT_MARKER")"
   hold='no'; [[ -e "$HOLD_FILE" ]] && hold='yes'
-  local target=none
-  [[ -f "$TARGET_FILE" ]] && target="$(<"$TARGET_FILE")"
-  printf 'current=%s\nprevious=%s\nhold=%s\nmarker=%s\ntransaction=%s\ntarget=%s\n' \
-    "${current:-none}" "${previous:-none}" "$hold" "${marker:-none}" "$( [[ -e "$TX_FILE" ]] && echo present || echo none )" "$target"
+  printf 'current=%s\nprevious=%s\nhold=%s\nmarker=%s\ntransaction=%s\n' \
+    "${current:-none}" "${previous:-none}" "$hold" "${marker:-none}" "$( [[ -e "$TX_FILE" ]] && echo present || echo none )"
   validate_lock_path
   exec {LOCK_FD}>>"$LOCK_FILE"
   if "$FLOCK_BIN" -n "$LOCK_FD"; then
@@ -825,16 +699,15 @@ status_command() {
 }
 
 hold_command() { validate_config; init_layout; acquire_lock; recover_transaction; validate_active_releases; validate_markers; atomic_write "$HOLD_FILE" "manual hold $(date -u +%Y-%m-%dT%H:%M:%SZ)"; log 'hold enabled'; }
-resume_command() { validate_config; init_layout; acquire_lock; recover_transaction; validate_active_releases; validate_markers; remove_file "$HOLD_FILE"; log 'hold cleared; run reconcile to deploy'; }
+resume_command() { validate_config; init_layout; acquire_lock; recover_transaction; validate_active_releases; validate_markers; remove_file "$HOLD_FILE"; log 'hold cleared'; }
 cleanup_command() { validate_config; init_layout; acquire_lock; recover_transaction; validate_active_releases; validate_markers; cleanup_releases; }
 
 command="${1:-}"
 case "$command" in
-  reconcile) reconcile ;;
-  rollback) rollback ;;
+  prepare|activate) coordinated_release "$@" ;;
   status) status_command ;;
   hold) hold_command ;;
   resume) resume_command ;;
   cleanup) cleanup_command ;;
-  *) die 'usage: reconcile.sh {reconcile|status|rollback|hold|resume|cleanup}' ;;
+  *) die 'usage: reconcile.sh {prepare|activate|status|hold|resume|cleanup}' ;;
 esac

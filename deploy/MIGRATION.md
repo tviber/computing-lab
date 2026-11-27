@@ -1,48 +1,44 @@
 # Deployment source migration
 
-## Host changes
+The host is driven by one coordinator: GitHub Actions builds a bundle or
+archive from `main`, sends it over the restricted SSH account, and `release.sh`
+runs `reconcile.sh prepare` and `reconcile.sh activate` as a joint static and
+API release. The standalone codeload/webhook reconciler and its timer are
+retired.
 
-1. Install the updated `reconcile.sh` and `fsync.py` at the existing libexec
-   path, owned by root and not writable by the deployment account.
-2. Replace `deploy.env` with the values in `host.env.example`. Keep `BUN_BIN`
-   pinned to Bun `1.2.17`; do not change the existing release root or Caddy
-   configuration.
-3. Configure `/root/deploy.sh` to validate the GitHub webhook as before and,
-   for a valid push event for `tviber/computing-lab` on `refs/heads/main`, write
-   the full lowercase 40-character `after` SHA to
-   `/srv/computing-lab/state/target.sha` atomically. Set owner/group to
-   `computing-lab:computing-lab` and mode `0640`. The reconciler trusts that
-   file first and removes it after a successful publish.
-4. Optionally install a GitHub API token at
-   `/etc/computing-lab/github.token` with root ownership and mode `0640`, and
-   configure `GITHUB_TOKEN_FILE`. Without the token, API resolution uses an
-   anonymous conditional request when no webhook target is present.
-5. Run `reconcile.sh status`, then `reconcile.sh reconcile` and verify the
-   current release and static site before disabling the former mirror timer
-   source.
+## Provisioning from the repository
 
-## GitHub Actions settings
+1. Install `reconcile.sh`, `fsync.py`, `release.sh`, `bundle-cache.sh`, and
+   `receive-release.sh` from `deploy/` under `/usr/local/libexec/computing-lab/`,
+   owned by root and not writable by the deployment or publisher accounts.
+2. Install `/etc/computing-lab/deploy.env` from `deploy/host.env.example`.
+   Keep `BUN_BIN` pinned to Bun 1.2.17.
+3. Do not install the previous `computing-lab-reconcile.timer`/`.service` or
+   the webhook `deploy.sh`: CI on `main` is the only automatic trigger.
+4. Run `reconcile.sh status`, then `hold` and `resume`, to validate the current
+   and previous releases. `status` does not validate release metadata.
 
-Set repository variable `DEPLOY_HOOK_URL` to the HTTPS webhook endpoint and
-repository secret `DEPLOY_HOOK_SECRET` to the same HMAC secret configured on
-the host. `GITHUB_TOKEN` is optional for the host API fallback; do not put
-tokens in repository files or logs.
+## Release and recovery
 
-The deploy workflow triggers only after successful CI on `main`, or by manual
-dispatch with a full lowercase commit SHA. The webhook payload contract is the
-GitHub push shape for `tviber/computing-lab`, `refs/heads/main`, and that SHA.
+`release.sh <sha>` is the manual fallback when SSH delivery is unavailable; it
+downloads the archive from codeload and runs the same prepare/activate
+contract.
 
-## Rollback and cleanup
+The joint release is forward-only. To undo a bad release, revert the commit on
+`main` and publish the revert. The previous API release directory is retained
+for an emergency API-only source switch; the database backup written before
+migration is the recovery point for data.
 
-Use `reconcile.sh rollback` to atomically switch to `previous`; this enables a
-hold until `reconcile.sh resume` is run. Existing releases with the legacy
-`GITEE_REF=main` metadata remain valid, so rollback to the current production
-release and its previous release remains available after migration.
+Releases written by the retired SSH-only host script (`SOURCE_KIND=ssh`) remain
+valid; the reconciler accepts `SOURCE_KIND=ssh`, `SOURCE_KIND=codeload`, and
+the legacy `GITEE_REF=main` metadata.
 
-After verifying HTTPS deployments and rollback, remove the former mirror
-credentials and settings:
+## Cleanup after migration
 
-- Delete `/etc/computing-lab/keys/gitee-readonly`.
-- Remove every `GITEE_*` setting from `/etc/computing-lab/deploy.env`.
-- Disable the `GITEE_REPOSITORY` repository variable.
-- Remove any remaining mirror SSH configuration and obsolete workflow files.
+- Delete `/etc/computing-lab/keys/gitee-readonly` and remove every `GITEE_*`
+  setting from `/etc/computing-lab/deploy.env`.
+- Disable the `GITEE_REPOSITORY` repository variable and remove mirror SSH
+  configuration.
+- Remove the masked `computing-lab-reconcile` and `computing-lab-release@`
+  unit links, plus retired `/root` deployment copies after a successful
+  release.

@@ -6,12 +6,36 @@ SCRIPT="$ROOT/deploy/reconcile.sh"
 FLOCK_HELPER="$ROOT/deploy/tests/flock-helper.py"
 TMP="$(mktemp -d)"
 trap 'rm -rf "$TMP"' EXIT
-mkdir -p "$TMP/bin" "$TMP/host" "$TMP/archive/computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/deploy" "$TMP/api"
+mkdir -p "$TMP/bin" "$TMP/host"
+chmod 750 "$TMP/host"
 chmod +x "$FLOCK_HELPER"
+
+SHA=aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+SHA2=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
+SHA3=cccccccccccccccccccccccccccccccccccccccc
+SHA4=dddddddddddddddddddddddddddddddddddddddd
+LEGACY=1111111111111111111111111111111111111111
+CODELOAD=2222222222222222222222222222222222222222
+BAD=eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
 
 pass() { printf 'ok - %s\n' "$1"; }
 fail() { printf 'not ok - %s\n' "$1" >&2; exit 1; }
 expect_fail() { if "$@" >/dev/null 2>&1; then return 1; fi; }
+
+sha_file() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | cut -d' ' -f1
+  else
+    shasum -a 256 "$1" | cut -d' ' -f1
+  fi
+}
+sha_stdin() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum | cut -d' ' -f1
+  else
+    shasum -a 256 | cut -d' ' -f1
+  fi
+}
 
 cat >"$TMP/bin/bun" <<'EOF'
 #!/usr/bin/env bash
@@ -20,108 +44,214 @@ if [[ "${1:-}" == --version ]]; then echo 1.2.17; exit; fi
 if [[ "${1:-}" == install ]]; then mkdir -p node_modules; exit; fi
 if [[ "${1:-}" == run && "${2:-}" == build:classroom && "${3:-}" == --outDir && "${4:-}" == dist ]]; then
   mkdir -p dist/assets
-  echo '<main>fixture</main>' >dist/index.html
-  echo fixture >dist/assets/app.js
+  printf '<main>fixture</main>\n' >dist/index.html
+  printf 'fixture\n' >dist/assets/app.js
   exit
 fi
 if [[ "${1:-}" == *.mjs ]]; then exit 0; fi
 exit 1
 EOF
-cat >"$TMP/bin/curl" <<'EOF'
-#!/usr/bin/env bash
-set -euo pipefail
-out=''
-url="${@: -1}"
-while (($#)); do [[ "$1" == -o ]] && { out="$2"; shift 2; continue; }; shift; done
-if [[ "$url" == */commits/main ]]; then
-  [[ "${API_FAIL:-0}" == 1 ]] && exit 22
-  printf '{"sha":"%s"}\n' "${API_SHA:-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa}" >"$out"
-  echo 200
-else
-  cp "$ARCHIVE_FIXTURE" "$out"
-fi
-EOF
-chmod +x "$TMP/bin/bun" "$TMP/bin/curl"
-printf '{"name":"fixture"}\n' >"$TMP/archive/computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/package.json"
-printf 'fixture lock\n' >"$TMP/archive/computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/bun.lock"
-printf 'marker\n' >"$TMP/archive/computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/release-marker"
-cp "$ROOT/deploy/smoke.mjs" "$TMP/archive/computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa/deploy/smoke.mjs"
-tar -czf "$TMP/good.tar.gz" -C "$TMP/archive" computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
-mkdir -p "$TMP/wrong/computing-lab-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb"
-tar -czf "$TMP/wrong.tar.gz" -C "$TMP/wrong" computing-lab-bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-mkdir -p "$TMP/traversal/computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
-echo evil >"$TMP/traversal/evil"
-tar -czf "$TMP/traversal.tar.gz" -C "$TMP/traversal" computing-lab-aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa
+chmod +x "$TMP/bin/bun"
+
+make_archive() {
+  local sha="$1" output="$2" marker="${3:-fixture}"
+  local archive="$TMP/archive-$sha"
+  rm -rf "$archive"
+  mkdir -p "$archive/computing-lab-$sha/deploy"
+  printf '{"name":"fixture"}\n' >"$archive/computing-lab-$sha/package.json"
+  printf 'fixture lock %s\n' "$marker" >"$archive/computing-lab-$sha/bun.lock"
+  cp "$ROOT/deploy/smoke.mjs" "$archive/computing-lab-$sha/deploy/smoke.mjs"
+  tar -czf "$output" -C "$archive" "computing-lab-$sha"
+}
+
+make_archive "$SHA" "$TMP/sha.tar.gz" one
+make_archive "$SHA2" "$TMP/sha2.tar.gz" two
+make_archive "$SHA3" "$TMP/sha3.tar.gz" three
+make_archive "$SHA4" "$TMP/sha4.tar.gz" four
+make_archive "$SHA2" "$TMP/wrong-root.tar.gz" wrong-root
+
 python3 - "$TMP/traversal.tar.gz" <<'PY'
-import sys, tarfile
+import io
+import sys
+import tarfile
+
 with tarfile.open(sys.argv[1], "w:gz") as archive:
     info = tarfile.TarInfo("../evil")
     info.size = 4
-    archive.addfile(info, __import__("io").BytesIO(b"evil"))
+    archive.addfile(info, io.BytesIO(b"evil"))
 PY
 
+python3 - "$TMP/symlink.tar.gz" "$SHA" <<'PY'
+import sys
+import tarfile
+
+path, sha = sys.argv[1:]
+with tarfile.open(path, "w:gz") as archive:
+    info = tarfile.TarInfo(f"computing-lab-{sha}/link")
+    info.type = tarfile.SYMTYPE
+    info.linkname = "/etc/passwd"
+    archive.addfile(info)
+PY
+
+PYTHON_BIN="$(python3 -c 'import os, sys; print(os.path.realpath(sys.executable))')"
 cat >"$TMP/config.env" <<EOF
 DEPLOY_TEST_MODE=1
 DEPLOY_ROOT=$TMP/host
-SOURCE_KIND=codeload
-SOURCE_REPO=tviber/computing-lab
-SOURCE_REF=main
-ARCHIVE_BASE_URLS=https://codeload.github.com
-GITHUB_API_BASE=https://api.github.com
-GITHUB_TOKEN_FILE=$TMP/no-token
 BUN_BIN=$TMP/bin/bun
-PYTHON_BIN=$(python3 -c 'import os,sys; print(os.path.realpath(sys.executable))')
+PYTHON_BIN=$PYTHON_BIN
 FLOCK_BIN=$FLOCK_HELPER
-CURL_BIN=$TMP/bin/curl
 KEEP_RELEASES=3
 VITE_BASE_PATH=/
 EOF
-export PATH="$TMP/bin:$PATH" ARCHIVE_FIXTURE="$TMP/good.tar.gz"
+chmod 600 "$TMP/config.env"
+
 run() { DEPLOY_TEST_MODE=1 DEPLOY_CONFIG="$TMP/config.env" "$SCRIPT" "$@"; }
 
-API_FAIL=1 run reconcile
-[[ ! -e "$TMP/host/current" ]] || fail 'invalid target created a release'
-pass 'unavailable anonymous API is a successful no-op'
+run status >"$TMP/status"
+grep -qx 'current=none' "$TMP/status" || fail 'empty root must report no current release'
+grep -qx 'previous=none' "$TMP/status" || fail 'empty root must report no previous release'
+grep -qx 'hold=no' "$TMP/status" || fail 'empty root must not be held'
+grep -qx 'lock=free' "$TMP/status" || fail 'empty root must report a free lock'
+pass 'empty deployment reports status'
 
-printf '%s\n' invalid >"$TMP/host/state/target.sha"
-expect_fail run reconcile || fail 'invalid webhook SHA accepted'
-printf '%s\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa >"$TMP/host/state/target.sha"
-API_SHA=bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb run reconcile
-[[ "$(readlink "$TMP/host/current")" == "$TMP/host/releases/aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa" ]] || fail 'webhook target was not deployed'
-[[ ! -e "$TMP/host/state/target.sha" ]] || fail 'successful publish retained target SHA'
-pass 'webhook target takes precedence and successful publish clears it'
+GOOD_DIGEST="$(sha_file "$TMP/sha.tar.gz")"
+expect_fail run prepare "$SHA" "$TMP/sha.tar.gz" "$(printf bad | sha_stdin)" \
+  || fail 'prepare accepted a mismatched digest'
+[[ ! -e "$TMP/host/releases/$SHA" ]] || fail 'mismatched digest created a release'
+pass 'prepare rejects a mismatched digest'
 
-printf '%s\n' aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa >"$TMP/host/state/target.sha"
-before="$(find "$TMP/host/releases" -mindepth 1 -maxdepth 1 -type d | wc -l)"
-run reconcile
-after="$(find "$TMP/host/releases" -mindepth 1 -maxdepth 1 -type d | wc -l)"
-[[ "$before" == "$after" ]] || fail 'current-equals-target did work'
-pass 'current target is a strict no-op'
+expect_fail run prepare "$SHA" "$TMP/wrong-root.tar.gz" "$(sha_file "$TMP/wrong-root.tar.gz")" \
+  || fail 'prepare accepted an archive for another SHA'
+pass 'prepare rejects an archive top-level SHA mismatch'
 
-wrong_sha=cccccccccccccccccccccccccccccccccccccccc
-printf '%s\n' "$wrong_sha" >"$TMP/host/state/target.sha"
-ARCHIVE_FIXTURE="$TMP/wrong.tar.gz" expect_fail run reconcile || fail 'mismatched archive root accepted'
-pass 'archive top-level SHA mismatch rejected'
+expect_fail run prepare "$SHA" "$TMP/traversal.tar.gz" "$(sha_file "$TMP/traversal.tar.gz")" \
+  || fail 'prepare accepted an archive traversal entry'
+pass 'prepare rejects archive traversal'
 
-printf '%s\n' "$wrong_sha" >"$TMP/host/state/target.sha"
-ARCHIVE_FIXTURE="$TMP/traversal.tar.gz" expect_fail run reconcile || fail 'traversal archive accepted'
-pass 'archive traversal rejected'
+expect_fail run prepare "$SHA" "$TMP/symlink.tar.gz" "$(sha_file "$TMP/symlink.tar.gz")" \
+  || fail 'prepare accepted a symlink in the archive'
+pass 'prepare rejects symlinks in the archive'
 
-legacy_sha=dddddddddddddddddddddddddddddddddddddddd
-mkdir -p "$TMP/host/releases/$legacy_sha/dist/assets"
-printf '<main>legacy</main>\n' >"$TMP/host/releases/$legacy_sha/dist/index.html"
-printf 'legacy\n' >"$TMP/host/releases/$legacy_sha/dist/assets/app.js"
-manifest="$(while IFS= read -r -d '' file; do rel="${file#"$TMP/host/releases/$legacy_sha/dist"/}"; printf '%s  %s\n' "$(sha256sum "$file" | cut -d' ' -f1)" "$rel"; done < <(find "$TMP/host/releases/$legacy_sha/dist" -type f -print0 | LC_ALL=C sort -z) | sha256sum | cut -d' ' -f1)"
-cat >"$TMP/host/releases/$legacy_sha/release.env" <<EOF
-SOURCE_SHA=$legacy_sha
-GITEE_REF=main
-VITE_BASE_PATH=/
-BUN_VERSION=1.2.17
-LOCKFILE_SHA256=$(printf legacy | sha256sum | cut -d' ' -f1)
-DIST_MANIFEST_SHA256=$manifest
-SMOKE=pass
-EOF
-ln -s "$TMP/host/releases/$legacy_sha" "$TMP/host/previous"
-printf '%s\n' "$legacy_sha" >"$TMP/host/state/previous.sha"
-run status >/dev/null || fail 'legacy release metadata was rejected'
-pass 'legacy GITEE_REF release remains valid for rollback'
+run prepare "$SHA" "$TMP/sha.tar.gz" "$GOOD_DIGEST"
+RELEASE="$TMP/host/releases/$SHA"
+[[ -f "$RELEASE/release.env" && -d "$RELEASE/dist" ]] || fail 'prepare did not register a release'
+grep -qx "SOURCE_SHA=$SHA" "$RELEASE/release.env" || fail 'release SOURCE_SHA is wrong'
+grep -qx 'SOURCE_KIND=ssh' "$RELEASE/release.env" || fail 'release SOURCE_KIND is wrong'
+grep -qx 'SOURCE_REF=main' "$RELEASE/release.env" || fail 'release SOURCE_REF is wrong'
+grep -qx 'SOURCE_REPO=tviber/computing-lab' "$RELEASE/release.env" || fail 'release SOURCE_REPO is wrong'
+grep -qx "ARCHIVE_SHA256=$GOOD_DIGEST" "$RELEASE/release.env" || fail 'release archive digest is wrong'
+grep -qx 'BUN_VERSION=1.2.17' "$RELEASE/release.env" || fail 'release Bun version is wrong'
+[[ ! -e "$TMP/host/current" ]] || fail 'prepare must not activate the release'
+pass 'prepare builds and validates a staged release without activating it'
+
+output="$(run prepare "$SHA" "$TMP/sha.tar.gz" "$GOOD_DIGEST" 2>&1)"
+grep -Fq 'already prepared' <<<"$output" || fail 'repeated prepare was not a no-op'
+expect_fail run prepare "$SHA" "$TMP/sha.tar.gz" "$(sha_file "$TMP/sha2.tar.gz")" \
+  || fail 'prepare replaced an existing release with a different digest'
+pass 'prepare is idempotent per SHA and archive digest'
+
+run activate "$SHA"
+[[ "$(readlink "$TMP/host/current")" == "$TMP/host/releases/$SHA" ]] || fail 'activate did not switch current'
+[[ "$(cat "$TMP/host/state/current.sha")" == "$SHA" ]] || fail 'activate did not write the current marker'
+[[ ! -e "$TMP/host/previous" && ! -e "$TMP/host/state/previous.sha" ]] || fail 'first activation created a previous release'
+pass 'activate switches current and writes the marker'
+
+run prepare "$SHA2" "$TMP/sha2.tar.gz" "$(sha_file "$TMP/sha2.tar.gz")"
+run activate "$SHA2"
+[[ "$(readlink "$TMP/host/current")" == "$TMP/host/releases/$SHA2" ]] || fail 'second activation did not switch current'
+[[ "$(readlink "$TMP/host/previous")" == "$TMP/host/releases/$SHA" ]] || fail 'second activation did not rotate previous'
+[[ "$(cat "$TMP/host/state/current.sha")" == "$SHA2" ]] || fail 'second activation wrote the wrong current marker'
+[[ "$(cat "$TMP/host/state/previous.sha")" == "$SHA" ]] || fail 'second activation wrote the wrong previous marker'
+pass 'activation rotates the previous release'
+
+run hold
+expect_fail run prepare "$SHA3" "$TMP/sha3.tar.gz" "$(sha_file "$TMP/sha3.tar.gz")" \
+  || fail 'hold did not block prepare'
+expect_fail run activate "$SHA2" || fail 'hold did not block activate'
+pass 'hold blocks prepare and activate'
+
+run resume
+run prepare "$SHA3" "$TMP/sha3.tar.gz" "$(sha_file "$TMP/sha3.tar.gz")"
+run activate "$SHA3"
+[[ "$(readlink "$TMP/host/current")" == "$TMP/host/releases/$SHA3" ]] || fail 'resume did not allow the next release'
+pass 'resume allows the next joint release'
+
+run prepare "$SHA4" "$TMP/sha4.tar.gz" "$(sha_file "$TMP/sha4.tar.gz")"
+set +e
+(
+  export DEPLOY_TEST_FAIL_PHASE=after-current
+  run activate "$SHA4"
+) >/dev/null 2>&1
+killed=$?
+set -e
+[[ "$killed" != 0 ]] || fail 'failure injection did not interrupt activation'
+[[ -e "$TMP/host/state/transaction" ]] || fail 'interrupted activation left no transaction'
+[[ "$(readlink "$TMP/host/current")" == "$TMP/host/releases/$SHA4" ]] || fail 'interrupted activation did not switch current'
+run hold >/dev/null
+[[ "$(readlink "$TMP/host/previous")" == "$TMP/host/releases/$SHA3" ]] || fail 'recovery did not restore previous'
+[[ "$(cat "$TMP/host/state/current.sha")" == "$SHA4" ]] || fail 'recovery wrote the wrong current marker'
+[[ "$(cat "$TMP/host/state/previous.sha")" == "$SHA3" ]] || fail 'recovery wrote the wrong previous marker'
+[[ ! -e "$TMP/host/state/transaction" ]] || fail 'recovery retained the transaction'
+run resume
+pass 'interrupted activation is recovered by the next operation'
+
+mkdir -p "$TMP/host/releases/$BAD/dist"
+printf 'bad\n' >"$TMP/host/releases/$BAD/dist/index.html"
+printf 'SOURCE_SHA=%s\n' "$BAD" >"$TMP/host/releases/$BAD/release.env"
+run cleanup
+[[ ! -e "$TMP/host/releases/$BAD" ]] || fail 'cleanup retained an invalid release'
+find "$TMP/host/quarantine" -mindepth 1 -maxdepth 1 -name "$BAD.*" -print -quit | grep -q . \
+  || fail 'cleanup did not quarantine the invalid release'
+pass 'cleanup quarantines invalid releases'
+
+cp -a "$TMP/host/releases/$SHA2" "$TMP/host/releases/$LEGACY"
+python3 - "$TMP/host/releases/$LEGACY/release.env" "$LEGACY" <<'PY'
+import sys
+
+path, sha = sys.argv[1:]
+dropped = {"SOURCE_KIND", "SOURCE_REF", "ARCHIVE_SHA256", "SOURCE_REPO"}
+lines = []
+for line in open(path, encoding="utf-8"):
+    key = line.split("=", 1)[0]
+    if key in dropped:
+        continue
+    lines.append(f"SOURCE_SHA={sha}\n" if key == "SOURCE_SHA" else line)
+lines.append("GITEE_REF=main\n")
+open(path, "w", encoding="utf-8").writelines(lines)
+PY
+ln -sfn "$TMP/host/releases/$LEGACY" "$TMP/host/previous"
+printf '%s\n' "$LEGACY" >"$TMP/host/state/previous.sha"
+run hold
+run resume
+pass 'legacy GITEE_REF release metadata remains valid'
+
+cp -a "$TMP/host/releases/$SHA2" "$TMP/host/releases/$CODELOAD"
+python3 - "$TMP/host/releases/$CODELOAD/release.env" "$CODELOAD" <<'PY'
+import sys
+
+path, sha = sys.argv[1:]
+lines = []
+for line in open(path, encoding="utf-8"):
+    if line.startswith("SOURCE_SHA="):
+        line = f"SOURCE_SHA={sha}\n"
+    elif line.startswith("SOURCE_KIND="):
+        line = "SOURCE_KIND=codeload\n"
+    lines.append(line)
+open(path, "w", encoding="utf-8").writelines(lines)
+PY
+ln -sfn "$TMP/host/releases/$CODELOAD" "$TMP/host/previous"
+printf '%s\n' "$CODELOAD" >"$TMP/host/state/previous.sha"
+run hold
+run resume
+pass 'codeload release metadata remains valid'
+
+expect_fail run reconcile || fail 'retired reconcile command is still accepted'
+expect_fail run rollback || fail 'retired rollback command is still accepted'
+pass 'standalone reconcile and rollback entrypoints stay retired'
+
+run status >"$TMP/status-final"
+grep -qx "current=$SHA4" "$TMP/status-final" || fail 'final current marker is wrong'
+grep -qx "previous=$CODELOAD" "$TMP/status-final" || fail 'final previous marker is wrong'
+grep -qx 'hold=no' "$TMP/status-final" || fail 'final hold state is wrong'
+grep -qx 'lock=free' "$TMP/status-final" || fail 'final lock state is wrong'
+pass 'status reports the final joint-release state'
