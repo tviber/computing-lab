@@ -13,7 +13,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 1,
     id: "order-journey",
     title: "订单旅程",
-    task: "你是前台接单员。顾客说一句想吃什么，你要把它记成小票，再交给厨房和送餐员。小票写错了也可以继续往下走，看看后面会发生什么。",
+    task: "你负责前台接单，把顾客的话记成小票，再交给厨房和送餐员。先走完一单，看看小票写错后会发生什么。",
     judgeNote:
       "判题程序会核对小票上的菜品、备注、桌号和加急标记，也会核对你把餐送到哪一桌。先做哪张订单都可以，但加急单排在后面会多等几拍。",
     takeaway:
@@ -23,7 +23,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 2,
     id: "ai-intake",
     title: "智能接单",
-    task: "店里装了 AI 接单台。顾客说一句原话，本地模型会先写出一张小票，再给出两个分数：similarity 表示这次判断和它记住的说法有多接近，margin 表示第一名比第二名领先多少。两个分数都可能偏低。你要写 need_confirm(similarity, margin)，决定哪些单先别出票、请顾客再说一遍。确认过的单一定记对，但接单台会停 1 拍。12 张练习单全部记对，并且确认不超过 4 次，才算过关。",
+    task: "AI 接单台会先写小票，再报出 similarity（它有多像见过的说法）和 margin（第一名比第二名领先多少）。你写 need_confirm，决定哪些单请顾客再说一遍。",
     judgeNote:
       "判题程序会按你的 need_confirm 重放这 12 张练习单：标了确认的单按顾客复述记对，没标的单沿用 AI 的小票。12 张全对且确认不超过 4 次才过关。",
     takeaway:
@@ -38,7 +38,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 3,
     id: "fix-queue",
     title: "修排队",
-    task: "这一关的小票都已经录对了。厨房一次只能做一道菜。加急单最多等 9 拍，普通单最多等 18 拍，超过就会超时。你要写 priority(urgent, wait, cook)：每张在等的单都会调用它，返回的数越大越先做；一样大时先来先做。先用页面上的两个预设看看「按到店顺序做」和「有加急就先做」各会漏掉哪些单，再设计自己的规则。",
+    task: "厨房一次只能做一道菜。付费加急单承诺 9 拍内出餐，普通单承诺 18 拍。先看两种简单排法会漏掉谁，再写 priority 让两类单都尽量准时。",
     judgeNote:
       "判题程序会拿 12 个排队瞬间检查你的函数：每个瞬间给出几张在等的单，看你的函数会不会先做最等不起的那张。答对 11 张过关，12 张全对加星。",
     takeaway:
@@ -53,7 +53,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 4,
     id: "dinner-rush",
     title: "晚餐高峰",
-    task: "晚餐高峰来了 12 张陌生订单。接单台还是那台 AI，你的 need_confirm 会直接沿用；排队也还是你写的 priority。顾客说加急的方式更多了，AI 可能把「想快一点」听成付费加急，也可能猜错「照旧」的辣度。确认过的单一定记对，但接单台会停 1 拍；没确认的单按 AI 的小票进厨房。12 张全对、确认不超过 4 次，并且至少 11 张既记对又准时，才算过关。",
+    task: "晚餐高峰来了 12 张陌生订单。你要沿用 need_confirm 和 priority，把小票记对，并让大多数订单准时送达。",
     judgeNote:
       "判题程序会用你的 need_confirm 处理 12 张正式订单，再把你写的 priority 放进厨房和出餐台重放整轮。12 张全对、确认不超过 4 次、记对且准时至少 11 张，三条都满足才过关。",
     takeaway:
@@ -68,7 +68,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
     index: 5,
     id: "compensate",
     title: "附加挑战",
-    task: "晚高峰的 20 张单已经按先来先做跑完了，其中 11 张送晚了或没送到。现在只能补偿，不能重排。你要写 compensate(urgent, overtime, delivered, price)，给每张问题单选一档补偿：0 不补偿，1 送小食（2 元），2 退款（送到的退一半，没送到的全退）。可以先在试算台手动改几张典型单，看看花费和预计差评怎么变，再把规则写成函数。预计差评不超过 4.0 单、补偿花费不超过 70 元，才算过关。",
+    task: "晚高峰结束后，有 11 张问题单要补偿。先在三张典型单上比较补偿的代价，再写 compensate 规则处理全部问题单。",
     judgeNote:
       "判题程序会用同一轮先来先做的结果找到这 11 张问题单，再按你的函数逐张计算差评率和花费。预计差评和总花费都在线内才过关。",
     takeaway:

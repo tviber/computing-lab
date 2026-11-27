@@ -231,7 +231,7 @@ function Replay(props: { run: RunSummary; autoPlay?: boolean }) {
             }
             return current + 1;
           }),
-        420,
+        650,
       );
       return () => window.clearInterval(timer);
     },
@@ -283,7 +283,9 @@ function Replay(props: { run: RunSummary; autoPlay?: boolean }) {
           value={step()}
           valueText={`第 ${step() + 1} 帧`}
         />
-        <strong>{frames().length ? `共 ${frames().length} 帧` : "没有事件"}</strong>
+        <strong>
+          {frames().length ? `第 ${current()!.tick} 拍 · 共 ${frames().length} 帧` : "没有事件"}
+        </strong>
       </div>
     </div>
   );
@@ -308,8 +310,8 @@ export function QueueResultView(props: { run: RunSummary; title: string; autoPla
           实际送达
         </span>
       </div>
-      <LateOrders run={props.run} />
       <Replay autoPlay={props.autoPlay} run={props.run} />
+      <LateOrders run={props.run} />
       <Show when={picks().length > 0}>
         <Disclosure class="lunch-pick-table" summary="每一拍怎么选的">
           <div>
