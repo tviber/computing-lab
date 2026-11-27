@@ -5,6 +5,12 @@ import type { LocalProject } from "./specs";
 
 export const LOCAL_LEARNER_ID = "local-learner-v1";
 const prefix = "computing-lab:project:v1:";
+const LUNCH_SUMMARY_KEYS: Partial<Record<number, string>> = {
+  2: "intake",
+  3: "queue",
+  4: "final",
+  5: "compensate",
+};
 
 function read(storage: Storage, labId: LabId): LocalProject {
   const raw = storage.getItem(prefix + labId);
@@ -63,7 +69,14 @@ export function createLocalTransport(storage: Storage): LabTransport {
           );
         }
       };
-      if (operation === "load") return payload();
+      if (operation === "load") {
+        if (calculatorProject) {
+          const draftNotices = calculatorProject.reconcileCalculatorProject(project);
+          if (draftNotices.length) persist();
+          return { ...payload(), ...(draftNotices.length ? { draftNotices } : {}) };
+        }
+        return payload();
+      }
       if (operation === "guide") {
         project.fullAdderGuideAcknowledged = true;
         persist();
@@ -101,16 +114,18 @@ export function createLocalTransport(storage: Storage): LabTransport {
         project.drafts[stage] = spec.sanitize(stage, body);
         project.draftRevisions[stage] = revision + 1;
         if (labId === "calculator" && body.components !== undefined) {
+          const originalLibrary = project.unlockedSubmodules;
           project.unlockedSubmodules = mergeCustomComponents(
             project.unlockedSubmodules as Parameters<typeof mergeCustomComponents>[0],
             body.components,
           );
           project.draftRevisions.components = componentsRevision + 1;
+          calculatorProject?.reconcileCalculatorProject(project, originalLibrary);
         }
         persist();
         return {
           applied: true,
-          revision: revision + 1,
+          revision: project.draftRevisions[stage],
           componentsRevision: project.draftRevisions.components,
           projectGeneration: project.projectGeneration,
         };
@@ -126,21 +141,17 @@ export function createLocalTransport(storage: Storage): LabTransport {
             delete project.drafts[entry.index];
             project.draftRevisions[entry.index] = (project.draftRevisions[entry.index] ?? 0) + 1;
             delete project.runSummaries[`s${entry.index}`];
-            delete project.runSummaries[
-              ({ 2: "intake", 3: "queue", 4: "final", 5: "compensate" } as Record<number, string>)[
-                entry.index
-              ]
-            ];
+            const summaryKey = LUNCH_SUMMARY_KEYS[entry.index];
+            if (summaryKey) delete project.runSummaries[summaryKey];
           }
         if (affected(4)) delete project.trainedSettings;
-        if (labId === "calculator") {
-          const { resetCalculatorLibrary } = calculatorReset;
-          resetCalculatorLibrary(project, affected);
-        }
-        project.currentStage = Math.min(project.currentStage, body.scope === "lab" ? 1 : stage);
+        const draftNotices = calculatorProject
+          ? calculatorProject.resetCalculatorLibrary(project, affected)
+          : [];
+        project.currentStage = spec.next(project.passedStages);
         project.projectGeneration += 1;
         persist();
-        return payload();
+        return { ...payload(), ...(draftNotices.length ? { draftNotices } : {}) };
       }
       const outcome = spec.evaluate(project, stage, body);
       if ("error" in outcome) throw new LabRuntimeError(String(outcome.error));
@@ -154,12 +165,9 @@ export function createLocalTransport(storage: Storage): LabTransport {
       }
       if (outcome.testSummary) {
         project.runSummaries[`s${stage}`] = outcome.testSummary;
-        if (labId === "lunch-shift")
-          project.runSummaries[
-            ({ 2: "intake", 3: "queue", 4: "final", 5: "compensate" } as Record<number, string>)[
-              stage
-            ]
-          ] = outcome.testSummary;
+        const summaryKey = LUNCH_SUMMARY_KEYS[stage];
+        if (labId === "lunch-shift" && summaryKey)
+          project.runSummaries[summaryKey] = outcome.testSummary;
       }
       persist();
       return {
@@ -170,10 +178,8 @@ export function createLocalTransport(storage: Storage): LabTransport {
         ...spec.extras?.(project),
       };
     };
-    const calculatorReset =
-      labId === "calculator"
-        ? await import("./resetCalculator")
-        : { resetCalculatorLibrary: () => {} };
+    const calculatorProject =
+      labId === "calculator" ? await import("./resetCalculator") : undefined;
     return (
       typeof navigator !== "undefined" && navigator.locks
         ? await navigator.locks.request(prefix + labId, run)

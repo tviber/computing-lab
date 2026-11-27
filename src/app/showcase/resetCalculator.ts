@@ -3,10 +3,27 @@ import { CALCULATOR_STAGES } from "../../features/calculator/domain/stages";
 import { reconcileCalculatorDrafts } from "../../features/calculator/domain/reconcileDrafts";
 import type { LocalProject } from "./specs";
 
+export function reconcileCalculatorProject(
+  project: LocalProject,
+  originalLibrary: unknown[] = project.unlockedSubmodules,
+): string[] {
+  const { drafts, notices } = reconcileCalculatorDrafts(
+    project.drafts as Record<string, CircuitGraph>,
+    project.unlockedSubmodules,
+    originalLibrary,
+  );
+  for (const [stage, draft] of Object.entries(drafts)) {
+    if (draft === project.drafts[stage]) continue;
+    project.drafts[stage] = draft;
+    project.draftRevisions[stage] = (project.draftRevisions[stage] ?? 0) + 1;
+  }
+  return notices;
+}
+
 export function resetCalculatorLibrary(
   project: LocalProject,
   affected: (stage: number) => boolean,
-) {
+): string[] {
   const removed = new Set(
     CALCULATOR_STAGES.filter((stage) => affected(stage.index)).map((stage) => stage.unlocks),
   );
@@ -26,10 +43,5 @@ export function resetCalculatorLibrary(
   }
   project.unlockedSubmodules = kept;
   project.draftRevisions.components = (project.draftRevisions.components ?? 0) + 1;
-  const repaired = reconcileCalculatorDrafts(
-    project.drafts as Record<string, CircuitGraph>,
-    kept,
-    original,
-  );
-  project.drafts = repaired.drafts;
+  return reconcileCalculatorProject(project, original);
 }

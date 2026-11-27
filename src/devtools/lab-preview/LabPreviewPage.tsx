@@ -121,7 +121,13 @@ function LabPreviewContent<A, S extends LabPreviewScene>(props: {
                     onChange={(e) => setSearchParams({ scenario: e.currentTarget.value })}
                     value={activeScene().id}
                   >
-                    <For each={props.scenes}>{(s) => <option value={s.id}>{s.label}</option>}</For>
+                    <For each={props.scenes}>
+                      {(s) => (
+                        <option selected={s.id === activeScene().id} value={s.id}>
+                          {s.label}
+                        </option>
+                      )}
+                    </For>
                   </select>
                 </label>
                 <label>
@@ -130,7 +136,13 @@ function LabPreviewContent<A, S extends LabPreviewScene>(props: {
                     onChange={(e) => setSearchParams({ viewport: e.currentTarget.value })}
                     value={viewport().id}
                   >
-                    <For each={VIEWPORTS}>{(v) => <option value={v.id}>{v.label}</option>}</For>
+                    <For each={VIEWPORTS}>
+                      {(v) => (
+                        <option selected={v.id === viewport().id} value={v.id}>
+                          {v.label}
+                        </option>
+                      )}
+                    </For>
                   </select>
                 </label>
                 <p>操作只记录事件；切换场景查看其他状态。视口使用 iframe，真实触发媒体查询。</p>

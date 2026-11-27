@@ -293,7 +293,7 @@ export default tseslint.config(
             { group: ["**/preview/**"] },
             { group: ["**/shared/auth/**"] },
             // labMetadata is pure catalog data shared with the server; the rest
-            // of shared/lab holds React hooks/UI and stays off-limits here.
+            // of shared/lab holds SolidJS hooks/UI and stays off-limits here.
             { regex: "(?:^|/)shared/lab(?:$|/(?!(?:labMetadata|judging)(?:\\.ts)?$))" },
           ],
         },

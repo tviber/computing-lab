@@ -19,7 +19,7 @@ import {
   untrack,
   type Component,
 } from "solid-js";
-import { normalizeBasePath } from "../shared/basePath";
+import { normalizeBasePath, resolveRuntimeBasePath } from "../shared/basePath";
 import { isStaffRole, useAuth } from "../shared/auth";
 import { LabAccessGate } from "../shared/lab/LabGate";
 import { rememberRecentLab } from "../shared/lab/recentLab";
@@ -30,14 +30,6 @@ import { HomePage } from "./pages/HomePage";
 import { LabErrorPage } from "./pages/LabErrorPage";
 import { LabRedirectPage } from "./pages/LabRedirectPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
-
-export function resolveRuntimeBasePath(configuredBasePath: string): string {
-  if (configuredBasePath === "/" || typeof window === "undefined") return configuredBasePath;
-  const pathname = window.location.pathname;
-  const isConfiguredPath =
-    pathname === configuredBasePath || pathname.startsWith(`${configuredBasePath}/`);
-  return isConfiguredPath ? configuredBasePath : "/";
-}
 
 const configuredBasePath = normalizeBasePath(import.meta.env.BASE_URL);
 

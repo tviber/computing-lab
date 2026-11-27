@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { createLocalTransport, LOCAL_LEARNER_ID } from "./localRuntime";
 import { LAB_IDS } from "../../shared/lab/labMetadata";
 import {
+  build,
   wireGraph,
   halfAdderGraph,
   referenceSolutions,
@@ -20,6 +21,16 @@ import {
   TOKENIZE_PUZZLE_ITEMS,
 } from "../../features/logistic-regression/domain/stages";
 import { SGD_REFERENCE_CODE } from "../../features/logistic-regression/domain/sgdCode";
+
+const STORAGE_PREFIX = "computing-lab:project:v1:";
+
+function seedProject(labId: string, project: LocalProject) {
+  localStorage.setItem(STORAGE_PREFIX + labId, JSON.stringify(project));
+}
+
+function storedProject(labId: string): LocalProject {
+  return JSON.parse(localStorage.getItem(STORAGE_PREFIX + labId) ?? "") as LocalProject;
+}
 
 describe("browser lab host", () => {
   beforeEach(() => localStorage.clear());
@@ -128,6 +139,86 @@ describe("browser lab host", () => {
     expect(await transport.load("browser", "calculator")).toMatchObject({ drafts: {} });
   });
 
+  it("repairs calculator drafts on load when a custom component no longer exists", async () => {
+    const dangling = build((b) => {
+      const a = b.input("A");
+      b.output("Y", b.component("Lost", { in: a })("out"));
+    });
+    seedProject("calculator", {
+      userId: LOCAL_LEARNER_ID,
+      labId: "calculator",
+      currentStage: 2,
+      passedStages: [1],
+      drafts: { 2: dangling },
+      draftRevisions: { 2: 7 },
+      projectGeneration: 0,
+      unlockedSubmodules: [],
+      runSummaries: {},
+    });
+    const transport = createLocalTransport(localStorage);
+    const loaded = await transport.load<LocalProject & { draftNotices?: string[] }>(
+      "browser",
+      "calculator",
+    );
+    const repaired = {
+      nodes: dangling.nodes.filter((node) => node.kind !== "component"),
+      edges: [],
+    };
+    expect(loaded).toMatchObject({
+      drafts: { 2: repaired },
+      draftRevisions: { 2: 8 },
+      draftNotices: [expect.stringContaining("Lost")],
+    });
+    expect(storedProject("calculator")).toMatchObject({
+      drafts: { 2: repaired },
+      draftRevisions: { 2: 8 },
+    });
+    const again = await transport.load<LocalProject & { draftNotices?: string[] }>(
+      "browser",
+      "calculator",
+    );
+    expect(again.draftNotices).toBeUndefined();
+    expect(again.draftRevisions).toMatchObject({ 2: 8 });
+  });
+
+  it("repairs other calculator drafts when a components save removes a dependency", async () => {
+    const dangling = build((b) => {
+      const a = b.input("A");
+      b.output("Y", b.component("Lost", { in: a })("out"));
+    });
+    const graph = wireGraph();
+    seedProject("calculator", {
+      userId: LOCAL_LEARNER_ID,
+      labId: "calculator",
+      currentStage: 2,
+      passedStages: [1],
+      drafts: { 2: dangling },
+      draftRevisions: { 2: 7 },
+      projectGeneration: 0,
+      unlockedSubmodules: [{ name: "Lost", graph, custom: true }],
+      runSummaries: {},
+    });
+    const transport = createLocalTransport(localStorage);
+    expect(
+      await transport.save("browser", "calculator", {
+        stageIndex: 1,
+        graph,
+        components: [],
+        expectedGeneration: 0,
+        expectedRevision: 0,
+        expectedComponentsRevision: 0,
+      }),
+    ).toMatchObject({ applied: true, revision: 1, componentsRevision: 1 });
+    expect(storedProject("calculator")).toMatchObject({
+      unlockedSubmodules: [],
+      drafts: {
+        1: graph,
+        2: { nodes: dangling.nodes.filter((node) => node.kind !== "component"), edges: [] },
+      },
+      draftRevisions: { 1: 1, 2: 8, components: 1 },
+    });
+  });
+
   it("grades statistics locally and unlocks the next lesson only after a passing answer", async () => {
     const transport = createLocalTransport(localStorage);
     await expect(
@@ -189,6 +280,29 @@ describe("browser lab host", () => {
     expect(
       localSpecs["lunch-shift"].extras!({ ...project, passedStages: [1, 2, 3] }).aiOrders,
     ).toEqual(INTAKE_SCENARIO.orders.map(({ id, request }) => ({ id, request })));
+  });
+
+  it("stores lunch-shift stage-1 summaries without a literal undefined key", async () => {
+    const transport = createLocalTransport(localStorage);
+    const training = trainingOrderFor(LOCAL_LEARNER_ID);
+    await transport.judge("browser", "lunch-shift", {
+      stageIndex: 1,
+      expectedGeneration: 0,
+      draft: {
+        step: "done",
+        ticket: training.ticket,
+        kitchenChoice: "urgent",
+        deliveredTable: training.ticket.table,
+      },
+    });
+    expect(storedProject("lunch-shift").runSummaries).toEqual({
+      s1: { kind: "training", differences: [] },
+    });
+    await transport.reset("browser", "lunch-shift", {
+      scope: "lab",
+      expectedGeneration: 0,
+    });
+    expect(storedProject("lunch-shift").runSummaries).toEqual({});
   });
 
   it("reports storage write failures without claiming a saved draft", async () => {

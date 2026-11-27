@@ -1,5 +1,5 @@
 {
   "buildCommand": "bun run build",
   "outputDirectory": "dist",
-  "rewrites": [{ "source": "/((?!assets/|vendor/).*)", "destination": "/index.html" }]
+  "rewrites": [{ "source": "/((?!assets/|vendor/|licenses/).*)", "destination": "/index.html" }]
 }

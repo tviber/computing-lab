@@ -15,7 +15,7 @@ import { LabErrorPage } from "../pages/LabErrorPage";
 import { NotFoundPage } from "../pages/NotFoundPage";
 import { ShowcaseHomePage } from "./HomePage";
 import { createLocalRuntime } from "./localRuntime";
-import { normalizeBasePath } from "../../shared/basePath";
+import { normalizeBasePath, resolveRuntimeBasePath } from "../../shared/basePath";
 
 function LegacyRedirect() {
   const navigate = useNavigate();
@@ -35,7 +35,7 @@ export const showcaseRoutes = defineRoutes([
 ]);
 
 export function createShowcaseRouter(history: RouterHistory = browserHistory()) {
-  const base = normalizeBasePath(import.meta.env.BASE_URL);
+  const base = resolveRuntimeBasePath(normalizeBasePath(import.meta.env.BASE_URL));
   return createRouter({
     routes: showcaseRoutes,
     history,
