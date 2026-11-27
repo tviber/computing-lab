@@ -473,6 +473,11 @@ export const PRACTICE_ORDERS = INTAKE_SCENARIO.orders.map((order) => ({
   expected: order.expected!,
 }));
 
+/** Collision-free cache key for an ordered list of intake requests. */
+export function orderSetCacheKey(orders: readonly { id: string; request: string }[]): string {
+  return JSON.stringify(orders.map((order) => [order.id, order.request]));
+}
+
 /** All texts the model must embed: every request clause + prototypes. */
 export function textsToEmbed(requests: readonly string[]): string[] {
   const texts = new Set<string>();

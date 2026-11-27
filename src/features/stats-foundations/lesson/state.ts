@@ -61,7 +61,7 @@ export type StatsFoundationsLessonAction =
   | { type: "mark-saved"; stageIndex: number; revision?: number }
   | { type: "mark-save-error"; stageIndex: number }
   | { type: "mark-save-sync-error"; stageIndex: number }
-  | { type: "resolve-save-conflict"; stageIndex: number; draft: unknown; revision?: number }
+  | { type: "resolve-save-conflict"; stageIndex: number; draft?: unknown; revision?: number }
   | { type: "restore-conflict-draft" | "discard-conflict-draft"; stageIndex: number }
   | { type: "judge-result"; result: StatsFoundationsJudgeResult };
 

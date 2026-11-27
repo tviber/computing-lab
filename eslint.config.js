@@ -189,11 +189,6 @@ export default tseslint.config(
     },
   },
   {
-    // Existing reducer debt has a fixed ceiling; new pure modules use 800.
-    files: ["src/features/calculator/lesson/state.ts"],
-    rules: { "max-lines": ["error", { max: 1318 }] },
-  },
-  {
     // Curated data tables, not handwritten calculation/control flow.
     files: [
       "src/features/logistic-regression/domain/cnLexicon.ts",

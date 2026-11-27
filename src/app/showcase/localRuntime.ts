@@ -5,12 +5,6 @@ import type { LocalProject } from "./specs";
 
 export const LOCAL_LEARNER_ID = "local-learner-v1";
 const prefix = "computing-lab:project:v1:";
-const LUNCH_SUMMARY_KEYS: Partial<Record<number, string>> = {
-  2: "intake",
-  3: "queue",
-  4: "final",
-  5: "compensate",
-};
 
 function read(storage: Storage, labId: LabId): LocalProject {
   const raw = storage.getItem(prefix + labId);
@@ -54,7 +48,7 @@ export function createLocalTransport(storage: Storage): LabTransport {
   ): Promise<T> {
     if (!LAB_IDS.includes(lab as LabId)) throw new LabRuntimeError("unknown-lab");
     const labId = lab as LabId;
-    const { localSpecs, mergeCustomComponents } = await import("./specs");
+    const { localSpecs } = await import("./specs");
     const spec = localSpecs[labId];
     const run = () => {
       const project = read(storage, labId);
@@ -69,90 +63,80 @@ export function createLocalTransport(storage: Storage): LabTransport {
           );
         }
       };
+
       if (operation === "load") {
-        if (calculatorProject) {
-          const draftNotices = calculatorProject.reconcileCalculatorProject(project);
-          if (draftNotices.length) persist();
-          return { ...payload(), ...(draftNotices.length ? { draftNotices } : {}) };
-        }
-        return payload();
+        const draftNotices = spec.onLoad?.(project) ?? [];
+        if (draftNotices.length) persist();
+        return { ...payload(), ...(draftNotices.length ? { draftNotices } : {}) };
       }
+
       if (operation === "guide") {
-        project.fullAdderGuideAcknowledged = true;
+        spec.onAcknowledgeGuide?.(project);
         persist();
         return { ok: true };
       }
+
       if (operation === "save" && body.expectedGeneration !== project.projectGeneration) {
         return {
           applied: false,
           revision: project.draftRevisions[String(body.stageIndex)] ?? 0,
-          componentsRevision: project.draftRevisions.components ?? 0,
+          ...spec.saveMetadata?.(project, false),
           projectGeneration: project.projectGeneration,
         };
       }
       if (body.expectedGeneration !== project.projectGeneration)
         throw new LabRuntimeError("stale-project-generation", "进度已在另一页面重置，请重新载入。");
+
       const stage = Number(body.stageIndex);
       if (
         !(operation === "reset" && body.scope === "lab") &&
         !spec.stages.some((entry) => entry.index === stage)
       )
         throw new LabRuntimeError("invalid-stage");
+
       if (operation === "save") {
         const revision = project.draftRevisions[stage] ?? 0;
-        const componentsRevision = project.draftRevisions.components ?? 0;
-        if (
-          body.expectedRevision !== revision ||
-          (body.components !== undefined && body.expectedComponentsRevision !== componentsRevision)
-        )
+        if (body.expectedRevision !== revision || spec.hasSaveConflict?.(project, body)) {
           return {
             applied: false,
             revision,
-            componentsRevision,
+            ...spec.saveMetadata?.(project, false),
             projectGeneration: project.projectGeneration,
           };
+        }
         project.drafts[stage] = spec.sanitize(stage, body);
         project.draftRevisions[stage] = revision + 1;
-        if (labId === "calculator" && body.components !== undefined) {
-          const originalLibrary = project.unlockedSubmodules;
-          project.unlockedSubmodules = mergeCustomComponents(
-            project.unlockedSubmodules as Parameters<typeof mergeCustomComponents>[0],
-            body.components,
-          );
-          project.draftRevisions.components = componentsRevision + 1;
-          calculatorProject?.reconcileCalculatorProject(project, originalLibrary);
-        }
+        spec.onSave?.(project, stage, body);
         persist();
         return {
           applied: true,
           revision: project.draftRevisions[stage],
-          componentsRevision: project.draftRevisions.components,
+          ...spec.saveMetadata?.(project, true),
           projectGeneration: project.projectGeneration,
         };
       }
+
       if (operation === "reset") {
         if (body.scope !== "stage" && body.scope !== "lab")
           throw new LabRuntimeError("invalid-reset-scope");
         const affected = (index: number) =>
           body.scope === "lab" || (spec.affected?.(stage, index) ?? index >= stage);
         project.passedStages = project.passedStages.filter((index) => !affected(index));
-        for (const entry of spec.stages)
-          if (affected(entry.index)) {
-            delete project.drafts[entry.index];
-            project.draftRevisions[entry.index] = (project.draftRevisions[entry.index] ?? 0) + 1;
-            delete project.runSummaries[`s${entry.index}`];
-            const summaryKey = LUNCH_SUMMARY_KEYS[entry.index];
-            if (summaryKey) delete project.runSummaries[summaryKey];
-          }
-        if (affected(4)) delete project.trainedSettings;
-        const draftNotices = calculatorProject
-          ? calculatorProject.resetCalculatorLibrary(project, affected)
-          : [];
+        for (const entry of spec.stages) {
+          if (!affected(entry.index)) continue;
+          delete project.drafts[entry.index];
+          project.draftRevisions[entry.index] = (project.draftRevisions[entry.index] ?? 0) + 1;
+          delete project.runSummaries[`s${entry.index}`];
+          const summaryKey = spec.summaryKeys?.[entry.index];
+          if (summaryKey) delete project.runSummaries[summaryKey];
+        }
+        const draftNotices = spec.onReset?.(project, affected) ?? [];
         project.currentStage = spec.next(project.passedStages);
         project.projectGeneration += 1;
         persist();
         return { ...payload(), ...(draftNotices.length ? { draftNotices } : {}) };
       }
+
       const outcome = spec.evaluate(project, stage, body);
       if ("error" in outcome) throw new LabRuntimeError(String(outcome.error));
       if (outcome.passed) {
@@ -160,14 +144,11 @@ export function createLocalTransport(storage: Storage): LabTransport {
           (left, right) => left - right,
         );
         project.currentStage = spec.next(project.passedStages);
-        if (outcome.trainedSettings)
-          project.trainedSettings = outcome.trainedSettings as LocalProject["trainedSettings"];
       }
       if (outcome.testSummary) {
         project.runSummaries[`s${stage}`] = outcome.testSummary;
-        const summaryKey = LUNCH_SUMMARY_KEYS[stage];
-        if (labId === "lunch-shift" && summaryKey)
-          project.runSummaries[summaryKey] = outcome.testSummary;
+        const summaryKey = spec.summaryKeys?.[stage];
+        if (summaryKey) project.runSummaries[summaryKey] = outcome.testSummary;
       }
       persist();
       return {
@@ -178,20 +159,24 @@ export function createLocalTransport(storage: Storage): LabTransport {
         ...spec.extras?.(project),
       };
     };
-    const calculatorProject =
-      labId === "calculator" ? await import("./resetCalculator") : undefined;
+
     return (
       typeof navigator !== "undefined" && navigator.locks
         ? await navigator.locks.request(prefix + labId, run)
         : run()
     ) as T;
   }
+
   return {
     load: (_scope, lab) => operate(lab, "load"),
     save: (_scope, lab, body) => operate(lab, "save", body),
     judge: (_scope, lab, body) => operate(lab, "judge", body),
     reset: (_scope, lab, body) => operate(lab, "reset", body),
-    acknowledgeGuide: () => operate("calculator", "guide"),
+    acknowledgeGuide: async () => {
+      const { localSpecs } = await import("./specs");
+      const entry = Object.entries(localSpecs).find(([, spec]) => spec.onAcknowledgeGuide);
+      return entry ? operate(entry[0], "guide") : { ok: true };
+    },
   };
 }
 
