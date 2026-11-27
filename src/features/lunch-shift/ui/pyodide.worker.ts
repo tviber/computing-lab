@@ -19,6 +19,7 @@
 
 import type { PyodideInterface } from "pyodide";
 import { installPyodideWorker } from "../../../shared/worker/workerProtocol.ts";
+import { assertPyCallable } from "../../../shared/lab/pyProxy.ts";
 
 type RunRequest =
   | { id: number; kind: "priority"; code: string }
@@ -28,13 +29,6 @@ type RunRequest =
 const PRIORITY_CALL = `[priority(u, w, c) for u in (False, True) for w in range(31) for c in (1, 3)]`;
 const COMPENSATE_CALL = `[compensate(u, o, d, p) for u in (False, True) for o in range(31) for d in (False, True) for p in range(31)]`;
 const CONFIRM_CALL = `[need_confirm(s, m) for s, m in __import__("json").loads(cases_json)]`;
-
-function mustFn(globals: ReturnType<PyodideInterface["toPy"]>, name: string, sig: string) {
-  const fn = globals.get(name);
-  if (fn === undefined || typeof fn.callKwargs !== "function") {
-    throw new Error(`需要一个函数 ${sig}`);
-  }
-}
 
 const SIGNATURES = {
   priority: "priority(urgent, wait, cook)",
@@ -47,7 +41,7 @@ async function runRequest(pyodide: PyodideInterface, request: RunRequest): Promi
   try {
     pyodide.runPython(request.code, { globals });
     const name = request.kind === "confirm" ? "need_confirm" : request.kind;
-    mustFn(globals, name, SIGNATURES[request.kind as keyof typeof SIGNATURES]);
+    assertPyCallable(globals, name, SIGNATURES[request.kind as keyof typeof SIGNATURES]);
     if (request.kind === "confirm") {
       globals.set("cases_json", JSON.stringify(request.cases));
     }

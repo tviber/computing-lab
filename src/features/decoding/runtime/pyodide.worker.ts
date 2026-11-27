@@ -15,6 +15,7 @@
 
 import type { PyodideInterface } from "pyodide";
 import { installPyodideWorker } from "../../../shared/worker/workerProtocol.ts";
+import { assertPyCallable, withPyValue } from "../../../shared/lab/pyProxy.ts";
 
 type RunRequest = {
   id: number;
@@ -39,11 +40,12 @@ async function runRequest(pyodide: PyodideInterface, request: RunRequest): Promi
     if (request.code.trim()) {
       pyodide.runPython(request.code, { globals });
     }
-    if (!request.useCodeData) globals.set("data", pyodide.toPy(request.data));
+    if (!request.useCodeData) {
+      withPyValue(pyodide.toPy(request.data), (data) => globals.set("data", data));
+    }
     const call = request.call ?? "decode(data)";
-    const fn = globals.get("decode");
-    if (request.call === undefined && (fn === undefined || typeof fn.callKwargs !== "function")) {
-      throw new Error("需要一个函数 decode(data)。data 是这一关交给你的数据。");
+    if (request.call === undefined) {
+      assertPyCallable(globals, "decode", "decode(data)。data 是这一关交给你的数据。");
     }
     const out = pyodide.runPython(call, { globals }) as unknown;
     if (out !== null && typeof out === "object") {

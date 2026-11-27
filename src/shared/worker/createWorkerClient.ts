@@ -8,16 +8,24 @@
  * dead Python can't be interrupted, so the runtime is discarded and cold-loads
  * on the next run; a load timeout only rejects that request, the download
  * continues in the background and a retry reuses it.
+ *
+ * An idle worker is released after `idleTimeoutMs`. A hidden tab gets a shorter
+ * grace period so switching tabs mid-run never interrupts Python, while a
+ * pagehide releases immediately. The next `run()` or `warm()` cold-starts a
+ * fresh runtime.
  */
 import type { WorkerRequestBase, WorkerResponse } from "./workerProtocol.ts";
 import {
   PYODIDE_LOAD_TIMEOUT_MESSAGE,
   PYODIDE_RUN_FAILED_MESSAGE,
   PYODIDE_RUN_TIMEOUT_MESSAGE,
+  PYODIDE_WORKER_RELEASED_MESSAGE,
 } from "./workerErrors.ts";
 
 export const WORKER_RUN_TIMEOUT_MS = 15_000;
 export const WORKER_LOAD_TIMEOUT_MS = 90_000;
+export const WORKER_IDLE_TIMEOUT_MS = 90_000;
+export const WORKER_HIDDEN_IDLE_TIMEOUT_MS = 30_000;
 
 type Pending = {
   resolve: (payload: object) => void;
@@ -40,21 +48,56 @@ export type WorkerClient = {
   ) => Promise<TPayload>;
   /** Spawn the worker now so the runtime download finishes before the first run. */
   warm: () => void;
+  /** Stop the worker and remove page-lifecycle listeners. */
+  dispose: () => void;
 };
 
-export function createWorkerClient(spawn: () => Worker): WorkerClient {
+export type WorkerClientOptions = {
+  /** Release an unused runtime after this long. Defaults to 90 seconds. */
+  idleTimeoutMs?: number;
+  /** Release an unused runtime this long after the tab becomes hidden. */
+  hiddenIdleTimeoutMs?: number;
+  /** Release on pagehide / after a hidden tab's grace period. Enabled in the browser. */
+  pageLifecycle?: boolean;
+};
+
+export function createWorkerClient(
+  spawn: () => Worker,
+  options: WorkerClientOptions = {},
+): WorkerClient {
   let worker: Worker | null = null;
   let seq = 0;
   const pending = new Map<number, Pending>();
+  const idleTimeoutMs = options.idleTimeoutMs ?? WORKER_IDLE_TIMEOUT_MS;
+  const hiddenIdleTimeoutMs = options.hiddenIdleTimeoutMs ?? WORKER_HIDDEN_IDLE_TIMEOUT_MS;
+  let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let pageHidden = false;
 
-  function killWorker(): void {
+  function clearIdleTimer(): void {
+    if (idleTimer === null) return;
+    clearTimeout(idleTimer);
+    idleTimer = null;
+  }
+
+  function killWorker(message = PYODIDE_RUN_TIMEOUT_MESSAGE): void {
+    clearIdleTimer();
     worker?.terminate();
     worker = null;
     for (const entry of pending.values()) {
       clearTimeout(entry.timer);
-      entry.reject(new Error(PYODIDE_RUN_TIMEOUT_MESSAGE));
+      entry.reject(new Error(message));
     }
     pending.clear();
+  }
+
+  function scheduleIdleRelease(): void {
+    clearIdleTimer();
+    if (worker === null || pending.size > 0) return;
+    const delay = pageHidden ? hiddenIdleTimeoutMs : idleTimeoutMs;
+    idleTimer = setTimeout(() => {
+      idleTimer = null;
+      killWorker(PYODIDE_WORKER_RELEASED_MESSAGE);
+    }, delay);
   }
 
   function onTimeout(id: number): void {
@@ -66,10 +109,12 @@ export function createWorkerClient(spawn: () => Worker): WorkerClient {
     }
     pending.delete(id);
     entry.reject(new Error(PYODIDE_LOAD_TIMEOUT_MESSAGE));
+    scheduleIdleRelease();
   }
 
   function ensureWorker(): Worker {
     if (worker) return worker;
+    clearIdleTimer();
     worker = spawn();
     worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
       const data = event.data;
@@ -91,9 +136,28 @@ export function createWorkerClient(spawn: () => Worker): WorkerClient {
       } else {
         entry.reject(new Error("error" in data ? data.error : PYODIDE_RUN_FAILED_MESSAGE));
       }
+      scheduleIdleRelease();
     };
     worker.onerror = () => killWorker();
     return worker;
+  }
+
+  function onPageHide(): void {
+    killWorker(PYODIDE_WORKER_RELEASED_MESSAGE);
+  }
+
+  function onVisibilityChange(): void {
+    const hidden = document.visibilityState === "hidden";
+    if (hidden === pageHidden) return;
+    pageHidden = hidden;
+    if (worker !== null) scheduleIdleRelease();
+  }
+
+  const canObservePage = typeof window !== "undefined" && typeof document !== "undefined";
+  const pageLifecycle = canObservePage && (options.pageLifecycle ?? true);
+  if (pageLifecycle) {
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
   }
 
   return {
@@ -101,6 +165,7 @@ export function createWorkerClient(spawn: () => Worker): WorkerClient {
       message: Record<string, unknown>,
       timeoutMs = WORKER_RUN_TIMEOUT_MS,
     ): Promise<TPayload> {
+      clearIdleTimer();
       const w = ensureWorker();
       const id = (seq += 1);
       return new Promise((resolve, reject) => {
@@ -115,7 +180,16 @@ export function createWorkerClient(spawn: () => Worker): WorkerClient {
       });
     },
     warm(): void {
+      clearIdleTimer();
       ensureWorker();
+      scheduleIdleRelease();
+    },
+    dispose(): void {
+      if (pageLifecycle) {
+        window.removeEventListener("pagehide", onPageHide);
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
+      killWorker(PYODIDE_WORKER_RELEASED_MESSAGE);
     },
   };
 }
