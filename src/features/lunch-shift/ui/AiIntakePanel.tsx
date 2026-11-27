@@ -16,7 +16,10 @@
  */
 
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onSettled, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { Icon } from "../../../shared/ui/Icon";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import {
   predictTicket,
   textsToEmbed,
@@ -133,24 +136,16 @@ function TriageIntro(props: { orders: { id: string; request: string }[] }) {
                   <b>{item.draft}</b>
                   <small>{item.draftNote}</small>
                 </div>
-                <div class="lunch-triage-actions">
-                  <Button
-                    aria-pressed={decisions()[item.id] === "direct" ? "true" : "false"}
-                    class="button button-secondary"
-                    onClick={() => decide(item.id, "direct")}
-                    type="button"
-                  >
-                    直接出票
-                  </Button>
-                  <Button
-                    aria-pressed={decisions()[item.id] === "ask" ? "true" : "false"}
-                    class="button button-secondary"
-                    onClick={() => decide(item.id, "ask")}
-                    type="button"
-                  >
-                    停 1 拍，问顾客
-                  </Button>
-                </div>
+                <SegmentedPicker
+                  class="lunch-triage-actions"
+                  label={`${item.title} 的处理方式`}
+                  onChange={(decision) => decide(item.id, decision as TriageDecision)}
+                  options={[
+                    { value: "direct", label: "直接出票" },
+                    { value: "ask", label: "停 1 拍，问顾客" },
+                  ]}
+                  value={decisions()[item.id] ?? ""}
+                />
                 <Show when={decisions()[item.id]}>
                   {(decision) => (
                     <p
@@ -362,8 +357,7 @@ function ConfidenceScatter(props: { rows: PreviewRow[]; mode: "raw" | "run" }) {
 
 function OrderPreviewTable(props: { rows: PreviewRow[]; showCorrect: boolean; open?: boolean }) {
   return (
-    <details class="lunch-reference" open={props.open}>
-      <summary>看每一张订单的判断</summary>
+    <Disclosure class="lunch-reference" open={props.open} summary="看每一张订单的判断">
       <div class="lunch-table-wrap">
         <table class="lunch-orders-table">
           <thead>
@@ -397,7 +391,9 @@ function OrderPreviewTable(props: { rows: PreviewRow[]; showCorrect: boolean; op
                   </td>
                   <td>{fmt(row.prediction.margin)}</td>
                   <Show when={props.showCorrect}>
-                    <td>{row.correct === false ? "✗" : "✓"}</td>
+                    <td>
+                      <Icon name={row.correct === false ? "x" : "check"} size={13} />
+                    </td>
                   </Show>
                   <td>{row.confirmed ? "再确认 +1 拍" : "直接记"}</td>
                 </tr>
@@ -406,7 +402,7 @@ function OrderPreviewTable(props: { rows: PreviewRow[]; showCorrect: boolean; op
           </tbody>
         </table>
       </div>
-    </details>
+    </Disclosure>
   );
 }
 
@@ -483,27 +479,24 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
 
   // Start the model download as soon as the stage opens — it's vendored
   // locally and warm by the time the student finishes reading the task.
-  createEffect(
-    () => 0,
-    () => {
-      let cancelled = false;
-      loadEmbedder(setProgress).then(
-        (info) => {
-          if (cancelled) return;
-          setModelInfo(info);
-          setModelStatus("ready");
-        },
-        (loadError: unknown) => {
-          if (cancelled) return;
-          setModelError(loadError instanceof Error ? loadError.message : String(loadError));
-          setModelStatus("error");
-        },
-      );
-      return () => {
-        cancelled = true;
-      };
-    },
-  );
+  onSettled(() => {
+    let cancelled = false;
+    loadEmbedder(setProgress).then(
+      (info) => {
+        if (cancelled) return;
+        setModelInfo(info);
+        setModelStatus("ready");
+      },
+      (loadError: unknown) => {
+        if (cancelled) return;
+        setModelError(loadError instanceof Error ? loadError.message : String(loadError));
+        setModelStatus("error");
+      },
+    );
+    return () => {
+      cancelled = true;
+    };
+  });
 
   const predict = async (): Promise<{ predictions: TicketPrediction[]; cached: boolean }> => {
     const orders = props.orders;
@@ -816,11 +809,11 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                 。
               </p>
             </Show>
-            <details
+            <Disclosure
               class="lunch-reference"
               open={res().correct !== res().total || res().confirmed > AI_CONFIRM_BUDGET}
+              summary="逐单看结果"
             >
-              <summary>逐单看结果</summary>
               <div class="lunch-table-wrap">
                 <table class="lunch-orders-table">
                   <thead>
@@ -843,7 +836,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                             <small>{order.request}</small>
                           </td>
                           <td>
-                            {order.correct ? "✓ " : "✗ "}
+                            <Icon name={order.correct ? "check" : "x"} size={12} />{" "}
                             {`${order.produced.item}·${order.produced.note}·${order.produced.table}号·${order.produced.urgent ? "加急" : "普通"}`}
                           </td>
                           <td>
@@ -856,7 +849,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                   </tbody>
                 </table>
               </div>
-            </details>
+            </Disclosure>
           </section>
         )}
       </Show>
@@ -949,8 +942,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
               {(run) => <QueueResultView autoPlay run={run()} title="晚餐高峰回放" />}
             </Show>
 
-            <details class="lunch-reference">
-              <summary>逐单看送达结果</summary>
+            <Disclosure class="lunch-reference" summary="逐单看送达结果">
               <div class="lunch-table-wrap">
                 <table class="lunch-orders-table">
                   <thead>
@@ -999,7 +991,7 @@ export function AiIntakePanel<D extends AiIntakeDraft>(props: {
                   </tbody>
                 </table>
               </div>
-            </details>
+            </Disclosure>
           </section>
         )}
       </Show>

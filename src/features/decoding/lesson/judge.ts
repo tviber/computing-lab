@@ -25,7 +25,7 @@ function promptParts(
     detail:
       prompt.options[answers?.[prompt.id] ?? -1]?.correct === true
         ? null
-        : "还没答对——回到「先想清楚」再看看",
+        : "还没答对，回到「先想清楚」再看看",
   }));
 }
 

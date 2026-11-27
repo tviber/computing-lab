@@ -10,6 +10,8 @@
 
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import {
   bestCompensation,
   checkCompensateTable,
@@ -128,24 +130,17 @@ function TryoutBoard(props: { orders: readonly CompensateLateOrder[] }) {
                     {order.urgent ? "加急" : "普通"} · {order.price} 元
                   </span>
                 </div>
-                <div
-                  aria-label={`${order.id} 的补偿选择`}
+                <SegmentedPicker
                   class="lunch-tryout-choices"
-                  role="group"
-                >
-                  <For each={COMPENSATE_CHOICE_VALUES}>
-                    {(value) => (
-                      <Button
-                        aria-pressed={choiceOf(order.id) === value ? "true" : "false"}
-                        class="button button-secondary lunch-tryout-choice"
-                        onClick={() => setChoice(order.id, value)}
-                        type="button"
-                      >
-                        {COMPENSATE_CHOICES[value]}
-                      </Button>
-                    )}
-                  </For>
-                </div>
+                  itemClass="lunch-tryout-choice"
+                  label={`${order.id} 的补偿选择`}
+                  onChange={(value) => setChoice(order.id, Number(value))}
+                  options={COMPENSATE_CHOICE_VALUES.map((value) => ({
+                    value: String(value),
+                    label: COMPENSATE_CHOICES[value],
+                  }))}
+                  value={String(choiceOf(order.id))}
+                />
                 <p class="lunch-tryout-line">
                   差评率 {risk()}% · 这一单花 {cost()} 元
                 </p>
@@ -271,8 +266,7 @@ export function CompensatePanel(props: {
         </ul>
       </div>
 
-      <details class="lunch-reference">
-        <summary>店里的历史差评率</summary>
+      <Disclosure class="lunch-reference" summary="店里的历史差评率">
         <p class="lunch-note">同样的等待和补偿，加急顾客给出差评的概率更高。</p>
         <div class="lunch-table-wrap">
           <table class="lunch-orders-table">
@@ -296,12 +290,11 @@ export function CompensatePanel(props: {
             </tbody>
           </table>
         </div>
-      </details>
+      </Disclosure>
 
       <TryoutBoard orders={lateOrders} />
 
-      <details class="lunch-reference">
-        <summary>看这 {lateOrders.length} 张问题单</summary>
+      <Disclosure class="lunch-reference" summary={`看这 ${lateOrders.length} 张问题单`}>
         <p class="lunch-note">这是 compensate 会收到的参数，一张单一行。</p>
         <div class="lunch-table-wrap">
           <table class="lunch-orders-table">
@@ -333,7 +326,7 @@ export function CompensatePanel(props: {
             </tbody>
           </table>
         </div>
-      </details>
+      </Disclosure>
 
       <CodeEditor
         ariaLabel="compensate 函数代码"

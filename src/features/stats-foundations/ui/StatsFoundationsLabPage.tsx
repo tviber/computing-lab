@@ -1,18 +1,17 @@
 import { useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
-import { createMemo, createSignal, For, Match, Show, Switch, untrack } from "solid-js";
+import { createMemo, createSignal, Match, Show, Switch, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
 import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
+import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { StageTask } from "../../../shared/lab/StageTask";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
-import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import type {
   ConditionalProbDraft,
   LikelihoodDraft,
@@ -21,7 +20,7 @@ import type {
   StatsFoundationsDraft,
   StatsFoundationsJudgeResult,
 } from "../domain/protocol.ts";
-import { STATS_FOUNDATIONS_STAGES, type StatsFoundationsStageDef } from "../domain/stages.ts";
+import { STATS_FOUNDATIONS_STAGES } from "../domain/stages.ts";
 import {
   createStatsFoundationsLessonState,
   draftOf,
@@ -46,26 +45,6 @@ function parseRequestedStage(raw: unknown): number | null {
   return Number.isInteger(parsed) && parsed >= 1 && parsed <= STATS_FOUNDATIONS_STAGES.length
     ? parsed
     : null;
-}
-
-function StageBrief(props: { stage: StatsFoundationsStageDef; passed: boolean }) {
-  return (
-    <section class="stage-brief">
-      <StageTask>{props.stage.task}</StageTask>
-      <p>{props.stage.description}</p>
-      <Show
-        fallback={
-          <div class="sf-hints-list">
-            <For each={props.stage.hints}>{(hint) => <HintDisclosure>{hint}</HintDisclosure>}</For>
-          </div>
-        }
-        when={props.passed}
-      >
-        <p class="submit-note">判题方式：{props.stage.judgeNote}</p>
-        <p class="stage-takeaway">本关收获：{props.stage.takeaway}</p>
-      </Show>
-    </section>
-  );
 }
 
 const RAIL_STAGES = STATS_FOUNDATIONS_STAGES.map((s) => ({ ...s, id: s.slug }));
@@ -238,7 +217,16 @@ export function StatsFoundationsLabPage() {
               when={projectReady()}
             >
               <Show keyed when={stage()}>
-                {(currentStage) => <StageBrief passed={passed()} stage={currentStage} />}
+                {(currentStage) => (
+                  <StageBrief
+                    description={currentStage.description}
+                    hints={currentStage.hints}
+                    judgeNote={currentStage.judgeNote}
+                    passed={passed()}
+                    takeaway={currentStage.takeaway}
+                    task={currentStage.task}
+                  />
+                )}
               </Show>
 
               <Switch>
@@ -246,7 +234,6 @@ export function StatsFoundationsLabPage() {
                   <LinearRegressionPanel
                     draft={draftOf<LinearRegressionDraft>(state(), 1)}
                     onChange={handleDraftChange}
-                    passed={passed()}
                     question={stage().question}
                   />
                 </Match>
@@ -254,7 +241,6 @@ export function StatsFoundationsLabPage() {
                   <ConditionalProbPanel
                     draft={draftOf<ConditionalProbDraft>(state(), 2)}
                     onChange={handleDraftChange}
-                    passed={passed()}
                     question={stage().question}
                   />
                 </Match>
@@ -262,7 +248,6 @@ export function StatsFoundationsLabPage() {
                   <LikelihoodPanel
                     draft={draftOf<LikelihoodDraft>(state(), 3)}
                     onChange={handleDraftChange}
-                    passed={passed()}
                     question={stage().question}
                   />
                 </Match>

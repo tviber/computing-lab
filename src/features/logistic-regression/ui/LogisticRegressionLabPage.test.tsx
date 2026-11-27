@@ -71,9 +71,9 @@ describe("LogisticRegressionLabPage", () => {
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: studentAuthState });
 
     await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
-    await screen.findByRole("group", { name: "中奖 倾向设置" });
+    await screen.findByRole("radiogroup", { name: "中奖 倾向设置" });
     for (const word of STRATEGY_WORDS) {
-      expect(screen.getByRole("group", { name: `${word} 倾向设置` })).toBeInTheDocument();
+      expect(screen.getByRole("radiogroup", { name: `${word} 倾向设置` })).toBeInTheDocument();
     }
     expect(screen.getByRole("heading", { name: "第一条短信的算分过程" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "提交第 1 关判定" })).toBeDisabled();
@@ -108,10 +108,18 @@ describe("LogisticRegressionLabPage", () => {
     flush();
     expect(screen.getByText(/模型分类：/)).toBeInTheDocument();
     expect(finish).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "促销短信" }));
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "短信示例" })).getByRole("radio", {
+        name: "促销短信",
+      }),
+    );
     flush();
     expect(screen.getByText("模型分类：垃圾短信")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "日常消息" }));
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "短信示例" })).getByRole("radio", {
+        name: "日常消息",
+      }),
+    );
     flush();
     expect(screen.getByText("模型分类：正常短信")).toBeInTheDocument();
     fireEvent.input(screen.getByLabelText("短信内容"), { target: { value: "明天来学校开会" } });
@@ -143,7 +151,7 @@ describe("LogisticRegressionLabPage", () => {
 
     expect(screen.getByText(/训练集的 1,400 条短信用于更新权重/)).toBeInTheDocument();
     expect(screen.getByText(/SGD 每读一条就更新一次/)).toBeInTheDocument();
-    fireEvent.input(screen.getByLabelText(/回放第/), { target: { value: "0" } });
+    fireEvent.input(screen.getByRole("slider", { name: "回放轮次" }), { target: { value: "0" } });
     flush();
     expect(screen.getByText(/第 0 轮是训练前的权重/)).toBeInTheDocument();
     expect(screen.getByText(/下面只回放已有结果，不改变最终提交的模型/)).toBeInTheDocument();
@@ -170,7 +178,7 @@ describe("LogisticRegressionLabPage", () => {
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
 
     await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
-    await screen.findByRole("group", { name: "中奖 倾向设置" });
+    await screen.findByRole("radiogroup", { name: "中奖 倾向设置" });
 
     const results = within(screen.getByRole("list", { name: "6 条短信的分类结果" }));
     expect(results.getAllByRole("listitem")).toHaveLength(6);
@@ -191,8 +199,8 @@ describe("LogisticRegressionLabPage", () => {
       老师: "−1 偏正常",
     };
     for (const [word, tierLabel] of Object.entries(tierSelections)) {
-      const group = screen.getByRole("group", { name: `${word} 倾向设置` });
-      fireEvent.click(within(group).getByRole("button", { name: tierLabel }));
+      const group = screen.getByRole("radiogroup", { name: `${word} 倾向设置` });
+      fireEvent.click(within(group).getByRole("radio", { name: tierLabel }));
       flush();
     }
 
@@ -254,7 +262,7 @@ describe("LogisticRegressionLabPage", () => {
     await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
 
     fireEvent.click(
-      within(await screen.findByRole("group", { name: "中奖 倾向设置" })).getByRole("button", {
+      within(await screen.findByRole("radiogroup", { name: "中奖 倾向设置" })).getByRole("radio", {
         name: "+2 强垃圾",
       }),
     );
@@ -293,18 +301,18 @@ describe("LogisticRegressionLabPage", () => {
     await renderAppAt("/classes/c1/labs/logistic-regression", { auth: teacherAuthState });
     await screen.findByRole("heading", { name: "逻辑回归 - 给 10 个词打分" });
 
-    const prizeGroup = await screen.findByRole("group", { name: "中奖 倾向设置" });
-    expect(within(prizeGroup).getByRole("button", { name: "+1 偏垃圾" })).toHaveAttribute(
-      "aria-pressed",
+    const prizeGroup = await screen.findByRole("radiogroup", { name: "中奖 倾向设置" });
+    expect(within(prizeGroup).getByRole("radio", { name: "+1 偏垃圾" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
-    const momGroup = screen.getByRole("group", { name: "妈妈 倾向设置" });
-    expect(within(momGroup).getByRole("button", { name: "−2 强正常" })).toHaveAttribute(
-      "aria-pressed",
+    const momGroup = screen.getByRole("radiogroup", { name: "妈妈 倾向设置" });
+    expect(within(momGroup).getByRole("radio", { name: "−2 强正常" })).toHaveAttribute(
+      "aria-checked",
       "true",
     );
 
-    fireEvent.click(within(prizeGroup).getByRole("button", { name: "+2 强垃圾" }));
+    fireEvent.click(within(prizeGroup).getByRole("radio", { name: "+2 强垃圾" }));
     await waitFor(
       () =>
         expect(
@@ -404,7 +412,11 @@ describe("LogisticRegressionLabPage", () => {
       "sgd-guide-field",
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "自由手写" }));
+    fireEvent.click(
+      within(screen.getByRole("radiogroup", { name: "代码编辑模式" })).getByRole("radio", {
+        name: "自由手写",
+      }),
+    );
     flush();
     expect(screen.getByLabelText("单条短信的更新代码")).toBeInTheDocument();
 
@@ -441,7 +453,12 @@ describe("LogisticRegressionLabPage", () => {
     flush();
     expect(within(slicePanel).getByText(/没有回到原位/)).toBeInTheDocument();
 
-    fireEvent.click(within(slicePanel).getByRole("button", { name: "当前训练模型权重" }));
+    fireEvent.click(
+      within(within(slicePanel).getByRole("radiogroup", { name: "选择其余权重基准" })).getByRole(
+        "radio",
+        { name: "当前训练模型权重" },
+      ),
+    );
     flush();
     expect(within(slicePanel).getByText(/当前模型为「好」学到的权重/)).toBeInTheDocument();
     expect(within(slicePanel).getByText(/误拦正常/)).toBeInTheDocument();

@@ -40,12 +40,12 @@ it("keeps both preset runs on one replay stage", () => {
   renderPanel();
   expect(screen.queryByText("预设：按到店顺序做")).not.toBeInTheDocument();
 
-  fireEvent.click(screen.getByRole("button", { name: "按到店顺序做" }));
+  fireEvent.click(screen.getByRole("radio", { name: "按到店顺序做" }));
   flush();
   expect(screen.getByText("预设：按到店顺序做")).toBeInTheDocument();
   expect(document.querySelectorAll(".lunch-replay")).toHaveLength(1);
 
-  fireEvent.click(screen.getByRole("button", { name: "有加急就先做" }));
+  fireEvent.click(screen.getByRole("radio", { name: "有加急就先做" }));
   flush();
   expect(screen.getByText("预设：有加急就先做")).toBeInTheDocument();
   expect(document.querySelectorAll(".lunch-replay")).toHaveLength(1);
@@ -66,7 +66,7 @@ it("shows the probe score in the my-rule replay title", () => {
     />
   ));
 
-  fireEvent.click(screen.getByRole("button", { name: "我的规则" }));
+  fireEvent.click(screen.getByRole("radio", { name: "我的规则" }));
   flush();
   expect(screen.getByText("我的规则：这一轮回放 · 抽检 1 / 2")).toBeInTheDocument();
 

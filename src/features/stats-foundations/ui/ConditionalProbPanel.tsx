@@ -1,4 +1,6 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import type { ConditionalProbDraft } from "../domain/protocol.ts";
 import type { StatsConceptQuestion } from "../domain/stages.ts";
 import {
@@ -10,13 +12,10 @@ import {
   type WeatherOutcome,
 } from "../domain/statsMath.ts";
 import { ConceptQuestion } from "./ConceptQuestion.tsx";
-import { StatsModePicker } from "./StatsModePicker";
-import { StatsSlider } from "./StatsSlider";
 
 type Props = {
   draft: ConditionalProbDraft;
   question?: StatsConceptQuestion;
-  passed: boolean;
   onChange: (next: ConditionalProbDraft) => void;
 };
 
@@ -60,7 +59,7 @@ export function ConditionalProbPanel(props: Props) {
         <div class="sf-chart-card">
           <div class="sf-chart-header">
             <h3>100 天校园天气方阵（1 格 = 1 天）</h3>
-            <StatsModePicker
+            <SegmentedPicker
               label="筛选条件"
               onChange={setFilter}
               options={FILTER_OPTIONS}
@@ -95,7 +94,7 @@ export function ConditionalProbPanel(props: Props) {
           </div>
 
           <p class="sf-filter-summary">
-            当前亮着的格子共有 <strong>{activeCount()} 天</strong>（这就是条件概率的分母！）。
+            当前亮着的格子共有 <strong>{activeCount()} 天</strong>，这就是条件概率的分母。
           </p>
         </div>
 
@@ -197,7 +196,7 @@ export function ConditionalProbPanel(props: Props) {
           假设气象台水平不变（真下雨时 80% 能报准，没下雨时约 23%（16/70）
           会误报）。拖动下方滑块改变当地原本的下雨频率，看看预报的可信度怎么变：
         </p>
-        <StatsSlider
+        <LabeledSlider
           label="当地基础下雨率 P(真下雨)"
           max={70}
           min={5}
@@ -213,7 +212,6 @@ export function ConditionalProbPanel(props: Props) {
           <ConceptQuestion
             answer={props.draft.answer}
             onAnswer={(answer) => props.onChange({ ...props.draft, answer })}
-            passed={props.passed}
             question={q()}
           />
         )}

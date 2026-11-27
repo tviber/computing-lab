@@ -1,19 +1,18 @@
 import { useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createMemo, createSignal, Show, untrack } from "solid-js";
+import { createEffect, createMemo, createSignal, onSettled, Show, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
 import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
+import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { StageTask } from "../../../shared/lab/StageTask";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
-import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import type { SamplingJudgeResult, SamplingSubmission } from "../domain/protocol.ts";
 import { IMAGE_SAMPLING_STAGES, type SamplingStageDef } from "../domain/stages.ts";
 import {
@@ -39,33 +38,20 @@ import { ReceiverExercise } from "./ReceiverExercise.tsx";
 import { RecognitionPanel } from "./RecognitionPanel.tsx";
 import "./imageSampling.css";
 
-function StageBrief(props: { stage: SamplingStageDef }) {
+function samplingJudgeNote(stage: SamplingStageDef): string {
   const resolutionSource = () =>
-    props.stage.requiresChooseSize ? "choose_size(images) 算出的" : "你选的";
+    stage.requiresChooseSize ? "choose_size(images) 算出的" : "你选的";
   const axisNote = () =>
-    props.stage.mode === "square"
+    stage.mode === "square"
       ? "本关只允许正方形（宽=高）。"
-      : props.stage.mode === "tall"
+      : stage.mode === "tall"
         ? "本关要求高度大于宽度（高 > 宽）。"
         : "本关宽和高可以不同。";
-  return (
-    <section class="stage-brief">
-      <StageTask>{props.stage.mission}</StageTask>
-      <p>{props.stage.description}</p>
-      <p class="submit-note">
-        判定方式：{resolutionSource()} {props.stage.mode === "square" ? "n×n" : "宽×高"}
-        会套用到判题图谱上。接收端凭格子图认人——≥
-        {Math.round(props.stage.requiredAccuracy * 100)}% 的成员仍能被认出才算通过，且格子数 ≤
-        {props.stage.cellBudget}。
-        {props.stage.requiresChooseSize
-          ? `本关必须先写并运行 choose_size(images)，不能手动指定分辨率。${axisNote()}`
-          : axisNote()}
-      </p>
-      <Show keyed when={props.stage.id}>
-        {(_) => <HintDisclosure>{props.stage.hint}</HintDisclosure>}
-      </Show>
-    </section>
-  );
+  return `${resolutionSource()} ${stage.mode === "square" ? "n×n" : "宽×高"}会套用到判题图谱上。接收端凭格子图认人，至少 ${Math.round(stage.requiredAccuracy * 100)}% 的成员仍能被认出才算通过，且格子数不超过 ${stage.cellBudget}。${
+    stage.requiresChooseSize
+      ? `本关必须先写并运行 choose_size(images)，不能手动指定分辨率。${axisNote()}`
+      : axisNote()
+  }`;
 }
 
 export function ImageSamplingLabPage() {
@@ -85,10 +71,9 @@ export function ImageSamplingLabPage() {
   const stage = createMemo(() => stageOf(state()));
   const draft = createMemo(() => draftOf(state()));
 
-  createEffect(
-    () => 0,
-    () => warmPyodide(),
-  );
+  onSettled(() => {
+    warmPyodide();
+  });
 
   const project = useLabProject<StageDraft, Record<never, never>, SamplingLessonAction>(() => ({
     scopeId: runtime.scopeId,
@@ -258,7 +243,18 @@ export function ImageSamplingLabPage() {
         <Show keyed when={String(project.saveGeneration)}>
           {(_) => (
             <main aria-label="图像采样实验区" class="sampling-workspace">
-              <Show when={stage()}>{(current) => <StageBrief stage={current()} />}</Show>
+              <Show when={stage()}>
+                {(current) => (
+                  <StageBrief
+                    description={current().description}
+                    hints={[current().hint]}
+                    judgeNote={samplingJudgeNote(current())}
+                    passed={state().passedStages.includes(current().index)}
+                    takeaway={current().takeaway}
+                    task={current().mission}
+                  />
+                )}
+              </Show>
 
               <Show when={state().message}>
                 {(msg) => (

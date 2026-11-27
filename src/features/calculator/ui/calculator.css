@@ -182,7 +182,7 @@
   font-size: 12px;
 }
 
-.calculator-term-guide summary {
+.calculator-term-guide .disclosure-trigger {
   color: var(--primary);
   cursor: pointer;
   font-weight: 650;
@@ -216,11 +216,11 @@
   text-underline-offset: 3px;
 }
 
-.calculator-workspace .stage-brief > details:not(.hint-disclosure) {
+.calculator-workspace .stage-brief > .stage-details {
   margin-top: 8px;
 }
 
-.calculator-workspace .stage-brief > details:not(.hint-disclosure) > summary {
+.calculator-workspace .stage-brief > .stage-details > .disclosure-trigger {
   color: var(--accent);
   cursor: pointer;
   font-size: 12px;
@@ -560,7 +560,7 @@
   padding-top: 8px;
 }
 
-.custom-component-mapping-details summary {
+.custom-component-mapping-details .disclosure-trigger {
   color: var(--primary);
   cursor: pointer;
   font-size: 11px;
@@ -1143,10 +1143,13 @@ body:has(.custom-component-dialog) .calculator-lab .full-adder-guide,
 
 /* “更多元件” disclosure inside the palette row */
 .palette-more {
-  display: contents;
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
 }
 
-.palette-more > summary {
+.palette-more > .disclosure-trigger {
   display: inline-flex;
   align-items: center;
   min-height: 30px;
@@ -1160,18 +1163,16 @@ body:has(.custom-component-dialog) .calculator-lab .full-adder-guide,
   font-weight: 600;
 }
 
-.palette-more > summary:hover {
+.palette-more > .disclosure-trigger:hover {
   border-color: var(--focus);
   color: var(--primary);
 }
 
-.palette-more[open] {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
+.palette-more > .disclosure-panel:not([hidden]) {
+  display: contents;
 }
 
-.palette-more[open] > .palette-items {
+.palette-more > .disclosure-panel > .palette-items {
   flex-basis: 100%;
   margin-top: 6px;
 }

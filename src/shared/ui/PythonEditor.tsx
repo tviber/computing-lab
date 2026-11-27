@@ -16,7 +16,7 @@ import {
   keymap,
 } from "@codemirror/view";
 import { tags } from "@lezer/highlight";
-import { createEffect, untrack } from "solid-js";
+import { createEffect, onSettled, untrack } from "solid-js";
 import "./pythonCode.css";
 
 const PYTHON_HIGHLIGHT_STYLE = HighlightStyle.define([
@@ -75,37 +75,35 @@ export function PythonEditor(props: {
       ".cm-scroller": { overflow: "auto" },
     });
 
-  createEffect(
-    () => 0,
-    () => {
-      if (!hostEl) return;
-      const initial = untrack(() => ({
-        value: props.value,
-        editable: props.editable ?? true,
-        ariaLabel: props.ariaLabel,
-        ariaDescribedBy: props.ariaDescribedBy,
-        height: props.height ?? "220px",
-      }));
-      const state = EditorState.create({
-        doc: initial.value,
-        extensions: [
-          ...BASE_EXTENSIONS,
-          editableComp.of(EditorView.editable.of(initial.editable)),
-          contentAttrsComp.of(buildContentAttrs(initial.ariaLabel, initial.ariaDescribedBy)),
-          themeComp.of(buildTheme(initial.height)),
-          EditorView.updateListener.of((update) => {
-            if (!update.docChanged || syncingExternal) return;
-            props.onChange(update.state.doc.toString());
-          }),
-        ],
-      });
-      view = new EditorView({ state, parent: hostEl });
-      return () => {
-        view?.destroy();
-        view = undefined;
-      };
-    },
-  );
+  const initial = untrack(() => ({
+    value: props.value,
+    editable: props.editable ?? true,
+    ariaLabel: props.ariaLabel,
+    ariaDescribedBy: props.ariaDescribedBy,
+    height: props.height ?? "220px",
+  }));
+
+  onSettled(() => {
+    if (!hostEl) return;
+    const state = EditorState.create({
+      doc: initial.value,
+      extensions: [
+        ...BASE_EXTENSIONS,
+        editableComp.of(EditorView.editable.of(initial.editable)),
+        contentAttrsComp.of(buildContentAttrs(initial.ariaLabel, initial.ariaDescribedBy)),
+        themeComp.of(buildTheme(initial.height)),
+        EditorView.updateListener.of((update) => {
+          if (!update.docChanged || syncingExternal) return;
+          props.onChange(update.state.doc.toString());
+        }),
+      ],
+    });
+    view = new EditorView({ state, parent: hostEl });
+    return () => {
+      view?.destroy();
+      view = undefined;
+    };
+  });
 
   createEffect(
     () => props.value,

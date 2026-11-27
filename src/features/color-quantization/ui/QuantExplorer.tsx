@@ -12,7 +12,9 @@
  */
 
 import { Button } from "@ui-sdk/solid/button";
+import { Toggle } from "@ui-sdk/solid/toggle";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { ScenarioLinkButton } from "../../../shared/lab/ScenarioLinkButton";
 import { Icon } from "../../../shared/ui/Icon";
 import { publicGalleryFor } from "../domain/fixtures.ts";
@@ -56,19 +58,18 @@ function TonerSwatch(props: {
 }) {
   const toner = () => TONER_RACK[props.index];
   return (
-    <Button
+    <Toggle
       aria-label={`${props.index + 1}号粉 ${toner().name}`}
-      aria-pressed={props.active ? "true" : "false"}
       class={`quant-toner${props.active ? " is-active" : ""}`}
       disabled={props.disabled}
-      onClick={() => props.onToggle(props.index)}
-      type="button"
+      onPressedChange={() => props.onToggle(props.index)}
+      pressed={props.active}
     >
       <span class="quant-swatch" style={{ background: rgbCss(toner().rgb) }}>
         {props.index + 1}
       </span>
       <span class="quant-toner-name">{toner().name}</span>
-    </Button>
+    </Toggle>
   );
 }
 
@@ -150,7 +151,7 @@ export function QuantExplorer(props: {
             setMyTable(table);
             setMyError(
               bad.length
-                ? `nearest_toner 必须返回候选编号（0=纸白, 1..${candidates.length - 1}=已装的粉）——${bad.join("；")}，已按纸白处理。`
+                ? `nearest_toner 必须返回候选编号（0=纸白, 1..${candidates.length - 1}=已装的粉）。${bad.join("；")}，已按纸白处理。`
                 : null,
             );
           })
@@ -300,7 +301,7 @@ export function QuantExplorer(props: {
             </Show>
             已装 {props.draft.toners.length} / {props.stage.tonerSlots} 槽
             {overSlots()
-              ? `——打印机只有 ${props.stage.tonerSlots} 个槽，超出的 ${props.draft.toners.length - props.stage.tonerSlots!} 种装不进去，这样提交必定失败`
+              ? `，打印机只有 ${props.stage.tonerSlots} 个槽，超出的 ${props.draft.toners.length - props.stage.tonerSlots!} 种装不进去，这样提交必定失败。`
               : " · 纸白永远免费"}
           </p>
           <Show when={props.stage.probes.length > 0}>
@@ -321,24 +322,18 @@ export function QuantExplorer(props: {
           </Show>
 
           <Show when={props.ruleCode?.trim()}>
-            <div aria-label="印刷使用的映射规则" class="quant-rule-toggle" role="group">
+            <div class="quant-rule-toggle">
               <span>映射规则：</span>
-              <Button
-                aria-pressed={!useMyRule() ? "true" : "false"}
-                class={!useMyRule() ? "is-active" : ""}
-                onClick={() => setUseMyRule(false)}
-                type="button"
-              >
-                内置最近色
-              </Button>
-              <Button
-                aria-pressed={useMyRule() ? "true" : "false"}
-                class={useMyRule() ? "is-active" : ""}
-                onClick={() => setUseMyRule(true)}
-                type="button"
-              >
-                我写的 nearest_toner
-              </Button>
+              <SegmentedPicker
+                class="quant-rule-picker"
+                label="印刷使用的映射规则"
+                onChange={(next) => setUseMyRule(next === "mine")}
+                options={[
+                  { value: "builtin", label: "内置最近色" },
+                  { value: "mine", label: "我写的 nearest_toner" },
+                ]}
+                value={useMyRule() ? "mine" : "builtin"}
+              />
               <Show when={myRunning()}>
                 <span class="quant-rule-running">运行中…</span>
               </Show>
@@ -360,7 +355,7 @@ export function QuantExplorer(props: {
           <div aria-label="选择要印的原稿" class="quant-member-strip" role="listbox">
             <For each={gallery()}>
               {(entry, index) => (
-                <button
+                <Button
                   aria-label={`查看 ${entry.label}`}
                   aria-selected={index() === memberIndex() ? "true" : "false"}
                   class={`quant-member${index() === memberIndex() ? " is-active" : ""}${
@@ -380,7 +375,7 @@ export function QuantExplorer(props: {
                     pixelSize={2}
                   />
                   <span>{entry.label}</span>
-                </button>
+                </Button>
               )}
             </For>
           </div>

@@ -21,7 +21,6 @@
   gap: var(--space-2);
 }
 
-.logistic-regression-experience-details summary,
 .logistic-regression-experience-details-trigger {
   display: inline-flex;
   align-items: center;
@@ -34,7 +33,6 @@
   color: var(--secondary);
 }
 
-.logistic-regression-experience-details[open] summary,
 .logistic-regression-experience-details-trigger[aria-expanded="true"] {
   margin-bottom: var(--space-2);
 }
@@ -151,6 +149,9 @@
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .logistic-regression-chip-btn {
@@ -175,14 +176,14 @@
   border-color: var(--accent);
 }
 
-.logistic-regression-chip-btn.is-active {
+.logistic-regression-chip-btn[data-checked] {
   background: var(--accent-soft);
   border-color: var(--accent);
   color: var(--accent);
   font-weight: 600;
 }
 
-.logistic-regression-chip-btn.is-active small {
+.logistic-regression-chip-btn[data-checked] small {
   color: var(--accent);
 }
 
@@ -344,9 +345,8 @@
   cursor: pointer;
 }
 
-.logistic-regression-pill-choice.is-selected {
+.logistic-regression-pill-choice[data-checked] {
   background: var(--accent);
-  border-color: var(--accent);
   color: var(--surface);
   font-weight: 600;
 }
@@ -365,10 +365,6 @@
 }
 
 .logistic-regression-slider-row {
-  display: grid;
-  grid-template-columns: minmax(105px, auto) 1fr 52px;
-  align-items: center;
-  gap: var(--space-2);
   font-size: 13px;
 }
 
@@ -563,39 +559,13 @@ button.logistic-regression-triage-card {
 }
 
 .logistic-regression-segmented {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  overflow: hidden;
-}
-
-.logistic-regression-segmented button {
-  border: 0;
-  background: var(--surface);
-  color: var(--ink);
   font-size: 12px;
-  padding: 6px 12px;
-  cursor: pointer;
-}
-
-.logistic-regression-segmented button.is-active,
-.logistic-regression-segmented button[aria-checked="true"] {
-  background: var(--accent);
-  color: var(--surface);
-  font-weight: 600;
 }
 
 .logistic-regression-inline-slider {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
   font-size: 13px;
   flex: 1;
   min-width: 240px;
-}
-
-.logistic-regression-inline-slider input {
-  flex: 1;
 }
 
 .logistic-regression-micro-metrics,
@@ -697,14 +667,7 @@ button.logistic-regression-triage-card {
 }
 
 .logistic-regression-scrubber-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
   font-size: 13px;
-}
-
-.logistic-regression-scrubber-row input {
-  flex: 1;
 }
 
 .logistic-regression-charts-grid {
@@ -1095,9 +1058,9 @@ button.logistic-regression-triage-card {
 }
 
 .logistic-regression-tier-group {
-  display: inline-flex;
-  flex-wrap: wrap;
-  gap: 4px;
+  padding: 0;
+  border: 0;
+  background: transparent;
 }
 
 .logistic-regression-tier-btn {
@@ -1116,19 +1079,19 @@ button.logistic-regression-triage-card {
   color: var(--ink);
 }
 
-.logistic-regression-tier-btn.is-active.is-neg {
+.logistic-regression-tier-btn[data-checked].is-neg {
   background: var(--success-soft);
   border-color: var(--success-border);
   color: var(--success);
 }
 
-.logistic-regression-tier-btn.is-active.is-zero {
+.logistic-regression-tier-btn[data-checked].is-zero {
   background: var(--subtle);
   border-color: var(--muted);
   color: var(--ink);
 }
 
-.logistic-regression-tier-btn.is-active.is-pos {
+.logistic-regression-tier-btn[data-checked].is-pos {
   background: var(--danger-soft);
   border-color: var(--danger-border);
   color: var(--danger);
@@ -1335,11 +1298,6 @@ button.logistic-regression-triage-card {
   font-size: 12.5px;
   line-height: 1.55;
   color: var(--secondary);
-}
-
-.logistic-regression-appendix-bar {
-  display: flex;
-  justify-content: flex-start;
 }
 
 .logistic-regression-appendix-grid {

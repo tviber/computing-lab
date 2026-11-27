@@ -1,5 +1,6 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, onCleanup, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
 import type { PixelMatrix } from "../domain/bmp.ts";
 import { ByteTable } from "./ByteTable.tsx";
 
@@ -82,14 +83,13 @@ export function SampleBytes(props: { raw: string; pixels: PixelMatrix | null }) 
           const cols = createMemo(() => Array.from({ length: g().w }, (_, column) => column));
           return (
             <div class="decoding-sample">
-              <details>
-                <summary>样例文件头 · {g().header.length} 字节</summary>
+              <Disclosure summary={`样例文件头 · ${g().header.length} 字节`}>
                 <ByteTable
                   bytes={g().header}
                   headerLength={g().header.length}
                   label="样例文件头字节"
                 />
-              </details>
+              </Disclosure>
               <label class="decoding-sample-row">
                 按文件顺序查看像素行
                 <select

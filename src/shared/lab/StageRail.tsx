@@ -1,4 +1,5 @@
 import type { JSX } from "@solidjs/web";
+import { Button } from "@ui-sdk/solid/button";
 import { For, Match, Show, Switch } from "solid-js";
 import { Icon } from "../ui/Icon";
 
@@ -28,7 +29,7 @@ export function StageLink(props: {
   onSelect: () => void;
 }) {
   return (
-    <button
+    <Button
       aria-current={props.active ? "step" : undefined}
       class={`lab-stage-link${props.optional ? " is-optional" : ""}${props.active ? " is-active" : ""}${props.passed ? " is-passed" : ""}`}
       disabled={!props.unlocked}
@@ -51,7 +52,7 @@ export function StageLink(props: {
           </Match>
         </Switch>
       </span>
-    </button>
+    </Button>
   );
 }
 

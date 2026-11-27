@@ -5,13 +5,13 @@ import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
+import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageLink } from "../../../shared/lab/StageRail";
-import { StageTask } from "../../../shared/lab/StageTask";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
-import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
+import { Disclosure } from "../../../shared/ui/Disclosure";
 import type {
   AiDraft,
   AiIntakeDraft,
@@ -24,7 +24,7 @@ import type {
   TrainingDraft,
 } from "../domain/protocol.ts";
 import { INTAKE_SCENARIO } from "../domain/scenarios.ts";
-import { LUNCH_STAGES, lunchStageAffectedByReset, type LunchStageDef } from "../domain/stages.ts";
+import { LUNCH_STAGES, lunchStageAffectedByReset } from "../domain/stages.ts";
 import {
   createLunchLessonState,
   draftOf,
@@ -41,27 +41,6 @@ import { TrainingPanel } from "./TrainingPanel.tsx";
 import "./lunchShift.css";
 
 const MAIN_STAGES = LUNCH_STAGES.filter((s) => s.index !== 5);
-
-function StageBrief(props: { stage: LunchStageDef; passed: boolean }) {
-  return (
-    <section class="stage-brief">
-      <StageTask>{props.stage.task}</StageTask>
-      <Show when={props.passed}>
-        <p class="submit-note">判题方式：{props.stage.judgeNote}</p>
-        <p class="stage-takeaway">本关收获：{props.stage.takeaway}</p>
-      </Show>
-      <Show when={!props.passed}>
-        <Show keyed when={props.stage.id}>
-          {(_) => (
-            <For each={props.stage.hints ?? []}>
-              {(hint) => <HintDisclosure>{hint}</HintDisclosure>}
-            </For>
-          )}
-        </Show>
-      </Show>
-    </section>
-  );
-}
 
 export function LunchShiftLabPage() {
   const runtime = useLabRuntime();
@@ -220,8 +199,11 @@ export function LunchShiftLabPage() {
                     </li>
                     <Show when={item.index === 3}>
                       <li>
-                        <details class="lab-stage-bonus" open={state().stageIndex === 5}>
-                          <summary>附加挑战（选做）</summary>
+                        <Disclosure
+                          class="lab-stage-bonus"
+                          open={state().stageIndex === 5}
+                          summary="附加挑战（选做）"
+                        >
                           <StageLink
                             active={state().stageIndex === 5}
                             onSelect={() => dispatch({ type: "select-stage", stageIndex: 5 })}
@@ -230,7 +212,7 @@ export function LunchShiftLabPage() {
                             title="补偿超时单"
                             unlocked={isStageUnlocked(state(), 5)}
                           />
-                        </details>
+                        </Disclosure>
                       </li>
                     </Show>
                   </>
@@ -246,7 +228,13 @@ export function LunchShiftLabPage() {
             <main aria-label="设计餐馆系统实验区" class="lunch-workspace">
               <Show when={stage()}>
                 {(current) => (
-                  <StageBrief passed={passedStages().includes(current().index)} stage={current()} />
+                  <StageBrief
+                    hints={current().hints ?? []}
+                    judgeNote={current().judgeNote}
+                    passed={passedStages().includes(current().index)}
+                    takeaway={current().takeaway}
+                    task={current().task}
+                  />
                 )}
               </Show>
 

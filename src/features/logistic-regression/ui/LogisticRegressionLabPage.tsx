@@ -1,18 +1,17 @@
 import { useSearchParams } from "@solidjs/router";
-import { createMemo, createSignal, For, Match, Show, Switch, untrack } from "solid-js";
+import { createMemo, createSignal, Match, Show, Switch, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
 import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
+import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { StageTask } from "../../../shared/lab/StageTask";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
-import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import { MathText } from "../../../shared/ui/MathFormula";
 import type {
   ExperienceSubmission,
@@ -25,11 +24,7 @@ import type {
   TokenizeDraft,
   TrainDraft,
 } from "../domain/protocol.ts";
-import {
-  LOGISTIC_REGRESSION_STAGES,
-  logisticRegressionStageUnlocked,
-  type LogisticRegressionStageDef,
-} from "../domain/stages.ts";
+import { LOGISTIC_REGRESSION_STAGES, logisticRegressionStageUnlocked } from "../domain/stages.ts";
 import {
   createLogisticRegressionLessonState,
   draftOf,
@@ -46,40 +41,6 @@ import { StrategyPanel } from "./StrategyPanel.tsx";
 import { TokenizePanel } from "./TokenizePanel.tsx";
 import { TrainPanel } from "./TrainPanel.tsx";
 import "./logisticRegression.css";
-
-function StageBrief(props: { stage: LogisticRegressionStageDef; passed: boolean }) {
-  return (
-    <section class="stage-brief">
-      <StageTask>
-        <MathText>{props.stage.task}</MathText>
-      </StageTask>
-      <p>
-        <MathText>{props.stage.description}</MathText>
-      </p>
-      <Show
-        fallback={
-          <div class="logistic-regression-hints-list">
-            <For each={props.stage.hints}>
-              {(hint) => (
-                <HintDisclosure>
-                  <MathText>{hint}</MathText>
-                </HintDisclosure>
-              )}
-            </For>
-          </div>
-        }
-        when={props.passed}
-      >
-        <p class="submit-note">
-          判题方式：<MathText>{props.stage.judgeNote}</MathText>
-        </p>
-        <p class="stage-takeaway">
-          本关收获：<MathText>{props.stage.takeaway}</MathText>
-        </p>
-      </Show>
-    </section>
-  );
-}
 
 function parseRequestedStage(raw: unknown): number | null {
   const rawValue = (raw as { stage?: unknown } | null)?.stage;
@@ -256,7 +217,18 @@ export function LogisticRegressionLabPage() {
         <Show keyed when={project.saveGeneration + 1}>
           <main aria-label="逻辑回归实验区" class="logistic-regression-workspace">
             <Show keyed when={stage()?.id !== "experience" ? stage() : null}>
-              {(currentStage) => <StageBrief passed={activePassed()} stage={currentStage} />}
+              {(currentStage) => (
+                <StageBrief
+                  description={<MathText>{currentStage.description}</MathText>}
+                  hints={currentStage.hints.map((hint) => (
+                    <MathText>{hint}</MathText>
+                  ))}
+                  judgeNote={<MathText>{currentStage.judgeNote}</MathText>}
+                  passed={activePassed()}
+                  takeaway={<MathText>{currentStage.takeaway}</MathText>}
+                  task={<MathText>{currentStage.task}</MathText>}
+                />
+              )}
             </Show>
 
             <Show when={state().message}>

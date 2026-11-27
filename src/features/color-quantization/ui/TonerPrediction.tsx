@@ -1,5 +1,5 @@
-import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import {
   colorDist2,
@@ -44,51 +44,53 @@ export function TonerPrediction(props: { outputs: (number | null)[] | null }) {
 
   return (
     <div class="quant-prediction">
-      <div aria-label="选择练习源色" class="quant-practice-sources" role="group">
-        <For each={practiceColors}>
-          {(item, index) => (
-            <Button
-              aria-pressed={index() === active() ? "true" : "false"}
-              class="choice-surface"
-              onClick={() => setActive(index())}
-              type="button"
-            >
+      <SegmentedPicker
+        class="quant-practice-sources"
+        itemClass="choice-surface"
+        label="选择练习源色"
+        onChange={(next) => setActive(Number(next))}
+        options={practiceColors.map((item, index) => ({
+          value: String(index),
+          label: (
+            <>
               <span
                 aria-hidden="true"
                 class="quant-practice-chip"
                 style={{ background: rgbCss(item.rgb) }}
               />
               {item.name}
-            </Button>
-          )}
-        </For>
-      </div>
+            </>
+          ),
+        }))}
+        value={String(active())}
+      />
       <p>
         <strong>{color().name}</strong> <code>RGB({color().rgb.join(", ")})</code>{" "}
         会落到哪个候选色？这次把 8 种墨粉都装上，0 号留给纸白。
       </p>
-      <div aria-label={`${color().name} 的候选色`} class="quant-practice-rack" role="group">
-        <For each={rack}>
-          {(candidate, index) => (
-            <Button
-              aria-pressed={guess() === index() ? "true" : "false"}
-              class="choice-surface"
-              onClick={() => setGuesses((previous) => ({ ...previous, [active()]: index() }))}
-              type="button"
-            >
+      <SegmentedPicker
+        class="quant-practice-rack"
+        itemClass="choice-surface"
+        label={`${color().name} 的候选色`}
+        onChange={(next) => setGuesses((previous) => ({ ...previous, [active()]: Number(next) }))}
+        options={rack.map((candidate, index) => ({
+          value: String(index),
+          label: (
+            <>
               <span
                 aria-hidden="true"
                 class="quant-practice-chip"
                 style={{ background: rgbCss(candidate.rgb) }}
               />
               <span>
-                {index()} · {candidate.name}
+                {index} · {candidate.name}
               </span>
               <small>{candidate.rgb.join(",")}</small>
-            </Button>
-          )}
-        </For>
-      </div>
+            </>
+          ),
+        }))}
+        value={guess() === undefined ? "" : String(guess())}
+      />
       <div aria-live="polite" class="quant-distance">
         <Show
           fallback={<p>先猜一次，再比较三个通道的平方差之和。数越小，颜色越近。</p>}

@@ -243,9 +243,10 @@ describe("CircuitCanvas", () => {
     flush();
     expect(mappings).toHaveTextContent(/B\s*→\s*输入 1/);
     expect(mappings).toHaveTextContent(/A\s*→\s*输入 2/);
-    expect(mappings.querySelector("details")).not.toHaveAttribute("open");
+    expect(mappings.querySelector(".disclosure-trigger")).toHaveAttribute("aria-expanded", "false");
     fireEvent.click(screen.getByText("查看详细端口对应关系"));
-    expect(mappings.querySelector("details")).toHaveAttribute("open");
+    flush();
+    expect(mappings.querySelector(".disclosure-trigger")).toHaveAttribute("aria-expanded", "true");
     expect(mappings).toHaveTextContent("I0当前名：B← B 的 out → AND（gate） 的 in1");
     expect(mappings).toHaveTextContent("O0当前名：P← AND（gate） 的 out → P 的 in");
   });

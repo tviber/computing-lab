@@ -34,7 +34,7 @@ async function runCell(
     globals.set("regions", pyodide.toPy(regions));
     const fn = globals.get("cell_value");
     if (fn === undefined || typeof fn.callKwargs !== "function") {
-      throw new Error("需要一个函数 cell_value(region)——region 是 0/1 的二维列表。");
+      throw new Error("需要一个函数 cell_value(region)。region 是 0/1 的二维列表。");
     }
     const out = pyodide.runPython("[cell_value(r) for r in regions]", { globals });
     try {

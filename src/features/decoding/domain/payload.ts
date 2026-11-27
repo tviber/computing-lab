@@ -118,7 +118,7 @@ export function generatePayload(stage: DecodingStageDef, seed: number): Generate
         {
           file: {
             id: "telegram",
-            meta: "缴获的电文片段 —— 封条备注：「按字符编码读，是一句话。」",
+            meta: "缴获的电文片段。封条备注：「按字符编码读，是一句话。」",
             bytes: encodeText(sentence),
           },
           verdict: { decoder: "text" as const, text: sentence },
@@ -126,7 +126,7 @@ export function generatePayload(stage: DecodingStageDef, seed: number): Generate
         {
           file: {
             id: "capture",
-            meta: "采集卡导出的原始像素流 —— 标签注明：8×8，按 R、G、B 排列。",
+            meta: "采集卡导出的原始像素流。标签注明：8×8，按 R、G、B 排列。",
             bytes: encodeRawPixels(imageA),
           },
           verdict: { decoder: "image" as const, pixels: imageA },
@@ -134,7 +134,7 @@ export function generatePayload(stage: DecodingStageDef, seed: number): Generate
         {
           file: {
             id: "unregistered",
-            meta: "来源未登记的片段 —— 交接单上写着：「图像资料，8×8。」",
+            meta: "来源未登记的片段。交接单上写着：「图像资料，8×8。」",
             bytes: encodeRawPixels(imageB),
           },
           verdict: { decoder: "image" as const, pixels: imageB },

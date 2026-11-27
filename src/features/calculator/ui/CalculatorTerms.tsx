@@ -1,5 +1,6 @@
 import type { JSX } from "@solidjs/web";
 import { createMemo, For } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
 
 export const CALCULATOR_TERM_NOTES = {
   "Half Adder": "半加器：把两个 1 位输入相加，输出和位 Sum 与进位 Carry。",
@@ -82,8 +83,10 @@ const GUIDE_TERMS: CalculatorTerm[] = [
 
 export function CalculatorTermGuide(): JSX.Element {
   return (
-    <details class="calculator-term-guide">
-      <summary>术语说明（英文加下划线，悬停或触摸可查看解释）</summary>
+    <Disclosure
+      class="calculator-term-guide"
+      summary="术语说明（英文加下划线，悬停或触摸可查看解释）"
+    >
       <dl>
         <For each={GUIDE_TERMS}>
           {(term) => (
@@ -96,6 +99,6 @@ export function CalculatorTermGuide(): JSX.Element {
           )}
         </For>
       </dl>
-    </details>
+    </Disclosure>
   );
 }

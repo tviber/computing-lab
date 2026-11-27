@@ -245,7 +245,13 @@ export function CircuitCanvas(props: CircuitCanvasProps) {
     (isReadOnly) => {
       if (isReadOnly) return;
       const onKeyDown = (event: KeyboardEvent) => {
-        if (document.querySelector('dialog[open], [role="dialog"][aria-modal="true"]')) return;
+        if (
+          document.querySelector(
+            'dialog[open], [role="dialog"][aria-modal="true"], [role="alertdialog"][aria-modal="true"]',
+          )
+        ) {
+          return;
+        }
         const target = event.target;
         if (
           target instanceof Element &&

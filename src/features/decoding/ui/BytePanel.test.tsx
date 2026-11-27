@@ -19,9 +19,9 @@ it("locates a four-byte field across rows without inserting labels or losing the
       .getAllByRole("cell")
       .map((cell) => Number(cell.textContent));
   expect(visibleBytes()).toEqual(bytes.slice(0, 60));
-  fireEvent.click(screen.getByRole("button", { name: /^宽/ }));
+  fireEvent.click(screen.getByRole("radio", { name: /^宽/ }));
   flush();
-  expect(screen.getByRole("button", { name: /^宽/ })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.getByRole("radio", { name: /^宽/ })).toHaveAttribute("aria-checked", "true");
   expect(
     [...table.querySelectorAll(".is-field")].map((cell) => cell.getAttribute("title")),
   ).toEqual(["data[18]", "data[19]", "data[20]", "data[21]"]);
@@ -52,7 +52,7 @@ it("lets the learner retry a field and a number independently, then return to th
   render(() => (
     <BytePanel allowHeightPractice payload={{ kind: "bmp", bytes, width: 4, height: 2 }} />
   ));
-  fireEvent.click(screen.getByRole("button", { name: /^宽/ }));
+  fireEvent.click(screen.getByRole("radio", { name: /^宽/ }));
   fireEvent.click(screen.getByRole("button", { name: /展开其余/ }));
   fireEvent.click(screen.getByRole("button", { name: "试读图像高度" }));
   flush();
@@ -87,8 +87,8 @@ it("lets the learner retry a field and a number independently, then return to th
   expect(feedback).toHaveTextContent(/还原 2 行像素/);
   fireEvent.click(screen.getByRole("button", { name: "返回字段导览" }));
   flush();
-  expect(screen.queryByRole("radio")).toBeNull();
-  expect(screen.getByRole("button", { name: /^宽/ })).toHaveAttribute("aria-pressed", "true");
+  expect(screen.queryByRole("form", { name: "试读图像高度" })).toBeNull();
+  expect(screen.getByRole("radio", { name: /^宽/ })).toHaveAttribute("aria-checked", "true");
   expect(screen.getByRole("button", { name: /收起后续/ })).toBeVisible();
 });
 
@@ -97,5 +97,6 @@ it("only works through the first binary group on request", () => {
   const clue = screen.getByText(/64 \+ 8 = 72/);
   expect(clue).not.toBeVisible();
   fireEvent.click(screen.getByText("试读第一组"));
+  flush();
   expect(clue).toBeVisible();
 });

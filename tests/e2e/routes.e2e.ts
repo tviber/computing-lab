@@ -114,12 +114,11 @@ test("ALU stage drawer stays on the shared page edge", async ({ page }, testInfo
       }
       if (expanded === "true") {
         const branch = page.locator(".stage-branch-summary").first();
-        const indicator = () => branch.evaluate((el) => getComputedStyle(el, "::before").rotate);
-        await expect.poll(indicator).toBe("-90deg");
+        await expect(branch).toHaveAttribute("aria-expanded", "false");
         await branch.press("Enter");
-        await expect.poll(indicator).toBe("0deg");
+        await expect(branch).toHaveAttribute("aria-expanded", "true");
         await branch.press("Space");
-        await expect.poll(indicator).toBe("-90deg");
+        await expect(branch).toHaveAttribute("aria-expanded", "false");
         await page.screenshot({ path: testInfo.outputPath(`alu-${width}.png`) });
       }
     }
@@ -236,7 +235,7 @@ test("student field guide aligns progress and reserves a sidebar only for assign
   await page.screenshot({ path: testInfo.outputPath("student-field-guide-desktop.png") });
   await expect(assignment).toHaveAttribute("href", /\/classes\/c1\/tasks\/assignment$/);
   await page.setViewportSize({ width: 390, height: 844 });
-  await page.getByRole("button", { name: /计算机组成/ }).click();
+  await page.getByRole("radio", { name: /计算机组成/ }).click();
   await expect(cards).toHaveCount(1);
   expect(await cards.first().evaluate(top)).toBeLessThan(await assignment.evaluate(top));
   await page.setViewportSize({ width: 1280, height: 940 });

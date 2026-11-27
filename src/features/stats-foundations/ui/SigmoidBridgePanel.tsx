@@ -1,5 +1,8 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
+import { Icon } from "../../../shared/ui/Icon";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import type { SigmoidBridgeDraft } from "../domain/protocol.ts";
 import {
   evaluateSigmoidFit,
@@ -13,8 +16,6 @@ import {
   SIGMOID_W_MAX,
   SIGMOID_W_MIN,
 } from "../domain/statsMath.ts";
-import { StatsModePicker } from "./StatsModePicker";
-import { StatsSlider } from "./StatsSlider";
 
 type Props = {
   draft: SigmoidBridgeDraft;
@@ -96,7 +97,7 @@ export function SigmoidBridgePanel(props: Props) {
         <div class="sf-chart-card">
           <div class="sf-chart-header">
             <h3>考前复习时长 (小时) → 通过概率 P(通过 | 时长)</h3>
-            <StatsModePicker
+            <SegmentedPicker
               label="拟合模式"
               onChange={(curveMode) => props.onChange({ ...props.draft, curveMode })}
               options={CURVE_OPTIONS}
@@ -228,16 +229,16 @@ export function SigmoidBridgePanel(props: Props) {
 
           <Show when={isLinear()}>
             <div class="sf-warn-box">
-              <strong>看！直线出界了：</strong>
-              当复习 0.5 小时时，直线给出负概率；当复习 9 小时时，直线超过 100%！概率必须在 0% 到
-              100% 之间，所以我们需要用 <strong>Sigmoid</strong> 把直线「压扁」进 (0, 1)。
+              <strong>直线会越过概率边界：</strong>
+              复习 0.5 小时时，直线给出负概率；复习 9 小时时，直线超过 100%。概率必须在 0% 到 100%
+              之间，所以我们需要用 <strong>Sigmoid</strong> 把直线「压扁」进 (0, 1)。
             </div>
           </Show>
         </div>
 
         <div class="sf-controls-card">
           <h3>调整 Sigmoid 曲线</h3>
-          <StatsSlider
+          <LabeledSlider
             label="斜率 w（曲线陡峭程度）"
             max={SIGMOID_W_MAX}
             min={SIGMOID_W_MIN}
@@ -246,7 +247,7 @@ export function SigmoidBridgePanel(props: Props) {
             value={props.draft.w}
           />
 
-          <StatsSlider
+          <LabeledSlider
             label="偏移 b（控制左右移动）"
             max={SIGMOID_B_MAX}
             min={SIGMOID_B_MIN}
@@ -291,7 +292,8 @@ export function SigmoidBridgePanel(props: Props) {
                     <li>
                       分类判断：
                       <strong class={selectedPoint().correct ? "sf-text-ok" : "sf-text-bad"}>
-                        {selectedPoint().correct ? "预测正确 ✓" : "预测错了 ✗"}
+                        {selectedPoint().correct ? "预测正确" : "预测错了"}{" "}
+                        <Icon name={selectedPoint().correct ? "check" : "x"} size={12} />
                       </strong>
                     </li>
                   </>

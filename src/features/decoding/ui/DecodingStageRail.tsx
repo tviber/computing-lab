@@ -1,6 +1,7 @@
 import { For, Show } from "solid-js";
 import { labMetadata } from "../../../shared/lab/labMetadata";
 import { StageLink } from "../../../shared/lab/StageRail";
+import { Disclosure } from "../../../shared/ui/Disclosure";
 import type { DecodingLabViewModel, DecodingStageItem } from "../controller/viewModel.ts";
 
 function StageRow(props: {
@@ -47,14 +48,20 @@ export function DecodingStageRail(props: {
               <StageRow onSelect={props.onSelect} stage={entry.stage} />
               <Show when={entry.challenges.length > 0}>
                 <li class="stage-branch-item">
-                  <details class="stage-branch" open={entry.challenges.some((s) => s.active)}>
-                    <summary class="stage-branch-summary">
-                      <span>支线练习 · 第 {entry.stage.index} 关后</span>
-                      <span>
-                        {entry.challenges.filter((s) => s.passed).length} /{" "}
-                        {entry.challenges.length}
-                      </span>
-                    </summary>
+                  <Disclosure
+                    class="stage-branch"
+                    open={entry.challenges.some((s) => s.active)}
+                    summary={
+                      <>
+                        <span>支线练习 · 第 {entry.stage.index} 关后</span>
+                        <span>
+                          {entry.challenges.filter((s) => s.passed).length} /{" "}
+                          {entry.challenges.length}
+                        </span>
+                      </>
+                    }
+                    summaryClass="stage-branch-summary"
+                  >
                     <ol class="stage-list stage-branch-list">
                       <For each={entry.challenges}>
                         {(challenge) => (
@@ -62,7 +69,7 @@ export function DecodingStageRail(props: {
                         )}
                       </For>
                     </ol>
-                  </details>
+                  </Disclosure>
                 </li>
               </Show>
             </>

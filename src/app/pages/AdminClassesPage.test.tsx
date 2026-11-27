@@ -29,7 +29,7 @@ describe("AdminClassesPage", () => {
     expect(await screen.findByText("CLASS1")).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "删除" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("确定删除班级「测试班级」");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent("确定删除班级「测试班级」");
     await user.click(screen.getByRole("button", { name: "确认删除" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(

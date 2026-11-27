@@ -111,7 +111,7 @@ export const decodingPreviewFixtures = [
       fills: { "1": "chr(" },
       conceptAnswers: stageOneAnswers,
       runError:
-        "第 5 行附近语法写错了——检查括号、引号和冒号。（SyntaxError: invalid syntax (line 5)）",
+        "第 5 行附近语法写错了。检查括号、引号和冒号。（SyntaxError: invalid syntax (line 5)）",
     }),
   },
   {

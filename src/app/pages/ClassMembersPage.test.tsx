@@ -95,7 +95,9 @@ describe("ClassMembersPage", () => {
     await waitFor(() => expect(screen.getByText("张三")).toBeInTheDocument());
 
     await user.click(screen.getByRole("button", { name: "移出班级" }));
-    expect(screen.getByRole("dialog")).toHaveTextContent("确定把学生「张三（20260101）」移出班级");
+    expect(screen.getByRole("alertdialog")).toHaveTextContent(
+      "确定把学生「张三（20260101）」移出班级",
+    );
     await user.click(screen.getByRole("button", { name: "确认移出" }));
     await waitFor(() =>
       expect(fetchMock).toHaveBeenCalledWith(

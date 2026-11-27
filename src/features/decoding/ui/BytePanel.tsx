@@ -1,5 +1,7 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createSignal, createUniqueId, For, lazy, Loading, Match, Show, Switch } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { BMP_FIELD_OFFSETS, BMP_PROFILE } from "../domain/bmp.ts";
 import { bitsToByte, CHAR_TABLE } from "../domain/encoding.ts";
 import type { LabPayload } from "../domain/protocol.ts";
@@ -32,23 +34,27 @@ function BmpBytes(props: { bytes: number[]; allowHeightPractice: boolean }) {
         <Show
           fallback={
             <>
-              <div aria-label="定位文件头字段" class="decoding-byte-fields" role="group">
-                <For each={BMP_FIELDS}>
-                  {(item) => (
-                    <Button
-                      aria-pressed={field() === item ? "true" : "false"}
-                      class="choice-surface"
-                      onClick={() => setField(item)}
-                      type="button"
-                    >
+              <SegmentedPicker
+                class="decoding-byte-fields"
+                itemClass="choice-surface"
+                label="定位文件头字段"
+                onChange={(next) => {
+                  const item = BMP_FIELDS.find((candidate) => String(candidate.start) === next);
+                  if (item) setField(item);
+                }}
+                options={BMP_FIELDS.map((item) => ({
+                  value: String(item.start),
+                  label: (
+                    <>
                       {item.label}{" "}
                       <code>
                         #{item.start}–{item.start + 3}
                       </code>
-                    </Button>
-                  )}
-                </For>
-              </div>
+                    </>
+                  ),
+                }))}
+                value={String(field().start)}
+              />
               <p aria-live="polite">
                 {field().question} 找到 #{field().start - (field().start % 10)} 行的 +
                 {field().start % 10} 列，从这里连读 4 格。低位在前，这叫小端。
@@ -62,13 +68,12 @@ function BmpBytes(props: { bytes: number[]; allowHeightPractice: boolean }) {
             。紧接着的四格存着高度。找到它们，再填入行数。
           </p>
         </Show>
-        <details class="decoding-bit-clue">
-          <summary>四格怎么合成一个数？</summary>
+        <Disclosure class="decoding-bit-clue" summary="四格怎么合成一个数？">
           <p>
             从左往右，四格分别乘以 1、256、256²、256³，再相加。例如 <code>[2, 1, 0, 0]</code> 读作 2
             + 1 × 256 = 258。
           </p>
-        </details>
+        </Disclosure>
         <Show when={props.allowHeightPractice}>
           <Button
             aria-controls={readerId}
@@ -165,8 +170,7 @@ export function BytePanel(props: { payload: LabPayload; allowHeightPractice?: bo
                   </For>
                 </ol>
                 <Show when={bits().groups.length > 0}>
-                  <details class="decoding-bit-clue">
-                    <summary>试读第一组</summary>
+                  <Disclosure class="decoding-bit-clue" summary="试读第一组">
                     <p>
                       <code>{bits().groups[0]}</code> 中为 1 的位相加：
                       {[...bits().groups[0]]
@@ -174,7 +178,7 @@ export function BytePanel(props: { payload: LabPayload; allowHeightPractice?: bo
                         .join(" + ") || "0"}{" "}
                       = {bitsToByte(bits().groups[0])}。在字符编码表里找这个数。
                     </p>
-                  </details>
+                  </Disclosure>
                 </Show>
               </>
             )}
@@ -190,8 +194,7 @@ export function BytePanel(props: { payload: LabPayload; allowHeightPractice?: bo
           </Match>
         </Switch>
 
-        <details class="char-table" open={props.payload.kind === "codes"}>
-          <summary>字符编码表</summary>
+        <Disclosure class="char-table" open={props.payload.kind === "codes"} summary="字符编码表">
           <ol role="list">
             <For each={CHAR_TABLE}>
               {({ char, code }) => (
@@ -202,7 +205,7 @@ export function BytePanel(props: { payload: LabPayload; allowHeightPractice?: bo
               )}
             </For>
           </ol>
-        </details>
+        </Disclosure>
       </section>
     </Show>
   );

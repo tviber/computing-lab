@@ -57,7 +57,7 @@ it("distinguishes the student's grid from the built-in majority, even after a fa
     .mockResolvedValueOnce(Array(64).fill(1))
     .mockRejectedValueOnce(new Error("示例错误"));
   render(() => <DownsampleExplorer {...props} ruleCode={ruleCode()} />);
-  fireEvent.click(screen.getByRole("button", { name: "我写的 cell_value" }));
+  fireEvent.click(screen.getByRole("radio", { name: "我写的 cell_value" }));
   flush();
   await screen.findByText("你的规则发", { exact: false });
   expect(screen.getByRole("status")).toHaveTextContent("内置规则发 0。你的规则发 1。");

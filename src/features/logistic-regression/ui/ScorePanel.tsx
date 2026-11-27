@@ -1,5 +1,6 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, For, Show } from "solid-js";
+import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import {
@@ -333,55 +334,40 @@ export function ScorePanel(props: {
             <strong>偏置 b</strong>，再给「同学」「明天」「一起」设置负权重，检查正常短信能否分对。
           </p>
 
-          <div class="logistic-regression-slider-row is-bias">
-            <label for="logistic-regression-bias-slider">
-              <strong>偏置 b</strong>
-              <small>
-                没有已知词时的垃圾概率：{(evalSummary().emptyProbability * 100).toFixed(1)}%
-              </small>
-            </label>
-            <input
-              id="logistic-regression-bias-slider"
-              max={MAX_MANUAL_BIAS}
-              min={MIN_MANUAL_BIAS}
-              onChange={(e) => handleBiasUpdate(Number(e.currentTarget.value))}
-              onInput={(e) => handleBiasUpdate(Number(e.currentTarget.value))}
-              step={0.2}
-              type="range"
-              value={props.draft.bias}
-            />
-            <span
-              class={`logistic-regression-mono logistic-regression-slider-val ${props.draft.bias < 0 ? "is-neg" : "is-pos"}`}
-            >
-              {props.draft.bias >= 0 ? "+" : ""}
-              {props.draft.bias.toFixed(1)}
-            </span>
-          </div>
+          <LabeledSlider
+            class="logistic-regression-slider-row is-bias"
+            label={
+              <>
+                <strong>偏置 b</strong>
+                <small>
+                  没有已知词时的垃圾概率：{(evalSummary().emptyProbability * 100).toFixed(1)}%
+                </small>
+              </>
+            }
+            max={MAX_MANUAL_BIAS}
+            min={MIN_MANUAL_BIAS}
+            onChange={handleBiasUpdate}
+            step={0.2}
+            value={props.draft.bias}
+            valueClass={props.draft.bias < 0 ? "is-neg" : "is-pos"}
+            valueText={`${props.draft.bias >= 0 ? "+" : ""}${props.draft.bias.toFixed(1)}`}
+          />
 
           <div class="logistic-regression-sliders-grid">
             <For each={SCORE_WORDS}>
               {(word) => {
                 const val = () => props.draft.weights[word] ?? 0;
                 return (
-                  <div class="logistic-regression-slider-row">
-                    <label for={`logistic-regression-w-${word}`}>{word}</label>
-                    <input
-                      id={`logistic-regression-w-${word}`}
-                      max={MAX_MANUAL_WEIGHT}
-                      min={MIN_MANUAL_WEIGHT}
-                      onChange={(e) => handleWordUpdate(word, Number(e.currentTarget.value))}
-                      onInput={(e) => handleWordUpdate(word, Number(e.currentTarget.value))}
-                      step={0.2}
-                      type="range"
-                      value={val()}
-                    />
-                    <span
-                      class={`logistic-regression-mono logistic-regression-slider-val ${val() > 0 ? "is-pos" : val() < 0 ? "is-neg" : ""}`}
-                    >
-                      {val() >= 0 ? "+" : ""}
-                      {val().toFixed(1)}
-                    </span>
-                  </div>
+                  <LabeledSlider
+                    label={word}
+                    max={MAX_MANUAL_WEIGHT}
+                    min={MIN_MANUAL_WEIGHT}
+                    onChange={(next) => handleWordUpdate(word, next)}
+                    step={0.2}
+                    value={val()}
+                    valueClass={val() > 0 ? "is-pos" : val() < 0 ? "is-neg" : ""}
+                    valueText={`${val() >= 0 ? "+" : ""}${val().toFixed(1)}`}
+                  />
                 );
               }}
             </For>

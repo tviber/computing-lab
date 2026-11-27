@@ -159,7 +159,7 @@ function submitBlocker(
 ): string | null {
   if (!stage || !payload) return "数据还没载入，稍等。";
   if (!allPromptsAnswered(state)) return "概念题还没答完。";
-  if (cloze && !complete) return "还有空没填上——每个空都要填。";
+  if (cloze && !complete) return "还有空没填上，每个空都要填。";
   switch (stage.kind) {
     case "files":
       return payload.kind === "files" &&

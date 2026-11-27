@@ -20,8 +20,8 @@ it("hides the no-op delta and explains a refund in plain words", () => {
   renderPanel();
   expect(screen.queryByText(/比不补偿/)).not.toBeInTheDocument();
 
-  const card = screen.getByRole("group", { name: "R12 的补偿选择" });
-  fireEvent.click(within(card).getByRole("button", { name: "退款" }));
+  const card = screen.getByRole("radiogroup", { name: "R12 的补偿选择" });
+  fireEvent.click(within(card).getByRole("radio", { name: "退款" }));
   flush();
 
   expect(screen.getByText("比不补偿：少 0.55 单差评，多花 6 元")).toBeInTheDocument();

@@ -1,6 +1,7 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, For, Show } from "solid-js";
 import { MathFormula } from "../../../shared/ui/MathFormula";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import type { LogisticRegressionTestSummary, StrategyDraft } from "../domain/protocol.ts";
 import type { LogisticRegressionStageDef } from "../domain/stages.ts";
 import {
@@ -108,27 +109,18 @@ export function StrategyPanel(props: {
                         {role().label}
                       </span>
                     </div>
-                    <div
-                      aria-label={`${word} 倾向设置`}
+                    <SegmentedPicker
                       class="logistic-regression-tier-group"
-                      role="group"
-                    >
-                      <For each={STRATEGY_WEIGHT_TIERS}>
-                        {(tier) => {
-                          const active = () => val() === tier.value;
-                          return (
-                            <Button
-                              aria-pressed={active() ? "true" : "false"}
-                              class={`logistic-regression-tier-btn is-${tier.role}${active() ? " is-active" : ""}`}
-                              onClick={() => updateWeight(word, tier.value)}
-                              type="button"
-                            >
-                              {tier.label}
-                            </Button>
-                          );
-                        }}
-                      </For>
-                    </div>
+                      itemClass="logistic-regression-tier-btn"
+                      label={`${word} 倾向设置`}
+                      onChange={(next) => updateWeight(word, Number(next))}
+                      options={STRATEGY_WEIGHT_TIERS.map((tier) => ({
+                        value: String(tier.value),
+                        label: tier.label,
+                        class: `is-${tier.role}`,
+                      }))}
+                      value={String(val())}
+                    />
                   </div>
                 );
               }}

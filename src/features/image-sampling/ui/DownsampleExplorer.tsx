@@ -2,6 +2,7 @@ import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { ScenarioLinkButton } from "../../../shared/lab/ScenarioLinkButton";
 import { Icon } from "../../../shared/ui/Icon";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { diffBounds, imageFromLists, makeImage, type BinaryImage } from "../domain/bitmap.ts";
 import {
   cellBounds,
@@ -295,24 +296,17 @@ export function DownsampleExplorer(props: ExplorerProps) {
       />
 
       <Show when={!props.stage.requiresChooseSize && props.ruleCode?.trim()}>
-        <div aria-label="预览使用的规则" class="rule-toggle" role="group">
+        <div class="rule-toggle">
           <span>接收端规则：</span>
-          <Button
-            aria-pressed={!useMyRule() ? "true" : "false"}
-            class={!useMyRule() ? "is-active" : ""}
-            onClick={() => setUseMyRule(false)}
-            type="button"
-          >
-            内置多数规则
-          </Button>
-          <Button
-            aria-pressed={useMyRule() ? "true" : "false"}
-            class={useMyRule() ? "is-active" : ""}
-            onClick={() => setUseMyRule(true)}
-            type="button"
-          >
-            我写的 cell_value
-          </Button>
+          <SegmentedPicker
+            label="预览使用的规则"
+            onChange={(next) => setUseMyRule(next === "mine")}
+            options={[
+              { value: "builtin", label: "内置多数规则" },
+              { value: "mine", label: "我写的 cell_value" },
+            ]}
+            value={useMyRule() ? "mine" : "builtin"}
+          />
           <Show when={customCode() && !activePreview()}>
             <span class="rule-running">运行中…</span>
           </Show>
@@ -332,7 +326,7 @@ export function DownsampleExplorer(props: ExplorerProps) {
           <div aria-label="选择要发送的信号" class="member-strip" role="listbox">
             <For each={gallery()}>
               {(entry, index) => (
-                <button
+                <Button
                   aria-label={`查看 ${entry.label}`}
                   aria-selected={index() === memberIndex() ? "true" : "false"}
                   class={`member-chip${index() === memberIndex() ? " is-active" : ""}`}
@@ -342,7 +336,7 @@ export function DownsampleExplorer(props: ExplorerProps) {
                 >
                   <BitmapCanvas ariaLabel={entry.label} image={entry.image} pixelSize={2} />
                   <span>{entry.label}</span>
-                </button>
+                </Button>
               )}
             </For>
           </div>
@@ -365,7 +359,7 @@ export function DownsampleExplorer(props: ExplorerProps) {
                       <td>
                         <Show
                           fallback={
-                            <button
+                            <Button
                               class="probe-link"
                               onClick={() =>
                                 props.onResolution(
@@ -376,7 +370,7 @@ export function DownsampleExplorer(props: ExplorerProps) {
                               type="button"
                             >
                               {row.width}×{row.height}
-                            </button>
+                            </Button>
                           }
                           when={props.stage.requiresChooseSize}
                         >
@@ -410,13 +404,13 @@ export function DownsampleExplorer(props: ExplorerProps) {
                     const key = `${pair.aId}-${pair.bId}`;
                     return (
                       <li>
-                        <button
+                        <Button
                           class={`pair-link${inspectedPairId() === key ? " is-active" : ""}`}
                           onClick={() => inspectPair(key, pair.aId)}
                           type="button"
                         >
                           {pair.aLabel} ≡ {pair.bLabel}
-                        </button>
+                        </Button>
                       </li>
                     );
                   }}
@@ -434,7 +428,7 @@ export function DownsampleExplorer(props: ExplorerProps) {
                 {(info) => (
                   <p class="pair-diff-note">
                     {info().bounds
-                      ? `${info().pair.aLabel} 与 ${info().pair.bLabel} 的差别只在原图 x∈[${info().bounds!.x0}, ${info().bounds!.x1})、y∈[${info().bounds!.y0}, ${info().bounds!.y1}) 的 ${info().bounds!.pixels} 个像素里（原图上的虚线框）——当前网格把它抹平了。`
+                      ? `${info().pair.aLabel} 与 ${info().pair.bLabel} 的差别只在原图 x∈[${info().bounds!.x0}, ${info().bounds!.x1})、y∈[${info().bounds!.y0}, ${info().bounds!.y1}) 的 ${info().bounds!.pixels} 个像素里（原图上的虚线框）。当前网格把它抹平了。`
                       : `${info().pair.aLabel} 与 ${info().pair.bLabel} 原图完全相同。`}
                   </p>
                 )}

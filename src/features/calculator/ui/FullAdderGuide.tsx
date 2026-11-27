@@ -1,5 +1,5 @@
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createSignal, Show } from "solid-js";
+import { createSignal, onSettled, Show } from "solid-js";
 import { describeRuntimeError } from "../../../shared/lab/contracts";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 
@@ -10,14 +10,11 @@ export function FullAdderGuide(props: { scopeId: string; onAcknowledged: () => v
   const [saving, setSaving] = createSignal(false);
   const [error, setError] = createSignal("");
 
-  createEffect(
-    () => 0,
-    () => {
-      if (document.activeElement instanceof HTMLElement) {
-        previousFocus = document.activeElement;
-      }
-    },
-  );
+  onSettled(() => {
+    if (document.activeElement instanceof HTMLElement) {
+      previousFocus = document.activeElement;
+    }
+  });
 
   async function acknowledge() {
     setSaving(true);

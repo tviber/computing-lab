@@ -1,12 +1,12 @@
 import { Button } from "@ui-sdk/solid/button";
 import {
-  Dialog,
-  DialogBackdrop,
-  DialogClose,
-  DialogContent,
-  DialogDescription,
-  DialogTitle,
-} from "@ui-sdk/solid/dialog";
+  AlertDialog,
+  AlertDialogBackdrop,
+  AlertDialogClose,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogTitle,
+} from "@ui-sdk/solid/alert-dialog";
 import { createSignal, Show } from "solid-js";
 import { describeApiError } from "../../shared/api/client";
 
@@ -34,18 +34,18 @@ export function AdminConfirmDialog(props: {
   }
 
   return (
-    <Dialog
+    <AlertDialog
       dismissible={!busy()}
       onOpenChange={(next) => {
         if (!next && !busy()) props.onCancel();
       }}
       open
     >
-      <DialogBackdrop class="admin-modal-backdrop" />
-      <DialogContent class="admin-modal">
+      <AlertDialogBackdrop class="admin-modal-backdrop" />
+      <AlertDialogContent class="admin-modal">
         <p class="eyebrow">确认操作</p>
-        <DialogTitle>{props.title}</DialogTitle>
-        <DialogDescription>{props.description}</DialogDescription>
+        <AlertDialogTitle>{props.title}</AlertDialogTitle>
+        <AlertDialogDescription>{props.description}</AlertDialogDescription>
         <Show when={error()}>
           {(message) => (
             <p class="auth-error" role="alert">
@@ -54,9 +54,9 @@ export function AdminConfirmDialog(props: {
           )}
         </Show>
         <div class="admin-modal-actions">
-          <DialogClose class="button button-secondary" disabled={busy()} type="button">
+          <AlertDialogClose class="button button-secondary" disabled={busy()} type="button">
             取消
-          </DialogClose>
+          </AlertDialogClose>
           <Button
             class="button button-danger"
             disabled={busy()}
@@ -66,7 +66,7 @@ export function AdminConfirmDialog(props: {
             {busy() ? props.pendingLabel : props.confirmLabel}
           </Button>
         </div>
-      </DialogContent>
-    </Dialog>
+      </AlertDialogContent>
+    </AlertDialog>
   );
 }

@@ -115,13 +115,13 @@ function pixelsDetail(
   }
   if (pixelsEqual(actual, expected)) return "";
   if (pixelsEqual(flipRows(actual), expected)) {
-    return `画面上下颠倒了——${flipHint}`;
+    return `画面上下颠倒了。${flipHint}`;
   }
   if (pixelsEqual(swapChannels(actual), expected)) {
-    return "形状对了但颜色反了——核对 B、G、R 的通道顺序";
+    return "形状对了但颜色反了，核对 B、G、R 的通道顺序";
   }
   if (pixelsEqual(transpose(actual), expected)) {
-    return "行和列对调了——检查像素位置是 (y * width + x)";
+    return "行和列对调了，检查像素位置是 (y * width + x)";
   }
   for (let y = 0; y < expected.length; y += 1) {
     for (let x = 0; x < expected[y].length; x += 1) {

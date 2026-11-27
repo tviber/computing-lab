@@ -8,6 +8,8 @@
 
 import { Button } from "@ui-sdk/solid/button";
 import { createSignal, For, Show } from "solid-js";
+import { Disclosure } from "../../../shared/ui/Disclosure";
+import { Icon } from "../../../shared/ui/Icon";
 import { DISHES, NOTES, TABLES } from "../domain/contracts.ts";
 import type { TrainingDraft } from "../domain/protocol.ts";
 import type { TrainingOrder } from "../domain/scenarios.ts";
@@ -315,10 +317,9 @@ export function TrainingPanel(props: {
         <h2>两张订单，先做哪一张？</h2>
         <p>加急的订单超过 9 拍就算超时，普通订单超过 18 拍就算超时。</p>
         <p>两份餐都还没下锅。你会先做哪一份？</p>
-        <details class="lunch-reference">
-          <summary>「拍」是什么</summary>
+        <Disclosure class="lunch-reference" summary="「拍」是什么">
           <TickExplainer />
-        </details>
+        </Disclosure>
         <Show
           fallback={
             <form
@@ -494,11 +495,15 @@ export function TrainingPanel(props: {
           role="status"
         >
           <strong>
-            {!orderDataOk()
-              ? "订单跑完了，但中途出了错"
-              : completedWell()
-                ? "✓ 订单送到了"
-                : "订单送到了，不过加急顾客多等了 3 拍"}
+            {!orderDataOk() ? (
+              "订单跑完了，但中途出了错"
+            ) : completedWell() ? (
+              <>
+                <Icon name="check" size={13} /> 订单送到了
+              </>
+            ) : (
+              "订单送到了，不过加急顾客多等了 3 拍"
+            )}
           </strong>
           <span>{ticketSummary(props.draft.ticket)}</span>
         </div>

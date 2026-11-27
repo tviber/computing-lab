@@ -124,7 +124,7 @@ test("admin delete and roster removal dialogs contain focus and return it to the
       .filter({ has: page.getByRole("cell", { name: row, exact: true }) })
       .getByRole("button", { name: action, exact: true });
     await trigger.press("Enter");
-    const dialog = page.getByRole("dialog");
+    const dialog = page.getByRole("alertdialog");
     const cancel = dialog.getByRole("button", { name: "取消" });
     await expect(cancel).toBeFocused();
     await expect(dialog).toHaveAttribute("aria-modal", "true");

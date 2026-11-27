@@ -67,10 +67,10 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     track: "core",
     kind: "codes",
     mission:
-      "桌上有一张纸条，只留下一串数字——没有署名，没有单词。旁边贴着课堂上那张字符编码表。它到底在说什么？",
+      "桌上有一张纸条，只留下一串数字，没有署名，也没有单词。旁边贴着课堂上那张字符编码表。它到底在说什么？",
     task: "提交 decode(data) 还原出的单词。每个人的密码纸都不一样，它随你的账号生成。",
     hint: "Python 的 chr(code) 返回 code 对应的字符。",
-    judgeNote: "判定比对你提交的字符串与本关为你生成的那张密码纸——别人抄不了你的答案。",
+    judgeNote: "程序比对你提交的字符串与本关为你生成的那张密码纸。别人抄不了你的答案。",
     takeaway: "字符编码是「字符 ↔ 数值」的约定：一串数看不懂，配上约定就变成了单词。",
     example: {
       input: "data = [67, 65, 84]\ndecode(data)",
@@ -100,14 +100,14 @@ export const DECODING_STAGES: DecodingStageDef[] = [
           { label: "一张大家约定好的「数 → 字符」对照表", correct: true },
           {
             label: "数字 67 天生就长得像 C",
-            note: "数只是数——是约定给了它含义。",
+            note: "数只是数，是约定给了它含义。",
           },
           {
             label: "计算机自己认得所有字符",
             note: "没有对照表，计算机眼里也只有一堆数。",
           },
         ],
-        reveal: "字符编码就是约定：同一个数换一张表可能变成别的字符——约定本身才叫编码。",
+        reveal: "字符编码就是约定：同一个数换一张表可能变成别的字符。约定本身才叫编码。",
       },
     ],
   },
@@ -125,9 +125,8 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     description:
       "每 8 位是一个字节。比如 01001000 写成十进制是 72、对应字符 'H'；int(s, 2) 可以把二进制字符串 s 转成十进制数。",
     task: "提交 decode(data) 还原出的整句话。data 是一组 8 位 0/1 字符串。",
-    judgeNote: "判定比对你提交的句子与本关密文；概念题也必须全部答对。",
-    takeaway:
-      "二进制和十进制是同一个数的两种写法，不是两套编码——数怎么写是一层，数对应哪个字符是另一层。",
+    judgeNote: "程序比对你提交的句子与本关密文；概念题也必须全部答对。",
+    takeaway: "二进制和十进制是同一个数的两种写法。写法是一层，数值对应哪个字符是另一层。",
     example: {
       input: 'data = ["01001000", "01101001"]\ndecode(data)',
       output: '"Hi"',
@@ -155,19 +154,19 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     prompts: [
       {
         id: "repr-vs-encoding",
-        prompt: "72 和 01001000 的关系是——",
+        prompt: "72 和 01001000 的关系是：",
         options: [
           { label: "同一个数的两种写法", correct: true },
           {
             label: "两套不同的字符编码",
-            note: "编码表没变——变的只是数的写法。",
+            note: "编码表没变，变的只是数的写法。",
           },
           {
             label: "一个是明文，一个是密码",
             note: "它们表示的是同一个数。",
           },
         ],
-        reveal: "把数写成二进制还是十进制只是写法不同——它对应的字符没变。",
+        reveal: "把数写成二进制还是十进制只是写法不同，它对应的字符没有变。",
       },
       {
         id: "where-encoding",
@@ -183,7 +182,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
             note: "写下写法不等于解释含义。",
           },
         ],
-        reveal: "进制是数值的表示方式；编码是数值到字符的约定——两件事发生在不同层次。",
+        reveal: "进制是数值的表示方式；编码是数值到字符的约定。两件事发生在不同层次。",
       },
     ],
   },
@@ -197,13 +196,13 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     track: "core",
     kind: "bmp",
     mission:
-      "收到一个没有扩展名的文件：一长串字节，来源不明。前两个字节按字符表一读是 'BM'——这是张 BMP 图，目标就是右边那只猫。",
+      "收到一个没有扩展名的文件：一长串字节，来源不明。前两个字节按字符表一读是 'BM'。这是张 BMP 图，目标就是右边那只猫。",
     description:
       "不用从零写：把格式约定逐条对到代码里的空上。题面会用到两种「倒序」写法：reversed(xs) 给出倒着取的 xs（常用在 for 里，原列表不变），xs.reverse() 则把 xs 这个列表就地翻转。",
     task: "补全 decode(data) 里的空，提交它还原出的像素矩阵。",
-    hint: "像素数据的起点不用背——它写在文件头里：data[10] 开始存着一个整数。约定本身（B、G、R 顺序、最下面一行在最前面）都写在代码注释里，逐条对上去；翻转列表用 xs.reverse()（就地翻转原列表；reversed(xs) 只是倒着取、不改动它）。",
-    judgeNote: "判定比对整张像素矩阵。",
-    takeaway: "你一个字节都没改：数据没变，换的是解释规则——不同的 decoder 恢复出不同的信息。",
+    hint: "像素数据的起点不用背，它写在文件头里：data[10] 开始存着一个整数。约定本身（B、G、R 顺序、最下面一行在最前面）都写在代码注释里，逐条对上去；翻转列表用 xs.reverse()（就地翻转原列表；reversed(xs) 只是倒着取、不改动它）。",
+    judgeNote: "程序比对整张像素矩阵。",
+    takeaway: "你一个字节都没改：数据没变，换的是解释规则。不同的 decoder 恢复出不同的信息。",
     example: {
       input: [
         "data = [0] * 54",
@@ -223,7 +222,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     starterCode: `def decode(data):
     # data: 一个 BMP 文件的全部字节
     # 已确认的格式约定:
-    #   像素数据的起点写在文件头里 —— data[10] 开始的字节存着一个整数
+    #   像素数据的起点写在文件头里: data[10] 开始的字节存着一个整数
     #   每个像素 3 字节, 顺序是 B, G, R
     #   宽 8 高 8, 图像最下面一行存在最前面
     width = 8
@@ -246,7 +245,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
       `def decode(data):
     # data: 一个 BMP 文件的全部字节
     # BMP 约定:
-    #   - 像素数据的起点写在文件头里 —— data[10] 开始的字节存着一个整数
+    #   - 像素数据的起点写在文件头里: data[10] 开始的字节存着一个整数
     #   - 每个像素 3 个字节, 顺序是 B, G, R
     #   - 最下面一行存在最前面
     width = 8
@@ -268,7 +267,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
       `def decode(data):
     # data: 一个 BMP 文件的全部字节
     # BMP 约定:
-    #   - 像素数据的起点写在文件头里 —— data[10] 开始的字节存着一个整数
+    #   - 像素数据的起点写在文件头里: data[10] 开始的字节存着一个整数
     #   - 每个像素 3 个字节, 顺序是 B, G, R
     #   - 最下面一行存在最前面
     width = 8
@@ -291,7 +290,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     prompts: [
       {
         id: "signature-meaning",
-        prompt: "你从字节流里读出的 'BM' 是——",
+        prompt: "你从字节流里读出的 'BM' 是：",
         options: [
           { label: "按字符规则解释开头两个字节的结果", correct: true },
           {
@@ -300,7 +299,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
           },
           {
             label: "图片自己打印的文字",
-            note: "它只是两个数值——字符表一解释才成了标记。",
+            note: "它只是两个数值，字符表一解释才成了标记。",
           },
         ],
         reveal: "签名是写文件的程序留下的约定：开头几个数值，用字符表一解释就成了 'BM'。",
@@ -309,17 +308,17 @@ export const DECODING_STAGES: DecodingStageDef[] = [
         id: "data-untouched",
         prompt: "解码这张图的过程中，原始字节被改动过吗？",
         options: [
-          { label: "没有——只是换了另一种解释规则", correct: true },
+          { label: "没有，只是换了另一种解释规则", correct: true },
           {
-            label: "改了——BGR 被换成了 RGB",
+            label: "改了，BGR 被换成了 RGB",
             note: "重排是解释方式；原字节流一个字节都没动。",
           },
           {
             label: "改了一个坏掉的字节",
-            note: "这份数据完好无损，缺的不是修数据而是解释。",
+            note: "这份数据完好无损；问题不在数据，而在解释。",
           },
         ],
-        reveal: "同一份字节数据配上不同 decoder，恢复出的信息就不同——「这是什么」取决于怎么读。",
+        reveal: "同一份字节数据配上不同 decoder，恢复出的信息就不同。「这是什么」取决于怎么读。",
       },
     ],
   },
@@ -337,8 +336,8 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     mission:
       "三个没有扩展名的片段摆在面前。手里有两个现成的 decoder：decode_as_text 和 decode_as_image。",
     task: "为每个文件选定正确的 decoder，并提交该 decoder 的真实输出。",
-    hint: "两个 decoder 用在错误的输入上「也能跑」——跑得出结果不代表解释对了。元数据是发送方留下的提示。",
-    judgeNote: "判定核对每个文件的 decoder 选择与对应的解码输出。",
+    hint: "两个 decoder 用在错误的输入上「也能跑」。跑得出结果不代表解释对了。元数据是发送方留下的提示。",
+    judgeNote: "程序核对每个文件的 decoder 选择与对应的解码输出。",
     takeaway: "bytes 本身没有类型魔法：文件格式、字符编码和元数据，才告诉程序该怎么解释它们。",
     starterCode: "",
     prompts: [
@@ -354,7 +353,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
           },
         ],
         reveal:
-          "「能跑」不是证据——「有意义 + 元数据一致」才是。格式、编码规则和元数据共同决定解释方式。",
+          "「能跑」不能作为证据。结果有意义，并且与元数据一致，才能说明解释正确。格式、编码规则和元数据共同决定解释方式。",
       },
     ],
   },
@@ -370,12 +369,12 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     unlockAfter: [3],
     kind: "bmp-script",
     mission:
-      "这张 BMP 看着和第 3 关没什么不同——但情报说：发送方每隔一个像素，就往 R 通道里藏了一个字符编码，用 0 收尾。",
-    description: "现成的 decode_bmp(data) 已经备好——它返回像素矩阵。你要做的只是取出藏着的情报。",
+      "这张 BMP 看着和第 3 关没什么不同。但情报说：发送方每隔一个像素，就往 R 通道里藏了一个字符编码，用 0 收尾。",
+    description: "现成的 decode_bmp(data) 已经备好，它返回像素矩阵。你要做的只是取出藏着的情报。",
     task: "补全 decode(data) 里的空，提交它还原出的那句话。",
     hint: "像素矩阵先按行摊平；R 是 [r, g, b] 里的第 0 个分量；取出的编码值用 chr() 变回字符。",
-    judgeNote: "判定比对提取出的字符串。",
-    takeaway: "同一份文件里，不同区域可以有不同解释规则——decoder 是可以串起来用的。",
+    judgeNote: "程序比对提取出的字符串。",
+    takeaway: "同一份文件里，不同区域可以有不同解释规则。decoder 也可以串起来用。",
     example: {
       input: [
         "data = [0] * 54",
@@ -445,12 +444,12 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     unlockAfter: [3],
     kind: "bmp",
     mission:
-      "同事留下的 decoder 信誓旦旦能解 BMP——跑出来的却是一团乱。代码就在编辑器里，逐行找出它哪里读错了。",
-    description: "和第 3 关确认的格式约定逐行对照——注释里是同事写错的版本。",
-    task: "修好 decode(data)，提交它跑出的像素矩阵——还原出的应该还是那只猫。",
-    hint: "同事的错法各不相同：起点写死了、行列对调了、读错了数组、通道顺序记反了、行序漏了——每个空都对回第 3 关的约定。行序那空要把列表就地翻转：pixels.reverse()。",
-    judgeNote: "判定比对整张像素矩阵——每个空都不能错。",
-    takeaway: "decoder 里每个常量都是一条约定——写错任何一条，同一份数据就变成乱码。",
+      "同事留下的 decoder 信誓旦旦能解 BMP，跑出来的却是一团乱。代码就在编辑器里，逐行找出它哪里读错了。",
+    description: "和第 3 关确认的格式约定逐行对照。注释里是同事写错的版本。",
+    task: "修好 decode(data)，提交它跑出的像素矩阵。还原出的应该还是那只猫。",
+    hint: "同事的错法各不相同：起点写死了、行列对调了、读错了数组、通道顺序记反了、行序漏了。每个空都对回第 3 关的约定。行序那空要把列表就地翻转：pixels.reverse()。",
+    judgeNote: "程序比对整张像素矩阵，每个空都不能错。",
+    takeaway: "decoder 里每个常量都是一条约定。写错任何一条，同一份数据就变成乱码。",
     example: {
       input: [
         "data = [0] * 54",
@@ -479,7 +478,7 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     },
     starterCode: `def decode(data):
     # data: 一个 BMP 文件的全部字节
-    # 同事的版本解出来是乱图 —— 注释里是他写错的写法, 把空填对
+    # 同事的版本解出来是乱图; 注释里是他写错的写法, 把空填对
     width = 8
     height = 8
     body = data[__(1)__:]      # 同事写的是 45
@@ -487,13 +486,13 @@ export const DECODING_STAGES: DecodingStageDef[] = [
     for y in range(height):
         row = []
         for x in range(width):
-            i = (__(2)__) * 3  # 同事写的是 (x * height + y) —— 行列对调了
-            b = __(3)__        # 同事写的是 data[i] —— 读进文件头里了
+            i = (__(2)__) * 3  # 同事写的是 (x * height + y), 行列对调了
+            b = __(3)__        # 同事写的是 data[i], 读进文件头里了
             g = body[i + 1]
-            r = __(4)__        # 同事写的是 body[i] —— 他记成了 R, G, B
+            r = __(4)__        # 同事写的是 body[i], 他记成了 R, G, B
             row.append([r, g, b])
         pixels.append(row)
-    __(5)__                    # 同事什么都没写 —— 想想行序约定
+    __(5)__                    # 同事什么都没写; 想想行序约定
     return pixels
 `,
   },

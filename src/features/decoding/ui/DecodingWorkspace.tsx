@@ -188,7 +188,7 @@ export function DecodingWorkspace(props: DecodingWorkspaceProps) {
                               <div class="preview-block">
                                 <PixelCanvas ariaLabel="图片预览" pixels={previewPixels()} />
                                 <p class="preview-note">
-                                  按 BMP 约定读是一张正常图片——但传入的数值里似乎不只是颜色。
+                                  按 BMP 约定读是一张正常图片。但传入的数值里似乎不只是颜色。
                                 </p>
                               </div>
                             )}
@@ -310,7 +310,15 @@ export function DecodingWorkspace(props: DecodingWorkspaceProps) {
                     aria-label="判定结果"
                     class={`judge-result${j().outcome.passed ? " is-passed" : ""}`}
                   >
-                    <h3>{j().outcome.passed ? "判定通过 ✓" : "判定未通过"}</h3>
+                    <h3>
+                      {j().outcome.passed ? (
+                        <>
+                          判定通过 <Icon name="check" size={13} />
+                        </>
+                      ) : (
+                        "判定未通过"
+                      )}
+                    </h3>
                     <Show when={j().outcome.passed && j().nextStageIndex !== null}>
                       <Button
                         class="button button-primary judge-next"

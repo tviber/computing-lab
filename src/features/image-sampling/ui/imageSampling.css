@@ -153,21 +153,6 @@
   margin: 0 0 12px;
 }
 
-.rule-toggle button {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-  font: inherit;
-  padding: 3px 10px;
-}
-
-.rule-toggle button.is-active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--accent-ink);
-}
-
 .rule-running {
   color: var(--muted);
 }
@@ -317,18 +302,12 @@
 }
 
 .guess-button {
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-control);
-  cursor: pointer;
-  font: inherit;
   min-width: 32px;
   padding: 2px 10px;
 }
 
-.guess-button.is-active {
+.guess-button[data-checked] {
   background: var(--accent-soft);
-  border-color: var(--accent);
   color: var(--accent-ink);
 }
 

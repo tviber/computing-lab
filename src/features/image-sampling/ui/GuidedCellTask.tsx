@@ -11,6 +11,7 @@ import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { PythonCodeWithBlanks, type PythonCodePart } from "../../../shared/ui/PythonCode";
+import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { imageFromLists } from "../domain/bitmap.ts";
 import { cellRegion, cellStats } from "../domain/downsample.ts";
 import { publicGalleryFor } from "../domain/fixtures.ts";
@@ -176,7 +177,7 @@ export function GuidedCellTask(props: { code: string; onCodeChange: (code: strin
         <strong>一个格子盖住的区域里至少一半是图形（1），这个格子才发 1。</strong>
       </p>
       <p>
-        下面是 6 块从信号图上取下来的真实区域。先别看代码——数一数每块里有多少个图形像素，
+        下面是 6 块从信号图上取下来的真实区域。先别看代码。先数一数每块里有多少个图形像素，
         点上你判断的 0 或 1，再让代码做同样的判断。
       </p>
 
@@ -214,27 +215,23 @@ export function GuidedCellTask(props: { code: string; onCodeChange: (code: strin
                   </Show>
                 </div>
                 <figcaption>区域 {index() + 1}</figcaption>
-                <div aria-label={`区域 ${index() + 1} 你的判断`} class="guess-buttons" role="group">
-                  <For each={[0, 1] as const}>
-                    {(value) => (
-                      <button
-                        aria-pressed={guess() === value ? "true" : "false"}
-                        class={`guess-button${guess() === value ? " is-active" : ""}`}
-                        onClick={() =>
-                          setGuesses((prev) => {
-                            const next = [...prev];
-                            const idx = index();
-                            next[idx] = next[idx] === value ? null : value;
-                            return next;
-                          })
-                        }
-                        type="button"
-                      >
-                        {value}
-                      </button>
-                    )}
-                  </For>
-                </div>
+                <SegmentedPicker
+                  class="guess-buttons"
+                  itemClass="guess-button"
+                  label={`区域 ${index() + 1} 你的判断`}
+                  onChange={(value) =>
+                    setGuesses((prev) => {
+                      const next = [...prev];
+                      next[index()] = Number(value) as 0 | 1;
+                      return next;
+                    })
+                  }
+                  options={[
+                    { value: "0", label: "0" },
+                    { value: "1", label: "1" },
+                  ]}
+                  value={guess() == null ? "" : String(guess())}
+                />
                 <Show when={guess() !== null}>
                   <span
                     class={`guess-verdict${guess() === expected[index()] ? " is-ok" : " is-bad"}`}
