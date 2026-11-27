@@ -14,6 +14,11 @@ for phase in prepare activate; do
     || fail "release.sh no longer drives static $phase"
 done
 
+grep -Fq -- '--compressed' "$RELEASE" \
+  || fail 'release.sh compare requests no longer use compressed transfer'
+grep -Fq -- '--max-time 90 --retry 3 --retry-delay 2 --retry-all-errors' "$RELEASE" \
+  || fail 'release.sh compare requests lost their timeout/retry budget'
+
 grep -Fq 'prepare|activate) coordinated_release "$@" ;;' "$RECONCILER" \
   || fail 'reconcile.sh does not dispatch prepare/activate'
 grep -Fq 'usage: reconcile.sh {prepare|activate|status|hold|resume|cleanup}' "$RECONCILER" \
