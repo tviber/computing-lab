@@ -6,6 +6,7 @@
 
 import { AiIntakeFinalPanel, type AiIntakeFinalProps } from "./AiIntakeFinalPanel.tsx";
 import { AiIntakePracticePanel, type AiIntakePracticeProps } from "./AiIntakePracticePanel.tsx";
+import { Show } from "solid-js";
 export { NEED_CONFIRM_STARTER } from "./useAiIntakeModel.tsx";
 
 export type AiIntakePanelProps =
@@ -18,26 +19,37 @@ export type AiIntakePanelProps =
     } & AiIntakeFinalProps);
 
 export function AiIntakePanel(props: AiIntakePanelProps) {
-  if (props.variant === "final") {
-    return (
-      <AiIntakeFinalPanel
-        draft={props.draft}
-        onChange={props.onChange}
-        onSubmit={props.onSubmit}
-        orders={props.orders}
-        result={props.result}
-        submitting={props.submitting}
-      />
-    );
-  }
+  const finalProps = (): AiIntakeFinalProps | undefined =>
+    props.variant === "final" ? props : undefined;
+  const practiceProps = (): AiIntakePracticeProps | undefined =>
+    props.variant === "practice" ? props : undefined;
+
   return (
-    <AiIntakePracticePanel
-      draft={props.draft}
-      onChange={props.onChange}
-      onSubmit={props.onSubmit}
-      orders={props.orders}
-      result={props.result}
-      submitting={props.submitting}
-    />
+    <>
+      <Show keyed when={finalProps()}>
+        {(panel) => (
+          <AiIntakeFinalPanel
+            draft={panel.draft}
+            onChange={panel.onChange}
+            onSubmit={panel.onSubmit}
+            orders={panel.orders}
+            result={panel.result}
+            submitting={panel.submitting}
+          />
+        )}
+      </Show>
+      <Show keyed when={practiceProps()}>
+        {(panel) => (
+          <AiIntakePracticePanel
+            draft={panel.draft}
+            onChange={panel.onChange}
+            onSubmit={panel.onSubmit}
+            orders={panel.orders}
+            result={panel.result}
+            submitting={panel.submitting}
+          />
+        )}
+      </Show>
+    </>
   );
 }

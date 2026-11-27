@@ -193,6 +193,37 @@ describe("useLabSession", () => {
     );
   });
 
+  it("resolves a save conflict when the server project has no drafts", async () => {
+    const { dispatch, setState } = mountSession(emptyState());
+    await loadProject();
+    markDirty(setState);
+    vi.advanceTimersByTime(1500);
+    await settle();
+
+    const save = calls.find((call) => call.method === "PUT");
+    save?.done.resolve(json({ applied: false, revision: 2 }));
+    await settle();
+
+    const reconcile = calls.filter((call) => call.method === "GET")[1];
+    reconcile.done.resolve(
+      json({
+        labId: "lab",
+        currentStage: 1,
+        passedStages: [],
+        draftRevisions: { 1: 2 },
+        projectGeneration: 0,
+      }),
+    );
+    await settle();
+
+    expect(dispatch).toHaveBeenCalledWith({
+      type: "resolve-save-conflict",
+      stageIndex: 1,
+      draft: undefined,
+      revision: 2,
+    });
+  });
+
   it("honours hasConflictBackup for the save indicator controls", async () => {
     const { result, dispatch, setState } = mountSession(emptyState(), {
       hasConflictBackup: (current) => current.conflictedComponents,

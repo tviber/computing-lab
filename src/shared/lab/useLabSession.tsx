@@ -47,7 +47,7 @@ export type LabSessionAction<TDraft> =
   | {
       type: "resolve-save-conflict";
       stageIndex: number;
-      draft: TDraft;
+      draft?: TDraft;
       revision?: number;
     }
   | { type: "restore-conflict-draft"; stageIndex: number }
@@ -151,7 +151,7 @@ export function useLabSession<TDraft, TExtras, TAction, TState extends LabSessio
           options.dispatchSession({
             type: "resolve-save-conflict",
             stageIndex: resolvedStage,
-            draft: loaded.drafts[resolvedStage],
+            draft: loaded.drafts?.[resolvedStage],
             revision: loaded.draftRevisions?.[resolvedStage],
           });
         }
