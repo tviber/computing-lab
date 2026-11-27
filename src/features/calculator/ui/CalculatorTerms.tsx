@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
+import { createMemo, For } from "solid-js";
 
 export const CALCULATOR_TERM_NOTES = {
   "Half Adder": "半加器：把两个 1 位输入相加，输出和位 Sum 与进位 Carry。",
@@ -49,17 +50,19 @@ const TERM_PATTERN = new RegExp(
   "g",
 );
 
-export function CalculatorTerm({ term }: { term: CalculatorTerm }) {
-  return <abbr title={`${term}：${CALCULATOR_TERM_NOTES[term]}`}>{term}</abbr>;
+export function CalculatorTerm(props: { term: CalculatorTerm }) {
+  return <abbr title={`${props.term}：${CALCULATOR_TERM_NOTES[props.term]}`}>{props.term}</abbr>;
 }
 
-export function AnnotatedText({ text }: { text: string }) {
-  return text.split(TERM_PATTERN).map((part, index) => {
-    if (part in CALCULATOR_TERM_NOTES) {
-      return <CalculatorTerm key={`${part}-${index}`} term={part as CalculatorTerm} />;
-    }
-    return part;
-  });
+export function AnnotatedText(props: { text: string }) {
+  const parts = createMemo(() => props.text.split(TERM_PATTERN));
+  return (
+    <For each={parts()}>
+      {(part) =>
+        part in CALCULATOR_TERM_NOTES ? <CalculatorTerm term={part as CalculatorTerm} /> : part
+      }
+    </For>
+  );
 }
 
 const GUIDE_TERMS: CalculatorTerm[] = [
@@ -77,19 +80,21 @@ const GUIDE_TERMS: CalculatorTerm[] = [
   "overflow",
 ];
 
-export function CalculatorTermGuide(): ReactNode {
+export function CalculatorTermGuide(): JSX.Element {
   return (
-    <details className="calculator-term-guide">
+    <details class="calculator-term-guide">
       <summary>术语说明（英文加下划线，悬停或触摸可查看解释）</summary>
       <dl>
-        {GUIDE_TERMS.map((term) => (
-          <div key={term}>
-            <dt>
-              <CalculatorTerm term={term} />
-            </dt>
-            <dd>{CALCULATOR_TERM_NOTES[term]}</dd>
-          </div>
-        ))}
+        <For each={GUIDE_TERMS}>
+          {(term) => (
+            <div>
+              <dt>
+                <CalculatorTerm term={term} />
+              </dt>
+              <dd>{CALCULATOR_TERM_NOTES[term]}</dd>
+            </div>
+          )}
+        </For>
       </dl>
     </details>
   );

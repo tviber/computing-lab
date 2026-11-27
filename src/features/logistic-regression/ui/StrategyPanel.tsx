@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, For, Show } from "solid-js";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import type { LogisticRegressionTestSummary, StrategyDraft } from "../domain/protocol.ts";
 import type { LogisticRegressionStageDef } from "../domain/stages.ts";
@@ -40,17 +41,7 @@ function scoreBarStyle(score: number): { left: string; width: string; cls: strin
   };
 }
 
-export function StrategyPanel({
-  stage,
-  draft,
-  passed,
-  result,
-  submitting,
-  hasNextStage,
-  onChange,
-  onSubmit,
-  onNextStage,
-}: {
+export function StrategyPanel(props: {
   stage: LogisticRegressionStageDef;
   draft: StrategyDraft;
   passed: boolean;
@@ -61,168 +52,170 @@ export function StrategyPanel({
   onSubmit: () => void;
   onNextStage: () => void;
 }) {
-  const evalResult = useMemo(() => evaluateStrategyWeights(draft.weights), [draft.weights]);
-
-  const example = evalResult.items[0];
-
-  const allConceptsDone = stage.prompts.every((p) => draft.concepts[p.id] === p.correct);
+  const evalResult = createMemo(() => evaluateStrategyWeights(props.draft.weights));
+  const example = createMemo(() => evalResult().items[0]);
+  const allConceptsDone = createMemo(() =>
+    props.stage.prompts.every((p) => props.draft.concepts[p.id] === p.correct),
+  );
 
   const updateWeight = (word: string, nextVal: number) => {
-    onChange({
-      ...draft,
-      weights: { ...draft.weights, [word]: clampStrategyWeight(nextVal) },
+    props.onChange({
+      ...props.draft,
+      weights: { ...props.draft.weights, [word]: clampStrategyWeight(nextVal) },
     });
   };
 
   const resetWeights = () => {
     const zeroW: Record<string, number> = {};
     for (const w of STRATEGY_WORDS) zeroW[w] = 0;
-    onChange({ ...draft, weights: zeroW });
+    props.onChange({ ...props.draft, weights: zeroW });
   };
 
-  const scoreTerms = example.contributions
-    .filter((term) => term.present === 1)
-    .map((term) => String.raw`\text{${term.word}}(${fmtSigned(term.weight)})\times 1`);
+  const scoreTerms = createMemo(() =>
+    example()
+      .contributions.filter((term) => term.present === 1)
+      .map((term) => String.raw`\text{${term.word}}(${fmtSigned(term.weight)})\times 1`),
+  );
 
   return (
-    <div className="logistic-regression-stage-stack">
-      <div className="logistic-regression-score-layout">
-        <section className="logistic-regression-panel">
-          <div className="logistic-regression-panel-head">
+    <div class="logistic-regression-stage-stack">
+      <div class="logistic-regression-score-layout">
+        <section class="logistic-regression-panel">
+          <div class="logistic-regression-panel-head">
             <h3>词语权重</h3>
-            <button className="button button-ghost" onClick={resetWeights} type="button">
+            <Button class="button button-ghost" onClick={resetWeights} type="button">
               全部清零
-            </button>
+            </Button>
           </div>
-          <p className="logistic-regression-rule-strip">
+          <p class="logistic-regression-rule-strip">
             出现 = 1 · 未出现 = 0 · 重复词仍 = 1 · 标点 / 未登录词 = 0
           </p>
-          <p className="logistic-regression-muted-note">
+          <p class="logistic-regression-muted-note">
             垃圾短信里更常见的词给正分，正常短信里更常见的词给负分。难以区分的词可以设为 0。
             程序把短信中出现的词的分值相加，总分达到 +{STRATEGY_SCORE_SPAM_THRESHOLD} 就拦截。
           </p>
 
-          <div className="logistic-regression-strategy-list">
-            {STRATEGY_WORDS.map((word) => {
-              const val = clampStrategyWeight(draft.weights[word] ?? 0);
-              const role = roleMeta(val);
-              return (
-                <div className="logistic-regression-strategy-row" key={word}>
-                  <div className="logistic-regression-strategy-word">
-                    <span className="logistic-regression-strategy-word-text">{word}</span>
-                    <span className={`logistic-regression-strategy-role ${role.cls}`}>
-                      {role.label}
-                    </span>
+          <div class="logistic-regression-strategy-list">
+            <For each={STRATEGY_WORDS}>
+              {(word) => {
+                const val = () => clampStrategyWeight(props.draft.weights[word] ?? 0);
+                const role = () => roleMeta(val());
+                return (
+                  <div class="logistic-regression-strategy-row">
+                    <div class="logistic-regression-strategy-word">
+                      <span class="logistic-regression-strategy-word-text">{word}</span>
+                      <span class={`logistic-regression-strategy-role ${role().cls}`}>
+                        {role().label}
+                      </span>
+                    </div>
+                    <div
+                      aria-label={`${word} 倾向设置`}
+                      class="logistic-regression-tier-group"
+                      role="group"
+                    >
+                      <For each={STRATEGY_WEIGHT_TIERS}>
+                        {(tier) => {
+                          const active = () => val() === tier.value;
+                          return (
+                            <Button
+                              aria-pressed={active() ? "true" : "false"}
+                              class={`logistic-regression-tier-btn is-${tier.role}${active() ? " is-active" : ""}`}
+                              onClick={() => updateWeight(word, tier.value)}
+                              type="button"
+                            >
+                              {tier.label}
+                            </Button>
+                          );
+                        }}
+                      </For>
+                    </div>
                   </div>
-                  <div
-                    aria-label={`${word} 倾向设置`}
-                    className="logistic-regression-tier-group"
-                    role="group"
-                  >
-                    {STRATEGY_WEIGHT_TIERS.map((tier) => {
-                      const active = val === tier.value;
-                      return (
-                        <button
-                          aria-pressed={active}
-                          className={`logistic-regression-tier-btn is-${tier.role}${active ? " is-active" : ""}`}
-                          key={tier.value}
-                          onClick={() => updateWeight(word, tier.value)}
-                          type="button"
-                        >
-                          {tier.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+                );
+              }}
+            </For>
           </div>
         </section>
 
-        <section className="logistic-regression-panel">
-          <div className="logistic-regression-panel-head">
+        <section class="logistic-regression-panel">
+          <div class="logistic-regression-panel-head">
             <h3 id="logistic-regression-strategy-results">6 条短信的分类结果</h3>
             <span
-              className={`logistic-regression-pill ${evalResult.correctCount === evalResult.totalCount ? "is-success" : "is-warn"}`}
+              class={`logistic-regression-pill ${evalResult().correctCount === evalResult().totalCount ? "is-success" : "is-warn"}`}
             >
-              判对 {evalResult.correctCount} / {evalResult.totalCount}
+              判对 {evalResult().correctCount} / {evalResult().totalCount}
             </span>
           </div>
           <ul
             aria-labelledby="logistic-regression-strategy-results"
-            className="logistic-regression-triage-list"
+            class="logistic-regression-triage-list"
             role="list"
           >
-            {evalResult.items.map((item) => {
-              const bar = scoreBarStyle(item.score);
-              return (
-                <li
-                  className={`logistic-regression-triage-card${item.ok ? "" : " is-wrong"}`}
-                  key={item.message.id}
-                >
-                  <div className="logistic-regression-triage-top">
-                    <span
-                      className={`logistic-regression-pill ${item.message.label === 1 ? "is-danger" : "is-success"}`}
-                    >
-                      标签 {item.message.label === 1 ? "垃圾" : "正常"}（{item.message.tag}）
-                    </span>
-                    <span
-                      className={`logistic-regression-mono logistic-regression-triage-prob ${item.ok ? "is-ok" : "is-bad"}`}
-                    >
-                      {item.ok
-                        ? item.pred === 1
-                          ? "正确拦截"
-                          : "正确放行"
-                        : item.pred === 1
-                          ? "误拦"
-                          : "漏拦"}
-                    </span>
-                  </div>
-                  <p className="logistic-regression-triage-text">{item.message.text}</p>
-                  <div className="logistic-regression-strategy-meter-row">
-                    <span className="logistic-regression-mono logistic-regression-strategy-score-tag">
-                      <MathFormula>{String.raw`w\cdot x = ${fmtSigned(item.score)}`}</MathFormula>
-                    </span>
-                    <div aria-hidden="true" className="logistic-regression-strategy-meter">
-                      <span className="logistic-regression-strategy-meter-zero" />
-                      <div
-                        className={`logistic-regression-strategy-meter-fill ${bar.cls}`}
-                        style={{ left: bar.left, width: bar.width }}
-                      />
+            <For each={evalResult().items} keyed={(item) => item.message.id}>
+              {(item) => {
+                const bar = () => scoreBarStyle(item().score);
+                return (
+                  <li class={`logistic-regression-triage-card${item().ok ? "" : " is-wrong"}`}>
+                    <div class="logistic-regression-triage-top">
                       <span
-                        className="logistic-regression-strategy-meter-cut"
-                        title={`拦截线 +${STRATEGY_SCORE_SPAM_THRESHOLD}`}
-                      />
+                        class={`logistic-regression-pill ${item().message.label === 1 ? "is-danger" : "is-success"}`}
+                      >
+                        标签 {item().message.label === 1 ? "垃圾" : "正常"}（{item().message.tag}）
+                      </span>
+                      <span
+                        class={`logistic-regression-mono logistic-regression-triage-prob ${item().ok ? "is-ok" : "is-bad"}`}
+                      >
+                        {item().ok
+                          ? item().pred === 1
+                            ? "正确拦截"
+                            : "正确放行"
+                          : item().pred === 1
+                            ? "误拦"
+                            : "漏拦"}
+                      </span>
                     </div>
-                  </div>
-                </li>
-              );
-            })}
+                    <p class="logistic-regression-triage-text">{item().message.text}</p>
+                    <div class="logistic-regression-strategy-meter-row">
+                      <span class="logistic-regression-mono logistic-regression-strategy-score-tag">
+                        <MathFormula>{String.raw`w\cdot x = ${fmtSigned(item().score)}`}</MathFormula>
+                      </span>
+                      <div aria-hidden="true" class="logistic-regression-strategy-meter">
+                        <span class="logistic-regression-strategy-meter-zero" />
+                        <div
+                          class={`logistic-regression-strategy-meter-fill ${bar().cls}`}
+                          style={{ left: bar().left, width: bar().width }}
+                        />
+                        <span
+                          class="logistic-regression-strategy-meter-cut"
+                          title={`拦截线 +${STRATEGY_SCORE_SPAM_THRESHOLD}`}
+                        />
+                      </div>
+                    </div>
+                  </li>
+                );
+              }}
+            </For>
           </ul>
         </section>
       </div>
 
-      <section className="logistic-regression-panel">
-        <div className="logistic-regression-panel-head">
+      <section class="logistic-regression-panel">
+        <div class="logistic-regression-panel-head">
           <h3>第一条短信的算分过程</h3>
           <span
-            className={`logistic-regression-pill ${example.pred === 1 ? "is-danger" : "is-success"}`}
+            class={`logistic-regression-pill ${example().pred === 1 ? "is-danger" : "is-success"}`}
           >
-            {example.pred === 1 ? "拦截" : "放行"}
+            {example().pred === 1 ? "拦截" : "放行"}
           </span>
         </div>
 
-        <div className="logistic-regression-strategy-matrix-wrap">
-          <table className="logistic-regression-strategy-matrix">
+        <div class="logistic-regression-strategy-matrix-wrap">
+          <table class="logistic-regression-strategy-matrix">
             <thead>
               <tr>
                 <th scope="row">词表 10 词</th>
-                {example.contributions.map((c) => (
-                  <th key={c.word} scope="col">
-                    {c.word}
-                  </th>
-                ))}
+                <For each={example().contributions} keyed={(c) => c.word}>
+                  {(c) => <th scope="col">{c().word}</th>}
+                </For>
               </tr>
             </thead>
             <tbody>
@@ -230,87 +223,94 @@ export function StrategyPanel({
                 <th scope="row">
                   是否出现 <MathFormula>x_i</MathFormula>
                 </th>
-                {example.contributions.map((c) => (
-                  <td
-                    className={`logistic-regression-mono ${c.present === 1 ? "is-hit" : "is-miss"}`}
-                    key={c.word}
-                  >
-                    {c.present}
-                  </td>
-                ))}
+                <For each={example().contributions} keyed={(c) => c.word}>
+                  {(c) => (
+                    <td
+                      class={`logistic-regression-mono ${c().present === 1 ? "is-hit" : "is-miss"}`}
+                    >
+                      {c().present}
+                    </td>
+                  )}
+                </For>
               </tr>
               <tr>
                 <th scope="row">
                   设定分值 <MathFormula>w_i</MathFormula>
                 </th>
-                {example.contributions.map((c) => (
-                  <td
-                    className={`logistic-regression-mono ${c.weight > 0 ? "is-pos" : c.weight < 0 ? "is-neg" : "is-zero"}`}
-                    key={c.word}
-                  >
-                    {fmtSigned(c.weight)}
-                  </td>
-                ))}
+                <For each={example().contributions} keyed={(c) => c.word}>
+                  {(c) => (
+                    <td
+                      class={`logistic-regression-mono ${c().weight > 0 ? "is-pos" : c().weight < 0 ? "is-neg" : "is-zero"}`}
+                    >
+                      {fmtSigned(c().weight)}
+                    </td>
+                  )}
+                </For>
               </tr>
               <tr>
                 <th scope="row">
                   单项得分 <MathFormula>{String.raw`w_i\cdot x_i`}</MathFormula>
                 </th>
-                {example.contributions.map((c) => (
-                  <td
-                    className={`logistic-regression-mono ${
-                      c.contribution > 0 ? "is-pos" : c.contribution < 0 ? "is-neg" : "is-zero"
-                    }`}
-                    key={c.word}
-                  >
-                    {c.present === 0 ? "0" : fmtSigned(c.contribution)}
-                  </td>
-                ))}
+                <For each={example().contributions} keyed={(c) => c.word}>
+                  {(c) => (
+                    <td
+                      class={`logistic-regression-mono ${
+                        c().contribution > 0
+                          ? "is-pos"
+                          : c().contribution < 0
+                            ? "is-neg"
+                            : "is-zero"
+                      }`}
+                    >
+                      {c().present === 0 ? "0" : fmtSigned(c().contribution)}
+                    </td>
+                  )}
+                </For>
               </tr>
             </tbody>
           </table>
         </div>
 
-        <div className="logistic-regression-strategy-formula">
-          <p className="logistic-regression-mono">
-            <MathFormula>{String.raw`w\cdot x = ${scoreTerms.join(" + ") || "0"} = ${fmtSigned(example.score)}`}</MathFormula>
+        <div class="logistic-regression-strategy-formula">
+          <p class="logistic-regression-mono">
+            <MathFormula>{String.raw`w\cdot x = ${scoreTerms().join(" + ") || "0"} = ${fmtSigned(example().score)}`}</MathFormula>
           </p>
-          <p className="logistic-regression-muted-note">
+          <p class="logistic-regression-muted-note">
             这里直接用总分分类。第 3 关会用 Sigmoid 函数，根据分数估计垃圾短信的概率。
           </p>
         </div>
       </section>
 
       <ConceptChecklist
-        answers={draft.concepts}
+        answers={props.draft.concepts}
         onSelectCorrect={(promptId, optionIndex) =>
-          onChange({
-            ...draft,
-            concepts: { ...draft.concepts, [promptId]: optionIndex },
+          props.onChange({
+            ...props.draft,
+            concepts: { ...props.draft.concepts, [promptId]: optionIndex },
           })
         }
-        prompts={stage.prompts}
+        prompts={props.stage.prompts}
       />
 
-      <div className="logistic-regression-submit-bar">
-        <button
-          className="button button-primary"
-          disabled={submitting || !allConceptsDone}
-          onClick={onSubmit}
+      <div class="logistic-regression-submit-bar">
+        <Button
+          class="button button-primary"
+          disabled={props.submitting || !allConceptsDone()}
+          onClick={() => props.onSubmit()}
           type="button"
         >
-          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
-        </button>
-        {!allConceptsDone ? (
-          <span className="logistic-regression-muted-note">请先完成上方的概念题，再提交检查。</span>
-        ) : null}
+          {props.submitting ? "判题中…" : `提交第 ${props.stage.index} 关判定`}
+        </Button>
+        <Show when={!allConceptsDone()}>
+          <span class="logistic-regression-muted-note">请先完成上方的概念题，再提交检查。</span>
+        </Show>
       </div>
 
       <JudgeVerdictCard
-        hasNextStage={hasNextStage}
-        onNextStage={onNextStage}
-        passed={passed}
-        summary={result}
+        hasNextStage={props.hasNextStage}
+        onNextStage={props.onNextStage}
+        passed={props.passed}
+        summary={props.result}
       />
     </div>
   );

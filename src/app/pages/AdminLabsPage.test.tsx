@@ -1,4 +1,4 @@
-import { screen, waitFor, within } from "@testing-library/react";
+import { screen, waitFor, within } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { adminAuthState, renderAppAt } from "../../test/router-test-helpers";
@@ -66,7 +66,7 @@ describe("AdminLabsPage", () => {
 
     await renderAppAt("/admin/labs", { auth: adminAuthState });
 
-    expect(screen.getByRole("heading", { name: "实验管理" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "实验管理" })).toBeInTheDocument();
     await waitFor(() => expect(screen.getByText("实现ALU")).toBeInTheDocument());
     const calc = labRow("实现ALU");
     // openClassIds null → every class box checked, nothing to save yet.

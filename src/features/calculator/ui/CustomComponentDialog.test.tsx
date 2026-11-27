@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { describe, expect, it, vi } from "vitest";
 import type { ComponentDef } from "../domain/graph";
 import { CustomComponentDialog } from "./CustomComponentDialog";
@@ -24,13 +25,17 @@ const logicPair: ComponentDef = {
 describe("CustomComponentDialog editing", () => {
   it("saves a reordered port list for an existing component", () => {
     const onUpdate = vi.fn();
-    render(<CustomComponentDialog component={logicPair} onCancel={vi.fn()} onUpdate={onUpdate} />);
+    render(() => (
+      <CustomComponentDialog component={logicPair} onCancel={vi.fn()} onUpdate={onUpdate} />
+    ));
 
     const dataTransfer = { effectAllowed: "", setData: vi.fn() };
     const firstRow = screen.getByLabelText("拖动入口 1").parentElement;
     if (!firstRow) throw new Error("first drag row not found");
     fireEvent.dragStart(screen.getByLabelText("拖动入口 2"), { dataTransfer });
+    flush();
     fireEvent.drop(firstRow, { dataTransfer });
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
 
     expect(onUpdate).toHaveBeenCalledWith({
@@ -43,51 +48,58 @@ describe("CustomComponentDialog editing", () => {
   });
 
   it("shows a drop-position line while dragging over a row", () => {
-    render(<CustomComponentDialog component={logicPair} onCancel={vi.fn()} onUpdate={vi.fn()} />);
+    render(() => (
+      <CustomComponentDialog component={logicPair} onCancel={vi.fn()} onUpdate={vi.fn()} />
+    ));
 
     const dataTransfer = { effectAllowed: "", setData: vi.fn() };
     const firstRow = screen.getByLabelText("拖动入口 1").parentElement as HTMLElement;
     const secondRow = screen.getByLabelText("拖动入口 2").parentElement as HTMLElement;
     fireEvent.dragStart(screen.getByLabelText("拖动入口 1"), { dataTransfer });
+    flush();
     // jsdom reports zero-size rects; a clientY above the rows resolves to
     // "before the first row", below resolves to "after the last row".
     fireEvent(secondRow, new MouseEvent("dragover", { bubbles: true, clientY: -10 }));
+    flush();
     expect(firstRow.className).toContain("drop-before");
     fireEvent(firstRow, new MouseEvent("dragover", { bubbles: true, clientY: 10 }));
+    flush();
     expect(secondRow.className).toContain("drop-after");
     expect(firstRow.className).not.toContain("drop-before");
   });
 
   it("lets the component be renamed while editing", () => {
     const onUpdate = vi.fn();
-    render(
+    render(() => (
       <CustomComponentDialog
         component={logicPair}
         existingNames={["LogicPair", "Add4"]}
         onCancel={vi.fn()}
         onUpdate={onUpdate}
-      />,
-    );
+      />
+    ));
 
     const nameField = screen.getByLabelText("组件名称");
     expect(nameField).not.toBeDisabled();
-    fireEvent.change(nameField, { target: { value: "PairBlock" } });
+    fireEvent.input(nameField, { target: { value: "PairBlock" } });
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
     expect(onUpdate).toHaveBeenCalledWith(expect.objectContaining({ name: "PairBlock" }));
   });
 
   it("rejects a name already used by another component", () => {
     const onUpdate = vi.fn();
-    render(
+    render(() => (
       <CustomComponentDialog
         component={logicPair}
         existingNames={["LogicPair", "Add4"]}
         onCancel={vi.fn()}
         onUpdate={onUpdate}
-      />,
-    );
+      />
+    ));
 
-    fireEvent.change(screen.getByLabelText("组件名称"), { target: { value: "Add4" } });
+    fireEvent.input(screen.getByLabelText("组件名称"), { target: { value: "Add4" } });
+    flush();
     expect(screen.getByRole("button", { name: "保存修改" })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "保存修改" }));
     expect(onUpdate).not.toHaveBeenCalled();

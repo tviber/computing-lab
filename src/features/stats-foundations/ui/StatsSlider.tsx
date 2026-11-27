@@ -1,4 +1,4 @@
-import { Field, FieldLabel } from "@ui-sdk/react/field";
+import { Field, FieldLabel } from "@ui-sdk/solid/field";
 import {
   Slider,
   SliderControl,
@@ -6,17 +6,9 @@ import {
   SliderThumb,
   SliderTrack,
   SliderValue,
-} from "@ui-sdk/react/slider";
+} from "@ui-sdk/solid/slider";
 
-export function StatsSlider({
-  label,
-  suffix = "",
-  value,
-  min,
-  max,
-  step,
-  onChange,
-}: {
+export function StatsSlider(props: {
   label: string;
   suffix?: string;
   value: number;
@@ -28,21 +20,21 @@ export function StatsSlider({
   return (
     <Field>
       <Slider
-        className="sf-slider-group"
-        value={value}
-        min={min}
-        max={max}
-        step={step}
-        onValueChange={onChange}
+        class="sf-slider-group"
+        max={props.max}
+        min={props.min}
+        onValueChange={(next) => props.onChange(next)}
+        step={props.step}
+        value={props.value}
       >
-        <div className="sf-slider-head">
-          <FieldLabel>{label}</FieldLabel>
-          <SliderValue className="sf-mono">
-            {value}
-            {suffix}
+        <div class="sf-slider-head">
+          <FieldLabel>{props.label}</FieldLabel>
+          <SliderValue class="sf-mono">
+            {props.value}
+            {props.suffix ?? ""}
           </SliderValue>
         </div>
-        <SliderControl className="sf-fit-slider-control">
+        <SliderControl class="sf-fit-slider-control">
           <SliderTrack>
             <SliderIndicator />
             <SliderThumb />

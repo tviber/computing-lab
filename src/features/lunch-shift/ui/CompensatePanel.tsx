@@ -8,7 +8,8 @@
  * not always the cheap one.
  */
 
-import { useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import {
   bestCompensation,
   checkCompensateTable,
@@ -40,16 +41,17 @@ export const COMPENSATE_STARTER = `def compensate(urgent, overtime, delivered, p
 const lateOrders = compensateLateOrders();
 const best = bestCompensation(lateOrders);
 
+const RISK_ROWS = REVIEW_RISK_TIERS.flatMap((tier) =>
+  (["normal", "urgent"] as const).map((kind) => ({
+    key: `${tier.key}-${kind}`,
+    label: `${kind === "urgent" ? "加急" : "普通"} · ${tier.label}`,
+    rates: REVIEW_RISK[tier.key][kind],
+  })),
+);
+
 const reviewsText = (points: number) => `${points / 100}`;
 
-export function CompensatePanel({
-  draft,
-  submitting,
-  result,
-  submitted,
-  onChange,
-  onSubmit,
-}: {
+export function CompensatePanel(props: {
   draft: CompensateDraft;
   submitting: boolean;
   result: LunchTestSummary | null;
@@ -57,41 +59,45 @@ export function CompensatePanel({
   onChange: (draft: CompensateDraft) => void;
   onSubmit: () => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [tableErrors, setTableErrors] = useState<string[]>([]);
-  const [local, setLocal] = useState<ReturnType<typeof evaluateCompensation> | null>(null);
-  const [running, setRunning] = useState(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const [tableErrors, setTableErrors] = createSignal<string[]>([]);
+  const [local, setLocal] = createSignal<ReturnType<typeof evaluateCompensation> | null>(null);
+  const [running, setRunning] = createSignal(false);
 
-  const source = draft.code.trim() ? draft.code : COMPENSATE_STARTER;
-  const ready = draft.compensate !== null;
+  const source = () => (props.draft.code.trim() ? props.draft.code : COMPENSATE_STARTER);
+  const ready = () => props.draft.compensate !== null;
 
-  const judged = result?.kind === "compensate" ? result : null;
-  const shown =
-    local !== null
-      ? {
-          badReviewPoints: local.badReviewPoints,
-          spend: local.spend,
-          bestReviewPoints: best.badReviewPoints,
-          bestSpend: best.spend,
-          orders: local.orders,
-        }
-      : judged;
+  const judged = () => (props.result?.kind === "compensate" ? props.result : null);
+  const shown = createMemo(() => {
+    const l = local();
+    if (l !== null) {
+      return {
+        badReviewPoints: l.badReviewPoints,
+        spend: l.spend,
+        bestReviewPoints: best.badReviewPoints,
+        bestSpend: best.spend,
+        orders: l.orders,
+      };
+    }
+    return judged();
+  });
 
   const run = async () => {
     setRunning(true);
     setError(null);
     setTableErrors([]);
     try {
-      const punct = describeFullWidthPunctuation(source);
+      const code = source();
+      const punct = describeFullWidthPunctuation(code);
       if (punct) throw new Error(punct);
-      const raw = await runCompensateTable(source);
+      const raw = await runCompensateTable(code);
       const checked = checkCompensateTable(raw);
       if (checked.errors.length > 0 || checked.table === null) {
         setTableErrors(checked.errors);
         return;
       }
       setLocal(evaluateCompensation(lateOrders, checked.table));
-      onChange({ code: source, compensate: checked.table });
+      props.onChange({ code, compensate: checked.table });
     } catch (err) {
       setError(friendlyRunError(err instanceof Error ? err.message : String(err)));
     } finally {
@@ -100,13 +106,13 @@ export function CompensatePanel({
   };
 
   return (
-    <section className="lunch-challenge">
+    <section class="lunch-challenge">
       <p>
         晚高峰 20 单还是按先来先做跑完的，有 {lateOrders.length}
         张出了问题：有的送晚了，有的没送到。排法不能改了，能改的只有补救：每张问题单补偿几档，由
         compensate 决定。
       </p>
-      <div className="lunch-params">
+      <div class="lunch-params">
         <ul>
           <li>
             <code>compensate(urgent, overtime, delivered, price)</code>：urgent
@@ -133,11 +139,11 @@ export function CompensatePanel({
         </ul>
       </div>
 
-      <details className="lunch-reference" open>
+      <details class="lunch-reference" open>
         <summary>店里的历史差评率</summary>
-        <p className="lunch-note">同样的遭遇，加急顾客一直更没耐心。</p>
-        <div className="lunch-table-wrap">
-          <table className="lunch-orders-table">
+        <p class="lunch-note">同样的遭遇，加急顾客一直更没耐心。</p>
+        <div class="lunch-table-wrap">
+          <table class="lunch-orders-table">
             <thead>
               <tr>
                 <th>这张单的遭遇</th>
@@ -147,28 +153,24 @@ export function CompensatePanel({
               </tr>
             </thead>
             <tbody>
-              {REVIEW_RISK_TIERS.flatMap((tier) =>
-                (["normal", "urgent"] as const).map((kind) => (
-                  <tr key={`${tier.key}-${kind}`}>
-                    <td>
-                      {kind === "urgent" ? "加急" : "普通"} · {tier.label}
-                    </td>
-                    {REVIEW_RISK[tier.key][kind].map((rate, choice) => (
-                      <td key={choice}>{rate}%</td>
-                    ))}
+              <For each={RISK_ROWS}>
+                {(row) => (
+                  <tr>
+                    <td>{row.label}</td>
+                    <For each={row.rates}>{(rate) => <td>{rate}%</td>}</For>
                   </tr>
-                )),
-              )}
+                )}
+              </For>
             </tbody>
           </table>
         </div>
       </details>
 
-      <details className="lunch-reference">
+      <details class="lunch-reference">
         <summary>看这 {lateOrders.length} 张问题单</summary>
-        <p className="lunch-note">就是 compensate 会收到的参数，一张单一行。</p>
-        <div className="lunch-table-wrap">
-          <table className="lunch-orders-table">
+        <p class="lunch-note">就是 compensate 会收到的参数，一张单一行。</p>
+        <div class="lunch-table-wrap">
+          <table class="lunch-orders-table">
             <thead>
               <tr>
                 <th>订单</th>
@@ -180,18 +182,20 @@ export function CompensatePanel({
               </tr>
             </thead>
             <tbody>
-              {lateOrders.map((order) => (
-                <tr key={order.id}>
-                  <td>
-                    <b>{order.id}</b>
-                  </td>
-                  <td>{order.urgent ? "True" : "False"}</td>
-                  <td>{order.delivered ? "True" : "False"}</td>
-                  <td>{order.overtime}</td>
-                  <td>{order.price}</td>
-                  <td>{order.delivered ? `送到了，超时 ${order.overtime} 拍` : "没送到"}</td>
-                </tr>
-              ))}
+              <For each={lateOrders}>
+                {(order) => (
+                  <tr>
+                    <td>
+                      <b>{order.id}</b>
+                    </td>
+                    <td>{order.urgent ? "True" : "False"}</td>
+                    <td>{order.delivered ? "True" : "False"}</td>
+                    <td>{order.overtime}</td>
+                    <td>{order.price}</td>
+                    <td>{order.delivered ? `送到了，超时 ${order.overtime} 拍` : "没送到"}</td>
+                  </tr>
+                )}
+              </For>
             </tbody>
           </table>
         </div>
@@ -199,120 +203,124 @@ export function CompensatePanel({
 
       <CodeEditor
         ariaLabel="compensate 函数代码"
-        disabled={submitted || running}
+        disabled={props.submitted || running()}
         onChange={(code) => {
           setLocal(null);
           setTableErrors([]);
-          onChange({ code, compensate: null });
+          props.onChange({ code, compensate: null });
         }}
-        value={source}
+        value={source()}
       />
-      <div className="submit-row">
-        <button
-          className="button button-secondary"
-          disabled={running}
+      <div class="submit-row">
+        <Button
+          class="button button-secondary"
+          disabled={running()}
           onClick={() => void run()}
           type="button"
         >
-          {running ? "运行中…" : "运行，算一遍账"}
-        </button>
-        <button
-          className="button button-primary"
-          disabled={submitting || !ready}
-          onClick={onSubmit}
+          {running() ? "运行中…" : "运行，算一遍账"}
+        </Button>
+        <Button
+          class="button button-primary"
+          disabled={props.submitting || !ready()}
+          onClick={() => props.onSubmit()}
           type="button"
         >
-          {submitting ? "判定中…" : "提交附加挑战"}
-        </button>
-        {ready ? null : <span className="submit-note">还没有算出的结果表。</span>}
+          {props.submitting ? "判定中…" : "提交附加挑战"}
+        </Button>
+        <Show when={!ready()}>
+          <span class="submit-note">还没有算出的结果表。</span>
+        </Show>
       </div>
 
-      {error ? (
-        <p className="test-error" role="alert">
-          {error}
-        </p>
-      ) : null}
-      {tableErrors.length > 0 ? (
-        <ul className="lunch-order-fix" role="alert">
-          {tableErrors.map((text) => (
-            <li key={text}>{text}</li>
-          ))}
-        </ul>
-      ) : null}
-
-      {shown ? (
-        <section className="lunch-result" role="status">
-          <p className="eyebrow">账单</p>
-          <div className="lunch-stat-row">
-            <span>
-              <b>{reviewsText(shown.badReviewPoints)}</b>
-              预计差评（单）
-            </span>
-            <span>
-              <b>{shown.spend}</b>
-              补偿花费（元）
-            </span>
-            <span>
-              <b>
-                {reviewsText(shown.bestReviewPoints)} / {shown.bestSpend} 元
-              </b>
-              最优（花费 ≤ {COMPENSATE_PASS_SPEND} 元）
-            </span>
-          </div>
-          <p
-            className={
-              shown.badReviewPoints <= COMPENSATE_PASS_REVIEWS &&
-              shown.spend <= COMPENSATE_PASS_SPEND
-                ? "lunch-feedback success"
-                : "lunch-feedback"
-            }
-          >
-            {shown.badReviewPoints <= COMPENSATE_PASS_REVIEWS &&
-            shown.spend <= COMPENSATE_PASS_SPEND
-              ? "预计差评和花费都压线内，这版能过关。"
-              : [
-                  shown.badReviewPoints <= COMPENSATE_PASS_REVIEWS
-                    ? ""
-                    : `预计差评超过 ${reviewsText(COMPENSATE_PASS_REVIEWS)} 单的线`,
-                  shown.spend <= COMPENSATE_PASS_SPEND
-                    ? ""
-                    : `补偿花费超过 ${COMPENSATE_PASS_SPEND} 元的线`,
-                ]
-                  .filter(Boolean)
-                  .join("；") + "。"}
+      <Show when={error()}>
+        {(err) => (
+          <p class="test-error" role="alert">
+            {err()}
           </p>
-          <div className="lunch-table-wrap">
-            <table className="lunch-orders-table">
-              <thead>
-                <tr>
-                  <th>订单</th>
-                  <th>类型</th>
-                  <th>遭遇</th>
-                  <th>金额</th>
-                  <th>补偿</th>
-                  <th>差评率</th>
-                  <th>花费</th>
-                </tr>
-              </thead>
-              <tbody>
-                {(shown.orders ?? []).map((order) => (
-                  <tr key={order.id}>
-                    <td>
-                      <b>{order.id}</b>
-                    </td>
-                    <td>{order.urgent ? "加急" : "普通"}</td>
-                    <td>{order.delivered ? `送到了，超时 ${order.overtime} 拍` : "没送到"}</td>
-                    <td>{order.price} 元</td>
-                    <td>{COMPENSATE_CHOICES[order.choice] ?? order.choice}</td>
-                    <td>{order.risk}%</td>
-                    <td>{order.cost} 元</td>
+        )}
+      </Show>
+      <Show when={tableErrors().length > 0}>
+        <ul class="lunch-order-fix" role="alert">
+          <For each={tableErrors()}>{(text) => <li>{text}</li>}</For>
+        </ul>
+      </Show>
+
+      <Show when={shown()}>
+        {(s) => (
+          <section class="lunch-result" role="status">
+            <p class="eyebrow">账单</p>
+            <div class="lunch-stat-row">
+              <span>
+                <b>{reviewsText(s().badReviewPoints)}</b>
+                预计差评（单）
+              </span>
+              <span>
+                <b>{s().spend}</b>
+                补偿花费（元）
+              </span>
+              <span>
+                <b>
+                  {reviewsText(s().bestReviewPoints)} / {s().bestSpend} 元
+                </b>
+                最优（花费 ≤ {COMPENSATE_PASS_SPEND} 元）
+              </span>
+            </div>
+            <p
+              class={
+                s().badReviewPoints <= COMPENSATE_PASS_REVIEWS && s().spend <= COMPENSATE_PASS_SPEND
+                  ? "lunch-feedback success"
+                  : "lunch-feedback"
+              }
+            >
+              {s().badReviewPoints <= COMPENSATE_PASS_REVIEWS && s().spend <= COMPENSATE_PASS_SPEND
+                ? "预计差评和花费都压线内，这版能过关。"
+                : [
+                    s().badReviewPoints <= COMPENSATE_PASS_REVIEWS
+                      ? ""
+                      : `预计差评超过 ${reviewsText(COMPENSATE_PASS_REVIEWS)} 单的线`,
+                    s().spend <= COMPENSATE_PASS_SPEND
+                      ? ""
+                      : `补偿花费超过 ${COMPENSATE_PASS_SPEND} 元的线`,
+                  ]
+                    .filter(Boolean)
+                    .join("；") + "。"}
+            </p>
+            <div class="lunch-table-wrap">
+              <table class="lunch-orders-table">
+                <thead>
+                  <tr>
+                    <th>订单</th>
+                    <th>类型</th>
+                    <th>遭遇</th>
+                    <th>金额</th>
+                    <th>补偿</th>
+                    <th>差评率</th>
+                    <th>花费</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
-      ) : null}
+                </thead>
+                <tbody>
+                  <For each={s().orders ?? []}>
+                    {(order) => (
+                      <tr>
+                        <td>
+                          <b>{order.id}</b>
+                        </td>
+                        <td>{order.urgent ? "加急" : "普通"}</td>
+                        <td>{order.delivered ? `送到了，超时 ${order.overtime} 拍` : "没送到"}</td>
+                        <td>{order.price} 元</td>
+                        <td>{COMPENSATE_CHOICES[order.choice] ?? order.choice}</td>
+                        <td>{order.risk}%</td>
+                        <td>{order.cost} 元</td>
+                      </tr>
+                    )}
+                  </For>
+                </tbody>
+              </table>
+            </div>
+          </section>
+        )}
+      </Show>
     </section>
   );
 }

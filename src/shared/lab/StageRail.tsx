@@ -1,4 +1,5 @@
-import type { ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
+import { For, Match, Show, Switch } from "solid-js";
 import { Icon } from "../ui/Icon";
 
 /**
@@ -17,8 +18,8 @@ export type StageRailItem = {
 
 /** One stage row: titles on the left, pass/unlock mark on the right. */
 export function StageLink(props: {
-  title: ReactNode;
-  subtitle?: ReactNode;
+  title: JSX.Element;
+  subtitle?: JSX.Element;
   active: boolean;
   passed: boolean;
   unlocked: boolean;
@@ -26,27 +27,29 @@ export function StageLink(props: {
   optional?: boolean;
   onSelect: () => void;
 }) {
-  const { title, subtitle, active, passed, unlocked, optional, onSelect } = props;
   return (
     <button
-      aria-current={active ? "step" : undefined}
-      className={`lab-stage-link${optional ? " is-optional" : ""}${active ? " is-active" : ""}${passed ? " is-passed" : ""}`}
-      disabled={!unlocked}
-      onClick={onSelect}
+      aria-current={props.active ? "step" : undefined}
+      class={`lab-stage-link${props.optional ? " is-optional" : ""}${props.active ? " is-active" : ""}${props.passed ? " is-passed" : ""}`}
+      disabled={!props.unlocked}
+      onClick={() => props.onSelect()}
       type="button"
     >
-      <span className="lab-stage-titles">
-        <strong>{title}</strong>
-        {subtitle ? <span>{subtitle}</span> : null}
+      <span class="lab-stage-titles">
+        <strong>{props.title}</strong>
+        <Show when={props.subtitle}>
+          <span>{props.subtitle}</span>
+        </Show>
       </span>
-      <span aria-hidden="true" className="lab-stage-mark">
-        {passed ? (
-          <Icon name="check" size={13} />
-        ) : unlocked ? (
-          <Icon name="circle" size={11} />
-        ) : (
-          <Icon name="lock" size={12} />
-        )}
+      <span aria-hidden="true" class="lab-stage-mark">
+        <Switch fallback={<Icon name="lock" size={12} />}>
+          <Match when={props.passed}>
+            <Icon name="check" size={13} />
+          </Match>
+          <Match when={props.unlocked}>
+            <Icon name="circle" size={11} />
+          </Match>
+        </Switch>
       </span>
     </button>
   );
@@ -66,32 +69,33 @@ export function StageRail(props: {
   stageIndex: number;
   onSelect: (index: number) => void;
 }) {
-  const { label, stages, unlocked, passedStages, stageIndex, onSelect } = props;
   return (
-    <aside aria-label="关卡进度" className="lab-rail">
-      <p className="eyebrow">{label}</p>
+    <aside aria-label="关卡进度" class="lab-rail">
+      <p class="eyebrow">{props.label}</p>
       <ol>
-        {stages.map((stage) => (
-          <li key={stage.id}>
-            <StageLink
-              active={stage.index === stageIndex}
-              onSelect={() => onSelect(stage.index)}
-              passed={passedStages.includes(stage.index)}
-              subtitle={stage.englishTitle}
-              title={
-                stage.optional ? (
-                  <>
-                    {stage.title} <small>附加关</small>
-                  </>
-                ) : (
-                  stage.title
-                )
-              }
-              unlocked={unlocked(stage)}
-              optional={stage.optional}
-            />
-          </li>
-        ))}
+        <For each={props.stages}>
+          {(stage) => (
+            <li>
+              <StageLink
+                active={stage.index === props.stageIndex}
+                onSelect={() => props.onSelect(stage.index)}
+                optional={stage.optional}
+                passed={props.passedStages.includes(stage.index)}
+                subtitle={stage.englishTitle}
+                title={
+                  stage.optional ? (
+                    <>
+                      {stage.title} <small>附加关</small>
+                    </>
+                  ) : (
+                    stage.title
+                  )
+                }
+                unlocked={props.unlocked(stage)}
+              />
+            </li>
+          )}
+        </For>
       </ol>
     </aside>
   );

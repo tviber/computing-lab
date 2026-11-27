@@ -7,7 +7,8 @@
  * set of regions with varied coverage, shown as before→after cell pairs.
  */
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { PythonCodeWithBlanks, type PythonCodePart } from "../../../shared/ui/PythonCode";
 import { imageFromLists } from "../domain/bitmap.ts";
@@ -60,46 +61,43 @@ function buildRegions(): { regions: number[][][]; expected: number[] } {
   };
 }
 
-export function GuidedCellTask({
-  code,
-  onCodeChange,
-}: {
-  code: string;
-  onCodeChange: (code: string) => void;
-}) {
-  const { regions, expected } = useMemo(buildRegions, []);
-  const initial = useMemo(() => parseBlanks(code), []); // mount-time only
-  const [blankInk, setBlankInk] = useState(initial?.[0] ?? "");
-  const [blankCond, setBlankCond] = useState(initial?.[1] ?? "");
-  const [guesses, setGuesses] = useState<(0 | 1 | null)[]>(() => regions.map(() => null));
-  const [rows, setRows] = useState<CheckRow[] | null>(null);
-  const [error, setError] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
-  const [passed, setPassed] = useState<boolean | null>(null);
-  const lastEmitted = useRef<string | null>(null);
+export function GuidedCellTask(props: { code: string; onCodeChange: (code: string) => void }) {
+  const { regions, expected } = buildRegions();
+  const initial = untrack(() => parseBlanks(props.code));
+  const [blankInk, setBlankInk] = createSignal(initial?.[0] ?? "");
+  const [blankCond, setBlankCond] = createSignal(initial?.[1] ?? "");
+  const [guesses, setGuesses] = createSignal<(0 | 1 | null)[]>(regions.map(() => null));
+  const [rows, setRows] = createSignal<CheckRow[] | null>(null);
+  const [error, setError] = createSignal<string | null>(null);
+  const [running, setRunning] = createSignal(false);
+  const [passed, setPassed] = createSignal<boolean | null>(null);
+  let lastEmitted: string | null = null;
 
   // If a saved draft arrives after mount, fold it back into the blanks.
-  useEffect(() => {
-    if (code === lastEmitted.current) return;
-    const parsed = parseBlanks(code);
-    if (parsed) {
-      setBlankInk(parsed[0]);
-      setBlankCond(parsed[1]);
-    }
-  }, [code]);
+  createEffect(
+    () => props.code,
+    (code) => {
+      if (code === lastEmitted) return;
+      const parsed = parseBlanks(code);
+      if (parsed) {
+        setBlankInk(parsed[0]);
+        setBlankCond(parsed[1]);
+      }
+    },
+  );
 
   const updateBlank = (which: "ink" | "cond", value: string) => {
-    const ink = which === "ink" ? value : blankInk;
-    const cond = which === "cond" ? value : blankCond;
+    const ink = which === "ink" ? value : blankInk();
+    const cond = which === "cond" ? value : blankCond();
     if (which === "ink") setBlankInk(value);
     else setBlankCond(value);
     const source = assemble(ink, cond);
-    lastEmitted.current = source;
-    onCodeChange(source);
+    lastEmitted = source;
+    props.onCodeChange(source);
   };
 
   const run = async () => {
-    if (!blankInk.trim() || !blankCond.trim()) {
+    if (!blankInk().trim() || !blankCond().trim()) {
       setError("先把两个空都填上，再运行。");
       setPassed(false);
       return;
@@ -108,7 +106,7 @@ export function GuidedCellTask({
     setError(null);
     setRows(null);
     try {
-      const results = await runCellValue(assemble(blankInk, blankCond), regions);
+      const results = await runCellValue(assemble(blankInk(), blankCond()), regions);
       const next = results.map((raw, index) => {
         const got = Number(raw);
         return {
@@ -126,7 +124,8 @@ export function GuidedCellTask({
       setRunning(false);
     }
   };
-  const codeParts: PythonCodePart[] = [
+
+  const codeParts = createMemo<PythonCodePart[]>(() => [
     {
       kind: "code",
       code: `def cell_value(region):
@@ -141,7 +140,7 @@ export function GuidedCellTask({
     {
       kind: "blank",
       id: "ink",
-      value: blankInk,
+      value: blankInk(),
       ariaLabel: "空 1：ink 累加什么",
       minWidth: 4,
       onChange: (value) => updateBlank("ink", value),
@@ -154,7 +153,7 @@ export function GuidedCellTask({
     {
       kind: "blank",
       id: "condition",
-      value: blankCond,
+      value: blankCond(),
       ariaLabel: "空 2：什么条件下这个格子是 1",
       minWidth: 14,
       onChange: (value) => updateBlank("cond", value),
@@ -167,10 +166,10 @@ export function GuidedCellTask({
         return 0
 `,
     },
-  ];
+  ]);
 
   return (
-    <section aria-labelledby="guided-cell-title" className="guided-cell-task">
+    <section aria-labelledby="guided-cell-title" class="guided-cell-task">
       <h3 id="guided-cell-title">小练习：把刚才的规则写成代码</h3>
       <p>
         刚才实验台里的格子图，就是这么一格一格算出来的。规则只有一条：
@@ -181,101 +180,109 @@ export function GuidedCellTask({
         点上你判断的 0 或 1，再让代码做同样的判断。
       </p>
 
-      <div className="region-strip">
-        {regions.map((region, index) => {
-          const row = rows?.[index];
-          return (
-            <figure className="region-card" key={index}>
-              <div className="region-pair">
-                <BitmapCanvas
-                  ariaLabel={`测试区域 ${index + 1}`}
-                  image={imageFromLists(region)}
-                  pixelSize={6}
-                />
-                {row ? (
-                  <>
-                    <span aria-hidden="true" className="preview-arrow">
-                      <Icon name="arrow-right" size={16} />
-                    </span>
-                    <span
-                      aria-label={`区域 ${index + 1} 的代码输出`}
-                      className={`cell-outcome${row.got === 1 ? " is-on" : ""}${
-                        row.got === row.expected ? " is-ok" : " is-bad"
-                      }`}
-                      title={`规则答案 ${row.expected}`}
-                    >
-                      {row.got ?? "?"}
-                    </span>
-                  </>
-                ) : null}
-              </div>
-              <figcaption>区域 {index + 1}</figcaption>
-              <div aria-label={`区域 ${index + 1} 你的判断`} className="guess-buttons" role="group">
-                {([0, 1] as const).map((value) => (
-                  <button
-                    aria-pressed={guesses[index] === value}
-                    className={`guess-button${guesses[index] === value ? " is-active" : ""}`}
-                    key={value}
-                    onClick={() =>
-                      setGuesses((prev) => {
-                        const next = [...prev];
-                        next[index] = next[index] === value ? null : value;
-                        return next;
-                      })
-                    }
-                    type="button"
+      <div class="region-strip">
+        <For each={regions}>
+          {(region, index) => {
+            const regionImage = imageFromLists(region);
+            const row = () => rows()?.[index()];
+            const guess = () => guesses()[index()];
+            return (
+              <figure class="region-card">
+                <div class="region-pair">
+                  <BitmapCanvas
+                    ariaLabel={`测试区域 ${index() + 1}`}
+                    image={regionImage}
+                    pixelSize={6}
+                  />
+                  <Show when={row()}>
+                    {(r) => (
+                      <>
+                        <span aria-hidden="true" class="preview-arrow">
+                          <Icon name="arrow-right" size={16} />
+                        </span>
+                        <span
+                          aria-label={`区域 ${index() + 1} 的代码输出`}
+                          class={`cell-outcome${r().got === 1 ? " is-on" : ""}${
+                            r().got === r().expected ? " is-ok" : " is-bad"
+                          }`}
+                          title={`规则答案 ${r().expected}`}
+                        >
+                          {r().got ?? "?"}
+                        </span>
+                      </>
+                    )}
+                  </Show>
+                </div>
+                <figcaption>区域 {index() + 1}</figcaption>
+                <div aria-label={`区域 ${index() + 1} 你的判断`} class="guess-buttons" role="group">
+                  <For each={[0, 1] as const}>
+                    {(value) => (
+                      <button
+                        aria-pressed={guess() === value ? "true" : "false"}
+                        class={`guess-button${guess() === value ? " is-active" : ""}`}
+                        onClick={() =>
+                          setGuesses((prev) => {
+                            const next = [...prev];
+                            const idx = index();
+                            next[idx] = next[idx] === value ? null : value;
+                            return next;
+                          })
+                        }
+                        type="button"
+                      >
+                        {value}
+                      </button>
+                    )}
+                  </For>
+                </div>
+                <Show when={guess() !== null}>
+                  <span
+                    class={`guess-verdict${guess() === expected[index()] ? " is-ok" : " is-bad"}`}
                   >
-                    {value}
-                  </button>
-                ))}
-              </div>
-              {guesses[index] !== null ? (
-                <span
-                  className={`guess-verdict${
-                    guesses[index] === expected[index] ? " is-ok" : " is-bad"
-                  }`}
-                >
-                  {guesses[index] === expected[index] ? "和规则一致" : `规则给 ${expected[index]}`}
-                </span>
-              ) : null}
-            </figure>
-          );
-        })}
+                    {guess() === expected[index()] ? "和规则一致" : `规则给 ${expected[index()]}`}
+                  </span>
+                </Show>
+              </figure>
+            );
+          }}
+        </For>
       </div>
 
       <p>再补全这段代码里的两个空，让它在所有这些区域上都给出和规则一致的结果：</p>
       <PythonCodeWithBlanks
         ariaLabel="cell_value 代码填空"
         className="code-fill"
-        parts={codeParts}
+        parts={codeParts()}
       />
 
-      <div className="guided-actions">
-        <button
-          className="button button-secondary"
-          disabled={running}
+      <div class="guided-actions">
+        <Button
+          class="button button-secondary"
+          disabled={running()}
           onClick={() => void run()}
           type="button"
         >
-          {running ? "运行中…（首次需加载 Python）" : "运行检查"}
-        </button>
-        {passed === true ? (
-          <>
-            <span className="badge badge-pass">
-              <Icon name="check" size={12} /> 全部一致
-            </span>
-            <span className="guided-next">
-              回实验台把“接收端规则”切换成「我写的 cell_value」，看它生成的格子图。
-            </span>
-          </>
-        ) : null}
-        {passed === false && !error ? <span className="badge badge-fail">还不一致</span> : null}
+          {running() ? "运行中…（首次需加载 Python）" : "运行检查"}
+        </Button>
+        <Show when={passed() === true}>
+          <span class="badge badge-pass">
+            <Icon name="check" size={12} /> 全部一致
+          </span>
+          <span class="guided-next">
+            回实验台把“接收端规则”切换成「我写的 cell_value」，看它生成的格子图。
+          </span>
+        </Show>
+        <Show when={passed() === false && !error()}>
+          <span class="badge badge-fail">还不一致</span>
+        </Show>
       </div>
-      {error ? (
-        <pre className="python-error" role="alert">
-          {error}
-        </pre>
-      ) : null}
+      <Show when={error()}>
+        {(err) => (
+          <pre class="python-error" role="alert">
+            {err()}
+          </pre>
+        )}
+      </Show>
     </section>
   );
 }

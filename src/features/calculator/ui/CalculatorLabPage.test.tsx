@@ -1,8 +1,9 @@
-import { act, fireEvent, screen, waitFor } from "@testing-library/react";
+import { fireEvent, screen, waitFor } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt } from "../../../test/router-test-helpers";
-import type { CircuitGraph } from "../domain/graph";
 import { halfAdderGraph } from "../domain/fixtures";
+import type { CircuitGraph } from "../domain/graph";
 
 afterEach(() => {
   vi.clearAllTimers();
@@ -32,15 +33,22 @@ describe("CalculatorLabPage autosave", () => {
 
     await renderAppAt("/classes/c1/labs/calculator");
     await screen.findByRole("button", { name: /半加器/ });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "重置进度" })).not.toBeDisabled(),
+    );
     vi.useFakeTimers();
 
     fireEvent.click(screen.getByRole("button", { name: /半加器/ }));
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "AND" }));
+    flush();
     fireEvent.click(screen.getByRole("button", { name: /全加器/ }));
+    flush();
 
-    await act(async () => {
-      vi.advanceTimersByTime(1500);
-    });
+    vi.advanceTimersByTime(1500);
+    flush();
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+    flush();
 
     const stageTwoSave = saves.find((save) => save.stageIndex === 2);
     expect(stageTwoSave).toBeDefined();
@@ -195,11 +203,18 @@ describe("CalculatorLabPage takeaway", () => {
 
     await renderAppAt("/classes/c1/labs/calculator");
     await screen.findByRole("button", { name: /半加器/ });
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "重置进度" })).not.toBeDisabled(),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "提交" }));
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "重置进度" }));
+    flush();
     fireEvent.click(screen.getByRole("radio", { name: /重置整个实验/ }));
+    flush();
     fireEvent.click(screen.getByRole("button", { name: "确认重置" }));
+    flush();
     expect(screen.getByRole("button", { name: /提交|判定中/ })).toBeDisabled();
 
     resolveReset(
@@ -214,7 +229,9 @@ describe("CalculatorLabPage takeaway", () => {
         { headers: { "content-type": "application/json" } },
       ),
     );
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
     await screen.findByText(/用一根导线把输入 A 连到输出 Y/);
+    expect(screen.queryByText(/本关收获/)).not.toBeInTheDocument();
 
     resolveJudge(
       new Response(
@@ -232,9 +249,9 @@ describe("CalculatorLabPage takeaway", () => {
         { headers: { "content-type": "application/json" } },
       ),
     );
-    await waitFor(() =>
-      expect(screen.queryByRole("region", { name: "提交结果" })).not.toBeInTheDocument(),
-    );
+    for (let i = 0; i < 6; i++) await Promise.resolve();
+    flush();
+    expect(screen.queryByRole("region", { name: "提交结果" })).not.toBeInTheDocument();
     expect(screen.queryByText(/本关收获/)).not.toBeInTheDocument();
   });
 });

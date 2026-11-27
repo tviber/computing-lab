@@ -1,9 +1,9 @@
 import { defineConfig } from "vitest/config";
-import react from "@vitejs/plugin-react";
+import solid from "@solidjs/vite-plugin";
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [solid(), tailwindcss()],
   test: {
     environment: "jsdom",
     maxWorkers: 2,

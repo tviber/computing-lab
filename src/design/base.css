@@ -432,12 +432,19 @@ details[open] > summary::before,
   }
 }
 
-.hint-disclosure > summary {
+.hint-disclosure > summary,
+.hint-disclosure-trigger {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-1) 0;
+  border: 0;
+  background: transparent;
   color: var(--accent);
+  cursor: pointer;
   font-size: 0.6875rem;
   font-weight: 600;
   line-height: 1.5;
-  padding-block: var(--space-1);
 }
 
 .hint-disclosure-content {

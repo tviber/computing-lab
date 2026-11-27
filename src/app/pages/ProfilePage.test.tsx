@@ -1,5 +1,5 @@
 import userEvent from "@testing-library/user-event";
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@solidjs/testing-library";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { renderAppAt, teacherAuthState } from "../../test/router-test-helpers";
 
@@ -16,7 +16,7 @@ describe("ProfilePage", () => {
     const user = userEvent.setup();
     await renderAppAt("/profile", { auth: teacherAuthState });
 
-    expect(screen.getByRole("heading", { name: "个人资料" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "个人资料" })).toBeInTheDocument();
     expect(screen.getAllByText("教师")).toHaveLength(3);
     await user.type(screen.getByLabelText("当前密码"), "old-pass");
     await user.type(screen.getByLabelText("新密码"), "new-pass");
@@ -39,7 +39,7 @@ describe("ProfilePage", () => {
     await user.click(screen.getByRole("button", { name: /教师/ }));
     expect(screen.getByRole("menu", { name: "账户菜单" })).toBeInTheDocument();
     await user.click(screen.getByRole("menuitem", { name: "个人资料" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/profile"));
-    expect(screen.getByRole("heading", { name: "个人资料" })).toBeInTheDocument();
+    await waitFor(() => expect(router.location.pathname).toBe("/profile"));
+    expect(await screen.findByRole("heading", { name: "个人资料" })).toBeInTheDocument();
   });
 });

@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useReducer, useRef, useState } from "react";
+import { createEffect, createMemo, createSignal, untrack } from "solid-js";
+import { createReducer } from "../../../shared/lab/createReducer";
 import { statusForStage } from "../../../shared/lab/saveStatus.ts";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
@@ -32,188 +33,205 @@ import type {
   SampleOutcome,
 } from "./viewModel.ts";
 
-export function useDecodingLabController({
-  classId,
-  ready,
-  userId,
-  stageLink,
-  staff = false,
-}: {
-  classId: string;
+export type DecodingControllerOptions = {
+  scopeId: string;
   ready: boolean;
   userId: string;
   stageLink?: unknown;
   staff?: boolean;
-}): DecodingWorkspaceProps {
-  const [state, dispatch] = useReducer(transitionDecodingLesson, undefined, () =>
-    createDecodingLessonState(1, staff),
+};
+
+export function useDecodingLabController(
+  options: DecodingControllerOptions | (() => DecodingControllerOptions),
+): DecodingWorkspaceProps {
+  const getOpts = typeof options === "function" ? options : () => options;
+
+  const [state, dispatch] = createReducer(
+    transitionDecodingLesson,
+    createDecodingLessonState(
+      1,
+      untrack(() => getOpts().staff ?? false),
+    ),
   );
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [sampleFills, setSampleFills] = useState<Record<string, string>>(
-    () => stageOf(state)?.example?.blankDefaults ?? {},
+  const [submitError, setSubmitError] = createSignal<string | null>(null);
+  const [sampleFills, setSampleFills] = createSignal<Record<string, string>>(
+    untrack(() => stageOf(state())?.example?.blankDefaults ?? {}),
   );
-  const [sampleRevision, setSampleRevision] = useState(0);
-  const [sampleHover, setSampleHover] = useState<PixelHover | null>(null);
-  const [wrongPick, setWrongPick] = useState<{ promptId: string; option: number } | null>(null);
+  const [sampleRevision, setSampleRevision] = createSignal(0);
+  const [sampleHover, setSampleHover] = createSignal<PixelHover | null>(null);
+  const [wrongPick, setWrongPick] = createSignal<{ promptId: string; option: number } | null>(null);
 
-  const stage = stageOf(state);
-  const draft = draftOf(state);
-  const payload = state.payloads[state.stageIndex];
-  const inputRevision = state.inputRevisions[state.stageIndex] ?? 0;
+  const stage = createMemo(() => stageOf(state()));
+  const draft = createMemo(() => draftOf(state()));
+  const payload = createMemo(() => state().payloads[state().stageIndex]);
+  const inputRevision = createMemo(() => state().inputRevisions[state().stageIndex] ?? 0);
 
-  const stageIndexRef = useRef(state.stageIndex);
-  stageIndexRef.current = state.stageIndex;
-  const inputRevisionRef = useRef(inputRevision);
-  inputRevisionRef.current = inputRevision;
+  createEffect(
+    () => 0,
+    () => warmPyodide(),
+  );
 
-  useEffect(() => warmPyodide(), []);
+  let clearTransientRef: (() => void) | null = null;
 
-  const decodeExecRef = useRef<(() => void) | null>(null);
-
-  const {
-    projectLoaded,
-    loadError,
-    fetchProject,
-    postJudge,
-    invalidateJudge,
-    submittingJudge,
-    projectGeneration,
-    resetting,
-    saveGeneration,
-    resetControls,
-    flushPreservedDrafts,
-  } = useLabProject<DecodingDraft, { payloads: Record<number, LabPayload> }, DecodingLessonAction>({
-    classId,
-    labId: "decoding",
-    ready,
-    stageIndex: state.stageIndex,
-    onResetSuccess: () => decodeExecRef.current?.(),
-    toAction: (project, meta) => ({
-      type: "load-project",
-      currentStage: project.currentStage,
-      passedStages: project.passedStages,
-      draftRevisions: project.draftRevisions,
-      drafts: Object.fromEntries(
-        Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
-      ),
-      payloads: project.payloads ?? {},
-      freeNavigation: project.staffFreeNavigation ?? staff,
-      isReset: meta?.isReset,
-    }),
-    dispatch,
+  const project = useLabProject<
+    DecodingDraft,
+    { payloads: Record<number, LabPayload> },
+    DecodingLessonAction
+  >(() => {
+    const opts = getOpts();
+    return {
+      scopeId: opts.scopeId,
+      labId: "decoding",
+      ready: opts.ready,
+      stageIndex: state().stageIndex,
+      onResetSuccess: () => clearTransientRef?.(),
+      toAction: (proj, meta) => ({
+        type: "load-project",
+        currentStage: proj.currentStage,
+        passedStages: proj.passedStages,
+        draftRevisions: proj.draftRevisions,
+        drafts: Object.fromEntries(
+          Object.entries(proj.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+        ),
+        payloads: proj.payloads ?? {},
+        freeNavigation: proj.staffFreeNavigation ?? untrack(getOpts).staff ?? false,
+        isReset: meta?.isReset,
+      }),
+      dispatch,
+    };
   });
 
   const reconcileConflict = (s: number) =>
     reconcileConflictedStage({
-      fetchProject,
+      fetchProject: project.fetchProject,
       stageIndex: s,
-      onResolved: (stageIndex, project) =>
+      onResolved: (stageIndex, proj) =>
         dispatch({
           type: "resolve-save-conflict",
           stageIndex,
-          draft: project.drafts?.[stageIndex],
-          revision: project.draftRevisions?.[stageIndex],
+          draft: proj.drafts?.[stageIndex],
+          revision: proj.draftRevisions?.[stageIndex],
         }),
       onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
     });
 
-  useAutosaveDraft<DecodingDraft>({
-    flushPreservedDrafts,
-    saveStatuses: projectLoaded ? state.saveStatusByStage : undefined,
-    classId,
-    labId: "decoding",
-    saveStatus:
-      projectLoaded && !resetting
-        ? statusForStage(state.saveStatusByStage, state.stageIndex)
-        : "idle",
-    stageIndex: state.stageIndex,
-    draftOf: (index) => draftOf(state, index),
-    deps: [state.drafts],
-    expectedGeneration: projectGeneration,
-    resetVersion: saveGeneration,
-    expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
-    onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-    onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-    onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-    onConflict: (s) => reconcileConflict(s),
+  useAutosaveDraft<DecodingDraft>(() => {
+    const currentState = state();
+    return {
+      flushPreservedDrafts: project.flushPreservedDrafts,
+      saveStatuses: project.projectLoaded ? currentState.saveStatusByStage : undefined,
+      scopeId: getOpts().scopeId,
+      labId: "decoding",
+      saveStatus:
+        project.projectLoaded && !project.resetting
+          ? statusForStage(currentState.saveStatusByStage, currentState.stageIndex)
+          : "idle",
+      stageIndex: currentState.stageIndex,
+      draftOf: (index) => draftOf(state(), index),
+      deps: [currentState.drafts],
+      expectedGeneration: project.projectGeneration,
+      resetVersion: project.saveGeneration,
+      expectedRevisionOf: (s) => state().draftRevisions[s] ?? 0,
+      onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
+      onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
+      onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
+      onConflict: (s) => reconcileConflict(s),
+    };
   });
 
-  const decodeExec = useDecodeExecution<DecodingRunResult>({
-    stageIndex: state.stageIndex,
-    inputRevision,
+  const decodeExec = useDecodeExecution<DecodingRunResult>(() => ({
+    stageIndex: state().stageIndex,
+    inputRevision: inputRevision(),
     describeError: (error) =>
       friendlyRunError(error instanceof Error ? error.message : String(error)),
-  });
-  const previewExec = useDecodeExecution<PixelMatrix>({
-    stageIndex: state.stageIndex,
+  }));
+  const previewExec = useDecodeExecution<PixelMatrix>(() => ({
+    stageIndex: state().stageIndex,
     inputRevision: 0,
-  });
-  const sampleExec = useDecodeExecution<SampleOutcome>({
-    stageIndex: state.stageIndex,
-    inputRevision: sampleRevision,
-  });
-  const running = decodeExec.running || previewExec.running || sampleExec.running;
+  }));
+  const sampleExec = useDecodeExecution<SampleOutcome>(() => ({
+    stageIndex: state().stageIndex,
+    inputRevision: sampleRevision(),
+  }));
 
   const clearTransientRuns = (stageIndex: number) => {
     decodeExec.clear();
     previewExec.clear();
     sampleExec.clear();
-    invalidateJudge();
+    project.invalidateJudge();
     setSubmitError(null);
     setSampleHover(null);
     setWrongPick(null);
     setSampleRevision(0);
     setSampleFills(getDecodingStage(stageIndex)?.example?.blankDefaults ?? {});
   };
-  decodeExecRef.current = () => clearTransientRuns(state.stageIndex);
+  clearTransientRef = () => clearTransientRuns(untrack(() => state().stageIndex));
 
-  useEffect(() => {
-    clearTransientRuns(state.stageIndex);
-  }, [state.stageIndex]);
+  let lastStageIndex = untrack(() => state().stageIndex);
+  createEffect(
+    () => state().stageIndex,
+    (stageIndex) => {
+      if (stageIndex === lastStageIndex) return;
+      lastStageIndex = stageIndex;
+      clearTransientRuns(stageIndex);
+    },
+  );
 
-  const stageLinkApplied = useRef(false);
-  useEffect(() => {
-    if (stageLinkApplied.current || !projectLoaded) return;
-    stageLinkApplied.current = true;
-    const wanted = Number(stageLink);
-    if (Number.isInteger(wanted) && isStageUnlocked(state, wanted)) {
-      dispatch({ type: "select-stage", stageIndex: wanted });
-    }
-  }, [projectLoaded]);
+  let stageLinkApplied = false;
+  createEffect(
+    () => project.projectLoaded,
+    (loaded) => {
+      if (stageLinkApplied || !loaded) return;
+      stageLinkApplied = true;
+      const wanted = Number(untrack(() => getOpts().stageLink));
+      if (Number.isInteger(wanted) && isStageUnlocked(untrack(state), wanted)) {
+        dispatch({ type: "select-stage", stageIndex: wanted });
+      }
+    },
+  );
 
-  const model = createDecodingViewModel({
-    state,
-    userId,
-    running,
-    lastRun: decodeExec.result,
-    runError: decodeExec.error ?? previewExec.error,
-    preview: previewExec.result,
-    sampleFills,
-    samplePrintout: sampleExec.result?.stdout ?? null,
-    samplePixels: sampleExec.result?.pixels ?? null,
-    samplePrintError:
-      sampleExec.error ??
-      (sampleExec.result &&
-      (stage?.kind === "bmp" || stage?.kind === "bmp-script") &&
-      !sampleExec.result.pixels
-        ? "样例 data 没有解出合法的像素矩阵。"
-        : null),
-    sampleHover,
-    wrongPick,
-    submitting: submittingJudge || resetting,
-    loadError: loadError ?? null,
-    submitError,
+  const model = createMemo(() => {
+    const currentStage = stage();
+    const running = decodeExec.running || previewExec.running || sampleExec.running;
+    return createDecodingViewModel({
+      state: state(),
+      userId: getOpts().userId,
+      running,
+      lastRun: decodeExec.result,
+      runError: decodeExec.error ?? previewExec.error,
+      preview: previewExec.result,
+      sampleFills: sampleFills(),
+      samplePrintout: sampleExec.result?.stdout ?? null,
+      samplePixels: sampleExec.result?.pixels ?? null,
+      samplePrintError:
+        sampleExec.error ??
+        (sampleExec.result &&
+        (currentStage?.kind === "bmp" || currentStage?.kind === "bmp-script") &&
+        !sampleExec.result.pixels
+          ? "样例 data 没有解出合法的像素矩阵。"
+          : null),
+      sampleHover: sampleHover(),
+      wrongPick: wrongPick(),
+      submitting: project.submittingJudge || project.resetting,
+      loadError: project.loadError ?? null,
+      submitError: submitError(),
+    });
   });
 
-  const run = useCallback(() => {
-    if (!stage || !payload || payload.kind === "files" || !model.editor) return;
-    if (model.editor.cloze && !model.editor.complete) {
+  const run = () => {
+    const currentStage = untrack(stage);
+    const currentPayload = untrack(payload);
+    const currentEditor = untrack(model).editor;
+    if (!currentStage || !currentPayload || currentPayload.kind === "files" || !currentEditor) {
+      return;
+    }
+    if (currentEditor.cloze && !currentEditor.complete) {
       decodeExec.fail("还有空没填上——每个空都要填。");
       return;
     }
-    const { source } = model.editor;
-    const kind = stage.kind;
-    const data = runData(payload);
+    const { source } = currentEditor;
+    const kind = currentStage.kind;
+    const data = runData(currentPayload);
     void decodeExec.execute(async () => {
       const preamble = kind === "bmp-script" ? BMP_HELPER : undefined;
       const result = await runDecode(source, data, { preamble });
@@ -228,12 +246,16 @@ export function useDecodingLabController({
       if (!text) throw new Error("decode 要返回一个字符串（1～200 个字符）。");
       return { text } as DecodingRunResult;
     });
-  }, [stage, payload, model.editor, decodeExec]);
+  };
 
-  const runPreview = useCallback(() => {
-    if (!payload || payload.kind !== "bmp" || stage?.kind !== "bmp-script") return;
+  const runPreview = () => {
+    const currentStage = untrack(stage);
+    const currentPayload = untrack(payload);
+    if (!currentPayload || currentPayload.kind !== "bmp" || currentStage?.kind !== "bmp-script") {
+      return;
+    }
     void previewExec.execute(async () => {
-      const result = await runDecode("", runData(payload), {
+      const result = await runDecode("", runData(currentPayload), {
         preamble: BMP_HELPER,
         call: "decode_bmp(data)",
       });
@@ -241,15 +263,17 @@ export function useDecodingLabController({
       if (!clean) throw new Error("预览解码没有得到合法的像素列表。");
       return clean;
     });
-  }, [payload, stage, previewExec]);
+  };
 
-  const printExample = useCallback(() => {
-    if (!stage?.example?.run) return;
-    const expectImage = stage.kind === "bmp" || stage.kind === "bmp-script";
-    const input = stage.example.input;
+  const printExample = () => {
+    const currentStage = untrack(stage);
+    if (!currentStage?.example?.run) return;
+    const expectImage = currentStage.kind === "bmp" || currentStage.kind === "bmp-script";
+    const input = currentStage.example.input;
+    const currentFills = untrack(sampleFills);
     setSampleHover(null);
     void sampleExec.execute(async () => {
-      const source = hasCloze(input) ? assembleCloze(input, sampleFills) : input;
+      const source = hasCloze(input) ? assembleCloze(input, currentFills) : input;
       const outcome = await runDecode(source, null, {
         call: expectImage ? "decode_bmp(data)" : "None",
         captureStdout: true,
@@ -263,34 +287,45 @@ export function useDecodingLabController({
       const pixels = expectImage ? sanitizePixels(value) : null;
       return { stdout: String(stdout), pixels };
     });
-  }, [stage, sampleFills, sampleExec]);
+  };
 
-  const onSubmit = useCallback(async () => {
-    if (!classId || !stage || !payload) return;
-    const blocker = model.submission.blocker;
+  const onSubmit = async () => {
+    const scopeId = untrack(getOpts).scopeId;
+    const currentStage = untrack(stage);
+    const currentPayload = untrack(payload);
+    const currentModel = untrack(model);
+    const currentDraft = untrack(draft);
+    if (!scopeId || !currentStage || !currentPayload) return;
+    const blocker = currentModel.submission.blocker;
     if (blocker) {
       dispatch({ type: "message", text: blocker });
       return;
     }
-    const submittedStage = stage.index;
-    const submittedRevision = inputRevision;
+    const submittedStage = currentStage.index;
+    const submittedRevision = untrack(inputRevision);
     setSubmitError(null);
-    const lastRun = decodeExec.result;
+    const lastRun = untrack(() => decodeExec.result);
     const artifact =
-      stage.kind === "files"
-        ? { verdicts: draft.verdicts }
-        : stage.kind === "bmp"
+      currentStage.kind === "files"
+        ? { verdicts: currentDraft.verdicts }
+        : currentStage.kind === "bmp"
           ? { pixels: lastRun && "pixels" in lastRun ? lastRun.pixels : [] }
           : { text: lastRun && "text" in lastRun ? lastRun.text : "" };
     const submission: DecodingSubmission = {
-      stageIndex: stage.index,
+      stageIndex: currentStage.index,
       artifact,
-      code: model.editor?.cloze ? model.editor.source : draft.code || undefined,
-      conceptAnswers: stage.prompts && stage.prompts.length > 0 ? draft.conceptAnswers : undefined,
+      code: currentModel.editor?.cloze
+        ? currentModel.editor.source
+        : currentDraft.code || undefined,
+      conceptAnswers:
+        currentStage.prompts && currentStage.prompts.length > 0
+          ? currentDraft.conceptAnswers
+          : undefined,
     };
-    const response = await postJudge<DecodingJudgeResult>(submission, {
+    const response = await project.postJudge<DecodingJudgeResult>(submission, {
       isStillCurrent: () =>
-        stageIndexRef.current === submittedStage && inputRevisionRef.current === submittedRevision,
+        untrack(() => state().stageIndex) === submittedStage &&
+        untrack(inputRevision) === submittedRevision,
     });
     if (response.status === "applied") {
       const outcome = response.outcome;
@@ -301,10 +336,21 @@ export function useDecodingLabController({
     } else if (response.status === "error") {
       setSubmitError(response.error);
     }
-  }, [classId, stage, payload, model, draft, inputRevision, decodeExec.result, postJudge]);
+  };
 
   const actions: DecodingLabActions = {
-    selectStage: (stageIndex) => dispatch({ type: "select-stage", stageIndex }),
+    selectStage: (stageIndex) => {
+      const currentState = untrack(state);
+      const nextState = transitionDecodingLesson(currentState, {
+        type: "select-stage",
+        stageIndex,
+      });
+      dispatch({ type: "select-stage", stageIndex });
+      if (nextState.stageIndex !== currentState.stageIndex) {
+        lastStageIndex = nextState.stageIndex;
+        clearTransientRuns(nextState.stageIndex);
+      }
+    },
     dismissMessage: () => dispatch({ type: "dismiss-message" }),
     setFill: (blankId, value) => dispatch({ type: "set-fill", blankId, value }),
     setSampleFill: (blankId, value) => {
@@ -318,7 +364,7 @@ export function useDecodingLabController({
     answerPrompt: (promptId, option) => {
       setWrongPick(null);
       dispatch({ type: "answer-prompt", promptId, option });
-      const prompt = stage?.prompts?.find((p) => p.id === promptId);
+      const prompt = untrack(stage)?.prompts?.find((p) => p.id === promptId);
       if (prompt && !prompt.options[option]?.correct) {
         setWrongPick({ promptId, option });
       }
@@ -327,16 +373,23 @@ export function useDecodingLabController({
       dispatch({
         type: "set-verdict",
         fileIndex,
-        stageIndex: state.stageIndex,
+        stageIndex: untrack(() => state().stageIndex),
         verdict,
         expectDecoder,
       }),
     submit: onSubmit,
     restoreConflictLocal: () =>
-      dispatch({ type: "restore-conflict-draft", stageIndex: state.stageIndex }),
+      dispatch({ type: "restore-conflict-draft", stageIndex: untrack(() => state().stageIndex) }),
     discardConflictLocal: () =>
-      dispatch({ type: "discard-conflict-draft", stageIndex: state.stageIndex }),
-    retrySyncConflict: () => reconcileConflict(state.stageIndex),
+      dispatch({ type: "discard-conflict-draft", stageIndex: untrack(() => state().stageIndex) }),
+    retrySyncConflict: () => reconcileConflict(untrack(() => state().stageIndex)),
   };
-  return { model, actions, resetControls };
+
+  return {
+    get model() {
+      return model();
+    },
+    actions,
+    resetControls: project.resetControls,
+  };
 }

@@ -1,15 +1,24 @@
+import { ClassroomRuntime } from "./classroom/ClassroomRuntime";
 import {
-  Outlet,
-  createBrowserHistory,
-  createRootRoute,
-  createRoute,
+  browserHistory,
   createRouter,
-  lazyRouteComponent,
-  redirect,
+  defineRoutes,
+  intentPreload,
+  useLocation,
+  useNavigate,
   useParams,
+  type RouteDefinition,
   type RouterHistory,
-} from "@tanstack/react-router";
-import { Suspense, useEffect } from "react";
+} from "@solidjs/router";
+import {
+  createEffect,
+  createMemo,
+  Errored,
+  lazy,
+  Loading,
+  untrack,
+  type Component,
+} from "solid-js";
 import { normalizeBasePath } from "../shared/basePath";
 import { isStaffRole, useAuth } from "../shared/auth";
 import { LabAccessGate } from "../shared/lab/LabGate";
@@ -22,11 +31,7 @@ import { LabErrorPage } from "./pages/LabErrorPage";
 import { LabRedirectPage } from "./pages/LabRedirectPage";
 import { NotFoundPage } from "./pages/NotFoundPage";
 
-function RootLayout() {
-  return <Outlet />;
-}
-
-function resolveRuntimeBasePath(configuredBasePath: string): string {
+export function resolveRuntimeBasePath(configuredBasePath: string): string {
   if (configuredBasePath === "/" || typeof window === "undefined") return configuredBasePath;
   const pathname = window.location.pathname;
   const isConfiguredPath =
@@ -41,79 +46,138 @@ export type AppRouterOptions = {
   basepath?: string;
 };
 
-export const passThroughSearch = (search: Record<string, unknown>): Record<string, unknown> =>
-  search;
+function withLabErrorBoundary(Comp: Component): Component {
+  return function LabErrorBoundaryWrapper() {
+    return (
+      <Errored fallback={(err, reset) => <LabErrorPage error={err()} reset={reset} />}>
+        <Loading
+          fallback={
+            <p class="home-loading" role="status">
+              正在载入…
+            </p>
+          }
+        >
+          <Comp />
+        </Loading>
+      </Errored>
+    );
+  };
+}
 
-function GuardedLabRoute({ labId }: { labId: LabId }) {
-  const { classId } = useParams({ strict: false }) as { classId?: string };
-  const { status, role, session } = useAuth();
-  const catalog = useLabCatalog(status === "authenticated");
-  const visibleClass = classId && catalog?.get(labId)?.visibleClassIds?.includes(classId);
-  const studentId = !isStaffRole(role) ? session?.user.id : undefined;
-  const Component = APP_LABS[labId].component;
-  useEffect(() => {
-    if (studentId && classId && visibleClass) {
-      rememberRecentLab(studentId, { labId, classId });
+function GuardedLabRoute(props: { labId: LabId }) {
+  const params = useParams<{ classId?: string }>();
+  const auth = useAuth();
+  const catalog = useLabCatalog(() => auth.status === "authenticated");
+  const visibleClass = createMemo(() =>
+    Boolean(
+      params.classId && catalog()?.get(props.labId)?.visibleClassIds?.includes(params.classId),
+    ),
+  );
+  const studentId = createMemo(() => (!isStaffRole(auth.role) ? auth.session?.user.id : undefined));
+  const LabComponent = APP_LABS[props.labId].component;
+
+  const recentVisit = createMemo(() => {
+    const sid = studentId();
+    const cid = params.classId;
+    return sid && cid && visibleClass() ? { sid, cid, labId: props.labId } : null;
+  });
+
+  const recentVisitKey = createMemo(() => {
+    const visit = recentVisit();
+    return visit ? `${visit.sid}\0${visit.cid}\0${visit.labId}` : "";
+  });
+
+  createEffect(recentVisitKey, () => {
+    const visit = untrack(recentVisit);
+    if (visit) {
+      rememberRecentLab(visit.sid, { labId: visit.labId, classId: visit.cid });
     }
-  }, [studentId, classId, visibleClass, labId]);
+  });
+
   return (
     <LabAccessGate
-      checkingAccess={status === "authenticated" && role !== "admin" && catalog === null}
-      classId={classId}
-      closed={catalog?.get(labId)?.visible === false}
-      labName={labMetadata[labId].title}
+      checkingAccess={
+        auth.status === "authenticated" && auth.role !== "admin" && catalog() === null
+      }
+      classId={params.classId}
+      closed={catalog()?.get(props.labId)?.visible === false}
+      labName={labMetadata[props.labId].title}
       noClassHint="请联系管理员把你的账号分配到班级后再开始实验。"
-      role={role}
-      status={status}
+      role={auth.role}
+      status={auth.status}
     >
-      <Suspense
-        fallback={
-          <p className="home-loading" role="status">
-            正在载入…
-          </p>
-        }
-      >
-        <Component />
-      </Suspense>
+      <Errored fallback={(err, reset) => <LabErrorPage error={err()} reset={reset} />}>
+        <Loading
+          fallback={
+            <p class="home-loading" role="status">
+              正在载入…
+            </p>
+          }
+        >
+          <ClassroomRuntime>
+            <LabComponent />
+          </ClassroomRuntime>
+        </Loading>
+      </Errored>
     </LabAccessGate>
   );
 }
 
-const rootRoute = createRootRoute({ component: RootLayout, notFoundComponent: NotFoundPage });
-const indexRoute = createRoute({ getParentRoute: () => rootRoute, path: "/", component: HomePage });
-const loginRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/login",
-  component: lazyRouteComponent(() => import("./pages/LoginPage"), "LoginPage"),
-});
-const profileRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/profile",
-  component: lazyRouteComponent(() => import("./pages/ProfilePage"), "ProfilePage"),
-});
-const adminRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/admin",
-  component: lazyRouteComponent(() => import("./pages/AdminPage"), "AdminPage"),
-});
-const adminLabsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/admin/labs",
-  component: lazyRouteComponent(() => import("./pages/AdminLabsPage"), "AdminLabsPage"),
-});
-const adminClassesRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/admin/classes",
-  component: lazyRouteComponent(() => import("./pages/AdminClassesPage"), "AdminClassesPage"),
-});
+function LegacyMlIntroEntryRedirect() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  createEffect(
+    () => location.search,
+    (search) => {
+      navigate(`/labs/logistic-regression${search}`, { replace: true });
+    },
+  );
+  return null;
+}
 
-const teacherLabsRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/teacher/labs",
-  component: lazyRouteComponent(() => import("./pages/TeacherLabsPage"), "TeacherLabsPage"),
-});
+function LegacyMlIntroClassRedirect() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const params = useParams<{ classId: string }>();
+  const target = createMemo(
+    () => `/classes/${params.classId}/labs/logistic-regression${location.search}`,
+  );
+  createEffect(target, (href) => {
+    navigate(href, { replace: true });
+  });
+  return null;
+}
 
-function createLabRoutePair<TId extends LabId>(id: TId) {
+const LoginPage = lazy(() => import("./pages/LoginPage"), { export: "LoginPage" });
+const ProfilePage = lazy(() => import("./pages/ProfilePage"), { export: "ProfilePage" });
+const AdminPage = lazy(() => import("./pages/AdminPage"), { export: "AdminPage" });
+const AdminClassesPage = lazy(() => import("./pages/AdminClassesPage"), {
+  export: "AdminClassesPage",
+});
+const AdminLabsPage = lazy(() => import("./pages/AdminLabsPage"), { export: "AdminLabsPage" });
+const TeacherLabsPage = lazy(() => import("./pages/TeacherLabsPage"), {
+  export: "TeacherLabsPage",
+});
+const TeacherDashboardPage = withLabErrorBoundary(
+  lazy(() => import("./pages/TeacherDashboardPage"), { export: "TeacherDashboardPage" }),
+);
+const ClassMembersPage = withLabErrorBoundary(
+  lazy(() => import("./pages/ClassMembersPage"), { export: "ClassMembersPage" }),
+);
+const StudentLabPreviewPage = withLabErrorBoundary(
+  lazy(() => import("./pages/StudentLabPreviewPage"), { export: "StudentLabPreviewPage" }),
+);
+const TaskSheetListPage = withLabErrorBoundary(
+  lazy(() => import("./pages/TaskSheetListPage"), { export: "TaskSheetListPage" }),
+);
+const TaskSheetEditorPage = withLabErrorBoundary(
+  lazy(() => import("./pages/TaskSheetEditorPage"), { export: "TaskSheetEditorPage" }),
+);
+const TaskAssignmentPage = withLabErrorBoundary(
+  lazy(() => import("./pages/TaskAssignmentPage"), { export: "TaskAssignmentPage" }),
+);
+
+function createLabRoutePair<TId extends LabId>(id: TId): RouteDefinition[] {
   const labComponent = APP_LABS[id].component;
   const guardedComponent = Object.assign(() => <GuardedLabRoute labId={id} />, {
     preload: (): Promise<void> | undefined => {
@@ -121,165 +185,104 @@ function createLabRoutePair<TId extends LabId>(id: TId) {
       return undefined;
     },
   });
-  const entryRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: `/labs/${id}`,
-    validateSearch: passThroughSearch,
-    component: () => <LabRedirectPage labId={id} />,
-    errorComponent: LabErrorPage,
-  });
-  const labRoute = createRoute({
-    getParentRoute: () => rootRoute,
-    path: `/classes/$classId/labs/${id}`,
-    validateSearch: passThroughSearch,
-    component: guardedComponent,
-    errorComponent: LabErrorPage,
-  });
-  return [entryRoute, labRoute] as const;
+  return [
+    {
+      path: `/labs/${id}`,
+      component: () => (
+        <Errored fallback={(err, reset) => <LabErrorPage error={err()} reset={reset} />}>
+          <LabRedirectPage labId={id} />
+        </Errored>
+      ),
+      info: { errorBoundary: LabErrorPage },
+    },
+    {
+      path: `/classes/:classId/labs/${id}`,
+      component: guardedComponent,
+      preload: () => {
+        void guardedComponent.preload?.();
+      },
+      info: { errorBoundary: LabErrorPage },
+    },
+  ];
 }
 
-const labRoutes = LAB_IDS.flatMap((id) => createLabRoutePair(id));
+const labRoutes: RouteDefinition[] = LAB_IDS.flatMap((id) => createLabRoutePair(id));
 
-const legacyLogisticRegressionEntryRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/labs/ml-intro",
-  validateSearch: passThroughSearch,
-  beforeLoad: ({ search }) => {
-    throw redirect({ to: "/labs/logistic-regression", search, replace: true });
-  },
-});
-
-const legacyLogisticRegressionClassRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/classes/$classId/labs/ml-intro",
-  validateSearch: passThroughSearch,
-  beforeLoad: ({ params, search }) => {
-    throw redirect({
-      to: "/classes/$classId/labs/logistic-regression",
-      params,
-      search,
-      replace: true,
-    });
-  },
-});
-
-const dashboardRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/classes/$classId/dashboard",
-  validateSearch: passThroughSearch,
-  beforeLoad: ({ params, search }) => {
-    if (search.lab === "ml-intro") {
-      throw redirect({
-        to: "/classes/$classId/dashboard",
-        params,
-        search: { ...search, lab: "logistic-regression" },
-        replace: true,
-      });
-    }
-  },
-  component: lazyRouteComponent(
-    () => import("./pages/TeacherDashboardPage"),
-    "TeacherDashboardPage",
-  ),
-  errorComponent: LabErrorPage,
-});
-
-const classMembersRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/classes/$classId/members",
-  component: lazyRouteComponent(() => import("./pages/ClassMembersPage"), "ClassMembersPage"),
-  errorComponent: LabErrorPage,
-});
-
-const studentLabPreviewRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/classes/$classId/students/$userId/labs/calculator",
-  validateSearch: passThroughSearch,
-  component: lazyRouteComponent(
-    () => import("./pages/StudentLabPreviewPage"),
-    "StudentLabPreviewPage",
-  ),
-  errorComponent: LabErrorPage,
-});
-
-const taskSheetListRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/tasks",
-  component: lazyRouteComponent(() => import("./pages/TaskSheetListPage"), "TaskSheetListPage"),
-  errorComponent: LabErrorPage,
-});
-
-const taskSheetEditorRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/tasks/$sheetId/edit",
-  component: lazyRouteComponent(() => import("./pages/TaskSheetEditorPage"), "TaskSheetEditorPage"),
-  errorComponent: LabErrorPage,
-});
-
-const taskAssignmentRoute = createRoute({
-  getParentRoute: () => rootRoute,
-  path: "/classes/$classId/tasks/$assignmentId",
-  component: lazyRouteComponent(() => import("./pages/TaskAssignmentPage"), "TaskAssignmentPage"),
-  errorComponent: LabErrorPage,
-});
-
-const devRoutes = import.meta.env.DEV
+const devRoutes: RouteDefinition[] = import.meta.env.DEV
   ? [
-      createRoute({
-        getParentRoute: () => rootRoute,
+      {
         path: "/__dev/labs/decoding",
-        validateSearch: passThroughSearch,
-        component: lazyRouteComponent(
-          () => import("../features/decoding/preview/DecodingPreviewPage"),
-          "DecodingPreviewPage",
-        ),
-      }),
-      createRoute({
-        getParentRoute: () => rootRoute,
+        component: lazy(() => import("../features/decoding/preview/DecodingPreviewPage"), {
+          export: "DecodingPreviewPage",
+        }),
+      },
+      {
         path: "/__dev/labs/lunch-shift-ai",
-        validateSearch: passThroughSearch,
-        component: lazyRouteComponent(
-          () => import("../features/lunch-shift/ai/AiIntakePocPage"),
-          "AiIntakePocPage",
-        ),
-      }),
+        component: lazy(() => import("../features/lunch-shift/ai/AiIntakePocPage"), {
+          export: "AiIntakePocPage",
+        }),
+      },
     ]
   : [];
 
-const routeTree = rootRoute.addChildren([
-  indexRoute,
-  loginRoute,
-  profileRoute,
-  adminRoute,
-  adminClassesRoute,
-  adminLabsRoute,
-  teacherLabsRoute,
+export const appRoutes = defineRoutes([
+  { path: "/", component: HomePage },
+  { path: "/login", component: LoginPage },
+  { path: "/profile", component: ProfilePage },
+  { path: "/admin", component: AdminPage },
+  { path: "/admin/classes", component: AdminClassesPage },
+  { path: "/admin/labs", component: AdminLabsPage },
+  { path: "/teacher/labs", component: TeacherLabsPage },
   ...labRoutes,
-  legacyLogisticRegressionEntryRoute,
-  legacyLogisticRegressionClassRoute,
-  dashboardRoute,
-  classMembersRoute,
-  studentLabPreviewRoute,
-  taskSheetListRoute,
-  taskSheetEditorRoute,
-  taskAssignmentRoute,
+  { path: "/labs/ml-intro", component: LegacyMlIntroEntryRedirect },
+  { path: "/classes/:classId/labs/ml-intro", component: LegacyMlIntroClassRedirect },
+  {
+    path: "/classes/:classId/dashboard",
+    component: TeacherDashboardPage,
+    info: { errorBoundary: LabErrorPage },
+  },
+  {
+    path: "/classes/:classId/members",
+    component: ClassMembersPage,
+    info: { errorBoundary: LabErrorPage },
+  },
+  {
+    path: "/classes/:classId/students/:userId/labs/calculator",
+    component: StudentLabPreviewPage,
+    info: { errorBoundary: LabErrorPage },
+  },
+  {
+    path: "/tasks",
+    component: TaskSheetListPage,
+    info: { errorBoundary: LabErrorPage },
+  },
+  {
+    path: "/tasks/:sheetId/edit",
+    component: TaskSheetEditorPage,
+    info: { errorBoundary: LabErrorPage },
+  },
+  {
+    path: "/classes/:classId/tasks/:assignmentId",
+    component: TaskAssignmentPage,
+    info: { errorBoundary: LabErrorPage },
+  },
   ...devRoutes,
+  { path: "*404", component: NotFoundPage },
 ]);
 
 export function createAppRouter({
-  history = createBrowserHistory(),
+  history = browserHistory(),
   basepath = resolveRuntimeBasePath(configuredBasePath),
 }: AppRouterOptions = {}) {
-  return createRouter({ history, basepath, defaultPreload: "intent", routeTree });
+  return createRouter({
+    routes: appRoutes,
+    base: basepath === "/" ? undefined : basepath,
+    history,
+    preloadLinks: intentPreload(),
+  });
 }
 
 export const router = createAppRouter();
 
-export { normalizeBasePath, resolveRuntimeBasePath };
+export { normalizeBasePath };
 export { basePathPrefix } from "../shared/basePath";
-
-declare module "@tanstack/react-router" {
-  interface Register {
-    router: typeof router;
-  }
-}

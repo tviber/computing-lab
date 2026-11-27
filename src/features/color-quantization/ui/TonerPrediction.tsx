@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import {
   colorDist2,
@@ -20,98 +21,109 @@ export const practiceColors = [0, 1, 3, 6, 8, 13].map((index) => ({
 }));
 export const practiceCandidates = rack.map((color) => color.rgb);
 
-function Distance({ source, candidate }: { source: RGB; candidate: number }) {
-  const { rgb, name } = rack[candidate];
-  const terms = source.map((value, channel) => `(${value}-${rgb[channel]})^2`);
+function Distance(props: { source: RGB; candidate: number }) {
+  const entry = () => rack[props.candidate];
+  const formula = createMemo(() => {
+    const { rgb } = entry();
+    const terms = props.source.map((value, channel) => `(${value}-${rgb[channel]})^2`);
+    return `${terms.join(" + ")} = ${colorDist2(props.source, rgb)}`;
+  });
   return (
     <p>
-      <strong>{name}</strong> ·{" "}
-      <MathFormula>{`${terms.join(" + ")} = ${colorDist2(source, rgb)}`}</MathFormula>
+      <strong>{entry().name}</strong> · <MathFormula>{formula()}</MathFormula>
     </p>
   );
 }
 
-export function TonerPrediction({ outputs }: { outputs: (number | null)[] | null }) {
-  const [active, setActive] = useState(0);
-  const [guesses, setGuesses] = useState<Record<number, number>>({});
-  const color = practiceColors[active];
-  const guess = guesses[active];
-  const correct = guess === color.expected;
+export function TonerPrediction(props: { outputs: (number | null)[] | null }) {
+  const [active, setActive] = createSignal(0);
+  const [guesses, setGuesses] = createSignal<Record<number, number>>({});
+  const color = () => practiceColors[active()];
+  const guess = () => guesses()[active()];
+  const correct = () => guess() === color().expected;
 
   return (
-    <div className="quant-prediction">
-      <div className="quant-practice-sources" role="group" aria-label="选择练习源色">
-        {practiceColors.map((item, index) => (
-          <button
-            type="button"
-            key={item.source}
-            className="choice-surface"
-            aria-pressed={index === active}
-            onClick={() => setActive(index)}
-          >
-            <span
-              aria-hidden="true"
-              className="quant-practice-chip"
-              style={{ background: rgbCss(item.rgb) }}
-            />
-            {item.name}
-          </button>
-        ))}
+    <div class="quant-prediction">
+      <div aria-label="选择练习源色" class="quant-practice-sources" role="group">
+        <For each={practiceColors}>
+          {(item, index) => (
+            <Button
+              aria-pressed={index() === active() ? "true" : "false"}
+              class="choice-surface"
+              onClick={() => setActive(index())}
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="quant-practice-chip"
+                style={{ background: rgbCss(item.rgb) }}
+              />
+              {item.name}
+            </Button>
+          )}
+        </For>
       </div>
       <p>
-        <strong>{color.name}</strong> <code>RGB({color.rgb.join(", ")})</code>{" "}
+        <strong>{color().name}</strong> <code>RGB({color().rgb.join(", ")})</code>{" "}
         会落到哪个候选色？这次把 8 种墨粉都装上，0 号留给纸白。
       </p>
-      <div className="quant-practice-rack" role="group" aria-label={`${color.name} 的候选色`}>
-        {rack.map((candidate, index) => (
-          <button
-            type="button"
-            key={candidate.name}
-            className="choice-surface"
-            aria-pressed={guess === index}
-            onClick={() => setGuesses((previous) => ({ ...previous, [active]: index }))}
-          >
-            <span
-              aria-hidden="true"
-              className="quant-practice-chip"
-              style={{ background: rgbCss(candidate.rgb) }}
-            />
-            <span>
-              {index} · {candidate.name}
-            </span>
-            <small>{candidate.rgb.join(",")}</small>
-          </button>
-        ))}
+      <div aria-label={`${color().name} 的候选色`} class="quant-practice-rack" role="group">
+        <For each={rack}>
+          {(candidate, index) => (
+            <Button
+              aria-pressed={guess() === index() ? "true" : "false"}
+              class="choice-surface"
+              onClick={() => setGuesses((previous) => ({ ...previous, [active()]: index() }))}
+              type="button"
+            >
+              <span
+                aria-hidden="true"
+                class="quant-practice-chip"
+                style={{ background: rgbCss(candidate.rgb) }}
+              />
+              <span>
+                {index()} · {candidate.name}
+              </span>
+              <small>{candidate.rgb.join(",")}</small>
+            </Button>
+          )}
+        </For>
       </div>
-      <div className="quant-distance" aria-live="polite">
-        {guess !== undefined ? (
-          <>
-            <strong>
-              {correct
-                ? "猜中了，这是最短距离。"
-                : `你选了 ${rack[guess].name}，${rack[color.expected].name} 更近。`}
-            </strong>
-            <Distance source={color.rgb} candidate={guess} />
-            {correct ? null : <Distance source={color.rgb} candidate={color.expected} />}
-          </>
-        ) : (
-          <p>先猜一次，再比较三个通道的平方差之和。数越小，颜色越近。</p>
+      <div aria-live="polite" class="quant-distance">
+        <Show
+          fallback={<p>先猜一次，再比较三个通道的平方差之和。数越小，颜色越近。</p>}
+          when={guess() !== undefined}
+        >
+          <strong>
+            {correct()
+              ? "猜中了，这是最短距离。"
+              : `你选了 ${rack[guess()!].name}，${rack[color().expected].name} 更近。`}
+          </strong>
+          <Distance candidate={guess()!} source={color().rgb} />
+          <Show when={!correct()}>
+            <Distance candidate={color().expected} source={color().rgb} />
+          </Show>
+        </Show>
+      </div>
+      <Show when={props.outputs}>
+        {(outputs) => (
+          <ul aria-label="六种源色的代码检查结果" class="quant-practice-results">
+            <For each={practiceColors}>
+              {(item, index) => {
+                const output = () => outputs()[index()];
+                const match = () => output() === item.expected;
+                return (
+                  <li>
+                    <strong>{item.name}</strong> →{" "}
+                    {output() == null ? "无效返回值" : rack[output()!].name} ·{" "}
+                    {match() ? "一致" : `规则选 ${rack[item.expected].name}`}
+                  </li>
+                );
+              }}
+            </For>
+          </ul>
         )}
-      </div>
-      {outputs ? (
-        <ul className="quant-practice-results" aria-label="六种源色的代码检查结果">
-          {practiceColors.map((item, index) => {
-            const output = outputs[index];
-            const match = output === item.expected;
-            return (
-              <li key={item.source}>
-                <strong>{item.name}</strong> → {output == null ? "无效返回值" : rack[output].name} ·{" "}
-                {match ? "一致" : `规则选 ${rack[item.expected].name}`}
-              </li>
-            );
-          })}
-        </ul>
-      ) : null}
+      </Show>
     </div>
   );
 }

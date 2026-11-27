@@ -5,13 +5,7 @@
 
 import { PythonEditor } from "../../../shared/ui/PythonEditor";
 
-export function CodeEditor({
-  ariaLabel,
-  value,
-  onChange,
-  height = "220px",
-  disabled = false,
-}: {
+export function CodeEditor(props: {
   ariaLabel: string;
   value: string;
   onChange: (value: string) => void;
@@ -20,12 +14,12 @@ export function CodeEditor({
 }) {
   return (
     <PythonEditor
-      ariaLabel={ariaLabel}
+      ariaLabel={props.ariaLabel}
       className="lunch-editor"
-      editable={!disabled}
-      height={height}
-      onChange={onChange}
-      value={value}
+      editable={!(props.disabled ?? false)}
+      height={props.height ?? "220px"}
+      onChange={(value) => props.onChange(value)}
+      value={props.value}
     />
   );
 }

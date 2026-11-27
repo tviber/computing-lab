@@ -5,6 +5,8 @@
  * picked wrong. All prompts must be answered correctly before submit.
  */
 
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, For, Show } from "solid-js";
 import type { DecodingStageDef } from "../domain/stages.ts";
 
 export function ConceptPanel(props: {
@@ -15,62 +17,70 @@ export function ConceptPanel(props: {
   wrongPick: { promptId: string; option: number } | null;
   onAnswer: (promptId: string, option: number) => void;
 }) {
-  const { stage, answered, wrongPick, onAnswer } = props;
-  const prompts = stage.prompts ?? [];
-  if (prompts.length === 0) return null;
-  const nextIndex = prompts.findIndex((p) => !answered.has(p.id));
+  const prompts = () => props.stage.prompts ?? [];
+  const nextIndex = createMemo(() => prompts().findIndex((p) => !props.answered.has(p.id)));
 
   return (
-    <section aria-label="概念检查" className="decoding-guide">
-      <div className="decoding-panel-heading">
-        <p className="decoding-panel-note">
-          答对 {answered.size} / {prompts.length} ——全部答对才能提交判定。
-        </p>
-      </div>
-      <ol className="decoding-guide-list">
-        {prompts.map((prompt, i) => {
-          const isAnswered = answered.has(prompt.id);
-          const isNext = i === nextIndex;
-          const classes = [
-            "decoding-guide-item",
-            isAnswered ? "is-done" : "",
-            isNext ? "is-next" : "",
-          ]
-            .filter(Boolean)
-            .join(" ");
-          return (
-            <li className={classes} key={prompt.id}>
-              <p className="decoding-guide-prompt">
-                {isAnswered ? <span className="decoding-guide-check">✓</span> : null}
-                {prompt.prompt}
-              </p>
-              {isAnswered ? (
-                <p className="decoding-guide-reveal">{prompt.reveal}</p>
-              ) : isNext ? (
-                <div className="decoding-guide-options">
-                  {prompt.options.map((option, oi) => {
-                    const wasPickedWrong =
-                      wrongPick?.promptId === prompt.id && wrongPick.option === oi;
-                    return (
-                      <button
-                        className={`decoding-guide-option${wasPickedWrong ? " is-wrong" : ""}`}
-                        key={oi}
-                        onClick={() => onAnswer(prompt.id, oi)}
-                        type="button"
-                      >
-                        {option.label}
-                        {wasPickedWrong && option.note ? (
-                          <span className="decoding-guide-note">{option.note}</span>
-                        ) : null}
-                      </button>
-                    );
-                  })}
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ol>
-    </section>
+    <Show when={prompts().length > 0}>
+      <section aria-label="概念检查" class="decoding-guide">
+        <div class="decoding-panel-heading">
+          <p class="decoding-panel-note">
+            答对 {props.answered.size} / {prompts().length} ——全部答对才能提交判定。
+          </p>
+        </div>
+        <ol class="decoding-guide-list">
+          <For each={prompts()}>
+            {(prompt, i) => {
+              const isAnswered = () => props.answered.has(prompt.id);
+              const isNext = () => i() === nextIndex();
+              const classes = () =>
+                ["decoding-guide-item", isAnswered() ? "is-done" : "", isNext() ? "is-next" : ""]
+                  .filter(Boolean)
+                  .join(" ");
+              return (
+                <li class={classes()}>
+                  <p class="decoding-guide-prompt">
+                    <Show when={isAnswered()}>
+                      <span class="decoding-guide-check">✓</span>
+                    </Show>
+                    {prompt.prompt}
+                  </p>
+                  <Show
+                    fallback={
+                      <Show when={isNext()}>
+                        <div class="decoding-guide-options">
+                          <For each={prompt.options}>
+                            {(option, oi) => {
+                              const wasPickedWrong = () =>
+                                props.wrongPick?.promptId === prompt.id &&
+                                props.wrongPick.option === oi();
+                              return (
+                                <Button
+                                  class={`decoding-guide-option${wasPickedWrong() ? " is-wrong" : ""}`}
+                                  onClick={() => props.onAnswer(prompt.id, oi())}
+                                  type="button"
+                                >
+                                  {option.label}
+                                  <Show when={wasPickedWrong() && option.note}>
+                                    <span class="decoding-guide-note">{option.note}</span>
+                                  </Show>
+                                </Button>
+                              );
+                            }}
+                          </For>
+                        </div>
+                      </Show>
+                    }
+                    when={isAnswered()}
+                  >
+                    <p class="decoding-guide-reveal">{prompt.reveal}</p>
+                  </Show>
+                </li>
+              );
+            }}
+          </For>
+        </ol>
+      </section>
+    </Show>
   );
 }

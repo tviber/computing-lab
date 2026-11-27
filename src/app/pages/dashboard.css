@@ -207,6 +207,13 @@ button.cell-score:hover {
   font-size: 13px;
 }
 
+.drawer-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 70;
+  background: var(--scrim);
+}
+
 .drawer-scrim {
   position: fixed;
   inset: 0;
@@ -228,9 +235,18 @@ button.cell-score:hover {
   overflow-y: auto;
 }
 
+.assign-drawer {
+  position: fixed;
+  inset: 0 0 0 auto;
+  z-index: 71;
+  border-inline-start: 1px solid var(--border);
+  color: var(--primary);
+}
+
 .submission-dialog {
   position: fixed;
   inset: 0 0 0 auto;
+  z-index: 71;
   max-width: none;
   max-height: 100dvh;
   margin: 0;
@@ -238,10 +254,6 @@ button.cell-score:hover {
   border: 0;
   border-inline-start: 1px solid var(--border);
   color: var(--primary);
-}
-
-.submission-dialog:not([open]) {
-  display: none;
 }
 
 .submission-dialog::backdrop {

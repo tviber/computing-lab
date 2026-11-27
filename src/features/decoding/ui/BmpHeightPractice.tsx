@@ -1,4 +1,5 @@
-import { useId, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, createUniqueId, Show } from "solid-js";
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { BMP_PROFILE, checkBmpHeightReading, type HeightReadingResult } from "../domain/bmp.ts";
 import { ByteTable } from "./ByteTable.tsx";
@@ -11,23 +12,37 @@ const hints: Record<Exclude<HeightReadingResult, "correct">, string> = {
   "wrong-height": "位置找对了，再核对行数。第一格乘 1，第二格乘 256，后面两格的权重再依次乘 256。",
 };
 
-export default function BmpHeightPractice({ bytes }: { bytes: readonly number[] }) {
-  const [start, setStart] = useState<number | null>(null);
-  const [answer, setAnswer] = useState("");
-  const [checked, setChecked] = useState(false);
-  const feedbackId = useId();
-  const result = checked ? checkBmpHeightReading(bytes, start, answer) : null;
-  const numberError = result === "enter-height" || result === "wrong-height";
-  const selected = start === null ? [] : bytes.slice(start, start + 4);
+const PLACE_VALUES = ["1", "256", "256^2", "256^3"];
 
-  const placeValues = ["1", "256", "256^2", "256^3"];
-  const terms = selected.map((byte, index) => String.raw`${byte}\times ${placeValues[index]}`);
+export default function BmpHeightPractice(props: { bytes: readonly number[] }) {
+  const [start, setStart] = createSignal<number | null>(null);
+  const [answer, setAnswer] = createSignal("");
+  const [checked, setChecked] = createSignal(false);
+  const feedbackId = createUniqueId();
+
+  const result = createMemo(() =>
+    checked() ? checkBmpHeightReading(props.bytes, start(), answer()) : null,
+  );
+  const numberError = () => result() === "enter-height" || result() === "wrong-height";
+  const selected = createMemo(() => {
+    const s = start();
+    return s === null ? [] : props.bytes.slice(s, s + 4);
+  });
+  const formula = createMemo(() => {
+    const terms = selected().map((byte, index) => String.raw`${byte}\times ${PLACE_VALUES[index]}`);
+    return `${terms.join(" + ")} = ${Number(answer())}`;
+  });
+
+  const handleAnswer = (value: string) => {
+    setAnswer(value);
+    setChecked(false);
+  };
 
   return (
     <form
       aria-label="试读图像高度"
-      className="decoding-height-practice"
-      noValidate
+      class="decoding-height-practice"
+      novalidate
       onSubmit={(event) => {
         event.preventDefault();
         setChecked(true);
@@ -36,64 +51,66 @@ export default function BmpHeightPractice({ bytes }: { bytes: readonly number[] 
       <fieldset>
         <legend>点选高度的第一格</legend>
         <ByteTable
-          bytes={bytes.slice(0, BMP_PROFILE.pixelOffset)}
-          label="文件头字节，行首加列号是字节编号"
+          bytes={props.bytes.slice(0, BMP_PROFILE.pixelOffset)}
+          fieldStart={start() ?? undefined}
           headerLength={BMP_PROFILE.pixelOffset}
-          fieldStart={start ?? undefined}
+          label="文件头字节，行首加列号是字节编号"
           onPickStart={(offset) => {
             setStart(offset);
             setChecked(false);
           }}
         />
       </fieldset>
-      <p className="decoding-height-selection" aria-live="polite">
-        {start === null ? (
-          "选中后，这里会列出连续四个字节。"
-        ) : (
-          <>
-            已选{" "}
-            <code>
-              #{start}–{start + 3}
-            </code>
-            ，从低位到高位是 <code>[{selected.join(", ")}]</code>。
-          </>
-        )}
+      <p aria-live="polite" class="decoding-height-selection">
+        <Show fallback="选中后，这里会列出连续四个字节。" when={start() !== null}>
+          已选{" "}
+          <code>
+            #{start()}–{start()! + 3}
+          </code>
+          ，从低位到高位是 <code>[{selected().join(", ")}]</code>。
+        </Show>
       </p>
-      <div className="decoding-height-answer">
+      <div class="decoding-height-answer">
         <label>
           图像高度
           <input
-            aria-describedby={numberError ? feedbackId : undefined}
-            aria-invalid={numberError}
-            autoComplete="off"
-            inputMode="numeric"
-            maxLength={10}
+            aria-describedby={numberError() ? feedbackId : undefined}
+            aria-invalid={numberError() ? "true" : "false"}
+            autocomplete="off"
+            inputmode="numeric"
+            maxlength={10}
             name="height"
-            onChange={(event) => {
-              setAnswer(event.target.value);
-              setChecked(false);
-            }}
+            onChange={(event) => handleAnswer(event.currentTarget.value)}
+            onInput={(event) => handleAnswer(event.currentTarget.value)}
             pattern="[0-9]+"
             required
             type="text"
-            value={answer}
+            value={answer()}
           />
           行
         </label>
-        <button className="button button-secondary" type="submit">
+        <Button class="button button-secondary" type="submit">
           核对读数
-        </button>
+        </Button>
       </div>
-      <p id={feedbackId} role="status" className="decoding-height-feedback" data-result={result}>
-        {result === "correct" ? (
-          <>
-            读对了。
-            <MathFormula>{`${terms.join(" + ")} = ${Number(answer)}`}</MathFormula>
-            。解码器要还原 {Number(answer)} 行像素。
-          </>
-        ) : result ? (
-          hints[result]
-        ) : null}
+      <p
+        class="decoding-height-feedback"
+        data-result={result() ?? undefined}
+        id={feedbackId}
+        role="status"
+      >
+        <Show when={result()}>
+          {(r) => (
+            <Show
+              fallback={hints[r() as Exclude<HeightReadingResult, "correct">]}
+              when={r() === "correct"}
+            >
+              读对了。
+              <MathFormula>{formula()}</MathFormula>
+              。解码器要还原 {Number(answer())} 行像素。
+            </Show>
+          )}
+        </Show>
       </p>
     </form>
   );

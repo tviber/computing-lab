@@ -1,5 +1,6 @@
-import { useEffect, useRef } from "react";
-import { api } from "../api/client";
+import { useLabRuntime } from "./runtime";
+import { createEffect, createMemo, untrack } from "solid-js";
+
 import type { SaveStatusByStage } from "./saveStatus";
 
 const AUTOSAVE_DELAY_MS = 1500;
@@ -14,8 +15,8 @@ type DraftSaveResponse = {
   componentsRevision?: number;
 };
 
-export function useAutosaveDraft<TDraft>(options: {
-  classId: string | undefined;
+export type AutosaveDraftOptions<TDraft> = {
+  scopeId: string | undefined;
   labId: string;
   saveStatus: string;
   stageIndex: number;
@@ -40,68 +41,60 @@ export function useAutosaveDraft<TDraft>(options: {
   ) => void;
   onError: (stageIndex: number) => void;
   onConflict?: (stageIndex: number) => void;
-}): void {
-  const { classId, labId, saveStatus, stageIndex, deps = [], resetVersion = 0 } = options;
-  const timers = useRef(new Map<number, ReturnType<typeof setTimeout>>());
-  const latestArm = useRef(new Map<number, number>());
-  const queuedArm = useRef(new Map<number, number>());
-  const inFlight = useRef(new Set<number>());
-  const requests = useRef(new Map<number, Promise<void>>());
-  const failedStages = useRef(new Set<number>());
-  const appliedRev = useRef(new Map<number, number>());
-  const appliedGeneration = useRef(0);
-  const appliedComponentsRev = useRef(0);
+};
+
+export function useAutosaveDraft<TDraft>(getOptions: () => AutosaveDraftOptions<TDraft>): void {
+  const { transport } = useLabRuntime();
+  const timers = new Map<number, ReturnType<typeof setTimeout>>();
+  const latestArm = new Map<number, number>();
+  const queuedArm = new Map<number, number>();
+  const inFlight = new Set<number>();
+  const requests = new Map<number, Promise<void>>();
+  const failedStages = new Set<number>();
+  const appliedRev = new Map<number, number>();
+  let appliedGeneration = 0;
+  let appliedComponentsRev = 0;
   // Project-wide fence on the shared library: a refused component-carrying
   // write blocks EVERY later component-carrying send until the lesson
   // state resyncs both the library snapshot and its revision (the reported
   // counter is the resync target, not an adopted revision).
-  const componentsFenceRev = useRef<number | null>(null);
-  const componentsInFlight = useRef(false);
-  const conflicted = useRef(new Set<number>());
-  const armSeq = useRef(0);
-  // The request body and expectedRevision are built when a request sends,
-  // not when it armed — reads always go through the latest committed options.
-  const latestOptions = useRef(options);
-  // Which classId the lesson state on screen belongs to. On a class switch
-  // the first render still carries the previous class's save flags — arming
-  // then would PUT a stale snapshot under the new class. The cleanup effect
-  // below re-points this ref right after the arm effect re-runs on that
-  // commit (creates run in declaration order), so only dirty flags raised
-  // under the new state arm saves.
-  const armedClass = useRef(classId);
-  const generation = useRef(0);
+  let componentsFenceRev: number | null = null;
+  let componentsInFlight = false;
+  const conflicted = new Set<number>();
+  let armSeq = 0;
+  // Which scopeId the lesson state on screen belongs to. On a class switch
+  // the first update still carries the previous class's save flags — arming
+  // then would PUT a stale snapshot under the new class. The lifecycle effect
+  // below re-points this variable right after the arm effect runs, so only
+  // dirty flags raised under the new state arm saves.
+  let armedClass = untrack(() => getOptions().scopeId);
+  let generation = 0;
+  const armDraft = new Map<number, { stage: number; draft: TDraft }>();
 
-  useEffect(() => {
-    latestOptions.current = options;
-  });
-
-  const armDraft = useRef(new Map<number, { stage: number; draft: TDraft }>());
+  const latestOptions = () => untrack(getOptions);
 
   const flushQueuedArms = () => {
-    for (const [queuedStage, queued] of [...queuedArm.current]) {
-      if (inFlight.current.has(queuedStage)) continue;
-      const armClass = armedClass.current;
+    for (const [queuedStage, queued] of [...queuedArm]) {
+      if (inFlight.has(queuedStage)) continue;
+      const armClass = armedClass;
       if (armClass === undefined) continue;
-      queuedArm.current.delete(queuedStage);
+      queuedArm.delete(queuedStage);
       sendNow(queuedStage, queued, armClass);
     }
   };
 
   const sendNow = (stage: number, arm: number, armClass: string) => {
-    const opts = latestOptions.current;
-    const entry = armDraft.current.get(arm);
+    const opts = latestOptions();
+    const entry = armDraft.get(arm);
     if (!entry || entry.stage !== stage) return;
     const draft = entry.draft;
     if (opts.holdSend?.(stage, draft)) {
-      const prev = queuedArm.current.get(stage);
-      if (prev !== undefined && prev !== arm) armDraft.current.delete(prev);
-      queuedArm.current.set(stage, arm);
+      const prev = queuedArm.get(stage);
+      if (prev !== undefined && prev !== arm) armDraft.delete(prev);
+      queuedArm.set(stage, arm);
       return;
     }
-    const expectedRevision = Math.max(
-      appliedRev.current.get(stage) ?? 0,
-      opts.expectedRevisionOf(stage),
-    );
+    const expectedRevision = Math.max(appliedRev.get(stage) ?? 0, opts.expectedRevisionOf(stage));
     const body = {
       ...(opts.bodyFor ? opts.bodyFor(stage, draft) : { stageIndex: stage, draft }),
       expectedRevision,
@@ -113,43 +106,42 @@ export function useAutosaveDraft<TDraft>(options: {
     let sentComponentsSeq: number | undefined;
     if (carriesComponents && opts.expectedComponentsRevisionOf) {
       body.expectedComponentsRevision = Math.max(
-        appliedComponentsRev.current,
+        appliedComponentsRev,
         opts.expectedComponentsRevisionOf(),
       );
       sentComponentsSeq = opts.componentsSeqOf?.();
-      const fenceRev = componentsFenceRev.current;
-      if (fenceRev !== null && opts.expectedComponentsRevisionOf() < fenceRev) {
-        const prev = queuedArm.current.get(stage);
-        if (prev !== undefined && prev !== arm) armDraft.current.delete(prev);
-        queuedArm.current.set(stage, arm);
+      if (componentsFenceRev !== null && opts.expectedComponentsRevisionOf() < componentsFenceRev) {
+        const prev = queuedArm.get(stage);
+        if (prev !== undefined && prev !== arm) armDraft.delete(prev);
+        queuedArm.set(stage, arm);
         return;
       }
-      if (componentsInFlight.current) {
-        const prev = queuedArm.current.get(stage);
-        if (prev !== undefined && prev !== arm) armDraft.current.delete(prev);
-        queuedArm.current.set(stage, arm);
+      if (componentsInFlight) {
+        const prev = queuedArm.get(stage);
+        if (prev !== undefined && prev !== arm) armDraft.delete(prev);
+        queuedArm.set(stage, arm);
         return;
       }
-      componentsInFlight.current = true;
+      componentsInFlight = true;
     }
-    const gen = generation.current;
-    inFlight.current.add(stage);
+    const gen = generation;
+    inFlight.add(stage);
     opts.onSaving(stage);
-    const request = api
-      .put<DraftSaveResponse>(`/api/classes/${armClass}/labs/${labId}/draft`, body)
+    const request = transport
+      .save<DraftSaveResponse>(armClass, opts.labId, body)
       .then((result) => {
-        if (generation.current !== gen) return;
-        inFlight.current.delete(stage);
-        armDraft.current.delete(arm);
-        if (carriesComponents) componentsInFlight.current = false;
+        if (generation !== gen) return;
+        inFlight.delete(stage);
+        armDraft.delete(arm);
+        if (carriesComponents) componentsInFlight = false;
         const rev = typeof result?.revision === "number" ? result.revision : undefined;
         if (rev !== undefined) {
-          appliedRev.current.set(stage, Math.max(appliedRev.current.get(stage) ?? 0, rev));
+          appliedRev.set(stage, Math.max(appliedRev.get(stage) ?? 0, rev));
         }
         const genNum =
           typeof result?.projectGeneration === "number" ? result.projectGeneration : undefined;
         if (genNum !== undefined) {
-          appliedGeneration.current = Math.max(appliedGeneration.current, genNum);
+          appliedGeneration = Math.max(appliedGeneration, genNum);
         }
         const componentsRev =
           typeof result?.componentsRevision === "number" ? result.componentsRevision : undefined;
@@ -159,145 +151,166 @@ export function useAutosaveDraft<TDraft>(options: {
         // the fence below holds every component send until the reconcile
         // lands both the library and its revision.
         if (componentsRev !== undefined && result?.applied !== false) {
-          appliedComponentsRev.current = Math.max(appliedComponentsRev.current, componentsRev);
+          appliedComponentsRev = Math.max(appliedComponentsRev, componentsRev);
         }
-        // The server refused the write — it already holds a newer draft
-        // from elsewhere. Fence the stage BEFORE touching the queue: a
-        // queued or still-debouncing arm would resend with the reconciled
-        // expectedRevision on content that predates it and silently
-        // overwrite the winning write. Kill every pending path for the
-        // stage (their snapshots are dead), then report the conflict — even
-        // when a newer local arm exists, since the bypassed-write window is
-        // exactly what must never stay silent.
         if (result?.applied === false) {
-          failedStages.current.add(stage);
+          failedStages.add(stage);
           if (componentsRev !== undefined) {
-            componentsFenceRev.current = Math.max(componentsFenceRev.current ?? 0, componentsRev);
+            componentsFenceRev = Math.max(componentsFenceRev ?? 0, componentsRev);
           }
-          conflicted.current.add(stage);
-          const pendingTimer = timers.current.get(stage);
+          conflicted.add(stage);
+          const pendingTimer = timers.get(stage);
           if (pendingTimer !== undefined) {
             clearTimeout(pendingTimer);
-            timers.current.delete(stage);
+            timers.delete(stage);
           }
-          const pendingArm = latestArm.current.get(stage);
-          if (pendingArm !== undefined) armDraft.current.delete(pendingArm);
-          latestArm.current.delete(stage);
-          const queued = queuedArm.current.get(stage);
+          const pendingArm = latestArm.get(stage);
+          if (pendingArm !== undefined) armDraft.delete(pendingArm);
+          latestArm.delete(stage);
+          const queued = queuedArm.get(stage);
           if (queued !== undefined) {
-            queuedArm.current.delete(stage);
-            armDraft.current.delete(queued);
+            queuedArm.delete(stage);
+            armDraft.delete(queued);
           }
           flushQueuedArms();
-          opts.onConflict?.(stage);
+          latestOptions().onConflict?.(stage);
           return;
         }
-        failedStages.current.delete(stage);
+        failedStages.delete(stage);
         flushQueuedArms();
-        if (latestArm.current.get(stage) !== arm) return;
-        opts.onSaved(stage, rev, componentsRev, sentComponentsSeq);
+        if (latestArm.get(stage) !== arm) return;
+        latestOptions().onSaved(stage, rev, componentsRev, sentComponentsSeq);
       })
       .catch(() => {
-        if (generation.current !== gen) return;
-        failedStages.current.add(stage);
-        inFlight.current.delete(stage);
-        armDraft.current.delete(arm);
-        if (carriesComponents) componentsInFlight.current = false;
+        if (generation !== gen) return;
+        failedStages.add(stage);
+        inFlight.delete(stage);
+        armDraft.delete(arm);
+        if (carriesComponents) componentsInFlight = false;
         flushQueuedArms();
-        if (latestArm.current.get(stage) === arm) opts.onError(stage);
+        if (latestArm.get(stage) === arm) latestOptions().onError(stage);
       })
       .finally(() => {
-        if (requests.current.get(stage) === request) requests.current.delete(stage);
+        if (requests.get(stage) === request) requests.delete(stage);
       });
-    requests.current.set(stage, request);
+    requests.set(stage, request);
   };
 
-  useEffect(() => {
-    if (armedClass.current !== classId || !classId) return;
-    const saveStatuses = latestOptions.current.saveStatuses;
-    const backgroundDirty = saveStatuses
-      ? Object.keys(saveStatuses)
-          .map(Number)
-          .filter((stage) => saveStatuses[stage] === "dirty")
-      : (latestOptions.current.dirtyStages ?? []);
-    const stages = [
-      ...(saveStatus === "dirty" ? [stageIndex] : []),
-      ...backgroundDirty.filter((s) => s !== stageIndex),
-    ];
-    for (const stage of stages) {
-      if (conflicted.current.has(stage)) {
-        const revFenced =
-          latestOptions.current.expectedRevisionOf(stage) < (appliedRev.current.get(stage) ?? 0);
-        const genFenced =
-          (latestOptions.current.expectedGeneration ?? 0) < appliedGeneration.current;
-        if (revFenced || genFenced) continue;
-        conflicted.current.delete(stage);
+  // Effect 1: Arm timers when dirty flags or deps change, and reconcile fences/queues.
+  createEffect(
+    () => {
+      const opts = getOptions();
+      // Read deps and status collections so Solid tracks changes cleanly.
+      const depsSnapshot = opts.deps ? [...opts.deps] : [];
+      const saveStatusesSnapshot = opts.saveStatuses ? { ...opts.saveStatuses } : undefined;
+      const dirtyStagesSnapshot = opts.dirtyStages ? [...opts.dirtyStages] : undefined;
+      const componentsRev = opts.expectedComponentsRevisionOf?.();
+      return {
+        scopeId: opts.scopeId,
+        labId: opts.labId,
+        saveStatus: opts.saveStatus,
+        stageIndex: opts.stageIndex,
+        expectedGeneration: opts.expectedGeneration,
+        saveStatuses: saveStatusesSnapshot,
+        dirtyStages: dirtyStagesSnapshot,
+        deps: depsSnapshot,
+        componentsRev,
+      };
+    },
+    (snap) => {
+      const opts = latestOptions();
+      for (const stage of failedStages) {
+        if (snap.saveStatuses?.[stage] === "saved") failedStages.delete(stage);
       }
-      const draft = latestOptions.current.draftOf(stage);
-      if (draft === undefined) continue;
-      const pendingArm = latestArm.current.get(stage);
-      const pendingTimer = timers.current.get(stage);
-      if (pendingArm !== undefined && armDraft.current.get(pendingArm)?.draft === draft) {
-        continue;
+      if (componentsFenceRev !== null && (snap.componentsRev ?? 0) >= componentsFenceRev) {
+        componentsFenceRev = null;
       }
-      const arm = ++armSeq.current;
-      latestArm.current.set(stage, arm);
-      armDraft.current.set(arm, { stage, draft });
-      if (pendingTimer) {
-        clearTimeout(pendingTimer);
-        if (pendingArm !== undefined) armDraft.current.delete(pendingArm);
-      }
-      const supersededQueued = queuedArm.current.get(stage);
-      if (supersededQueued !== undefined) {
-        queuedArm.current.delete(stage);
-        armDraft.current.delete(supersededQueued);
-      }
-      const timer = setTimeout(() => {
-        timers.current.delete(stage);
-        if (inFlight.current.has(stage)) {
-          const prev = queuedArm.current.get(stage);
-          if (prev !== undefined && prev !== arm) armDraft.current.delete(prev);
-          queuedArm.current.set(stage, arm);
-          return;
-        }
-        sendNow(stage, arm, classId);
-      }, AUTOSAVE_DELAY_MS);
-      timers.current.set(stage, timer);
-    }
-  }, [saveStatus, stageIndex, classId, labId, ...deps]);
+      flushQueuedArms();
 
-  useEffect(() => {
-    const target = options.flushPreservedDrafts;
+      if (armedClass !== snap.scopeId || !snap.scopeId) return;
+      const backgroundDirty = snap.saveStatuses
+        ? Object.keys(snap.saveStatuses)
+            .map(Number)
+            .filter((stage) => snap.saveStatuses?.[stage] === "dirty")
+        : (snap.dirtyStages ?? []);
+      const stages = [
+        ...(snap.saveStatus === "dirty" ? [snap.stageIndex] : []),
+        ...backgroundDirty.filter((s) => s !== snap.stageIndex),
+      ];
+      for (const stage of stages) {
+        if (conflicted.has(stage)) {
+          const revFenced =
+            untrack(() => opts.expectedRevisionOf(stage)) < (appliedRev.get(stage) ?? 0);
+          const genFenced = (opts.expectedGeneration ?? 0) < appliedGeneration;
+          if (revFenced || genFenced) continue;
+          conflicted.delete(stage);
+        }
+        const draft = untrack(() => opts.draftOf(stage));
+        if (draft === undefined) continue;
+        const pendingArm = latestArm.get(stage);
+        const pendingTimer = timers.get(stage);
+        if (pendingArm !== undefined && armDraft.get(pendingArm)?.draft === draft) {
+          continue;
+        }
+        const arm = ++armSeq;
+        latestArm.set(stage, arm);
+        armDraft.set(arm, { stage, draft });
+        if (pendingTimer) {
+          clearTimeout(pendingTimer);
+          if (pendingArm !== undefined) armDraft.delete(pendingArm);
+        }
+        const supersededQueued = queuedArm.get(stage);
+        if (supersededQueued !== undefined) {
+          queuedArm.delete(stage);
+          armDraft.delete(supersededQueued);
+        }
+        const scopeIdAtArm = snap.scopeId;
+        const timer = setTimeout(() => {
+          timers.delete(stage);
+          if (inFlight.has(stage)) {
+            const prev = queuedArm.get(stage);
+            if (prev !== undefined && prev !== arm) armDraft.delete(prev);
+            queuedArm.set(stage, arm);
+            return;
+          }
+          sendNow(stage, arm, scopeIdAtArm);
+        }, AUTOSAVE_DELAY_MS);
+        timers.set(stage, timer);
+      }
+    },
+  );
+
+  // Effect 2: Expose flushPreservedDrafts handler on the caller's ref box.
+  const flushTarget = createMemo(() => getOptions().flushPreservedDrafts);
+  createEffect(flushTarget, (target) => {
     if (!target) return;
     target.current = async (preservesStage) => {
-      const startGeneration = generation.current;
-      const armClass = armedClass.current;
+      const startGeneration = generation;
+      const armClass = armedClass;
       if (armClass === undefined) return false;
-      const failed = () => [...failedStages.current].some(preservesStage);
-      const unsynced = Object.entries(latestOptions.current.saveStatuses ?? {}).some(
+      const failed = () => [...failedStages].some(preservesStage);
+      const unsynced = Object.entries(latestOptions().saveStatuses ?? {}).some(
         ([stage, status]) =>
           preservesStage(Number(stage)) &&
           ["error", "conflict", "sync-error"].includes(status ?? ""),
       );
       if (unsynced) return false;
 
-      while (generation.current === startGeneration) {
-        for (const [stage, timer] of timers.current) {
+      while (generation === startGeneration) {
+        for (const [stage, timer] of timers) {
           if (!preservesStage(stage)) continue;
-          const arm = latestArm.current.get(stage);
+          const arm = latestArm.get(stage);
           if (arm === undefined) continue;
           clearTimeout(timer);
-          timers.current.delete(stage);
-          queuedArm.current.set(stage, arm);
+          timers.delete(stage);
+          queuedArm.set(stage, arm);
         }
         flushQueuedArms();
-        const pending = [...requests.current].filter(([stage]) => preservesStage(stage));
-        const queued = [...queuedArm.current.keys()].some(preservesStage);
+        const pending = [...requests].filter(([stage]) => preservesStage(stage));
+        const queued = [...queuedArm.keys()].some(preservesStage);
         if (pending.length === 0 && !queued) return !failed();
         const waiting =
-          pending.length > 0
-            ? pending.map(([, request]) => request)
-            : [...requests.current.values()];
+          pending.length > 0 ? pending.map(([, request]) => request) : [...requests.values()];
         if (waiting.length === 0) return false;
         await Promise.all(waiting);
       }
@@ -308,49 +321,30 @@ export function useAutosaveDraft<TDraft>(options: {
     };
   });
 
-  useEffect(() => {
-    for (const stage of failedStages.current) {
-      if (options.saveStatuses?.[stage] === "saved") failedStages.current.delete(stage);
-    }
-    const fenceRev = componentsFenceRev.current;
-    if (
-      fenceRev !== null &&
-      (latestOptions.current.expectedComponentsRevisionOf?.() ?? 0) >= fenceRev
-    ) {
-      componentsFenceRev.current = null;
-    }
-    flushQueuedArms();
+  // Effect 3: Class / reset lifecycle — runs AFTER Effect 1 so stale dirty
+  // flags surviving a class switch never arm against the new scopeId.
+  const lifecycleKey = createMemo(() => {
+    const opts = getOptions();
+    return `${opts.scopeId ?? "\0"}\0${opts.resetVersion ?? 0}`;
   });
-
-  useEffect(() => {
-    armedClass.current = classId;
-    const pending = timers.current;
-    const arms = latestArm.current;
-    const queued = queuedArm.current;
-    const flying = inFlight.current;
-    const applied = appliedRev.current;
-    const appliedGen = appliedGeneration;
-    const appliedComponents = appliedComponentsRev;
-    const componentsFence = componentsFenceRev;
-    const componentsFlying = componentsInFlight;
-    const fenced = conflicted.current;
-    const gen = generation;
+  createEffect(lifecycleKey, () => {
+    armedClass = latestOptions().scopeId;
     return () => {
-      gen.current += 1;
-      for (const t of pending.values()) clearTimeout(t);
-      pending.clear();
-      arms.clear();
-      queued.clear();
-      flying.clear();
-      requests.current.clear();
-      failedStages.current.clear();
-      applied.clear();
-      appliedGen.current = 0;
-      appliedComponents.current = 0;
-      componentsFence.current = null;
-      componentsFlying.current = false;
-      fenced.clear();
-      armDraft.current.clear();
+      generation += 1;
+      for (const t of timers.values()) clearTimeout(t);
+      timers.clear();
+      latestArm.clear();
+      queuedArm.clear();
+      inFlight.clear();
+      requests.clear();
+      failedStages.clear();
+      appliedRev.clear();
+      appliedGeneration = 0;
+      appliedComponentsRev = 0;
+      componentsFenceRev = null;
+      componentsInFlight = false;
+      conflicted.clear();
+      armDraft.clear();
     };
-  }, [classId, resetVersion]);
+  });
 }

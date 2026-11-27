@@ -27,7 +27,7 @@ import {
 import { getStage, nextMainlineStage, stagePrerequisites, type StageDef } from "../domain/stages";
 import { publicCasesFor } from "./publicCases";
 
-export type { SaveStatus } from "../../../shared/api/client";
+export type { SaveStatus } from "../../../shared/lab/contracts";
 import {
   markSaveStatus,
   markSyncConflict,

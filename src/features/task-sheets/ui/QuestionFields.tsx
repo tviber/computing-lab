@@ -6,6 +6,7 @@
  * behind an explicit `showAnswers` flag.
  */
 
+import { createMemo, For, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import type { AnswerValue } from "../domain/grade";
 import { splitPromptBlanks, type PublicQuestion } from "../domain/schema";
@@ -26,15 +27,7 @@ function choiceGrading(g: PublicGrading | undefined) {
   return g?.type === "choice" ? g : undefined;
 }
 
-export function QuestionAnswer({
-  q,
-  index,
-  value,
-  onChange,
-  grading,
-  review,
-  readOnly,
-}: {
+export function QuestionAnswer(props: {
   q: PublicQuestion;
   index: number;
   value: AnswerValue | undefined;
@@ -43,143 +36,187 @@ export function QuestionAnswer({
   review?: { score?: number; comment?: string };
   readOnly?: boolean;
 }) {
-  const max = q.type === "short" ? q.maxScore : q.score;
-  const shownScore = review?.score ?? grading?.score;
-  const hasScore = grading !== undefined || review?.score !== undefined;
-  const cloze = q.type === "fill" ? splitPromptBlanks(q.prompt) : null;
-  const hasCloze = cloze !== null && cloze.some((s) => s.type === "blank");
+  const max = createMemo(() => (props.q.type === "short" ? props.q.maxScore : props.q.score));
+  const shownScore = createMemo(() => props.review?.score ?? props.grading?.score);
+  const hasScore = createMemo(
+    () => props.grading !== undefined || props.review?.score !== undefined,
+  );
+  const fillQ = createMemo(() => (props.q.type === "fill" ? props.q : null));
+  const choiceQ = createMemo(() => (props.q.type === "choice" ? props.q : null));
+  const cloze = createMemo(() => {
+    const q = fillQ();
+    return q ? splitPromptBlanks(q.prompt) : null;
+  });
+  const hasCloze = createMemo(() => {
+    const segments = cloze();
+    return segments !== null && segments.some((s) => s.type === "blank");
+  });
+
   return (
-    <section className="ts-answer-card" aria-label={`第 ${index + 1} 题`}>
-      <header className="ts-answer-head">
-        <span className="ts-card-index">Q{index + 1}</span>
-        <p className="ts-answer-prompt">
-          {hasCloze ? "" : q.prompt}
-          {q.required ? <span className="ts-required"> *</span> : null}
+    <section aria-label={`第 ${props.index + 1} 题`} class="ts-answer-card">
+      <header class="ts-answer-head">
+        <span class="ts-card-index">Q{props.index + 1}</span>
+        <p class="ts-answer-prompt">
+          {hasCloze() ? "" : props.q.prompt}
+          <Show when={props.q.required}>
+            <span class="ts-required"> *</span>
+          </Show>
         </p>
-        <span className="ts-answer-max">{max} 分</span>
-        {hasScore ? (
+        <span class="ts-answer-max">{max()} 分</span>
+        <Show when={hasScore()}>
           <span
-            className={`ts-answer-score${shownScore !== null && shownScore !== undefined && shownScore >= max ? " is-full" : ""}`}
+            class={`ts-answer-score${shownScore() !== null && shownScore() !== undefined && shownScore()! >= max() ? " is-full" : ""}`}
           >
-            {shownScore ?? "待批"}/{max}
+            {shownScore() ?? "待批"}/{max()}
           </span>
-        ) : null}
+        </Show>
       </header>
 
-      {q.type === "fill" && hasCloze ? (
-        <p className="ts-cloze">
-          {cloze.map((seg, i) => {
-            if (seg.type === "text") return <span key={i}>{seg.text}</span>;
-            const blank = q.blanks[seg.index];
-            if (!blank) return null;
-            const mark = fillGrading(grading)?.blanks?.[blank.id];
-            return (
-              <span className="ts-cloze-slot" key={blank.id}>
-                <input
-                  aria-label={`空 ${seg.index + 1}`}
-                  className={`ts-blank-inline${mark ? (mark.correct ? " is-right" : " is-wrong") : ""}`}
-                  disabled={readOnly}
-                  onChange={(e) =>
-                    onChange?.({
-                      type: "fill",
-                      blanks: {
-                        ...(value?.type === "fill" ? value.blanks : {}),
-                        [blank.id]: e.target.value,
-                      },
-                    })
-                  }
-                  value={value?.type === "fill" ? (value.blanks[blank.id] ?? "") : ""}
-                />
-                {mark ? (
-                  <span className={`ts-blank-mark${mark.correct ? " is-right" : " is-wrong"}`}>
-                    <Icon name={mark.correct ? "check" : "x"} size={12} />
-                  </span>
-                ) : null}
-              </span>
-            );
-          })}
-        </p>
-      ) : null}
+      <Show when={hasCloze() ? fillQ() : null}>
+        {(q) => (
+          <p class="ts-cloze">
+            <For each={cloze() ?? []}>
+              {(seg) => {
+                if (seg.type === "text") return <span>{seg.text}</span>;
+                const blank = () => q().blanks[seg.index];
+                return (
+                  <Show when={blank()}>
+                    {(b) => {
+                      const mark = () => fillGrading(props.grading)?.blanks?.[b().id];
+                      return (
+                        <span class="ts-cloze-slot">
+                          <input
+                            aria-label={`空 ${seg.index + 1}`}
+                            class={`ts-blank-inline${mark() ? (mark()!.correct ? " is-right" : " is-wrong") : ""}`}
+                            disabled={props.readOnly}
+                            onInput={(e) =>
+                              props.onChange?.({
+                                type: "fill",
+                                blanks: {
+                                  ...(props.value?.type === "fill" ? props.value.blanks : {}),
+                                  [b().id]: e.currentTarget.value,
+                                },
+                              })
+                            }
+                            value={
+                              props.value?.type === "fill" ? (props.value.blanks[b().id] ?? "") : ""
+                            }
+                          />
+                          <Show when={mark()}>
+                            {(m) => (
+                              <span
+                                class={`ts-blank-mark${m().correct ? " is-right" : " is-wrong"}`}
+                              >
+                                <Icon name={m().correct ? "check" : "x"} size={12} />
+                              </span>
+                            )}
+                          </Show>
+                        </span>
+                      );
+                    }}
+                  </Show>
+                );
+              }}
+            </For>
+          </p>
+        )}
+      </Show>
 
-      {q.type === "fill" && !hasCloze ? (
-        <div className="ts-answer-blanks">
-          {q.blanks.map((blank, i) => {
-            const mark = fillGrading(grading)?.blanks?.[blank.id];
-            return (
-              <label
-                className={`ts-answer-blank${mark ? (mark.correct ? " is-right" : " is-wrong") : ""}`}
-                key={blank.id}
-              >
-                <span>空 {i + 1}</span>
-                <input
-                  disabled={readOnly}
-                  onChange={(e) =>
-                    onChange?.({
-                      type: "fill",
-                      blanks: {
-                        ...(value?.type === "fill" ? value.blanks : {}),
-                        [blank.id]: e.target.value,
-                      },
-                    })
-                  }
-                  value={value?.type === "fill" ? (value.blanks[blank.id] ?? "") : ""}
-                />
-                {mark ? (
-                  <span className={`ts-blank-mark${mark.correct ? " is-right" : " is-wrong"}`}>
-                    <Icon name={mark.correct ? "check" : "x"} size={13} />
-                  </span>
-                ) : null}
-              </label>
-            );
-          })}
-        </div>
-      ) : null}
+      <Show when={!hasCloze() ? fillQ() : null}>
+        {(q) => (
+          <div class="ts-answer-blanks">
+            <For each={q().blanks}>
+              {(blank, i) => {
+                const mark = () => fillGrading(props.grading)?.blanks?.[blank.id];
+                return (
+                  <label
+                    class={`ts-answer-blank${mark() ? (mark()!.correct ? " is-right" : " is-wrong") : ""}`}
+                  >
+                    <span>空 {i() + 1}</span>
+                    <input
+                      disabled={props.readOnly}
+                      onInput={(e) =>
+                        props.onChange?.({
+                          type: "fill",
+                          blanks: {
+                            ...(props.value?.type === "fill" ? props.value.blanks : {}),
+                            [blank.id]: e.currentTarget.value,
+                          },
+                        })
+                      }
+                      value={
+                        props.value?.type === "fill" ? (props.value.blanks[blank.id] ?? "") : ""
+                      }
+                    />
+                    <Show when={mark()}>
+                      {(m) => (
+                        <span class={`ts-blank-mark${m().correct ? " is-right" : " is-wrong"}`}>
+                          <Icon name={m().correct ? "check" : "x"} size={13} />
+                        </span>
+                      )}
+                    </Show>
+                  </label>
+                );
+              }}
+            </For>
+          </div>
+        )}
+      </Show>
 
-      {q.type === "choice" ? (
-        <div className="ts-answer-options">
-          {q.options.map((opt) => {
-            const selected = value?.type === "choice" ? value.optionIds.includes(opt.id) : false;
-            return (
-              <label className={`ts-answer-option${selected ? " is-selected" : ""}`} key={opt.id}>
-                <input
-                  checked={selected}
-                  disabled={readOnly}
-                  name={q.multiple ? undefined : `ans-${q.id}`}
-                  onChange={(e) => {
-                    const current = value?.type === "choice" ? value.optionIds : [];
-                    const next = q.multiple
-                      ? e.target.checked
-                        ? [...current, opt.id]
-                        : current.filter((id) => id !== opt.id)
-                      : [opt.id];
-                    onChange?.({ type: "choice", optionIds: next });
-                  }}
-                  type={q.multiple ? "checkbox" : "radio"}
-                />
-                <span>{opt.text}</span>
-              </label>
-            );
-          })}
-          {q.multiple ? <p className="ts-hint">多选题</p> : null}
-          {choiceGrading(grading)?.correct === false ? (
-            <p className="ts-hint ts-wrong">答案不正确</p>
-          ) : null}
-        </div>
-      ) : null}
+      <Show when={choiceQ()}>
+        {(q) => (
+          <div class="ts-answer-options">
+            <For each={q().options}>
+              {(opt) => {
+                const selected = () =>
+                  props.value?.type === "choice" ? props.value.optionIds.includes(opt.id) : false;
+                return (
+                  <label class={`ts-answer-option${selected() ? " is-selected" : ""}`}>
+                    <input
+                      checked={selected()}
+                      disabled={props.readOnly}
+                      name={q().multiple ? undefined : `ans-${q().id}`}
+                      onChange={(e) => {
+                        const current = props.value?.type === "choice" ? props.value.optionIds : [];
+                        const next = q().multiple
+                          ? e.currentTarget.checked
+                            ? [...current, opt.id]
+                            : current.filter((id) => id !== opt.id)
+                          : [opt.id];
+                        props.onChange?.({ type: "choice", optionIds: next });
+                      }}
+                      type={q().multiple ? "checkbox" : "radio"}
+                    />
+                    <span>{opt.text}</span>
+                  </label>
+                );
+              }}
+            </For>
+            <Show when={q().multiple}>
+              <p class="ts-hint">多选题</p>
+            </Show>
+            <Show when={choiceGrading(props.grading)?.correct === false}>
+              <p class="ts-hint ts-wrong">答案不正确</p>
+            </Show>
+          </div>
+        )}
+      </Show>
 
-      {q.type === "short" ? (
+      <Show when={props.q.type === "short"}>
         <textarea
-          aria-label={`第 ${index + 1} 题作答`}
-          className="ts-answer-text"
-          disabled={readOnly}
-          onChange={(e) => onChange?.({ type: "short", text: e.target.value })}
+          aria-label={`第 ${props.index + 1} 题作答`}
+          class="ts-answer-text"
+          disabled={props.readOnly}
+          onInput={(e) => props.onChange?.({ type: "short", text: e.currentTarget.value })}
           placeholder="输入你的回答…"
           rows={4}
-          value={value?.type === "short" ? value.text : ""}
+          value={props.value?.type === "short" ? props.value.text : ""}
         />
-      ) : null}
+      </Show>
 
-      {review?.comment ? <p className="ts-review-comment">老师评语：{review.comment}</p> : null}
+      <Show when={props.review?.comment}>
+        {(comment) => <p class="ts-review-comment">老师评语：{comment()}</p>}
+      </Show>
     </section>
   );
 }

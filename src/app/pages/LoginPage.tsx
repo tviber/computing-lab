@@ -1,29 +1,33 @@
-import { useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useNavigate } from "@solidjs/router";
+import { Button } from "@ui-sdk/solid/button";
+import { createEffect, createSignal, Show } from "solid-js";
 import { useAuth } from "../../shared/auth";
 import { describeApiError } from "../../shared/api/client";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import "./auth.css";
 
 export function LoginPage() {
-  const { status, login } = useAuth();
+  const auth = useAuth();
   const navigate = useNavigate();
-  const [studentNo, setStudentNo] = useState("");
-  const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
+  const [studentNo, setStudentNo] = createSignal("");
+  const [password, setPassword] = createSignal("");
+  const [error, setError] = createSignal<string | null>(null);
+  const [busy, setBusy] = createSignal(false);
 
-  useEffect(() => {
-    if (status === "authenticated") void navigate({ to: "/" });
-  }, [status, navigate]);
+  createEffect(
+    () => auth.status,
+    (status) => {
+      if (status === "authenticated") navigate("/");
+    },
+  );
 
-  const onSubmit = async (event: React.FormEvent) => {
+  const onSubmit = async (event: SubmitEvent) => {
     event.preventDefault();
     setError(null);
     setBusy(true);
     try {
-      await login({ studentNo, password });
-      await navigate({ to: "/" });
+      await auth.login({ studentNo: studentNo(), password: password() });
+      navigate("/");
     } catch (caught) {
       setError(describeApiError(caught));
     } finally {
@@ -32,47 +36,47 @@ export function LoginPage() {
   };
 
   return (
-    <AppPageLayout className="auth-page" topbarProps={{ showAccount: false }}>
-      <main className="auth-card" aria-labelledby="auth-title">
-        <p className="eyebrow">校内信息技术实验</p>
+    <AppPageLayout class="auth-page" topbarProps={{ showAccount: false }}>
+      <main aria-labelledby="auth-title" class="auth-card">
+        <p class="eyebrow">校内信息技术实验</p>
         <h1 id="auth-title">登录</h1>
 
-        <form className="auth-form" onSubmit={onSubmit}>
+        <form class="auth-form" onSubmit={(event) => void onSubmit(event)}>
           <label>
             学号
             <input
-              autoComplete="username"
+              autocomplete="username"
               name="studentNo"
-              onChange={(e) => setStudentNo(e.target.value)}
+              onInput={(e) => setStudentNo(e.currentTarget.value)}
               required
-              value={studentNo}
+              value={studentNo()}
             />
           </label>
 
           <label>
             密码
             <input
-              autoComplete="current-password"
+              autocomplete="current-password"
               name="password"
-              onChange={(e) => setPassword(e.target.value)}
+              onInput={(e) => setPassword(e.currentTarget.value)}
               required
               type="password"
-              value={password}
+              value={password()}
             />
           </label>
 
-          {error ? (
-            <p className="auth-error" role="alert">
-              {error}
+          <Show when={error()}>
+            <p class="auth-error" role="alert">
+              {error()}
             </p>
-          ) : null}
+          </Show>
 
-          <button className="button button-primary" disabled={busy} type="submit">
-            {busy ? "提交中…" : "登录"}
-          </button>
+          <Button class="button button-primary" disabled={busy()} type="submit">
+            {busy() ? "提交中…" : "登录"}
+          </Button>
         </form>
 
-        <p className="auth-note">账号由管理员统一开通，请使用下发的学号和初始密码登录。</p>
+        <p class="auth-note">账号由管理员统一开通，请使用下发的学号和初始密码登录。</p>
       </main>
     </AppPageLayout>
   );

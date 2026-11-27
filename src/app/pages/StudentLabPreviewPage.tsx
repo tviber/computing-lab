@@ -5,8 +5,17 @@
  * restores the student's real state.
  */
 
-import { useNavigate, useParams, useSearch } from "@tanstack/react-router";
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useParams, useSearchParams } from "@solidjs/router";
+import {
+  createEffect,
+  createMemo,
+  createSignal,
+  For,
+  Match,
+  Show,
+  Switch,
+  untrack,
+} from "solid-js";
 import { api, describeApiError } from "../../shared/api/client";
 import { useAuth } from "../../shared/auth";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
@@ -16,6 +25,7 @@ import { getStage } from "../../features/calculator/domain/stages";
 import {
   createCalculatorLessonState,
   transitionCalculatorLesson,
+  type CalculatorLessonAction,
 } from "../../features/calculator/lesson/state";
 import { CalculatorLabWorkspace } from "../../features/calculator/ui/CalculatorLabWorkspace";
 import { AnnotatedText } from "../../features/calculator/ui/CalculatorTerms";
@@ -63,80 +73,95 @@ type InspectTarget = { submission: SubmissionResponse["submission"]; graph: Circ
 const canvasUrl = (userId: string, revision: string) =>
   `/api/admin/users/${userId}/labs/calculator/canvas?revision=${revision}`;
 
+function firstParam(value: string | string[] | undefined): string | undefined {
+  return Array.isArray(value) ? value[0] : value;
+}
+
 function fmtTime(iso: string): string {
   return iso.slice(0, 16).replace("T", " ");
 }
 
-function InspectMeta({ submission }: { submission: InspectTarget["submission"] }) {
-  const categories = submission.testSummary?.categories ?? {};
+function InspectMeta(props: { submission: InspectTarget["submission"] }) {
+  const categories = createMemo(() =>
+    Object.entries(props.submission.testSummary?.categories ?? {}),
+  );
   return (
-    <section aria-label="提交快照信息" className="inspect-meta">
-      <p className="inspect-meta-head">
-        <strong className={submission.passed ? "is-pass" : "is-fail"}>
-          提交快照 · {submission.score}/{submission.total} · {submission.passed ? "通过" : "未通过"}
+    <section aria-label="提交快照信息" class="inspect-meta">
+      <p class="inspect-meta-head">
+        <strong class={props.submission.passed ? "is-pass" : "is-fail"}>
+          提交快照 · {props.submission.score}/{props.submission.total} ·{" "}
+          {props.submission.passed ? "通过" : "未通过"}
         </strong>
-        <span className="inspect-meta-time">提交于 {fmtTime(submission.submittedAt)}</span>
+        <span class="inspect-meta-time">提交于 {fmtTime(props.submission.submittedAt)}</span>
       </p>
-      {submission.testSummary?.error ? (
-        <p className="test-error">{submission.testSummary.error}</p>
-      ) : null}
-      {Object.keys(categories).length > 0 ? (
-        <ul className="drawer-categories">
-          {Object.entries(categories).map(([category, bucket]) => {
-            const ok = bucket.passed === bucket.total;
-            return (
-              <li className={ok ? "is-pass" : "is-fail"} key={category}>
-                <span>{category}</span>
-                <span className="drawer-category-score">
-                  {bucket.passed}/{bucket.total} <Icon name={ok ? "check" : "x"} size={13} />
-                </span>
-              </li>
-            );
-          })}
+      <Show when={props.submission.testSummary?.error}>
+        {(err) => <p class="test-error">{err()}</p>}
+      </Show>
+      <Show when={categories().length > 0}>
+        <ul class="drawer-categories">
+          <For each={categories()}>
+            {([category, bucket]) => {
+              const ok = bucket.passed === bucket.total;
+              return (
+                <li class={ok ? "is-pass" : "is-fail"}>
+                  <span>{category}</span>
+                  <span class="drawer-category-score">
+                    {bucket.passed}/{bucket.total} <Icon name={ok ? "check" : "x"} size={13} />
+                  </span>
+                </li>
+              );
+            }}
+          </For>
         </ul>
-      ) : null}
+      </Show>
     </section>
   );
 }
 
 export function StudentLabPreviewPage() {
-  const { classId, userId } = useParams({ strict: false }) as {
-    classId?: string;
-    userId?: string;
-  };
-  const search = useSearch({ strict: false }) as { stage?: number; submission?: string };
-  const navigate = useNavigate();
-  const { status, role } = useAuth();
-  const requestedStage = useMemo(() => {
-    const value = Number(search.stage);
+  const params = useParams<{ classId?: string; userId?: string }>();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const auth = useAuth();
+
+  const requestedStage = createMemo(() => {
+    const raw = firstParam(searchParams.stage);
+    if (!raw) return undefined;
+    const value = Number(raw);
     return Number.isInteger(value) ? value : undefined;
-  }, [search]);
-  const requestedSubmission =
-    typeof search.submission === "string" && search.submission !== ""
-      ? search.submission
-      : undefined;
+  });
+  const requestedSubmission = createMemo(() => {
+    const raw = firstParam(searchParams.submission);
+    return typeof raw === "string" && raw !== "" ? raw : undefined;
+  });
 
-  const [state, dispatch] = useReducer(transitionCalculatorLesson, undefined, () =>
-    createCalculatorLessonState(1),
-  );
-  const [student, setStudent] = useState<StudentRef | null>(null);
-  const [submissions, setSubmissions] = useState<SubmissionMeta[]>([]);
-  const [inspect, setInspect] = useState<InspectTarget | null>(null);
-  const [updatedAt, setUpdatedAt] = useState<string | null>(null);
-  const [projectLoaded, setProjectLoaded] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [state, setState] = createSignal(createCalculatorLessonState(1));
+  const dispatch = (action: CalculatorLessonAction) => {
+    setState((current) => transitionCalculatorLesson(current, action));
+  };
+  const [student, setStudent] = createSignal<StudentRef | null>(null);
+  const [submissions, setSubmissions] = createSignal<SubmissionMeta[]>([]);
+  const [inspect, setInspect] = createSignal<InspectTarget | null>(null);
+  const [updatedAt, setUpdatedAt] = createSignal<string | null>(null);
+  const [projectLoaded, setProjectLoaded] = createSignal(false);
+  const [loadError, setLoadError] = createSignal<string | null>(null);
 
-  const stage = getStage(state.stageIndex);
+  const stage = createMemo(() => getStage(state().stageIndex));
 
   // One-shot load: drafts + progress + submission index, plus the requested
   // submission snapshot when the URL names one (dashboard cell clicks land
   // straight on the judged snapshot).
-  useEffect(() => {
-    if (status !== "authenticated" || role !== "admin" || !userId) return;
+  const loadKey = createMemo(() =>
+    auth.status === "authenticated" && auth.role === "admin" && params.userId ? params.userId : "",
+  );
+
+  createEffect(loadKey, (userId) => {
+    if (!userId) return;
     let cancelled = false;
-    const detailRequest = requestedSubmission
+    const initialStage = untrack(requestedStage);
+    const initialSubmission = untrack(requestedSubmission);
+    const detailRequest = initialSubmission
       ? api.get<SubmissionResponse>(
-          `${canvasUrl(userId, "submission")}&submission=${requestedSubmission}`,
+          `${canvasUrl(userId, "submission")}&submission=${initialSubmission}`,
         )
       : Promise.resolve(null);
     void Promise.all([
@@ -165,7 +190,7 @@ export function StudentLabPreviewPage() {
           passedStages: bundle.passedStages,
           unlockedSubmodules: bundle.components,
           drafts,
-          stageIndex: requestedStage,
+          stageIndex: initialStage,
         });
         // A submission snapshot must open even when its stage sits off the
         // student's current unlock path (progress can be reset while
@@ -187,46 +212,45 @@ export function StudentLabPreviewPage() {
     return () => {
       cancelled = true;
     };
-    // URL params are read once on entry; later navigation is driven by the
-    // URL-sync effect below, not by refetching.
-  }, [status, role, userId]);
+  });
 
   // Leaving the inspected stage reverts to the live draft automatically —
   // a snapshot belongs to one stage only.
-  useEffect(() => {
-    if (inspect && inspect.submission.stageIndex !== state.stageIndex) setInspect(null);
-  }, [inspect, state.stageIndex]);
+  createEffect(
+    () => [inspect()?.submission.stageIndex, state().stageIndex] as const,
+    ([inspectStage, currentStage]) => {
+      if (inspectStage !== undefined && inspectStage !== currentStage) {
+        setInspect(null);
+      }
+    },
+  );
 
   // Keep ?stage= / ?submission= in step so refresh reopens the same view.
-  useEffect(() => {
-    if (!projectLoaded || !classId || !userId) return;
-    const stageParam = state.stageIndex === 1 ? undefined : state.stageIndex;
-    const submissionParam = inspect?.submission.id;
-    if ((requestedStage ?? 1) === state.stageIndex && requestedSubmission === submissionParam) {
-      return;
+  const urlSyncKey = createMemo(() => {
+    if (!projectLoaded() || !params.classId || !params.userId) return "";
+    const currentStage = state().stageIndex;
+    const submissionParam = inspect()?.submission.id;
+    if ((requestedStage() ?? 1) === currentStage && requestedSubmission() === submissionParam) {
+      return "";
     }
-    void navigate({
-      to: "/classes/$classId/students/$userId/labs/calculator",
-      params: { classId, userId },
-      search: (prev: Record<string, unknown>) => ({
-        ...prev,
-        stage: stageParam,
+    return `${currentStage === 1 ? "" : currentStage}\0${submissionParam ?? ""}`;
+  });
+
+  createEffect(urlSyncKey, (key) => {
+    if (!key) return;
+    const currentStage = untrack(() => state().stageIndex);
+    const submissionParam = untrack(() => inspect()?.submission.id);
+    setSearchParams(
+      {
+        stage: currentStage === 1 ? undefined : String(currentStage),
         submission: submissionParam,
-      }),
-      replace: true,
-    });
-  }, [
-    classId,
-    inspect,
-    navigate,
-    projectLoaded,
-    requestedStage,
-    requestedSubmission,
-    state.stageIndex,
-    userId,
-  ]);
+      },
+      { replace: true },
+    );
+  });
 
   const openSubmission = (submissionId: string) => {
+    const userId = params.userId;
     if (!userId) return;
     void api
       .get<SubmissionResponse>(`${canvasUrl(userId, "submission")}&submission=${submissionId}`)
@@ -235,7 +259,7 @@ export function StudentLabPreviewPage() {
           setLoadError("这份快照不是电路数据，无法在画布中预览。");
           return;
         }
-        if (detail.submission.stageIndex !== state.stageIndex) {
+        if (detail.submission.stageIndex !== state().stageIndex) {
           dispatch({
             type: "select-stage",
             stageIndex: detail.submission.stageIndex,
@@ -247,76 +271,94 @@ export function StudentLabPreviewPage() {
       .catch((caught) => setLoadError(describeApiError(caught)));
   };
 
-  const stageSubmissions = submissions.filter((s) => s.stageIndex === state.stageIndex);
-
-  if (status === "loading") {
-    return (
-      <p className="home-loading" role="status">
-        正在载入…
-      </p>
-    );
-  }
-  if (status === "anonymous" || role !== "admin") {
-    return (
-      <AppPageLayout className="dashboard-page">
-        <main className="not-found" role="status">
-          <p className="eyebrow">学生画布 / 无权访问</p>
-          <h1>只有管理员可以查看学生画布</h1>
-        </main>
-      </AppPageLayout>
-    );
-  }
+  const stageSubmissions = createMemo(() =>
+    submissions().filter((s) => s.stageIndex === state().stageIndex),
+  );
 
   return (
-    <AppPageLayout
-      className="calculator-lab student-preview"
-      topbarProps={{
-        subtitle: stage ? <AnnotatedText text={stage.englishTitle} /> : undefined,
-        title: student
-          ? `${student.studentNo} ${student.name} · ${stage?.title ?? ""}`
-          : "学生画布预览",
-      }}
-    >
-      <div className="preview-toolbar">
-        <p className="preview-note" role="status">
-          <Icon name="circle" size={10} />
-          预览模式：可以拖动画布、切换开关，改动只在本页生效，刷新即还原。
-        </p>
-        <label className="field-select" htmlFor="preview-revision-select">
-          <span>版本</span>
-          <select
-            id="preview-revision-select"
-            onChange={(event) =>
-              event.target.value ? openSubmission(event.target.value) : setInspect(null)
-            }
-            value={inspect?.submission.id ?? ""}
-          >
-            <option value="">当前草稿{updatedAt ? ` · 更新于 ${fmtTime(updatedAt)}` : ""}</option>
-            {stageSubmissions.map((submission) => (
-              <option key={submission.id} value={submission.id}>
-                提交 · {submission.score}/{submission.total} · {fmtTime(submission.submittedAt)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+    <Switch
+      fallback={
+        <AppPageLayout
+          class="calculator-lab student-preview"
+          topbarProps={{
+            subtitle: stage() ? <AnnotatedText text={stage()!.englishTitle} /> : undefined,
+            title: student()
+              ? `${student()!.studentNo} ${student()!.name} · ${stage()?.title ?? ""}`
+              : "学生画布预览",
+          }}
+        >
+          <div class="preview-toolbar">
+            <p class="preview-note" role="status">
+              <Icon name="circle" size={10} />
+              预览模式：可以拖动画布、切换开关，改动只在本页生效，刷新即还原。
+            </p>
+            <label class="field-select" for="preview-revision-select">
+              <span>版本</span>
+              <select
+                id="preview-revision-select"
+                onChange={(event) =>
+                  event.currentTarget.value
+                    ? openSubmission(event.currentTarget.value)
+                    : setInspect(null)
+                }
+                value={inspect()?.submission.id ?? ""}
+              >
+                <option value="">
+                  当前草稿{updatedAt() ? ` · 更新于 ${fmtTime(updatedAt()!)}` : ""}
+                </option>
+                <For each={stageSubmissions()}>
+                  {(submission) => (
+                    <option
+                      selected={submission.id === (inspect()?.submission.id ?? "")}
+                      value={submission.id}
+                    >
+                      提交 · {submission.score}/{submission.total} ·{" "}
+                      {fmtTime(submission.submittedAt)}
+                    </option>
+                  )}
+                </For>
+              </select>
+            </label>
+          </div>
 
-      {!projectLoaded ? (
-        <p className="home-loading" role="status">
+          <Show
+            fallback={
+              <p class="home-loading" role="status">
+                正在载入…
+              </p>
+            }
+            when={projectLoaded()}
+          >
+            <CalculatorLabWorkspace
+              dispatch={dispatch}
+              error={loadError()}
+              inspect={
+                inspect()
+                  ? {
+                      graph: inspect()!.graph,
+                      meta: <InspectMeta submission={inspect()!.submission} />,
+                    }
+                  : null
+              }
+              state={state()}
+            />
+          </Show>
+        </AppPageLayout>
+      }
+    >
+      <Match when={auth.status === "loading"}>
+        <p class="home-loading" role="status">
           正在载入…
         </p>
-      ) : (
-        <CalculatorLabWorkspace
-          dispatch={dispatch}
-          error={loadError}
-          inspect={
-            inspect
-              ? { graph: inspect.graph, meta: <InspectMeta submission={inspect.submission} /> }
-              : null
-          }
-          state={state}
-        />
-      )}
-    </AppPageLayout>
+      </Match>
+      <Match when={auth.status === "anonymous" || auth.role !== "admin"}>
+        <AppPageLayout class="dashboard-page">
+          <main class="not-found" role="status">
+            <p class="eyebrow">学生画布 / 无权访问</p>
+            <h1>只有管理员可以查看学生画布</h1>
+          </main>
+        </AppPageLayout>
+      </Match>
+    </Switch>
   );
 }

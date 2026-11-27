@@ -1,6 +1,6 @@
-import { useState, type Dispatch } from "react";
-import { render, screen } from "@testing-library/react";
+import { render, screen } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
+import { createSignal, untrack } from "solid-js";
 import { describe, expect, it } from "vitest";
 import type { ChoiceQuestion } from "../domain/schema.ts";
 import type { EditorAction } from "../lesson/editorActions.ts";
@@ -18,33 +18,27 @@ const choice = (options: ReturnType<typeof blankOption>[]): ChoiceQuestion => ({
   correctOptionIds: [],
 });
 
-function Harness({
-  initial,
-  onUpdate,
-}: {
-  initial: ChoiceQuestion;
-  onUpdate: (q: ChoiceQuestion) => void;
-}) {
-  const [q, setQ] = useState(initial);
-  const dispatch: Dispatch<EditorAction> = (a) => {
-    if (a.type === "update" && a.question.id === q.id && a.question.type === "choice") {
+function Harness(props: { initial: ChoiceQuestion; onUpdate: (q: ChoiceQuestion) => void }) {
+  const [q, setQ] = createSignal(untrack(() => props.initial));
+  const dispatch = (a: EditorAction) => {
+    if (a.type === "update" && a.question.id === q().id && a.question.type === "choice") {
       setQ(a.question);
-      onUpdate(a.question);
+      props.onUpdate(a.question);
     }
   };
-  return <ChoiceEditor dispatch={dispatch} q={q} />;
+  return <ChoiceEditor dispatch={dispatch} q={q()} />;
 }
 
 describe("ChoiceEditor option ids", () => {
   it("toggles multi-select by its label and partial credit with the keyboard", async () => {
     const user = userEvent.setup();
     const updates: ChoiceQuestion[] = [];
-    render(
+    render(() => (
       <Harness
         initial={choice([blankOption(1), blankOption(2)])}
         onUpdate={(q) => updates.push(q)}
-      />,
-    );
+      />
+    ));
     await user.click(screen.getByText("允许多选"));
     expect(screen.getByRole("checkbox", { name: "允许多选" })).toBeChecked();
     const partial = screen.getByRole("checkbox", { name: "漏选给部分分" });
@@ -58,7 +52,7 @@ describe("ChoiceEditor option ids", () => {
     const user = userEvent.setup();
     const updates: ChoiceQuestion[] = [];
     const initial = choice([blankOption(1), blankOption(2), blankOption(3), blankOption(4)]);
-    render(<Harness initial={initial} onUpdate={(q) => updates.push(q)} />);
+    render(() => <Harness initial={initial} onUpdate={(q) => updates.push(q)} />);
 
     await user.click(screen.getByLabelText("删除选项 2"));
     await user.click(screen.getByRole("button", { name: "+ 添加选项" }));

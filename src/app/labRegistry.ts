@@ -1,4 +1,4 @@
-import { lazyRouteComponent } from "@tanstack/react-router";
+import { lazy, type Component } from "solid-js";
 import { CALCULATOR_STAGES, coreStages } from "../features/calculator/domain/stages";
 import { COLOR_QUANT_STAGES } from "../features/color-quantization/domain/stages";
 import { DECODING_CORE_STAGES, DECODING_STAGES } from "../features/decoding/domain/stages";
@@ -14,11 +14,15 @@ export type DashboardStage = {
   englishTitle?: string;
 };
 
+export type LazyLabComponent = Component & {
+  preload: () => Promise<unknown>;
+};
+
 export type AppLabEntry = {
   dashboardStages: readonly DashboardStage[];
   homeProgressStages: number | null;
   supportsCanvasPreview?: true;
-  component: ReturnType<typeof lazyRouteComponent>;
+  component: LazyLabComponent;
 };
 
 export const APP_LABS = {
@@ -26,57 +30,50 @@ export const APP_LABS = {
     dashboardStages: CALCULATOR_STAGES,
     homeProgressStages: coreStages().length,
     supportsCanvasPreview: true,
-    component: lazyRouteComponent(
-      () => import("../features/calculator/ui/CalculatorLabPage"),
-      "CalculatorLabPage",
-    ),
+    component: lazy(() => import("../features/calculator/ui/CalculatorLabPage"), {
+      export: "CalculatorLabPage",
+    }),
   },
   decoding: {
     dashboardStages: DECODING_STAGES,
     homeProgressStages: DECODING_CORE_STAGES.length,
-    component: lazyRouteComponent(
-      () => import("../features/decoding/ui/DecodingLabPage"),
-      "DecodingLabPage",
-    ),
+    component: lazy(() => import("../features/decoding/ui/DecodingLabPage"), {
+      export: "DecodingLabPage",
+    }),
   },
   "lunch-shift": {
     dashboardStages: LUNCH_STAGES,
     homeProgressStages: LUNCH_STAGES.length,
-    component: lazyRouteComponent(
-      () => import("../features/lunch-shift/ui/LunchShiftLabPage"),
-      "LunchShiftLabPage",
-    ),
+    component: lazy(() => import("../features/lunch-shift/ui/LunchShiftLabPage"), {
+      export: "LunchShiftLabPage",
+    }),
   },
   "stats-foundations": {
     dashboardStages: STATS_FOUNDATIONS_STAGES,
     homeProgressStages: STATS_FOUNDATIONS_STAGES.length,
-    component: lazyRouteComponent(
-      () => import("../features/stats-foundations/ui/StatsFoundationsLabPage"),
-      "StatsFoundationsLabPage",
-    ),
+    component: lazy(() => import("../features/stats-foundations/ui/StatsFoundationsLabPage"), {
+      export: "StatsFoundationsLabPage",
+    }),
   },
   "logistic-regression": {
     dashboardStages: LOGISTIC_REGRESSION_CORE_STAGES,
     homeProgressStages: LOGISTIC_REGRESSION_CORE_STAGES.length,
-    component: lazyRouteComponent(
-      () => import("../features/logistic-regression/ui/LogisticRegressionLabPage"),
-      "LogisticRegressionLabPage",
-    ),
+    component: lazy(() => import("../features/logistic-regression/ui/LogisticRegressionLabPage"), {
+      export: "LogisticRegressionLabPage",
+    }),
   },
   "image-sampling": {
     dashboardStages: IMAGE_SAMPLING_STAGES,
     homeProgressStages: null,
-    component: lazyRouteComponent(
-      () => import("../features/image-sampling/ui/ImageSamplingLabPage"),
-      "ImageSamplingLabPage",
-    ),
+    component: lazy(() => import("../features/image-sampling/ui/ImageSamplingLabPage"), {
+      export: "ImageSamplingLabPage",
+    }),
   },
   "color-quantization": {
     dashboardStages: COLOR_QUANT_STAGES,
     homeProgressStages: null,
-    component: lazyRouteComponent(
-      () => import("../features/color-quantization/ui/ColorQuantizationLabPage"),
-      "ColorQuantizationLabPage",
-    ),
+    component: lazy(() => import("../features/color-quantization/ui/ColorQuantizationLabPage"), {
+      export: "ColorQuantizationLabPage",
+    }),
   },
 } satisfies Record<LabId, AppLabEntry>;

@@ -1,20 +1,21 @@
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
+import { createSignal } from "solid-js";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { LabPageShell } from "./LabPageShell";
+import { LabPageShell, type LabResetControlsProps } from "./LabPageShell";
 
 beforeEach(() => localStorage.clear());
 
 function renderShell(extra?: { collapsedLabel?: string; labId?: string }) {
-  return render(
+  return render(() => (
     <LabPageShell
       collapsedLabel={extra?.collapsedLabel}
       labId={extra?.labId ?? "decoding"}
       rail={<nav>关卡列表</nav>}
     >
       <main>工作区</main>
-    </LabPageShell>,
-  );
+    </LabPageShell>
+  ));
 }
 
 describe("LabPageShell", () => {
@@ -52,11 +53,11 @@ describe("LabPageShell", () => {
     expect(localStorage.getItem("computing-lab:lab-rail:decoding")).toBe("1");
     first.unmount();
 
-    const second = render(
+    const second = render(() => (
       <LabPageShell labId="decoding" rail={<nav>关卡列表</nav>}>
         <main>工作区</main>
-      </LabPageShell>,
-    );
+      </LabPageShell>
+    ));
     expect(second.container.querySelector(".lab-page-grid")!.className).toContain("is-collapsed");
     second.unmount();
 
@@ -68,11 +69,11 @@ describe("LabPageShell", () => {
 
   it("shows the collapsed label", async () => {
     const user = userEvent.setup();
-    render(
+    render(() => (
       <LabPageShell collapsedLabel="第 3 关" labId="logistic-regression" rail={<nav>关卡列表</nav>}>
         <main>工作区</main>
-      </LabPageShell>,
-    );
+      </LabPageShell>
+    ));
     await user.click(screen.getByRole("button", { name: "收起关卡栏" }));
     expect(screen.getByText("第 3 关")).toBeInTheDocument();
   });
@@ -80,27 +81,24 @@ describe("LabPageShell", () => {
   it("confirms scoped resets and omits the controls from read-only workspaces", async () => {
     const user = userEvent.setup();
     const onReset = vi.fn(async () => true);
+    const [controls, setControls] = createSignal<LabResetControlsProps | undefined>(undefined);
 
-    const { rerender } = renderShell();
+    render(() => (
+      <LabPageShell labId="decoding" rail={<nav>关卡列表</nav>} resetControls={controls()}>
+        <main>工作区</main>
+      </LabPageShell>
+    ));
     expect(screen.queryByRole("button", { name: "重置进度" })).toBeNull();
 
-    rerender(
-      <LabPageShell
-        labId="decoding"
-        rail={<nav>关卡列表</nav>}
-        resetControls={{
-          stageIndex: 3,
-          canReset: true,
-          resetting: false,
-          resetError: null,
-          onReset,
-        }}
-      >
-        <main>工作区</main>
-      </LabPageShell>,
-    );
+    setControls({
+      stageIndex: 3,
+      canReset: true,
+      resetting: false,
+      resetError: null,
+      onReset,
+    });
 
-    const resetBtn = screen.getByRole("button", { name: "重置进度" });
+    const resetBtn = await screen.findByRole("button", { name: "重置进度" });
     await user.click(resetBtn);
     expect(screen.getByRole("dialog", { name: "重置实验进度" })).toBeInTheDocument();
     expect(screen.getByText("清除本关及依赖它的后续关卡记录，保留不受影响的关卡。")).toBeVisible();

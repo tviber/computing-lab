@@ -1,4 +1,4 @@
-import type { SaveStatus } from "../api/client";
+import type { SaveStatus } from "./contracts";
 
 /**
  * Autosave flags kept per stage. Save timers are armed per stage, so a save

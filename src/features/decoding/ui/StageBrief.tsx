@@ -1,16 +1,21 @@
+import { Show } from "solid-js";
 import { StageTask } from "../../../shared/lab/StageTask";
 import { HintDisclosure } from "../../../shared/ui/HintDisclosure";
 import type { DecodingStageDef } from "../domain/stages.ts";
 
-export function StageBrief({ stage, passed }: { stage: DecodingStageDef; passed: boolean }) {
+export function StageBrief(props: { stage: DecodingStageDef; passed: boolean }) {
   return (
-    <section className="stage-brief">
-      <StageTask>{stage.task}</StageTask>
-      <p>{stage.mission}</p>
-      {stage.description ? <p>{stage.description}</p> : null}
-      <p className="submit-note">{stage.judgeNote}</p>
-      {passed ? <p className="stage-takeaway">本关收获：{stage.takeaway}</p> : null}
-      {stage.hint ? <HintDisclosure key={stage.id}>{stage.hint}</HintDisclosure> : null}
+    <section class="stage-brief">
+      <StageTask>{props.stage.task}</StageTask>
+      <p>{props.stage.mission}</p>
+      <Show when={props.stage.description}>{(desc) => <p>{desc()}</p>}</Show>
+      <p class="submit-note">{props.stage.judgeNote}</p>
+      <Show when={props.passed}>
+        <p class="stage-takeaway">本关收获：{props.stage.takeaway}</p>
+      </Show>
+      <Show keyed when={props.stage.hint ? props.stage.id : null}>
+        {(_) => <HintDisclosure>{props.stage.hint}</HintDisclosure>}
+      </Show>
     </section>
   );
 }

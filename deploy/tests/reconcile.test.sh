@@ -18,7 +18,7 @@ cat >"$TMP/bin/bun" <<'EOF'
 set -euo pipefail
 if [[ "${1:-}" == --version ]]; then echo 1.2.17; exit; fi
 if [[ "${1:-}" == install ]]; then mkdir -p node_modules; exit; fi
-if [[ "${1:-}" == run && "${2:-}" == build ]]; then
+if [[ "${1:-}" == run && "${2:-}" == build:classroom && "${3:-}" == --outDir && "${4:-}" == dist ]]; then
   mkdir -p dist/assets
   echo '<main>fixture</main>' >dist/index.html
   echo fixture >dist/assets/app.js

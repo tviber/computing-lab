@@ -1,5 +1,6 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
+import { createSignal, flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import type { ComponentDef } from "../domain/graph";
 import { StageRail } from "./StageRail";
@@ -21,7 +22,7 @@ describe("StageRail custom components", () => {
       graph: { nodes: [], edges: [] },
     };
 
-    render(
+    render(() => (
       <StageRail
         onDeleteCustomComponent={onDelete}
         onEditCustomComponent={onEdit}
@@ -30,8 +31,8 @@ describe("StageRail custom components", () => {
         passedStages={[]}
         stageIndex={1}
         unlockedSubmodules={[custom]}
-      />,
-    );
+      />
+    ));
 
     await user.click(screen.getByRole("button", { name: "删除自定义组件 PartialProduct" }));
     expect(window.confirm).toHaveBeenCalledWith("确定删除自定义组件“PartialProduct”吗？");
@@ -42,15 +43,19 @@ describe("StageRail custom components", () => {
   });
 
   it("inserts optional challenges after their anchors and unlocks them locally", () => {
-    const props = {
-      onDeleteCustomComponent: vi.fn(),
-      onEditCustomComponent: vi.fn(),
-      onPlaceComponent: vi.fn(),
-      onSelectStage: vi.fn(),
-      stageIndex: 1,
-      unlockedSubmodules: [],
-    };
-    const { container, rerender } = render(<StageRail {...props} passedStages={[]} />);
+    const [passedStages, setPassedStages] = createSignal<number[]>([]);
+    const [stageIndex, setStageIndex] = createSignal(1);
+    const { container } = render(() => (
+      <StageRail
+        onDeleteCustomComponent={vi.fn()}
+        onEditCustomComponent={vi.fn()}
+        onPlaceComponent={vi.fn()}
+        onSelectStage={vi.fn()}
+        passedStages={passedStages()}
+        stageIndex={stageIndex()}
+        unlockedSubmodules={[]}
+      />
+    ));
 
     const branches = container.querySelectorAll("details.stage-branch");
     expect(branches).toHaveLength(3);
@@ -64,13 +69,15 @@ describe("StageRail custom components", () => {
     expect(branches[2].querySelector("button")).toBeDisabled();
     expect(screen.getByText("0 / 6 主线")).toBeInTheDocument();
 
-    rerender(<StageRail {...props} passedStages={[1]} />);
+    setPassedStages([1]);
+    flush();
     expect(branches[0].querySelector("button")).not.toBeDisabled();
     expect(branches[1].querySelectorAll("button")[0]).toBeDisabled();
     expect(branches[1].querySelectorAll("button")[1]).toBeDisabled();
     expect(screen.getByText("1 / 6 主线")).toBeInTheDocument();
 
-    rerender(<StageRail {...props} stageIndex={9} passedStages={[1]} />);
+    setStageIndex(9);
+    flush();
     expect(branches[0]).toHaveAttribute("open");
   });
 });

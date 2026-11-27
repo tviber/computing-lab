@@ -1,4 +1,5 @@
-import { act, fireEvent, screen, waitFor, within } from "@testing-library/react";
+import { fireEvent, screen, waitFor, within } from "@solidjs/testing-library";
+import { flush } from "solid-js";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { LAB_IDS } from "../shared/lab/labMetadata";
 import { getRecentLab } from "../shared/lab/recentLab";
@@ -25,7 +26,7 @@ describe("application router integration", () => {
   it("shows the calculator lab on the classroom home", async () => {
     await renderAppAt("/", { auth: teacherAuthState });
 
-    expect(screen.getByRole("heading", { name: "实现ALU" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "实现ALU" })).toBeInTheDocument();
     const calcCard = screen.getByRole("heading", { name: "实现ALU" }).closest("article");
     expect(calcCard).not.toBeNull();
     expect(within(calcCard as HTMLElement).getByRole("link", { name: "开始实验" })).toHaveAttribute(
@@ -58,7 +59,7 @@ describe("application router integration", () => {
     });
     await renderAppAt("/", { auth: teacherAuthState });
 
-    const cards = screen.getAllByRole("article");
+    const cards = await screen.findAllByRole("article");
     expect(cards).toHaveLength(LAB_IDS.length);
     for (const card of cards) {
       expect(within(card).getByRole("link", { name: "开始实验" })).toBeInTheDocument();
@@ -104,9 +105,7 @@ describe("application router integration", () => {
   it("lets teachers enter an open image-sampling lab", async () => {
     const { router } = await renderAppAt("/labs/image-sampling", { auth: teacherAuthState });
 
-    await waitFor(() =>
-      expect(router.state.location.pathname).toBe("/classes/c1/labs/image-sampling"),
-    );
+    await waitFor(() => expect(router.location.pathname).toBe("/classes/c1/labs/image-sampling"));
     expect(screen.queryByText(/仅对管理员开放预览/)).not.toBeInTheDocument();
   });
 
@@ -117,27 +116,32 @@ describe("application router integration", () => {
         auth: teacherAuthState,
       });
       await waitFor(() =>
-        expect(router.state.location.pathname).toBe("/classes/c1/labs/logistic-regression"),
+        expect(router.location.pathname).toBe("/classes/c1/labs/logistic-regression"),
       );
-      expect(router.state.location.search).toEqual({ classroom: 1, stage: 3 });
+      expect(router.location.searchParams.get("classroom")).toBe("1");
+      expect(router.location.searchParams.get("stage")).toBe("3");
       expect(history.length).toBe(1);
     },
   );
 
   it("keeps one history entry per lab visit so back and forward work", async () => {
     const { router, history } = await renderAppAt("/", { auth: teacherAuthState });
-    const card = screen.getByRole("heading", { name: "实现ALU" }).closest("article")!;
+    const heading = await screen.findByRole("heading", { name: "实现ALU" });
+    const card = heading.closest("article")!;
     fireEvent.click(within(card).getByRole("link", { name: "开始实验" }));
+    flush();
 
-    await waitFor(() => expect(router.state.location.pathname).toBe("/classes/c1/labs/calculator"));
+    await waitFor(() => expect(router.location.pathname).toBe("/classes/c1/labs/calculator"));
     expect(history.length).toBe(2);
 
-    await act(async () => history.back());
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    history.back();
+    flush();
+    await waitFor(() => expect(router.location.pathname).toBe("/"));
     expect(screen.getByRole("heading", { name: "实验课程" })).toBeInTheDocument();
 
-    await act(async () => history.forward());
-    await waitFor(() => expect(router.state.location.pathname).toBe("/classes/c1/labs/calculator"));
+    history.forward();
+    flush();
+    await waitFor(() => expect(router.location.pathname).toBe("/classes/c1/labs/calculator"));
     expect(history.length).toBe(2);
   });
 
@@ -165,7 +169,7 @@ describe("application router integration", () => {
           classId: "c1",
         }),
       );
-      await act(async () => router.navigate({ to: "/" }));
+      router.navigate("/");
       const resume = await screen.findByRole("link", { name: /继续上次实验/ });
       expect(resume).toHaveAttribute("href", "/classes/c1/labs/logistic-regression");
     } finally {
@@ -175,20 +179,22 @@ describe("application router integration", () => {
 
   it("replaces an anonymous lab entry with login without trapping back navigation", async () => {
     const { router, history } = await renderAppAt("/", { auth: anonymousAuthState });
-    await act(async () => router.navigate({ to: "/labs/calculator" }));
-    await waitFor(() => expect(router.state.location.pathname).toBe("/login"));
+    router.navigate("/labs/calculator");
+    await waitFor(() => expect(router.location.pathname).toBe("/login"));
     expect(history.length).toBe(2);
 
-    await act(async () => history.back());
-    await waitFor(() => expect(router.state.location.pathname).toBe("/"));
+    history.back();
+    flush();
+    await waitFor(() => expect(router.location.pathname).toBe("/"));
   });
 
   it("shows the calculator lab and account menu to admins", async () => {
     await renderAppAt("/", { auth: adminAuthState });
 
-    expect(screen.getByRole("heading", { name: "实现ALU" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "实现ALU" })).toBeInTheDocument();
     const trigger = screen.getByRole("button", { name: /管理员/ });
     fireEvent.click(trigger);
+    flush();
     expect(await screen.findByRole("menuitem", { name: "账号管理" })).toHaveAttribute(
       "href",
       "/admin",

@@ -1,4 +1,5 @@
-import { useMemo } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, For, Show } from "solid-js";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import type { LogisticRegressionTestSummary, TokenizeDraft } from "../domain/protocol.ts";
 import {
@@ -12,19 +13,9 @@ import { ConceptChecklist } from "./ConceptChecklist.tsx";
 import { JudgeVerdictCard } from "./JudgeVerdictCard.tsx";
 import { TOKEN_STATUS_LABELS } from "./tokenStatusLabels.ts";
 
-const STATUS_CHOICES: RawTokenStatus[] = ["kept", "duplicate", "filtered", "oov"];
+const STATUS_CHOICES: readonly RawTokenStatus[] = ["kept", "duplicate", "filtered", "oov"];
 
-export function TokenizePanel({
-  stage,
-  draft,
-  passed,
-  result,
-  submitting,
-  hasNextStage,
-  onChange,
-  onSubmit,
-  onNextStage,
-}: {
+export function TokenizePanel(props: {
   stage: LogisticRegressionStageDef;
   draft: TokenizeDraft;
   passed: boolean;
@@ -35,222 +26,228 @@ export function TokenizePanel({
   onSubmit: () => void;
   onNextStage: () => void;
 }) {
-  const { fullTrainVocab } = useMemo(() => getPublicCorpus(), []);
-  const activePreset = TOKENIZE_PRESETS.find((p) => p.id === draft.selectedPresetId);
+  const fullTrainVocab = getPublicCorpus().fullTrainVocab;
 
-  const tokens = useMemo(
-    () => analyzeTokens(draft.customText, fullTrainVocab),
-    [draft.customText, fullTrainVocab],
-  );
-  const keptWords = useMemo(
-    () => tokens.filter((t) => t.status === "kept").map((t) => t.text),
-    [tokens],
-  );
-  const orderPairA = useMemo(
-    () =>
-      analyzeTokens("朋友请我免费喝奶茶", fullTrainVocab)
-        .filter((t) => t.status === "kept")
-        .map((t) => t.text)
-        .sort(),
-    [fullTrainVocab],
-  );
-  const orderPairB = useMemo(
-    () =>
-      analyzeTokens("免费请我朋友喝奶茶", fullTrainVocab)
-        .filter((t) => t.status === "kept")
-        .map((t) => t.text)
-        .sort(),
-    [fullTrainVocab],
+  const activePreset = createMemo(() =>
+    TOKENIZE_PRESETS.find((p) => p.id === props.draft.selectedPresetId),
   );
 
-  const classifiedCount = TOKENIZE_PUZZLE_ITEMS.filter(
-    (item) => draft.classifications[item.id] !== undefined,
-  ).length;
-  const allConceptsDone = stage.prompts.every((p) => draft.concepts[p.id] === p.correct);
-  const readyToSubmit = classifiedCount === TOKENIZE_PUZZLE_ITEMS.length && allConceptsDone;
+  const tokens = createMemo(() => analyzeTokens(props.draft.customText, fullTrainVocab));
+  const keptWords = createMemo(() =>
+    tokens()
+      .filter((t) => t.status === "kept")
+      .map((t) => t.text),
+  );
+  const orderPairA = analyzeTokens("朋友请我免费喝奶茶", fullTrainVocab)
+    .filter((t) => t.status === "kept")
+    .map((t) => t.text)
+    .sort();
+  const orderPairB = analyzeTokens("免费请我朋友喝奶茶", fullTrainVocab)
+    .filter((t) => t.status === "kept")
+    .map((t) => t.text)
+    .sort();
+
+  const classifiedCount = createMemo(
+    () =>
+      TOKENIZE_PUZZLE_ITEMS.filter((item) => props.draft.classifications[item.id] !== undefined)
+        .length,
+  );
+  const allConceptsDone = createMemo(() =>
+    props.stage.prompts.every((p) => props.draft.concepts[p.id] === p.correct),
+  );
+  const readyToSubmit = createMemo(
+    () => classifiedCount() === TOKENIZE_PUZZLE_ITEMS.length && allConceptsDone(),
+  );
 
   return (
-    <div className="logistic-regression-stage-stack">
-      <section className="logistic-regression-panel">
-        <div className="logistic-regression-panel-head">
+    <div class="logistic-regression-stage-stack">
+      <section class="logistic-regression-panel">
+        <div class="logistic-regression-panel-head">
           <h3>分词与编码</h3>
-          <span className="logistic-regression-badge-neutral">
-            词表含 {fullTrainVocab.size} 个词
-          </span>
+          <span class="logistic-regression-badge-neutral">词表含 {fullTrainVocab.size} 个词</span>
         </div>
-        <p className="logistic-regression-rule-strip">
+        <p class="logistic-regression-rule-strip">
           出现 = 1 · 未出现 = 0 · 重复词仍 = 1 · 标点 / 未登录词 = 0
         </p>
 
-        <div className="logistic-regression-preset-row">
-          {TOKENIZE_PRESETS.map((preset) => (
-            <button
-              className={`logistic-regression-chip-btn${draft.selectedPresetId === preset.id ? " is-active" : ""}`}
-              key={preset.id}
-              onClick={() =>
-                onChange({
-                  ...draft,
-                  selectedPresetId: preset.id,
-                  customText: preset.text,
-                })
-              }
-              type="button"
-            >
-              <span>{preset.label}</span>
-              <small>{preset.tag}</small>
-            </button>
-          ))}
+        <div class="logistic-regression-preset-row">
+          <For each={TOKENIZE_PRESETS}>
+            {(preset) => (
+              <Button
+                class={`logistic-regression-chip-btn${props.draft.selectedPresetId === preset.id ? " is-active" : ""}`}
+                onClick={() =>
+                  props.onChange({
+                    ...props.draft,
+                    selectedPresetId: preset.id,
+                    customText: preset.text,
+                  })
+                }
+                type="button"
+              >
+                <span>{preset.label}</span>
+                <small>{preset.tag}</small>
+              </Button>
+            )}
+          </For>
         </div>
 
-        <label
-          className="logistic-regression-field-label"
-          htmlFor="logistic-regression-stage1-input"
-        >
+        <label class="logistic-regression-field-label" for="logistic-regression-stage1-input">
           短信内容
         </label>
         <input
-          className="logistic-regression-text-input"
+          class="logistic-regression-text-input"
           id="logistic-regression-stage1-input"
-          maxLength={240}
+          maxlength={240}
           onChange={(e) =>
-            onChange({
-              ...draft,
+            props.onChange({
+              ...props.draft,
               selectedPresetId: "custom",
-              customText: e.target.value,
+              customText: e.currentTarget.value,
+            })
+          }
+          onInput={(e) =>
+            props.onChange({
+              ...props.draft,
+              selectedPresetId: "custom",
+              customText: e.currentTarget.value,
             })
           }
           placeholder="输入一句中文短信，例如：免费领取红包元宇宙限时！"
           type="text"
-          value={draft.customText}
+          value={props.draft.customText}
         />
 
-        {activePreset ? <p className="logistic-regression-note-box">{activePreset.note}</p> : null}
+        <Show when={activePreset()}>
+          {(preset) => <p class="logistic-regression-note-box">{preset().note}</p>}
+        </Show>
 
-        <div className="logistic-regression-token-strip">
-          {tokens.map((tok, idx) => (
-            <span
-              className={`logistic-regression-tok is-${tok.status}`}
-              key={`${tok.text}-${idx}`}
-              title={tok.note}
-            >
-              <span className="logistic-regression-tok-text">{tok.text}</span>
-              <span className="logistic-regression-tok-tag">{TOKEN_STATUS_LABELS[tok.status]}</span>
-            </span>
-          ))}
+        <div class="logistic-regression-token-strip">
+          <For each={tokens()}>
+            {(tok) => (
+              <span class={`logistic-regression-tok is-${tok.status}`} title={tok.note}>
+                <span class="logistic-regression-tok-text">{tok.text}</span>
+                <span class="logistic-regression-tok-tag">{TOKEN_STATUS_LABELS[tok.status]}</span>
+              </span>
+            )}
+          </For>
         </div>
 
-        <div className="logistic-regression-bow-summary">
+        <div class="logistic-regression-bow-summary">
           <div>
-            <span className="logistic-regression-subhead">
-              这条短信中，有{" "}
-              <strong className="logistic-regression-mono">{keptWords.length}</strong>{" "}
+            <span class="logistic-regression-subhead">
+              这条短信中，有 <strong class="logistic-regression-mono">{keptWords().length}</strong>{" "}
               个不同的词在词表里（词表共 {fullTrainVocab.size} 个词）：
             </span>
-            <p className="logistic-regression-mono logistic-regression-vector-preview">
-              {keptWords.length > 0
-                ? `{ ${keptWords.map((w) => `"${w}": 1`).join(", ")} }`
+            <p class="logistic-regression-mono logistic-regression-vector-preview">
+              {keptWords().length > 0
+                ? `{ ${keptWords()
+                    .map((w) => `"${w}": 1`)
+                    .join(", ")} }`
                 : "没有需要记为 1 的词，所有位置都记为 0。"}
             </p>
           </div>
-          <div className="logistic-regression-order-compare">
-            <p className="logistic-regression-subhead">交换词序后，向量会变吗？</p>
-            <p className="logistic-regression-muted-note">
+          <div class="logistic-regression-order-compare">
+            <p class="logistic-regression-subhead">交换词序后，向量会变吗？</p>
+            <p class="logistic-regression-muted-note">
               「朋友请我免费喝奶茶」 → 记为 1 的词：{" "}
-              <code className="logistic-regression-mono">{`[${orderPairA.join(", ")}]`}</code>
+              <code class="logistic-regression-mono">{`[${orderPairA.join(", ")}]`}</code>
             </p>
-            <p className="logistic-regression-muted-note">
+            <p class="logistic-regression-muted-note">
               「免费请我朋友喝奶茶」 → 记为 1 的词：{" "}
-              <code className="logistic-regression-mono">{`[${orderPairB.join(", ")}]`}</code>
+              <code class="logistic-regression-mono">{`[${orderPairB.join(", ")}]`}</code>
               （与上句相同）
             </p>
           </div>
         </div>
       </section>
 
-      <section className="logistic-regression-panel">
-        <div className="logistic-regression-panel-head">
+      <section class="logistic-regression-panel">
+        <div class="logistic-regression-panel-head">
           <h3>分词练习</h3>
-          <span className="logistic-regression-badge-neutral">
-            已选择 {classifiedCount} / {TOKENIZE_PUZZLE_ITEMS.length}
+          <span class="logistic-regression-badge-neutral">
+            已选择 {classifiedCount()} / {TOKENIZE_PUZZLE_ITEMS.length}
           </span>
         </div>
-        <p className="logistic-regression-muted-note">给每个片段选择一种处理方式。</p>
-        <blockquote className="logistic-regression-quote logistic-regression-mono">
+        <p class="logistic-regression-muted-note">给每个片段选择一种处理方式。</p>
+        <blockquote class="logistic-regression-quote logistic-regression-mono">
           {TOKENIZE_PUZZLE_SENTENCE}
         </blockquote>
 
-        <div className="logistic-regression-puzzle-list">
-          {TOKENIZE_PUZZLE_ITEMS.map((item) => {
-            const chosen = draft.classifications[item.id];
-            return (
-              <div className="logistic-regression-puzzle-row" key={item.id}>
-                <div className="logistic-regression-puzzle-token">
-                  <strong className="logistic-regression-mono">{item.text}</strong>
-                  <span>{item.displayNote}</span>
+        <div class="logistic-regression-puzzle-list">
+          <For each={TOKENIZE_PUZZLE_ITEMS}>
+            {(item) => {
+              const chosen = () => props.draft.classifications[item.id];
+              return (
+                <div class="logistic-regression-puzzle-row">
+                  <div class="logistic-regression-puzzle-token">
+                    <strong class="logistic-regression-mono">{item.text}</strong>
+                    <span>{item.displayNote}</span>
+                  </div>
+                  <div
+                    aria-label={`片段 ${item.text} 的处理方式`}
+                    class="logistic-regression-puzzle-choices"
+                    role="group"
+                  >
+                    <For each={STATUS_CHOICES}>
+                      {(status) => (
+                        <Button
+                          aria-pressed={chosen() === status ? "true" : "false"}
+                          class={`logistic-regression-pill-choice${chosen() === status ? " is-selected" : ""}`}
+                          onClick={() =>
+                            props.onChange({
+                              ...props.draft,
+                              classifications: {
+                                ...props.draft.classifications,
+                                [item.id]: status,
+                              },
+                            })
+                          }
+                          type="button"
+                        >
+                          {TOKEN_STATUS_LABELS[status]}
+                        </Button>
+                      )}
+                    </For>
+                  </div>
                 </div>
-                <div
-                  className="logistic-regression-puzzle-choices"
-                  role="group"
-                  aria-label={`片段 ${item.text} 的处理方式`}
-                >
-                  {STATUS_CHOICES.map((status) => (
-                    <button
-                      aria-pressed={chosen === status}
-                      className={`logistic-regression-pill-choice${chosen === status ? " is-selected" : ""}`}
-                      key={status}
-                      onClick={() =>
-                        onChange({
-                          ...draft,
-                          classifications: {
-                            ...draft.classifications,
-                            [item.id]: status,
-                          },
-                        })
-                      }
-                      type="button"
-                    >
-                      {TOKEN_STATUS_LABELS[status]}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            );
-          })}
+              );
+            }}
+          </For>
         </div>
       </section>
 
       <ConceptChecklist
-        answers={draft.concepts}
+        answers={props.draft.concepts}
         onSelectCorrect={(promptId, optionIndex) =>
-          onChange({
-            ...draft,
-            concepts: { ...draft.concepts, [promptId]: optionIndex },
+          props.onChange({
+            ...props.draft,
+            concepts: { ...props.draft.concepts, [promptId]: optionIndex },
           })
         }
-        prompts={stage.prompts}
+        prompts={props.stage.prompts}
       />
 
-      <div className="logistic-regression-submit-bar">
-        <button
-          className="button button-primary"
-          disabled={submitting || !readyToSubmit}
-          onClick={onSubmit}
+      <div class="logistic-regression-submit-bar">
+        <Button
+          class="button button-primary"
+          disabled={props.submitting || !readyToSubmit()}
+          onClick={() => props.onSubmit()}
           type="button"
         >
-          {submitting ? "判题中…" : `提交第 ${stage.index} 关判定`}
-        </button>
-        {!readyToSubmit ? (
-          <span className="logistic-regression-muted-note">
+          {props.submitting ? "判题中…" : `提交第 ${props.stage.index} 关判定`}
+        </Button>
+        <Show when={!readyToSubmit()}>
+          <span class="logistic-regression-muted-note">
             完成下面的 7 个选择，并答对全部概念题后即可提交
           </span>
-        ) : null}
+        </Show>
       </div>
 
       <JudgeVerdictCard
-        hasNextStage={hasNextStage}
-        onNextStage={onNextStage}
-        passed={passed}
-        summary={result}
+        hasNextStage={props.hasNextStage}
+        onNextStage={props.onNextStage}
+        passed={props.passed}
+        summary={props.result}
       />
     </div>
   );

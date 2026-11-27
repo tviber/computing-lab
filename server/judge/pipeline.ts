@@ -1,3 +1,6 @@
+import type { ReconcileDrafts } from "../../src/shared/lab/judging.ts";
+export { gateStage } from "../../src/shared/lab/judging.ts";
+export type { ReconcileDrafts } from "../../src/shared/lab/judging.ts";
 import type { DatabaseSync } from "node:sqlite";
 import { newId, parseJsonColumn, withTransaction } from "../db/client.ts";
 
@@ -79,16 +82,6 @@ export function getOrCreateProject<TDraft = unknown>(
     .prepare("SELECT * FROM student_projects WHERE user_id = ? AND lab_id = ?")
     .get(userId, labId) as RawProject;
   return toProject<TDraft>(row);
-}
-
-export function gateStage<TStage>(
-  stage: TStage | undefined,
-  unlocked: (stage: TStage) => boolean,
-  options?: { bypassLock?: boolean },
-): { stage: TStage } | LabJudgeError {
-  if (!stage) return { error: "unknown-stage", status: 400 };
-  if (!options?.bypassLock && !unlocked(stage)) return { error: "stage-locked", status: 409 };
-  return { stage };
 }
 
 export function saveStageDraft<TDraft>(
@@ -255,12 +248,6 @@ export function advanceStage<TDraft>(
   );
   return { currentStage, passedStages };
 }
-
-export type ReconcileDrafts<TDraft> = (
-  drafts: Record<string, TDraft>,
-  library: unknown[],
-  originalLibrary: unknown[],
-) => { drafts: Record<string, TDraft>; notices: string[] };
 
 function repairedProject<TDraft>(
   project: ProjectRow<TDraft>,

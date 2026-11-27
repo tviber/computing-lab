@@ -8,7 +8,7 @@ const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
 
 export const SCHEMA_VERSION = 22;
 
-export const dbPath = resolve(process.env.LAB_DB_PATH ?? resolve(here, "../../data/lab.db"));
+export const dbPath = resolve(process.env.LAB_DB_PATH ?? "data/lab.db");
 
 let singleton: DatabaseSync | undefined;
 

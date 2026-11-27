@@ -1,4 +1,6 @@
-import { useEffect, useId, useMemo, useRef, useState, type ReactNode } from "react";
+import type { JSX } from "@solidjs/web";
+import { Button } from "@ui-sdk/solid/button";
+import { createEffect, createMemo, createSignal, createUniqueId, For, Show } from "solid-js";
 import { imageFromLists, imageToRows, inkCount, type BinaryImage } from "../domain/bitmap.ts";
 import { cellRegion } from "../domain/downsample.ts";
 import {
@@ -31,37 +33,40 @@ const retryHints = {
 
 type LabeledGrid = { label: string; image: BinaryImage };
 
-function RowComparison({ grids, size }: { grids: LabeledGrid[]; size: number }) {
-  const captionId = useId();
-  const columns = grids.map(({ label, image }) => ({ label, rows: imageToRows(image) }));
+function RowComparison(props: { grids: LabeledGrid[]; size: number }) {
+  const captionId = createUniqueId();
+  const columns = createMemo(() =>
+    props.grids.map(({ label, image }) => ({ label, rows: imageToRows(image) })),
+  );
+  const rowIndices = createMemo(() => Array.from({ length: props.size }, (_, row) => row));
 
   return (
-    <details className="receiver-row-comparison">
+    <details class="receiver-row-comparison">
       <summary>按行查看 0/1</summary>
-      <div aria-labelledby={captionId} className="receiver-table-scroll" role="region" tabIndex={0}>
-        <table className="receiver-row-table">
+      <div aria-labelledby={captionId} class="receiver-table-scroll" role="region" tabindex={0}>
+        <table class="receiver-row-table">
           <caption id={captionId}>各行格值（从左到右）</caption>
           <thead>
             <tr>
               <th scope="col">行</th>
-              {columns.map(({ label }) => (
-                <th key={label} scope="col">
-                  {label}
-                </th>
-              ))}
+              <For each={columns()}>{(col) => <th scope="col">{col.label}</th>}</For>
             </tr>
           </thead>
           <tbody>
-            {Array.from({ length: size }, (_, row) => (
-              <tr key={row}>
-                <th scope="row">{row + 1}</th>
-                {columns.map(({ label, rows }) => (
-                  <td key={label}>
-                    <code>{Array.from(rows[row]).join(" ")}</code>
-                  </td>
-                ))}
-              </tr>
-            ))}
+            <For each={rowIndices()}>
+              {(row) => (
+                <tr>
+                  <th scope="row">{row + 1}</th>
+                  <For each={columns()}>
+                    {(col) => (
+                      <td>
+                        <code>{Array.from(col.rows[row]).join(" ")}</code>
+                      </td>
+                    )}
+                  </For>
+                </tr>
+              )}
+            </For>
           </tbody>
         </table>
       </div>
@@ -69,352 +74,396 @@ function RowComparison({ grids, size }: { grids: LabeledGrid[]; size: number }) 
   );
 }
 
-function CoordinatePicker({
-  size,
-  cell,
-  onPick,
-}: {
+function CoordinatePicker(props: {
   size: number;
   cell: ReceiverCell | null;
   onPick: (cx: number, cy: number) => void;
 }) {
+  const indices = createMemo(() => Array.from({ length: props.size }, (_, index) => index));
   return (
-    <div className="receiver-coordinates">
-      {(["cy", "cx"] as const).map((axis) => {
-        const label = axis === "cy" ? "行" : "列";
-        return (
-          <label key={axis}>
-            {label}
-            <select
-              aria-label={`证据${label}`}
-              onChange={(event) => {
-                const index = Number(event.target.value);
-                if (axis === "cy") onPick(cell?.cx ?? 0, index);
-                else onPick(index, cell?.cy ?? 0);
-              }}
-              value={cell?.[axis] ?? ""}
-            >
-              <option disabled value="">
-                —
-              </option>
-              {Array.from({ length: size }, (_, index) => (
-                <option key={index} value={index}>
-                  {index + 1}
+    <div class="receiver-coordinates">
+      <For each={["cy", "cx"] as const}>
+        {(axis) => {
+          const label = axis === "cy" ? "行" : "列";
+          return (
+            <label>
+              {label}
+              <select
+                aria-label={`证据${label}`}
+                onChange={(event) => {
+                  const index = Number(event.currentTarget.value);
+                  if (axis === "cy") props.onPick(props.cell?.cx ?? 0, index);
+                  else props.onPick(index, props.cell?.cy ?? 0);
+                }}
+                value={props.cell?.[axis] !== undefined ? String(props.cell[axis]) : ""}
+              >
+                <option disabled selected={props.cell?.[axis] === undefined} value="">
+                  —
                 </option>
-              ))}
-            </select>
-          </label>
-        );
-      })}
+                <For each={indices()}>
+                  {(index) => (
+                    <option selected={props.cell?.[axis] === index} value={String(index)}>
+                      {index + 1}
+                    </option>
+                  )}
+                </For>
+              </select>
+            </label>
+          );
+        }}
+      </For>
     </div>
   );
 }
 
-function CellProof({ round, cell }: { round: ReceiverRound; cell: ReceiverCell }) {
+function CellProof(props: { round: ReceiverRound; cell: ReceiverCell }) {
+  const candidates = createMemo(() =>
+    (["a", "b"] as const).map((candidate) => {
+      const label = candidate === "a" ? "甲" : "乙";
+      const crop = imageFromLists(
+        cellRegion(
+          props.round.originals[candidate],
+          props.round.size,
+          props.round.size,
+          props.cell.cx,
+          props.cell.cy,
+        ),
+      );
+      const on = inkCount(crop);
+      const total = crop.cells.length;
+      const bit =
+        props.round.grids[candidate].cells[props.cell.cy * props.round.size + props.cell.cx];
+      const relation = on === total / 2 ? "刚好一半" : bit ? "超过一半" : "不到一半";
+      return { candidate, label, crop, on, total, bit, relation };
+    }),
+  );
+
   return (
     <>
       <p>
-        回看两枚原图的第 {cell.cy + 1} 行、第 {cell.cx + 1} 列采样格。格内黑色像素不到一半发
-        0，达到一半就发 1，刚好一半也算。
+        回看两枚原图的第 {props.cell.cy + 1} 行、第 {props.cell.cx + 1}{" "}
+        列采样格。格内黑色像素不到一半发 0，达到一半就发 1，刚好一半也算。
       </p>
-      <ul className="receiver-counts">
-        {(["a", "b"] as const).map((candidate) => {
-          const label = candidate === "a" ? "甲" : "乙";
-          const crop = imageFromLists(
-            cellRegion(round.originals[candidate], round.size, round.size, cell.cx, cell.cy),
-          );
-          const on = inkCount(crop);
-          const total = crop.cells.length;
-          const bit = round.grids[candidate].cells[cell.cy * round.size + cell.cx];
-          const relation = on === total / 2 ? "刚好一半" : bit ? "超过一半" : "不到一半";
-          return (
-            <li key={candidate}>
-              <figure className="receiver-crop">
+      <ul class="receiver-counts">
+        <For each={candidates()}>
+          {(entry) => (
+            <li>
+              <figure class="receiver-crop">
                 <figcaption>
                   <strong>
-                    {label} · {crop.width}×{crop.height} 裁切
+                    {entry.label} · {entry.crop.width}×{entry.crop.height} 裁切
                   </strong>
                   <span>
-                    黑色 {on} / {total}，{relation}
+                    黑色 {entry.on} / {entry.total}，{entry.relation}
                   </span>
-                  <b>发 {bit}</b>
+                  <b>发 {entry.bit}</b>
                 </figcaption>
                 <BitmapCanvas
-                  ariaLabel={`候选${label}原图裁切`}
+                  ariaLabel={`候选${entry.label}原图裁切`}
                   grid="strong"
-                  image={crop}
-                  pixelSize={192 / crop.width}
+                  image={entry.crop}
+                  pixelSize={192 / entry.crop.width}
                 />
               </figure>
             </li>
-          );
-        })}
+          )}
+        </For>
       </ul>
     </>
   );
 }
 
-function ReceiverTransmission({
-  run: { level, prediction },
-  canSkipPrediction,
-  onNext,
-}: {
+function ReceiverTransmission(props: {
   run: ReceiverRun;
   canSkipPrediction: boolean;
   onNext: (prediction: Prediction | null) => void;
 }) {
-  const round = useMemo(() => createReceiverRound(level), [level]);
-  const [choice, setChoice] = useState<ReceiverChoice | null>(null);
-  const [cell, setCell] = useState<ReceiverCell | null>(null);
-  const [verdict, setVerdict] = useState<ReturnType<typeof checkReceiverAnswer> | null>(null);
-  const roundTitle = useRef<HTMLHeadingElement>(null);
-  const resultTitle = useRef<HTMLHeadingElement>(null);
-  const choiceGroupName = useId();
-  const hintId = useId();
-  const feedbackId = useId();
-  const finished = verdict === "collision" || verdict === "proved";
-  const inspecting = !finished;
-  const values = receiverCellValues(round, cell);
-  const grids = [
-    { label: "匿名来包", image: round.packet },
-    { label: "候选甲", image: round.grids.a },
-    { label: "候选乙", image: round.grids.b },
-  ];
-  const cost = round.size * round.size;
+  const round = createMemo(() => createReceiverRound(props.run.level));
+  const [choice, setChoice] = createSignal<ReceiverChoice | null>(null);
+  const [cell, setCell] = createSignal<ReceiverCell | null>(null);
+  const [verdict, setVerdict] = createSignal<ReturnType<typeof checkReceiverAnswer> | null>(null);
+  let roundTitle: HTMLHeadingElement | undefined;
+  let resultTitle: HTMLHeadingElement | undefined;
+  const choiceGroupName = createUniqueId();
+  const hintId = createUniqueId();
+  const feedbackId = createUniqueId();
+  const finished = () => verdict() === "collision" || verdict() === "proved";
+  const inspecting = () => !finished();
+  const values = createMemo(() => receiverCellValues(round(), cell()));
+  const grids = createMemo<LabeledGrid[]>(() => [
+    { label: "匿名来包", image: round().packet },
+    { label: "候选甲", image: round().grids.a },
+    { label: "候选乙", image: round().grids.b },
+  ]);
+  const cost = () => round().size * round().size;
   const fineSize = RECEIVER_GRID_SIZE.fine;
-  const matchedBadge = choice === "a" ? "甲" : "乙";
-  const otherBadge = choice === "a" ? "乙" : "甲";
+  const matchedBadge = () => (choice() === "a" ? "甲" : "乙");
+  const otherBadge = () => (choice() === "a" ? "乙" : "甲");
 
-  useEffect(() => {
-    (finished ? resultTitle : roundTitle).current?.focus();
-  }, [finished]);
+  createEffect(
+    () => finished(),
+    (isFinished) => {
+      (isFinished ? resultTitle : roundTitle)?.focus();
+    },
+  );
 
   const pick = (cx: number, cy: number) => {
-    if (cell?.cx === cx && cell.cy === cy) return;
+    const current = cell();
+    if (current?.cx === cx && current.cy === cy) return;
     setCell({ cx, cy });
-    if (!finished) setVerdict(null);
+    if (!finished()) setVerdict(null);
   };
 
-  const message =
-    verdict === "collision"
-      ? `${cost} 格逐格都相同，甲和乙都能发出这份包。`
-      : verdict === "proved"
-        ? `来包这一格是 ${values?.packet}，与${matchedBadge}相同，与${otherBadge}不同。来包只可能来自${matchedBadge}。`
-        : verdict === "point" && level === "coarse"
-          ? "找找有没有一格能排除另一枚。点一格或选择行、列试试。"
-          : verdict && retryHints[verdict];
+  const message = createMemo(() => {
+    const v = verdict();
+    if (v === "collision") return `${cost()} 格逐格都相同，甲和乙都能发出这份包。`;
+    if (v === "proved") {
+      return `来包这一格是 ${values()?.packet}，与${matchedBadge()}相同，与${otherBadge()}不同。来包只可能来自${matchedBadge()}。`;
+    }
+    if (v === "point" && props.run.level === "coarse") {
+      return "找找有没有一格能排除另一枚。点一格或选择行、列试试。";
+    }
+    return v ? retryHints[v] : null;
+  });
 
   return (
-    <div className="receiver-round">
-      <div className="receiver-round-heading">
-        <h4 ref={roundTitle} tabIndex={-1}>
-          {level === "coarse" ? "第 1 轮 · 初次来包" : "第 2 轮 · 同一枚徽章重发"}
+    <div class="receiver-round">
+      <div class="receiver-round-heading">
+        <h4
+          ref={(el) => {
+            roundTitle = el;
+          }}
+          tabindex={-1}
+        >
+          {props.run.level === "coarse" ? "第 1 轮 · 初次来包" : "第 2 轮 · 同一枚徽章重发"}
         </h4>
         <span>
-          {round.size}×{round.size} · 本包 {cost} 格
+          {round().size}×{round().size} · 本包 {cost()} 格
         </span>
       </div>
       <p>
-        {level === "coarse"
+        {props.run.level === "coarse"
           ? "来包来自甲或乙。把它与两枚候选的采样图逐格比对。"
           : "比对同一枚徽章重发的来包。判断来自哪一枚后，还要选出能排除另一枚的一格。"}
         两枚候选都按内置多数规则采样，黑格是 1，白格是 0。
       </p>
-      {prediction && !finished ? <p>你的预测：{predictions[prediction]}。</p> : null}
-      <div className="receiver-triptych">
-        {grids.map(({ label, image }) => (
-          <figure key={label}>
-            <figcaption>{label}</figcaption>
-            <BitmapCanvas
-              ariaDescribedBy={inspecting ? hintId : undefined}
-              ariaLabel={`${label}网格`}
-              grid="strong"
-              highlight={cell}
-              image={image}
-              onCellClick={inspecting ? pick : undefined}
-              pixelSize={192 / round.size}
-            />
-          </figure>
-        ))}
+      <Show when={props.run.prediction && !finished()}>
+        <p>你的预测：{predictions[props.run.prediction!]}。</p>
+      </Show>
+      <div class="receiver-triptych">
+        <For each={grids()}>
+          {(entry) => (
+            <figure>
+              <figcaption>{entry.label}</figcaption>
+              <BitmapCanvas
+                ariaDescribedBy={inspecting() ? hintId : undefined}
+                ariaLabel={`${entry.label}网格`}
+                grid="strong"
+                highlight={cell()}
+                image={entry.image}
+                onCellClick={inspecting() ? pick : undefined}
+                pixelSize={192 / round().size}
+              />
+            </figure>
+          )}
+        </For>
       </div>
-      {inspecting ? (
-        <p className="receiver-hint" id={hintId}>
+      <Show when={inspecting()}>
+        <p class="receiver-hint" id={hintId}>
           点任意图选一格，三张图会框出同一位置。也可选行、列，或聚焦网格后按方向键移动。
         </p>
-      ) : null}
-      {inspecting ? (
-        <div className="receiver-readout">
-          <CoordinatePicker cell={cell} onPick={pick} size={round.size} />
+        <div class="receiver-readout">
+          <CoordinatePicker cell={cell()} onPick={pick} size={round().size} />
           <p aria-atomic="true" aria-label="同位读数" role="status">
-            {cell && values ? (
-              <>
-                第 {cell.cy + 1} 行，第 {cell.cx + 1} 列 · 来包 <b>{values.packet}</b> · 甲{" "}
-                <b>{values.a}</b> · 乙 <b>{values.b}</b>
-              </>
-            ) : (
-              "尚未选格"
-            )}
+            <Show fallback="尚未选格" when={cell() && values()}>
+              第 {cell()!.cy + 1} 行，第 {cell()!.cx + 1} 列 · 来包 <b>{values()!.packet}</b> · 甲{" "}
+              <b>{values()!.a}</b> · 乙 <b>{values()!.b}</b>
+            </Show>
           </p>
         </div>
-      ) : null}
-      <RowComparison grids={grids} size={round.size} />
+      </Show>
+      <RowComparison grids={grids()} size={round().size} />
       <div>
-        {!finished ? (
-          <fieldset className="receiver-judgment">
+        <Show when={!finished()}>
+          <fieldset class="receiver-judgment">
             <legend>根据收到的格子，来包可能来自谁？</legend>
-            <div className="receiver-actions">
-              {(["a", "b", "both"] as const).map((candidate) => (
-                <label className="choice-surface" key={candidate}>
-                  <input
-                    checked={choice === candidate}
-                    name={choiceGroupName}
-                    onChange={() => {
-                      setChoice(candidate);
-                      setVerdict(null);
-                    }}
-                    type="radio"
-                  />
-                  {choices[candidate]}
-                </label>
-              ))}
-              <button
-                className="button button-primary"
-                onClick={() => setVerdict(checkReceiverAnswer(round, choice, cell))}
+            <div class="receiver-actions">
+              <For each={["a", "b", "both"] as const}>
+                {(candidate) => (
+                  <label class="choice-surface">
+                    <input
+                      checked={choice() === candidate}
+                      name={choiceGroupName}
+                      onChange={() => {
+                        setChoice(candidate);
+                        setVerdict(null);
+                      }}
+                      type="radio"
+                    />
+                    {choices[candidate]}
+                  </label>
+                )}
+              </For>
+              <Button
+                class="button button-primary"
+                onClick={() => setVerdict(checkReceiverAnswer(round(), choice(), cell()))}
                 type="button"
               >
                 提交判断
-              </button>
+              </Button>
             </div>
           </fieldset>
-        ) : null}
-        <div className={finished ? "receiver-result" : undefined}>
-          {finished ? (
-            <h4 aria-describedby={feedbackId} ref={resultTitle} tabIndex={-1}>
-              {verdict === "collision" ? "全班预测" : "一格证据"}
+        </Show>
+        <div class={finished() ? "receiver-result" : undefined}>
+          <Show when={finished()}>
+            <h4
+              aria-describedby={feedbackId}
+              ref={(el) => {
+                resultTitle = el;
+              }}
+              tabindex={-1}
+            >
+              {verdict() === "collision" ? "全班预测" : "一格证据"}
             </h4>
-          ) : null}
+          </Show>
           <p
             aria-atomic="true"
             aria-label="判断反馈"
-            className="receiver-feedback"
+            class="receiver-feedback"
             id={feedbackId}
             role="status"
           >
-            {message}
+            {message()}
           </p>
-          {verdict === "collision" ? (
+          <Show when={verdict() === "collision"}>
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                const choice = new FormData(event.currentTarget).get("prediction");
-                if (choice === "separate" || choice === "collide") onNext(choice);
+                const picked = new FormData(event.currentTarget).get("prediction");
+                if (picked === "separate" || picked === "collide") props.onNext(picked);
               }}
             >
-              <fieldset className="receiver-judgment">
+              <fieldset class="receiver-judgment">
                 <legend>
                   同一枚徽章用 {fineSize}×{fineSize} 重发后，两枚能分清吗？
                 </legend>
-                <div className="receiver-actions">
-                  {(["separate", "collide"] as const).map((option) => (
-                    <label className="choice-surface" key={option}>
-                      <input name="prediction" required type="radio" value={option} />
-                      {predictions[option]}
-                    </label>
-                  ))}
-                  <button className="button button-primary" type="submit">
+                <div class="receiver-actions">
+                  <For each={["separate", "collide"] as const}>
+                    {(option) => (
+                      <label class="choice-surface">
+                        <input name="prediction" required type="radio" value={option} />
+                        {predictions[option]}
+                      </label>
+                    )}
+                  </For>
+                  <Button class="button button-primary" type="submit">
                     请求重发 {fineSize}×{fineSize}
-                  </button>
-                  {canSkipPrediction ? (
-                    <button
-                      className="button button-secondary"
-                      onClick={() => onNext(null)}
+                  </Button>
+                  <Show when={props.canSkipPrediction}>
+                    <Button
+                      class="button button-secondary"
+                      onClick={() => props.onNext(null)}
                       type="button"
                     >
                       跳过预测并重发
-                    </button>
-                  ) : null}
+                    </Button>
+                  </Show>
                 </div>
               </fieldset>
             </form>
-          ) : null}
-          {verdict === "proved" && cell ? (
-            <>
-              {prediction ? (
-                <p>
-                  你的预测：{predictions[prediction]}。证据：第 {cell.cy + 1} 行第 {cell.cx + 1}{" "}
-                  列的值不同，8×8 可以区分这两枚徽章。
-                  {prediction === "separate" ? "结果与预测一致。" : "结果与预测不同。"}
-                </p>
-              ) : null}
-              <CellProof cell={cell} round={round} />
-            </>
-          ) : null}
-          {verdict === "proved" ? (
-            <button className="button button-secondary" onClick={() => onNext(null)} type="button">
+          </Show>
+          <Show when={verdict() === "proved" && cell()}>
+            {(pickedCell) => (
+              <>
+                <Show when={props.run.prediction}>
+                  {(pred) => (
+                    <p>
+                      你的预测：{predictions[pred()]}。证据：第 {pickedCell().cy + 1} 行第{" "}
+                      {pickedCell().cx + 1} 列的值不同，8×8 可以区分这两枚徽章。
+                      {pred() === "separate" ? "结果与预测一致。" : "结果与预测不同。"}
+                    </p>
+                  )}
+                </Show>
+                <CellProof cell={pickedCell()} round={round()} />
+              </>
+            )}
+          </Show>
+          <Show when={verdict() === "proved"}>
+            <Button
+              class="button button-secondary"
+              onClick={() => props.onNext(null)}
+              type="button"
+            >
               重玩本题
-            </button>
-          ) : null}
+            </Button>
+          </Show>
         </div>
       </div>
     </div>
   );
 }
 
-export function ReceiverExercise({
-  enabled,
-  canSkipPrediction,
-  children,
-}: {
+export function ReceiverExercise(props: {
   enabled: boolean;
   canSkipPrediction: boolean;
-  children: ReactNode;
+  children?: JSX.Element;
 }) {
-  const [run, setRun] = useState<ReceiverRun | null>(null);
-  const titleId = useId();
-  const exerciseId = useId();
+  const [run, setRun] = createSignal<ReceiverRun | null>(null);
+  const titleId = createUniqueId();
+  const exerciseId = createUniqueId();
 
-  useEffect(() => {
-    if (!enabled) setRun(null);
-  }, [enabled]);
+  createEffect(
+    () => props.enabled,
+    (isEnabled) => {
+      if (!isEnabled) setRun(null);
+    },
+  );
 
   return (
     <>
-      {enabled ? (
-        <section aria-labelledby={titleId} className="receiver-exercise">
-          <div className="receiver-heading">
+      <Show when={props.enabled}>
+        <section aria-labelledby={titleId} class="receiver-exercise">
+          <div class="receiver-heading">
             <div>
-              <h3 id={titleId}>{run ? "接收端挑战" : "先当一次接收员"}</h3>
-              {!run ? <p>可选练习 · 比对两枚徽章，用收到的格子判断来源。</p> : null}
+              <h3 id={titleId}>{run() ? "接收端挑战" : "先当一次接收员"}</h3>
+              <Show when={!run()}>
+                <p>可选练习 · 比对两枚徽章，用收到的格子判断来源。</p>
+              </Show>
             </div>
-            <button
+            <Button
               aria-controls={exerciseId}
-              aria-expanded={run !== null}
-              className="button button-secondary"
+              aria-expanded={run() !== null ? "true" : "false"}
+              class="button button-secondary"
               onClick={(event) => {
                 event.currentTarget.focus();
-                setRun(run ? null : firstRound);
+                setRun(run() ? null : { ...firstRound });
               }}
               type="button"
             >
-              {run ? "返回发送端" : "开始接收端挑战"}
-            </button>
+              {run() ? "返回发送端" : "开始接收端挑战"}
+            </Button>
           </div>
-          <div hidden={!run} id={exerciseId}>
-            {run ? (
-              <ReceiverTransmission
-                canSkipPrediction={canSkipPrediction}
-                key={run.level}
-                onNext={(prediction) =>
-                  setRun(run.level === "coarse" ? { level: "fine", prediction } : firstRound)
-                }
-                run={run}
-              />
-            ) : null}
+          <div hidden={!run()} id={exerciseId}>
+            <Show keyed when={run()}>
+              {(currentRun) => (
+                <ReceiverTransmission
+                  canSkipPrediction={props.canSkipPrediction}
+                  onNext={(prediction) =>
+                    setRun(
+                      currentRun.level === "coarse"
+                        ? { level: "fine", prediction }
+                        : { ...firstRound },
+                    )
+                  }
+                  run={currentRun}
+                />
+              )}
+            </Show>
           </div>
         </section>
-      ) : null}
-      <div className="receiver-sender-view" hidden={enabled && run !== null}>
-        {children}
+      </Show>
+      <div class="receiver-sender-view" hidden={props.enabled && run() !== null}>
+        {props.children}
       </div>
     </>
   );

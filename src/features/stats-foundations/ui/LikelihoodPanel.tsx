@@ -1,22 +1,23 @@
-import { StatsModePicker } from "./StatsModePicker";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { MathFormula } from "../../../shared/ui/MathFormula";
-import { ConceptQuestion } from "./ConceptQuestion.tsx";
-import { useMemo, useState } from "react";
 import type { LikelihoodDraft } from "../domain/protocol.ts";
 import type { StatsConceptQuestion } from "../domain/stages.ts";
 import {
   COIN_HEADS,
   COIN_MLE_OPTIMAL,
-  isNearCoinMLE,
   COIN_P_MAX,
   COIN_P_MIN,
   COIN_TAILS,
   COIN_TOSSES,
   coinLikelihood,
   coinNegLogLikelihood,
+  isNearCoinMLE,
   roundTo,
   sampleLikelihoodCurve,
 } from "../domain/statsMath.ts";
+import { ConceptQuestion } from "./ConceptQuestion.tsx";
+import { StatsModePicker } from "./StatsModePicker";
 
 type Props = {
   draft: LikelihoodDraft;
@@ -28,213 +29,223 @@ type Props = {
 const SVG_W = 540;
 const SVG_H = 270;
 const PAD = { left: 56, right: 24, top: 20, bottom: 42 };
+const P_TICKS = [0.1, 0.3, 0.5, 0.7, 0.9];
+const CURVE = sampleLikelihoodCurve(90);
+const MAX_L = coinLikelihood(COIN_MLE_OPTIMAL);
+const MAX_NLL = Math.max(...CURVE.map((point) => point.nll));
+const VIEW_OPTIONS: readonly { value: LikelihoodDraft["viewMode"]; label: string }[] = [
+  { value: "likelihood", label: "似然 L(p)" },
+  { value: "nll", label: "负对数似然 −ln L(p)" },
+];
 
-export function LikelihoodPanel({ draft, question, passed, onChange }: Props) {
-  const [simResult, setSimResult] = useState<string | null>(null);
-  const curve = useMemo(() => sampleLikelihoodCurve(90), []);
-  const currentL = coinLikelihood(draft.p);
-  const [mantissa, exponent] = currentL.toExponential(3).split("e");
-  const currentNll = coinNegLogLikelihood(draft.p);
-  const maxL = coinLikelihood(COIN_MLE_OPTIMAL);
-  const isNearPeak = isNearCoinMLE(draft.p);
+export function LikelihoodPanel(props: Props) {
+  const [simResult, setSimResult] = createSignal<string | null>(null);
+  const currentL = createMemo(() => coinLikelihood(props.draft.p));
+  const expParts = createMemo(() => currentL().toExponential(3).split("e"));
+  const currentNll = createMemo(() => coinNegLogLikelihood(props.draft.p));
+  const isNearPeak = createMemo(() => isNearCoinMLE(props.draft.p));
 
-  const isNll = draft.viewMode === "nll";
-  const maxY = isNll ? Math.max(...curve.map((point) => point.nll)) : maxL * 1.18;
-  const minY = isNll ? 5.5 : 0;
+  const isNll = createMemo(() => props.draft.viewMode === "nll");
+  const maxY = createMemo(() => (isNll() ? MAX_NLL : MAX_L * 1.18));
+  const minY = createMemo(() => (isNll() ? 5.5 : 0));
 
   const mapX = (p: number) => PAD.left + p * (SVG_W - PAD.left - PAD.right);
   const mapY = (val: number) => {
-    const clamped = Math.min(maxY, Math.max(minY, val));
-    return SVG_H - PAD.bottom - ((clamped - minY) / (maxY - minY)) * (SVG_H - PAD.top - PAD.bottom);
+    const hi = maxY();
+    const lo = minY();
+    const clamped = Math.min(hi, Math.max(lo, val));
+    return SVG_H - PAD.bottom - ((clamped - lo) / (hi - lo)) * (SVG_H - PAD.top - PAD.bottom);
   };
 
-  const pathD = curve
-    .map((pt, i) => {
+  const pathD = createMemo(() =>
+    CURVE.map((pt, i) => {
       const x = mapX(pt.p);
-      const y = mapY(isNll ? pt.nll : pt.likelihood);
+      const y = mapY(isNll() ? pt.nll : pt.likelihood);
       return `${i === 0 ? "M" : "L"}${x.toFixed(1)},${y.toFixed(1)}`;
-    })
-    .join(" ");
+    }).join(" "),
+  );
 
-  const curX = mapX(draft.p);
-  const curY = mapY(isNll ? currentNll : currentL);
+  const yTicks = createMemo(() => [minY(), (minY() + maxY()) / 2, maxY()]);
+  const curX = createMemo(() => mapX(props.draft.p));
+  const curY = createMemo(() => mapY(isNll() ? currentNll() : currentL()));
 
   const runSimulation = () => {
     let heads = 0;
     for (let i = 0; i < 10; i++) {
-      if (Math.random() < draft.p) heads += 1;
+      if (Math.random() < props.draft.p) heads += 1;
     }
     setSimResult(
-      `按你猜的 p = ${roundTo(draft.p, 2)} 模拟抛 10 次：出现 ${heads} 正 ${10 - heads} 反`,
+      `按你猜的 p = ${roundTo(props.draft.p, 2)} 模拟抛 10 次：出现 ${heads} 正 ${10 - heads} 反`,
     );
   };
 
   return (
-    <div className="sf-panel">
-      <div className="sf-coins-banner">
-        <div className="sf-coins-label">
+    <div class="sf-panel">
+      <div class="sf-coins-banner">
+        <div class="sf-coins-label">
           <strong>实测 10 次抛掷记录：</strong>
           <span>
             {COIN_HEADS} 次正面 · {COIN_TAILS} 次反面
           </span>
         </div>
-        <div className="sf-coins-row" aria-label="10次抛硬币记录">
-          {COIN_TOSSES.map((side, idx) => (
-            <span className={`sf-coin is-${side === "H" ? "heads" : "tails"}`} key={idx}>
-              {side === "H" ? "正" : "反"}
-            </span>
-          ))}
+        <div aria-label="10次抛硬币记录" class="sf-coins-row">
+          <For each={COIN_TOSSES}>
+            {(side) => (
+              <span class={`sf-coin is-${side === "H" ? "heads" : "tails"}`}>
+                {side === "H" ? "正" : "反"}
+              </span>
+            )}
+          </For>
         </div>
       </div>
 
-      <div className="sf-metrics-row">
-        <div className={`sf-metric-card ${isNearPeak ? "is-good" : ""}`}>
-          <span className="sf-metric-label">你猜的正面概率 p</span>
-          <strong className="sf-metric-value sf-mono">{roundTo(draft.p, 2)}</strong>
-          <span className="sf-metric-sub">
-            {isNearPeak ? "已到达似然峰顶附近！" : "拖动滑块寻找峰顶 / 谷底"}
+      <div class="sf-metrics-row">
+        <div class={`sf-metric-card ${isNearPeak() ? "is-good" : ""}`}>
+          <span class="sf-metric-label">你猜的正面概率 p</span>
+          <strong class="sf-metric-value sf-mono">{roundTo(props.draft.p, 2)}</strong>
+          <span class="sf-metric-sub">
+            {isNearPeak() ? "已到达似然峰顶附近！" : "拖动滑块寻找峰顶 / 谷底"}
           </span>
         </div>
-        <div className="sf-metric-card">
-          <span className="sf-metric-label">
+        <div class="sf-metric-card">
+          <span class="sf-metric-label">
             似然 <MathFormula>{String.raw`L(p)=p^7(1-p)^3`}</MathFormula>
           </span>
-          <strong className="sf-metric-value sf-mono">
-            {mantissa} × 10<sup>{Number(exponent)}</sup>
+          <strong class="sf-metric-value sf-mono">
+            {expParts()[0]} × 10<sup>{Number(expParts()[1])}</sup>
           </strong>
-          <span className="sf-metric-sub">越大表示该参数下这串记录越可能出现</span>
+          <span class="sf-metric-sub">越大表示该参数下这串记录越可能出现</span>
         </div>
-        <div className="sf-metric-card">
-          <span className="sf-metric-label">负对数似然 −ln L(p)</span>
-          <strong className="sf-metric-value sf-mono">{roundTo(currentNll, 3)}</strong>
-          <span className="sf-metric-sub">越小越好（逻辑回归的损失函数）</span>
+        <div class="sf-metric-card">
+          <span class="sf-metric-label">负对数似然 −ln L(p)</span>
+          <strong class="sf-metric-value sf-mono">{roundTo(currentNll(), 3)}</strong>
+          <span class="sf-metric-sub">越小越好（逻辑回归的损失函数）</span>
         </div>
       </div>
 
-      <div className="sf-workspace-grid">
-        <div className="sf-chart-card">
-          <div className="sf-chart-header">
-            <h3>{isNll ? "负对数似然曲线 −ln L(p)（找最低谷）" : "似然曲线 L(p)（找最高峰）"}</h3>
+      <div class="sf-workspace-grid">
+        <div class="sf-chart-card">
+          <div class="sf-chart-header">
+            <h3>{isNll() ? "负对数似然曲线 −ln L(p)（找最低谷）" : "似然曲线 L(p)（找最高峰）"}</h3>
             <StatsModePicker
               label="曲线视图"
-              value={draft.viewMode}
-              onChange={(viewMode) => onChange({ ...draft, viewMode })}
-              options={[
-                { value: "likelihood", label: "似然 L(p)" },
-                { value: "nll", label: "负对数似然 −ln L(p)" },
-              ]}
+              onChange={(viewMode) => props.onChange({ ...props.draft, viewMode })}
+              options={VIEW_OPTIONS}
+              value={props.draft.viewMode}
             />
           </div>
 
           <svg
+            aria-label={isNll() ? "负对数似然曲线" : "似然函数曲线"}
+            class="sf-svg"
             role="img"
-            aria-label={isNll ? "负对数似然曲线" : "似然函数曲线"}
-            className="sf-svg"
             viewBox={`0 0 ${SVG_W} ${SVG_H}`}
           >
-            {[0.1, 0.3, 0.5, 0.7, 0.9].map((pTick) => (
-              <g key={`px-${pTick}`}>
-                <line
-                  className="sf-grid-line"
-                  x1={mapX(pTick)}
-                  x2={mapX(pTick)}
-                  y1={PAD.top}
-                  y2={SVG_H - PAD.bottom}
-                />
-                <text className="sf-axis-tick" textAnchor="middle" x={mapX(pTick)} y={SVG_H - 22}>
-                  {pTick.toFixed(1)}
-                </text>
-              </g>
-            ))}
+            <For each={P_TICKS}>
+              {(pTick) => (
+                <g>
+                  <line
+                    class="sf-grid-line"
+                    x1={mapX(pTick)}
+                    x2={mapX(pTick)}
+                    y1={PAD.top}
+                    y2={SVG_H - PAD.bottom}
+                  />
+                  <text class="sf-axis-tick" text-anchor="middle" x={mapX(pTick)} y={SVG_H - 22}>
+                    {pTick.toFixed(1)}
+                  </text>
+                </g>
+              )}
+            </For>
 
             <line
-              className="sf-axis-line"
+              class="sf-axis-line"
               x1={PAD.left}
               x2={SVG_W - PAD.right}
               y1={SVG_H - PAD.bottom}
               y2={SVG_H - PAD.bottom}
             />
             <line
-              className="sf-axis-line"
+              class="sf-axis-line"
               x1={PAD.left}
               x2={PAD.left}
               y1={PAD.top}
               y2={SVG_H - PAD.bottom}
             />
-            <text className="sf-axis-label" textAnchor="middle" x={SVG_W / 2} y={SVG_H - 4}>
+            <text class="sf-axis-label" text-anchor="middle" x={SVG_W / 2} y={SVG_H - 4}>
               猜测的正面概率 p
             </text>
 
-            {[minY, (minY + maxY) / 2, maxY].map((tick) => (
-              <text
-                className="sf-axis-tick"
-                textAnchor="end"
-                x={PAD.left - 5}
-                y={mapY(tick) + 3}
-                key={tick}
-              >
-                {isNll ? tick.toFixed(1) : tick.toFixed(4)}
-              </text>
-            ))}
+            <For each={yTicks()}>
+              {(tick) => (
+                <text class="sf-axis-tick" text-anchor="end" x={PAD.left - 5} y={mapY(tick) + 3}>
+                  {isNll() ? tick.toFixed(1) : tick.toFixed(4)}
+                </text>
+              )}
+            </For>
             {/* Curve */}
-            <path className="sf-curve-path" d={pathD} fill="none" />
+            <path class="sf-curve-path" d={pathD()} fill="none" />
 
             {/* Current p marker */}
             <line
-              className="sf-guide-line"
-              x1={curX}
-              x2={curX}
+              class="sf-guide-line"
+              x1={curX()}
+              x2={curX()}
               y1={PAD.top}
               y2={SVG_H - PAD.bottom}
             />
-            <circle className="sf-marker-dot" cx={curX} cy={curY} r={6} />
+            <circle class="sf-marker-dot" cx={curX()} cy={curY()} r={6} />
           </svg>
         </div>
 
-        <div className="sf-controls-card">
+        <div class="sf-controls-card">
           <h3>猜测硬币的偏向程度</h3>
-          <div className="sf-slider-group">
-            <div className="sf-slider-head">
-              <label htmlFor="sf-coin-p">正面朝上的概率 p</label>
-              <span className="sf-mono">{roundTo(draft.p, 2)}</span>
+          <div class="sf-slider-group">
+            <div class="sf-slider-head">
+              <label for="sf-coin-p">正面朝上的概率 p</label>
+              <span class="sf-mono">{roundTo(props.draft.p, 2)}</span>
             </div>
             <input
               id="sf-coin-p"
               max={COIN_P_MAX}
               min={COIN_P_MIN}
-              onChange={(e) => onChange({ ...draft, p: Number(e.target.value) })}
+              onChange={(e) => props.onChange({ ...props.draft, p: Number(e.currentTarget.value) })}
+              onInput={(e) => props.onChange({ ...props.draft, p: Number(e.currentTarget.value) })}
               step={0.01}
               type="range"
-              value={draft.p}
+              value={props.draft.p}
             />
           </div>
 
-          <div className="sf-note-box">
+          <div class="sf-note-box">
             <strong>为什么是连乘？</strong>
             <br />
             每次抛硬币相互独立，所以按上面的顺序抛出这 10 个结果的联合概率是：
-            <div className="sf-formula-line sf-mono">
-              L({roundTo(draft.p, 2)}) = {roundTo(draft.p, 2)}⁷ × {roundTo(1 - draft.p, 2)}³
+            <div class="sf-formula-line sf-mono">
+              L({roundTo(props.draft.p, 2)}) = {roundTo(props.draft.p, 2)}⁷ ×{" "}
+              {roundTo(1 - props.draft.p, 2)}³
             </div>
           </div>
 
-          <div className="sf-sim-box">
-            <button className="sf-secondary-btn" onClick={runSimulation} type="button">
+          <div class="sf-sim-box">
+            <Button class="sf-secondary-btn" onClick={runSimulation} type="button">
               用当前 p 模拟再抛 10 次
-            </button>
-            {simResult && <p className="sf-sim-result">{simResult}</p>}
+            </Button>
+            <Show when={simResult()}>{(result) => <p class="sf-sim-result">{result()}</p>}</Show>
           </div>
         </div>
       </div>
 
-      {question && (
-        <ConceptQuestion
-          question={question}
-          answer={draft.answer}
-          passed={passed}
-          onAnswer={(answer) => onChange({ ...draft, answer })}
-        />
-      )}
+      <Show when={props.question}>
+        {(q) => (
+          <ConceptQuestion
+            answer={props.draft.answer}
+            onAnswer={(answer) => props.onChange({ ...props.draft, answer })}
+            passed={props.passed}
+            question={q()}
+          />
+        )}
+      </Show>
     </div>
   );
 }

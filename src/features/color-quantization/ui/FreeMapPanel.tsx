@@ -6,7 +6,8 @@
  * overrides vs it are counted against the stage's budget.
  */
 
-import { useMemo, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { PythonEditor } from "../../../shared/ui/PythonEditor";
 import { SOURCE_COLORS, TONER_RACK } from "../domain/palette.ts";
@@ -30,14 +31,7 @@ const STARTER = `def map_color(r, g, b):
     return best
 `;
 
-export function FreeMapPanel({
-  stage,
-  code,
-  helperCode,
-  table,
-  onCodeChange,
-  onTable,
-}: {
+export function FreeMapPanel(props: {
   stage: QuantStageDef;
   code: string;
   /** The student's stage-1 nearest_toner source; injected before each run. */
@@ -47,14 +41,16 @@ export function FreeMapPanel({
   onCodeChange: (code: string) => void;
   onTable: (table: number[]) => void;
 }) {
-  const [error, setError] = useState<string | null>(null);
-  const [applied, setApplied] = useState<string | null>(null);
-  const [helperFailed, setHelperFailed] = useState(false);
-  const [running, setRunning] = useState(false);
+  const [error, setError] = createSignal<string | null>(null);
+  const [applied, setApplied] = createSignal<string | null>(null);
+  const [helperFailed, setHelperFailed] = createSignal(false);
+  const [running, setRunning] = createSignal(false);
 
-  const source = code.trim() ? code : STARTER;
-  const defaultTable = useMemo(() => nnTable(stage.fixedLoadout ?? []), [stage.fixedLoadout]);
-  const overrides = table ? countOverrides(table, defaultTable) : null;
+  const source = () => (props.code.trim() ? props.code : STARTER);
+  const defaultTable = createMemo(() => nnTable(props.stage.fixedLoadout ?? []));
+  const overrides = createMemo(() =>
+    props.table ? countOverrides(props.table, defaultTable()) : null,
+  );
 
   const run = async () => {
     setRunning(true);
@@ -62,11 +58,11 @@ export function FreeMapPanel({
     setApplied(null);
     try {
       const { results, helperFailed: helperErr } = await runMapAll(
-        source,
+        source(),
         SOURCE_COLORS.map((c) => [...c.rgb]),
         TONER_RACK.map((t) => [...t.rgb]),
         SOURCE_COLORS.map((c) => [...c.rgb]),
-        helperCode,
+        props.helperCode,
       );
       setHelperFailed(helperErr);
       if (results.length !== SOURCE_COLORS.length) {
@@ -76,15 +72,16 @@ export function FreeMapPanel({
       if (next.some((v) => !Number.isInteger(v) || v < -1 || v >= TONER_RACK.length)) {
         throw new Error("map_color 的返回值必须是墨粉编号（0～7）或 -1（留白）。");
       }
-      const disallowed = next.filter((v) => v >= 0 && !(stage.fixedLoadout ?? []).includes(v));
+      const fixedLoadout = props.stage.fixedLoadout ?? [];
+      const disallowed = next.filter((v) => v >= 0 && !fixedLoadout.includes(v));
       if (disallowed.length) {
         throw new Error(
-          `粉盒里只装了 ${(stage.fixedLoadout ?? []).map((i) => TONER_RACK[i].name).join("、")}` +
+          `粉盒里只装了 ${fixedLoadout.map((i) => TONER_RACK[i].name).join("、")}` +
             `——不能映射到 ${TONER_RACK[disallowed[0]].name}。`,
         );
       }
-      onTable(next);
-      setApplied(`map_color(...) → 改了 ${countOverrides(next, defaultTable)} 条默认映射`);
+      props.onTable(next);
+      setApplied(`map_color(...) → 改了 ${countOverrides(next, defaultTable())} 条默认映射`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
     } finally {
@@ -93,49 +90,51 @@ export function FreeMapPanel({
   };
 
   return (
-    <section aria-labelledby="free-map-title" className="quant-panel">
+    <section aria-labelledby="free-map-title" class="quant-panel">
       <h3 id="free-map-title">改写映射规则</h3>
       <p>
         写一个 <code>map_color(r, g, b)</code> 函数：它对每个源色返回墨粉编号或 -1（留白）。
-        本关粉盒固定为 {(stage.fixedLoadout ?? []).map((i) => TONER_RACK[i].name).join("、")}
-        ，且最多只能有 {stage.overrideBudget} 条映射和打印机默认规则不同。
+        本关粉盒固定为 {(props.stage.fixedLoadout ?? []).map((i) => TONER_RACK[i].name).join("、")}
+        ，且最多只能有 {props.stage.overrideBudget} 条映射和打印机默认规则不同。
       </p>
       <PythonEditor
         ariaLabel="map_color 代码"
         className="quant-editor"
         height="240px"
-        onChange={(value) => onCodeChange(value)}
-        value={source}
+        onChange={(value) => props.onCodeChange(value)}
+        value={source()}
       />
-      <div className="quant-actions">
-        <button
-          className="button button-secondary"
-          disabled={running}
+      <div class="quant-actions">
+        <Button
+          class="button button-secondary"
+          disabled={running()}
           onClick={() => void run()}
           type="button"
         >
-          {running ? "运行中…" : "运行并生成映射表"}
-        </button>
-        {applied ? <span className="quant-badge is-pass">{applied}</span> : null}
-        {overrides !== null ? (
+          {running() ? "运行中…" : "运行并生成映射表"}
+        </Button>
+        <Show when={applied()}>{(msg) => <span class="quant-badge is-pass">{msg()}</span>}</Show>
+        <Show when={overrides() !== null}>
           <span
-            className={`quant-badge${overrides <= (stage.overrideBudget ?? 0) ? " is-pass" : " is-fail"}`}
+            class={`quant-badge${overrides()! <= (props.stage.overrideBudget ?? 0) ? " is-pass" : " is-fail"}`}
           >
-            当前改动 {overrides} / {stage.overrideBudget} 条
+            当前改动 {overrides()} / {props.stage.overrideBudget} 条
           </span>
-        ) : null}
+        </Show>
       </div>
-      {helperFailed ? (
-        <p className="quant-helper-warn" role="note">
+      <Show when={helperFailed()}>
+        <p class="quant-helper-warn" role="note">
           <Icon name="warning" size={13} /> 你在第 1 关写的 <code>nearest_toner</code>{" "}
           有错误，这次运行用的是内置参考版本—— 回去修好它，这里才会真正调用你的规则。
         </p>
-      ) : null}
-      {error ? (
-        <pre className="quant-error" role="alert">
-          {error}
-        </pre>
-      ) : null}
+      </Show>
+      <Show when={error()}>
+        {(err) => (
+          <pre class="quant-error" role="alert">
+            {err()}
+          </pre>
+        )}
+      </Show>
     </section>
   );
 }

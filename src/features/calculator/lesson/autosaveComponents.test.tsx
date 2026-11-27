@@ -1,6 +1,7 @@
-import { act, render } from "@testing-library/react";
-import { useReducer, type Dispatch } from "react";
+import { TestLabRuntime } from "../../../test/lab-runtime";
+import { render } from "@solidjs/testing-library";
 import { Hono } from "hono";
+import { flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { hashPassword } from "../../../../server/auth/password.ts";
 import { createSession } from "../../../../server/auth/session.ts";
@@ -8,6 +9,7 @@ import { newId, openMemoryDb } from "../../../../server/db/client.ts";
 import { attachDb, attachSession, type AppVariables } from "../../../../server/http/context.ts";
 import { calculatorRoutes } from "../../../../server/routes/calculator.ts";
 import { api } from "../../../shared/api/client.ts";
+import { createReducer } from "../../../shared/lab/createReducer.ts";
 import { statusForStage } from "../../../shared/lab/saveStatus.ts";
 import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft.ts";
 import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject.ts";
@@ -43,20 +45,22 @@ const AUTOSAVE_DELAY_MS = 1500;
 describe("calculator component-library autosave lifecycle", () => {
   let calls: Call[];
   let app: Hono<{ Variables: AppVariables }>;
-  let classId: string;
+  let scopeId: string;
   let cookie: string;
   let exposed: {
-    state: CalculatorLessonState;
-    dispatch: Dispatch<CalculatorLessonAction> | null;
+    getState: () => CalculatorLessonState;
+    dispatch: ((action: CalculatorLessonAction) => void) | null;
   };
+
+  const currentState = () => exposed.getState();
 
   beforeEach(async () => {
     vi.useFakeTimers();
     calls = [];
     const db = openMemoryDb();
-    classId = newId();
+    scopeId = newId();
     db.prepare("INSERT INTO classes (id, name, invite_code) VALUES (?, ?, ?)").run(
-      classId,
+      scopeId,
       "实验班",
       "invite-1",
     );
@@ -66,7 +70,7 @@ describe("calculator component-library autosave lifecycle", () => {
     ).run(studentId, "stu-1", "stu-1", await hashPassword("pass"), "user");
     db.prepare("INSERT INTO class_members (id, class_id, user_id, role) VALUES (?, ?, ?, ?)").run(
       newId(),
-      classId,
+      scopeId,
       studentId,
       "student",
     );
@@ -74,7 +78,8 @@ describe("calculator component-library autosave lifecycle", () => {
     app.use("/api/*", attachDb(db), attachSession());
     app.route("/api/classes/:classId/labs/calculator", calculatorRoutes());
     cookie = `lab_session=${createSession(db, studentId).id}`;
-    exposed = { state: createCalculatorLessonState(1), dispatch: null };
+    const initial = createCalculatorLessonState(1);
+    exposed = { getState: () => initial, dispatch: null };
     vi.stubGlobal(
       "fetch",
       vi.fn((input: unknown, init?: RequestInit) => {
@@ -102,123 +107,128 @@ describe("calculator component-library autosave lifecycle", () => {
     vi.unstubAllGlobals();
   });
 
-  const flush = async () => {
-    await act(async () => {
-      await Promise.resolve();
-      await Promise.resolve();
-      await Promise.resolve();
-    });
+  const settle = async () => {
+    flush();
+    for (let i = 0; i < 20; i++) await Promise.resolve();
+    flush();
   };
 
   const deliver = async (call: Call) => {
     call.done.resolve(await call.serverWork);
-    await flush();
+    await settle();
   };
 
   const advance = async () => {
-    await act(async () => {
-      vi.advanceTimersByTime(AUTOSAVE_DELAY_MS);
-    });
+    vi.advanceTimersByTime(AUTOSAVE_DELAY_MS);
+    await settle();
   };
 
-  const dispatch = (action: CalculatorLessonAction) =>
-    act(() => {
-      exposed.dispatch?.(action);
-    });
+  const dispatch = (action: CalculatorLessonAction) => {
+    exposed.dispatch?.(action);
+    flush();
+  };
 
-  const componentNames = () => exposed.state.unlockedSubmodules.map((component) => component.name);
+  const componentNames = () => currentState().unlockedSubmodules.map((component) => component.name);
 
   function Probe() {
-    const [state, dispatch] = useReducer(transitionCalculatorLesson, undefined, () =>
+    const [state, localDispatch] = createReducer(
+      transitionCalculatorLesson,
       createCalculatorLessonState(1),
     );
-    exposed.state = state;
-    exposed.dispatch = dispatch;
-    const graph = graphOf(state);
-    const { projectLoaded, fetchProject, projectGeneration } = useLabProject<
+    exposed.getState = state;
+    exposed.dispatch = localDispatch;
+
+    const project = useLabProject<
       CircuitGraph,
       { unlockedSubmodules: ComponentDef[] },
       CalculatorLessonAction
-    >({
-      classId,
+    >(() => ({
+      scopeId,
       labId: "calculator",
       ready: true,
-      stageIndex: state.stageIndex,
-      toAction: (project) => ({
+      stageIndex: state().stageIndex,
+      toAction: (loaded) => ({
         type: "load-project",
-        currentStage: project.currentStage,
-        passedStages: project.passedStages,
-        unlockedSubmodules: project.unlockedSubmodules,
-        draftRevisions: project.draftRevisions,
-        componentsRevision: project.draftRevisions?.components ?? 0,
+        currentStage: loaded.currentStage,
+        passedStages: loaded.passedStages,
+        unlockedSubmodules: loaded.unlockedSubmodules,
+        draftRevisions: loaded.draftRevisions,
+        componentsRevision: loaded.draftRevisions?.components ?? 0,
         drafts: Object.fromEntries(
-          Object.entries(project.drafts ?? {}).map(([key, value]) => [Number(key), value]),
+          Object.entries(loaded.drafts ?? {}).map(([key, value]) => [Number(key), value]),
         ),
       }),
-      dispatch,
-    });
-    const dirtyStages = Object.keys(state.saveStatusByStage)
-      .map(Number)
-      .filter(
-        (s) => s !== state.stageIndex && statusForStage(state.saveStatusByStage, s) === "dirty",
-      );
-    useAutosaveDraft<CircuitGraph>({
-      classId,
-      labId: "calculator",
-      expectedGeneration: projectGeneration,
-      saveStatus: projectLoaded
-        ? statusForStage(state.saveStatusByStage, state.stageIndex)
-        : "idle",
-      stageIndex: state.stageIndex,
-      dirtyStages,
-      draftOf: (s) => graphOf(state, s),
-      bodyFor: (index, draft) => ({
-        stageIndex: index,
-        graph: draft,
-        ...(state.componentsChanged ? { components: state.unlockedSubmodules } : {}),
-      }),
-      holdSend: (_stage, draft) => {
-        const known = new Set(state.unlockedSubmodules.map((component) => component.name));
-        return draft.nodes.some(
-          (node) => node.kind === "component" && node.name !== undefined && !known.has(node.name),
+      dispatch: localDispatch,
+    }));
+
+    useAutosaveDraft<CircuitGraph>(() => {
+      const current = state();
+      const graph = graphOf(current);
+      const dirtyStages = Object.keys(current.saveStatusByStage)
+        .map(Number)
+        .filter(
+          (s) =>
+            s !== current.stageIndex && statusForStage(current.saveStatusByStage, s) === "dirty",
         );
-      },
-      deps: [graph, state.unlockedSubmodules, state.saveStatusByStage],
-      expectedRevisionOf: (s) => state.draftRevisions[s] ?? 0,
-      expectedComponentsRevisionOf: () => state.componentsRevision,
-      componentsSeqOf: () => state.componentsEditSeq,
-      onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-      onSaved: (s, revision, componentsRevision, componentsSeq) =>
-        dispatch({
-          type: "mark-saved",
-          stageIndex: s,
-          revision,
-          componentsRevision,
-          componentsSeq,
+      return {
+        scopeId,
+        labId: "calculator",
+        expectedGeneration: project.projectGeneration,
+        saveStatus: project.projectLoaded
+          ? statusForStage(current.saveStatusByStage, current.stageIndex)
+          : "idle",
+        stageIndex: current.stageIndex,
+        dirtyStages,
+        draftOf: (s) => graphOf(current, s),
+        bodyFor: (index, draft) => ({
+          stageIndex: index,
+          graph: draft,
+          ...(current.componentsChanged ? { components: current.unlockedSubmodules } : {}),
         }),
-      onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-      onConflict: (s) =>
-        reconcileConflictedStage<CircuitGraph, { unlockedSubmodules: ComponentDef[] }>({
-          fetchProject,
-          stageIndex: s,
-          onResolved: (stageIndex, project) =>
-            dispatch({
-              type: "resolve-save-conflict",
-              stageIndex,
-              draft: project.drafts?.[stageIndex],
-              revision: project.draftRevisions?.[stageIndex],
-              unlockedSubmodules: project.unlockedSubmodules,
-              componentsRevision: project.draftRevisions?.components,
-            }),
-          onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
-        }),
+        holdSend: (_stage, draft) => {
+          const known = new Set(current.unlockedSubmodules.map((component) => component.name));
+          return draft.nodes.some(
+            (node) => node.kind === "component" && node.name !== undefined && !known.has(node.name),
+          );
+        },
+        deps: [graph, current.unlockedSubmodules, current.saveStatusByStage],
+        expectedRevisionOf: (s) => current.draftRevisions[s] ?? 0,
+        expectedComponentsRevisionOf: () => current.componentsRevision,
+        componentsSeqOf: () => current.componentsEditSeq,
+        onSaving: (s) => localDispatch({ type: "mark-saving", stageIndex: s }),
+        onSaved: (s, revision, componentsRevision, componentsSeq) =>
+          localDispatch({
+            type: "mark-saved",
+            stageIndex: s,
+            revision,
+            componentsRevision,
+            componentsSeq,
+          }),
+        onError: (s) => localDispatch({ type: "mark-save-error", stageIndex: s }),
+        onConflict: (s) =>
+          reconcileConflictedStage<CircuitGraph, { unlockedSubmodules: ComponentDef[] }>({
+            fetchProject: project.fetchProject,
+            stageIndex: s,
+            onResolved: (resolvedStageIndex, loaded) =>
+              localDispatch({
+                type: "resolve-save-conflict",
+                stageIndex: resolvedStageIndex,
+                draft: loaded.drafts?.[resolvedStageIndex],
+                revision: loaded.draftRevisions?.[resolvedStageIndex],
+                unlockedSubmodules: loaded.unlockedSubmodules,
+                componentsRevision: loaded.draftRevisions?.components,
+              }),
+            onSyncError: (failedStageIndex) =>
+              localDispatch({ type: "mark-save-sync-error", stageIndex: failedStageIndex }),
+          }),
+      };
     });
     return null;
   }
 
   const createComponent = (name: string, outputPin: string) => {
     dispatch({ type: "add-node", kind: "not", x: 220, y: 120 });
-    const gate = exposed.state.selectedNodeId!;
+    const gate = currentState().selectedNodeId!;
     dispatch({ type: "start-wire", from: { node: "in-A", port: "out" } });
     dispatch({ type: "complete-wire", to: { node: gate, port: "in" } });
     dispatch({ type: "start-wire", from: { node: gate, port: "out" } });
@@ -237,32 +247,30 @@ describe("calculator component-library autosave lifecycle", () => {
 
   const submitJudge = async (stageIndex: number, graph: CircuitGraph) => {
     const result = await api.post<CalculatorJudgeResult>(
-      `/api/classes/${classId}/labs/calculator/judge`,
-      { stageIndex, expectedGeneration: 0, graph, components: exposed.state.unlockedSubmodules },
+      `/api/classes/${scopeId}/labs/calculator/judge`,
+      { stageIndex, expectedGeneration: 0, graph, components: currentState().unlockedSubmodules },
     );
-    act(() => {
-      exposed.dispatch?.({
-        type: "judge-result",
-        stageIndex,
-        outcome: {
-          score: result.score,
-          total: result.total,
-          passed: result.passed,
-          categories: result.testSummary.categories,
-          counterexample: result.testSummary.counterexample,
-          passedStages: result.passedStages,
-          error: result.testSummary.error,
-          unlockedComponent: result.unlockedComponent,
-          unlockedSubmodules: result.unlockedSubmodules,
-          componentsRevision: result.componentsRevision,
-        },
-      });
+    dispatch({
+      type: "judge-result",
+      stageIndex,
+      outcome: {
+        score: result.score,
+        total: result.total,
+        passed: result.passed,
+        categories: result.testSummary.categories,
+        counterexample: result.testSummary.counterexample,
+        passedStages: result.passedStages,
+        error: result.testSummary.error,
+        unlockedComponent: result.unlockedComponent,
+        unlockedSubmodules: result.unlockedSubmodules,
+        componentsRevision: result.componentsRevision,
+      },
     });
   };
 
   const foreignPut = (body: Record<string, unknown>) =>
     app.fetch(
-      new Request(`http://lab.test/api/classes/${classId}/labs/calculator/draft`, {
+      new Request(`http://lab.test/api/classes/${scopeId}/labs/calculator/draft`, {
         method: "PUT",
         headers: { cookie, "content-type": "application/json" },
         body: JSON.stringify({ expectedGeneration: 0, ...body }),
@@ -271,7 +279,7 @@ describe("calculator component-library autosave lifecycle", () => {
 
   const projectPayload = async () => {
     const response = await app.fetch(
-      new Request(`http://lab.test/api/classes/${classId}/labs/calculator/project`, {
+      new Request(`http://lab.test/api/classes/${scopeId}/labs/calculator/project`, {
         headers: { cookie },
       }),
     );
@@ -285,7 +293,12 @@ describe("calculator component-library autosave lifecycle", () => {
   const puts = () => calls.filter((call) => call.method === "PUT");
 
   const loadProject = async () => {
-    render(<Probe />);
+    render(() => (
+      <TestLabRuntime>
+        <Probe />
+      </TestLabRuntime>
+    ));
+    flush();
     await deliver(calls[0]);
     expect(componentNames()).toEqual([]);
   };
@@ -294,7 +307,7 @@ describe("calculator component-library autosave lifecycle", () => {
     await loadProject();
 
     createComponent("NotA", "Y");
-    expect(exposed.state.componentsEditSeq).toBe(1);
+    expect(currentState().componentsEditSeq).toBe(1);
     await advance();
     const put1 = puts()[0];
     expect(put1.body?.stageIndex).toBe(1);
@@ -304,10 +317,10 @@ describe("calculator component-library autosave lifecycle", () => {
 
     selectStage(2);
     createComponent("NotB", "Sum");
-    expect(exposed.state.componentsEditSeq).toBe(2);
+    expect(currentState().componentsEditSeq).toBe(2);
 
     await deliver(put1);
-    expect(exposed.state.componentsChanged).toBe(true);
+    expect(currentState().componentsChanged).toBe(true);
 
     await advance();
     const put2 = puts()[1];
@@ -315,7 +328,7 @@ describe("calculator component-library autosave lifecycle", () => {
     expect(put2.body?.expectedComponentsRevision).toBe(1);
     expect((put2.body?.components as ComponentDef[]).map((c) => c.name)).toEqual(["NotA", "NotB"]);
     await deliver(put2);
-    expect(exposed.state.componentsChanged).toBe(false);
+    expect(currentState().componentsChanged).toBe(false);
 
     const project = await projectPayload();
     expect(project.unlockedSubmodules.map((c) => c.name)).toEqual(["NotA", "NotB"]);
@@ -347,14 +360,14 @@ describe("calculator component-library autosave lifecycle", () => {
 
     await deliver(put1);
     const refetch = calls.find((call, index) => index > 0 && call.method === "GET");
-    expect(refetch?.url).toBe(`/api/classes/${classId}/labs/calculator/project`);
+    expect(refetch?.url).toBe(`/api/classes/${scopeId}/labs/calculator/project`);
 
     await advance();
     expect(puts()).toHaveLength(1);
 
     await deliver(refetch!);
-    expect(exposed.state.componentsRevision).toBe(1);
-    expect(exposed.state.conflictedComponents?.map((c) => c.name)).toEqual(["NotA"]);
+    expect(currentState().componentsRevision).toBe(1);
+    expect(currentState().conflictedComponents?.map((c) => c.name)).toEqual(["NotA"]);
 
     const put2 = puts()[1];
     expect(put2).toBeDefined();
@@ -362,7 +375,7 @@ describe("calculator component-library autosave lifecycle", () => {
     expect(put2.body?.components).toBeUndefined();
     expect(put2.body?.expectedComponentsRevision).toBeUndefined();
     await deliver(put2);
-    expect(statusForStage(exposed.state.saveStatusByStage, 2)).toBe("saved");
+    expect(statusForStage(currentState().saveStatusByStage, 2)).toBe("saved");
 
     const project = await projectPayload();
     const stage2 = project.drafts["2"];
@@ -384,18 +397,18 @@ describe("calculator component-library autosave lifecycle", () => {
     expect(judgeCall).toBeDefined();
     await deliver(judgeCall!);
     await judgePromise;
-    expect(exposed.state.componentsRevision).toBe(2);
+    expect(currentState().componentsRevision).toBe(2);
     expect(componentNames()).toEqual(["NotA", "HalfAdder"]);
 
     await deliver(put1);
-    expect(exposed.state.componentsRevision).toBe(2);
+    expect(currentState().componentsRevision).toBe(2);
 
     createComponent("NotB", "Carry");
     await advance();
     const put2 = puts()[1];
     expect(put2.body?.expectedComponentsRevision).toBe(2);
     await deliver(put2);
-    expect(exposed.state.componentsRevision).toBe(3);
+    expect(currentState().componentsRevision).toBe(3);
 
     const project = await projectPayload();
     expect(project.unlockedSubmodules.map((c) => c.name)).toEqual(["NotA", "HalfAdder", "NotB"]);
@@ -460,10 +473,10 @@ describe("calculator component-library autosave lifecycle", () => {
     await deliver(judgeCall!);
     await pending;
 
-    expect(exposed.state.passedStages).toEqual([2]);
+    expect(currentState().passedStages).toEqual([2]);
     expect(componentNames()).toEqual(["HalfAdder"]);
-    expect(exposed.state.judgeOutcome).toBeNull();
-    expect(exposed.state.message).toBeNull();
+    expect(currentState().judgeOutcome).toBeNull();
+    expect(currentState().message).toBeNull();
   });
 
   it("T6: a draft referencing a component stranded in the conflict backup does not save clean", async () => {
@@ -488,29 +501,29 @@ describe("calculator component-library autosave lifecycle", () => {
 
     await deliver(put1);
     const refetch = calls.find((call, index) => index > 0 && call.method === "GET");
-    expect(refetch?.url).toBe(`/api/classes/${classId}/labs/calculator/project`);
+    expect(refetch?.url).toBe(`/api/classes/${scopeId}/labs/calculator/project`);
 
     await advance();
     expect(puts()).toHaveLength(1);
 
     await deliver(refetch!);
-    expect(exposed.state.conflictedComponents?.map((c) => c.name)).toEqual(["NotA"]);
+    expect(currentState().conflictedComponents?.map((c) => c.name)).toEqual(["NotA"]);
 
-    await flush();
+    await settle();
     expect(puts()).toHaveLength(1);
-    expect(statusForStage(exposed.state.saveStatusByStage, 2)).toBe("dirty");
+    expect(statusForStage(currentState().saveStatusByStage, 2)).toBe("dirty");
     const stale = await projectPayload();
     expect(stale.drafts["2"]).toBeUndefined();
     expect(stale.unlockedSubmodules.map((c) => c.name)).toEqual(["ForeignPart"]);
 
     dispatch({ type: "restore-conflict-draft", stageIndex: 2 });
-    await flush();
+    await settle();
     const put2 = puts()[1];
     expect(put2).toBeDefined();
     expect(put2.body?.stageIndex).toBe(2);
     expect((put2.body?.components as ComponentDef[]).map((c) => c.name)).toEqual(["NotA"]);
     await deliver(put2);
-    expect(statusForStage(exposed.state.saveStatusByStage, 2)).toBe("saved");
+    expect(statusForStage(currentState().saveStatusByStage, 2)).toBe("saved");
 
     const project = await projectPayload();
     expect(project.unlockedSubmodules.map((c) => c.name)).toEqual(["NotA"]);

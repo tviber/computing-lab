@@ -5,7 +5,7 @@
  * quantization step.
  */
 
-import { useEffect, useRef } from "react";
+import { createEffect } from "solid-js";
 import type { IndexedImage } from "../domain/indexed.ts";
 
 type PaletteCanvasProps = {
@@ -19,52 +19,58 @@ type PaletteCanvasProps = {
   ariaLabel?: string;
 };
 
-export function PaletteCanvas({
-  image,
-  colorOf,
-  pixelSize,
-  grid = false,
-  ariaLabel,
-}: PaletteCanvasProps) {
-  const ref = useRef<HTMLCanvasElement>(null);
-  const px = pixelSize ?? Math.max(2, Math.round(176 / Math.max(image.width, image.height)));
+export function PaletteCanvas(props: PaletteCanvasProps) {
+  let canvasEl: HTMLCanvasElement | undefined;
+  const px = () =>
+    props.pixelSize ??
+    Math.max(2, Math.round(176 / Math.max(props.image.width, props.image.height)));
 
-  useEffect(() => {
-    const canvas = ref.current;
-    const ctx = canvas?.getContext("2d");
-    if (!canvas || !ctx) return;
-    canvas.width = image.width * px;
-    canvas.height = image.height * px;
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    for (let y = 0; y < image.height; y += 1) {
-      for (let x = 0; x < image.width; x += 1) {
-        ctx.fillStyle = colorOf(image.cells[y * image.width + x]);
-        ctx.fillRect(x * px, y * px, px, px);
+  createEffect(
+    () => ({
+      image: props.image,
+      px: px(),
+      grid: props.grid ?? false,
+      colorOf: props.colorOf,
+    }),
+    ({ image, px: cellPx, grid, colorOf }) => {
+      const canvas = canvasEl;
+      const ctx = canvas?.getContext("2d");
+      if (!canvas || !ctx) return;
+      canvas.width = image.width * cellPx;
+      canvas.height = image.height * cellPx;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < image.height; y += 1) {
+        for (let x = 0; x < image.width; x += 1) {
+          ctx.fillStyle = colorOf(image.cells[y * image.width + x]);
+          ctx.fillRect(x * cellPx, y * cellPx, cellPx, cellPx);
+        }
       }
-    }
-    if (grid && px >= 4) {
-      ctx.strokeStyle = "rgba(90, 108, 128, 0.35)";
-      ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (let x = 1; x < image.width; x += 1) {
-        ctx.moveTo(x * px + 0.5, 0);
-        ctx.lineTo(x * px + 0.5, canvas.height);
+      if (grid && cellPx >= 4) {
+        ctx.strokeStyle = "rgba(90, 108, 128, 0.35)";
+        ctx.lineWidth = 1;
+        ctx.beginPath();
+        for (let x = 1; x < image.width; x += 1) {
+          ctx.moveTo(x * cellPx + 0.5, 0);
+          ctx.lineTo(x * cellPx + 0.5, canvas.height);
+        }
+        for (let y = 1; y < image.height; y += 1) {
+          ctx.moveTo(0, y * cellPx + 0.5);
+          ctx.lineTo(canvas.width, y * cellPx + 0.5);
+        }
+        ctx.stroke();
       }
-      for (let y = 1; y < image.height; y += 1) {
-        ctx.moveTo(0, y * px + 0.5);
-        ctx.lineTo(canvas.width, y * px + 0.5);
-      }
-      ctx.stroke();
-    }
-  }, [image, px, grid, colorOf]);
+    },
+  );
 
   return (
     <canvas
-      aria-label={ariaLabel}
-      className="quant-canvas"
-      ref={ref}
+      aria-label={props.ariaLabel}
+      class="quant-canvas"
+      ref={(el) => {
+        canvasEl = el;
+      }}
       role="img"
-      style={{ imageRendering: "pixelated" }}
+      style={{ "image-rendering": "pixelated" }}
     />
   );
 }

@@ -4,7 +4,7 @@
  * shapes live exactly once.
  */
 
-import type { LabProjectPayload } from "../../../shared/api/client.ts";
+import type { LabProjectPayload } from "../../../shared/lab/contracts.ts";
 import type { Bit, CircuitGraph, ComponentDef } from "./graph.ts";
 
 /** POST /judge body: the graph to grade plus the learner's component library. */

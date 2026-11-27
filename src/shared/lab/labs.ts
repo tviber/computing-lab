@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createEffect, createSignal, type Accessor } from "solid-js";
 import { api } from "../api/client";
 import { labMetadata } from "./labMetadata";
 
@@ -44,18 +44,29 @@ export const LAB_TITLES: Record<string, string> = Object.fromEntries(
 );
 
 /**
- * Fetches the lab catalog once `enabled` (i.e. the caller is signed in).
+ * Fetches the lab catalog once `enabled()` (i.e. the caller is signed in).
  * Returns null while loading, then a Map keyed by lab id — empty when the
  * request failed, so surfaces fail open and the API still enforces access.
  */
-export function useLabCatalog(enabled: boolean): Map<string, LabVisibility> | null {
-  const [catalog, setCatalog] = useState<Map<string, LabVisibility> | null>(null);
-  useEffect(() => {
-    if (!enabled) return;
-    void api
-      .get<{ labs: LabVisibility[] }>("/api/labs")
-      .then((payload) => setCatalog(new Map(payload.labs.map((lab) => [lab.id, lab]))))
-      .catch(() => setCatalog(new Map()));
-  }, [enabled]);
+export function useLabCatalog(enabled: () => boolean): Accessor<Map<string, LabVisibility> | null> {
+  const [catalog, setCatalog] = createSignal<Map<string, LabVisibility> | null>(null);
+  createEffect(
+    () => enabled(),
+    (isEnabled) => {
+      if (!isEnabled) return;
+      let cancelled = false;
+      void api
+        .get<{ labs: LabVisibility[] }>("/api/labs")
+        .then((payload) => {
+          if (!cancelled) setCatalog(new Map(payload.labs.map((lab) => [lab.id, lab])));
+        })
+        .catch(() => {
+          if (!cancelled) setCatalog(new Map());
+        });
+      return () => {
+        cancelled = true;
+      };
+    },
+  );
   return catalog;
 }

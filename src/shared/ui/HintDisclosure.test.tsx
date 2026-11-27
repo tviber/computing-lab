@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, waitFor } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { describe, expect, it } from "vitest";
 import { HintDisclosure } from "./HintDisclosure";
@@ -6,30 +6,30 @@ import { HintDisclosure } from "./HintDisclosure";
 describe("HintDisclosure", () => {
   it("opens and closes the hint with a single activation", async () => {
     const user = userEvent.setup();
-    render(<HintDisclosure>先连接低位，再传递进位。</HintDisclosure>);
+    render(() => <HintDisclosure>先连接低位，再传递进位。</HintDisclosure>);
 
-    const disclosure = screen.getByText("提示").closest("details")!;
-    expect(disclosure).not.toHaveAttribute("open");
+    const trigger = screen.getByRole("button", { name: "提示" });
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("先连接低位，再传递进位。")).not.toBeVisible();
 
-    await user.click(screen.getByText("提示"));
-    expect(disclosure).toHaveAttribute("open");
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "true");
     expect(screen.getByText("先连接低位，再传递进位。")).toBeVisible();
 
-    await user.click(screen.getByText("提示"));
-    expect(disclosure).not.toHaveAttribute("open");
-    expect(screen.getByText("先连接低位，再传递进位。")).not.toBeVisible();
+    await user.click(trigger);
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+    await waitFor(() => expect(screen.getByText("先连接低位，再传递进位。")).not.toBeVisible());
   });
 
   it("renders lab-supplied formatting instead of owning it", async () => {
     const user = userEvent.setup();
-    render(
+    render(() => (
       <HintDisclosure>
         <abbr title="半加器">HalfAdder</abbr>
-      </HintDisclosure>,
-    );
+      </HintDisclosure>
+    ));
 
-    await user.click(screen.getByText("提示"));
+    await user.click(screen.getByRole("button", { name: "提示" }));
     expect(screen.getByText("HalfAdder")).toHaveAttribute("title", "半加器");
   });
 });

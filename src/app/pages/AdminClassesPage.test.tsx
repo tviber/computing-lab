@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { adminAuthState, renderAppAt } from "../../test/router-test-helpers";
@@ -25,8 +25,8 @@ describe("AdminClassesPage", () => {
 
     await renderAppAt("/admin/classes", { auth: adminAuthState });
 
-    expect(screen.getByRole("heading", { name: "班级管理" })).toBeInTheDocument();
-    expect(screen.getByText("CLASS1")).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "班级管理" })).toBeInTheDocument();
+    expect(await screen.findByText("CLASS1")).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
     await user.click(screen.getByRole("button", { name: "删除" }));
     expect(screen.getByRole("dialog")).toHaveTextContent("确定删除班级「测试班级」");

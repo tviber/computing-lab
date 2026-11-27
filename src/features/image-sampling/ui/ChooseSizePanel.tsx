@@ -11,7 +11,8 @@
  * always available — it calls whatever cell_value is defined.
  */
 
-import { useMemo, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createMemo, createSignal, Show } from "solid-js";
 import { PythonEditor } from "../../../shared/ui/PythonEditor";
 import { imageToLists } from "../domain/bitmap.ts";
 import { publicGalleryFor } from "../domain/fixtures.ts";
@@ -39,13 +40,7 @@ const STARTER = (stage: SamplingStageDef) =>
     return (16, 16)
 `;
 
-export function ChooseSizePanel({
-  stage,
-  code,
-  helperCode,
-  onCodeChange,
-  onResolution,
-}: {
+export function ChooseSizePanel(props: {
   stage: SamplingStageDef;
   code: string;
   /** The student's stage-1 cell_value source; injected before each run. */
@@ -53,15 +48,14 @@ export function ChooseSizePanel({
   onCodeChange: (code: string) => void;
   onResolution: (width: number, height: number) => void;
 }) {
-  const required = stage.requiresChooseSize;
-  const [error, setError] = useState<string | null>(null);
-  const [applied, setApplied] = useState<string | null>(null);
-  const [running, setRunning] = useState(false);
+  const required = () => props.stage.requiresChooseSize;
+  const [error, setError] = createSignal<string | null>(null);
+  const [applied, setApplied] = createSignal<string | null>(null);
+  const [running, setRunning] = createSignal(false);
 
-  const source = code.trim() ? code : STARTER(stage);
-  const images = useMemo(
-    () => publicGalleryFor(stage.category).map((entry) => imageToLists(entry.image)),
-    [stage.category],
+  const source = () => (props.code.trim() ? props.code : STARTER(props.stage));
+  const images = createMemo(() =>
+    publicGalleryFor(props.stage.category).map((entry) => imageToLists(entry.image)),
   );
 
   const run = async () => {
@@ -69,7 +63,7 @@ export function ChooseSizePanel({
     setError(null);
     setApplied(null);
     try {
-      const result = await runChooseSize(source, images, helperCode);
+      const result = await runChooseSize(source(), images(), props.helperCode);
       // `return 16` → scalar; `return (w, h)` → array. A lone n means n×n.
       const values = Array.isArray(result) ? result : [result];
       const [rw, rh] =
@@ -82,13 +76,13 @@ export function ChooseSizePanel({
       if (rw < 2 || rh < 2 || rw > 64 || rh > 64) {
         throw new Error("分辨率的宽和高都要在 2～64 之间。");
       }
-      if (stage.mode === "square" && rw !== rh) {
+      if (props.stage.mode === "square" && rw !== rh) {
         throw new Error("这一关要求正方形分辨率：宽和高必须相同。");
       }
-      if (stage.mode === "tall" && rh <= rw) {
+      if (props.stage.mode === "tall" && rh <= rw) {
         throw new Error("这一关要求高度大于宽度（高 > 宽）。");
       }
-      onResolution(rw, rh);
+      props.onResolution(rw, rh);
       setApplied(`choose_size(images) → ${rw} × ${rh}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : String(err));
@@ -98,14 +92,14 @@ export function ChooseSizePanel({
   };
 
   return (
-    <section aria-labelledby="choose-size-title" className="choose-size-panel">
-      <h3 id="choose-size-title">把策略写成代码{required ? "" : "（可选）"}</h3>
+    <section aria-labelledby="choose-size-title" class="choose-size-panel">
+      <h3 id="choose-size-title">把策略写成代码{required() ? "" : "（可选）"}</h3>
       <p>
-        {required ? "本关必须" : "写一个"} <code>choose_size(images)</code>{" "}
-        函数：它会拿到上面公开图库的全部 {images.length} 张图（每张 64×64 的 0/1
+        {required() ? "本关必须" : "写一个"} <code>choose_size(images)</code>{" "}
+        函数：它会拿到上面公开图库的全部 {images().length} 张图（每张 64×64 的 0/1
         列表），由你的代码算出分辨率并填入上方——注意它对整个 category 只返回一个尺寸。
       </p>
-      <p className="helper-note">
+      <p class="helper-note">
         前面关卡写的函数可以直接用：<code>cell_value(region)</code>（第 1 关你的判定规则）和{" "}
         <code>downsample(image, w, h)</code>（内部就是逐格调用 cell_value）。
       </p>
@@ -113,25 +107,27 @@ export function ChooseSizePanel({
         ariaLabel="choose_size 代码"
         className="code-editor"
         height="200px"
-        onChange={(value) => onCodeChange(value)}
-        value={source}
+        onChange={(value) => props.onCodeChange(value)}
+        value={source()}
       />
-      <div className="guided-actions">
-        <button
-          className="button button-secondary"
-          disabled={running}
+      <div class="guided-actions">
+        <Button
+          class="button button-secondary"
+          disabled={running()}
           onClick={() => void run()}
           type="button"
         >
-          {running ? "运行中…" : "运行并填入分辨率"}
-        </button>
-        {applied ? <span className="badge badge-pass">{applied}</span> : null}
+          {running() ? "运行中…" : "运行并填入分辨率"}
+        </Button>
+        <Show when={applied()}>{(msg) => <span class="badge badge-pass">{msg()}</span>}</Show>
       </div>
-      {error ? (
-        <pre className="python-error" role="alert">
-          {error}
-        </pre>
-      ) : null}
+      <Show when={error()}>
+        {(err) => (
+          <pre class="python-error" role="alert">
+            {err()}
+          </pre>
+        )}
+      </Show>
     </section>
   );
 }

@@ -1,14 +1,16 @@
-import { useId, useLayoutEffect, useRef, useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import {
+  Dialog,
+  DialogBackdrop,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogTitle,
+} from "@ui-sdk/solid/dialog";
+import { createSignal, Show } from "solid-js";
 import { describeApiError } from "../../shared/api/client";
 
-export function AdminConfirmDialog({
-  title,
-  description,
-  confirmLabel,
-  pendingLabel,
-  onCancel,
-  onConfirm,
-}: {
+export function AdminConfirmDialog(props: {
   title: string;
   description: string;
   confirmLabel: string;
@@ -16,22 +18,14 @@ export function AdminConfirmDialog({
   onCancel: () => void;
   onConfirm: () => Promise<void>;
 }) {
-  const dialog = useRef<HTMLDialogElement>(null);
-  const titleId = useId();
-  const descriptionId = useId();
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState("");
-  useLayoutEffect(() => {
-    const element = dialog.current!;
-    element.showModal();
-    return () => element.close();
-  }, []);
+  const [busy, setBusy] = createSignal(false);
+  const [error, setError] = createSignal("");
 
   async function confirm() {
     setBusy(true);
     setError("");
     try {
-      await onConfirm();
+      await props.onConfirm();
     } catch (cause) {
       setError(describeApiError(cause));
     } finally {
@@ -40,37 +34,39 @@ export function AdminConfirmDialog({
   }
 
   return (
-    <dialog
-      ref={dialog}
-      aria-labelledby={titleId}
-      aria-describedby={descriptionId}
-      className="admin-modal"
-      onCancel={(event) => {
-        event.preventDefault();
-        if (!busy) onCancel();
+    <Dialog
+      dismissible={!busy()}
+      onOpenChange={(next) => {
+        if (!next && !busy()) props.onCancel();
       }}
+      open
     >
-      <p className="eyebrow">确认操作</p>
-      <h2 id={titleId}>{title}</h2>
-      <p id={descriptionId}>{description}</p>
-      {error && (
-        <p className="auth-error" role="alert">
-          {error}
-        </p>
-      )}
-      <div className="admin-modal-actions">
-        <button
-          type="button"
-          className="button button-secondary"
-          disabled={busy}
-          onClick={onCancel}
-        >
-          取消
-        </button>
-        <button type="button" className="button button-danger" disabled={busy} onClick={confirm}>
-          {busy ? pendingLabel : confirmLabel}
-        </button>
-      </div>
-    </dialog>
+      <DialogBackdrop class="admin-modal-backdrop" />
+      <DialogContent class="admin-modal">
+        <p class="eyebrow">确认操作</p>
+        <DialogTitle>{props.title}</DialogTitle>
+        <DialogDescription>{props.description}</DialogDescription>
+        <Show when={error()}>
+          {(message) => (
+            <p class="auth-error" role="alert">
+              {message()}
+            </p>
+          )}
+        </Show>
+        <div class="admin-modal-actions">
+          <DialogClose class="button button-secondary" disabled={busy()} type="button">
+            取消
+          </DialogClose>
+          <Button
+            class="button button-danger"
+            disabled={busy()}
+            onClick={() => void confirm()}
+            type="button"
+          >
+            {busy() ? props.pendingLabel : props.confirmLabel}
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 }

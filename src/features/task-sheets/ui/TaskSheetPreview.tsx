@@ -5,78 +5,80 @@
  * local state only — previewing never touches the network or saves anything.
  */
 
-import { useState } from "react";
+import { Button } from "@ui-sdk/solid/button";
+import { createSignal, For, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import type { AnswerMap, AnswerValue } from "../domain/grade";
 import type { PublicQuestion } from "../domain/schema";
 import { QuestionAnswer } from "./QuestionFields";
 
-export function TaskSheetPreview({
-  title,
-  description,
-  questions,
-  onClose,
-}: {
+export function TaskSheetPreview(props: {
   title: string;
   description: string;
   questions: PublicQuestion[];
   onClose: () => void;
 }) {
-  const [answers, setAnswers] = useState<AnswerMap>({});
+  const [answers, setAnswers] = createSignal<AnswerMap>({});
   const setAnswer = (qid: string, value: AnswerValue) =>
     setAnswers((a) => ({ ...a, [qid]: value }));
 
   return (
-    <div className="ts-preview-scrim" role="presentation" onClick={onClose}>
+    <div class="ts-preview-scrim" onClick={() => props.onClose()} role="presentation">
       <div
-        aria-label={`预览「${title}」`}
-        className="ts-preview"
+        aria-label={`预览「${props.title}」`}
+        class="ts-preview"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
       >
-        <header className="ts-preview-head">
+        <header class="ts-preview-head">
           <div>
-            <p className="eyebrow">任务单 / 预览</p>
-            <h2>{title}</h2>
-            {description.trim() !== "" ? <p className="ts-preview-desc">{description}</p> : null}
+            <p class="eyebrow">任务单 / 预览</p>
+            <h2>{props.title}</h2>
+            <Show when={props.description.trim() !== ""}>
+              <p class="ts-preview-desc">{props.description}</p>
+            </Show>
           </div>
-          <button
+          <Button
             aria-label="关闭预览"
-            className="icon-button ts-preview-close"
-            onClick={onClose}
+            class="icon-button ts-preview-close"
+            onClick={() => props.onClose()}
             type="button"
           >
             <Icon name="x" size={16} />
-          </button>
+          </Button>
         </header>
 
-        <p className="ts-preview-note" role="status">
+        <p class="ts-preview-note" role="status">
           预览模式——这是学生看到的作答页。这里的填写不会被保存，也不会产生提交。
         </p>
 
-        {questions.length === 0 ? (
-          <p className="ts-empty">这份任务单还没有题目。</p>
-        ) : (
-          <div className="ts-answer-list">
-            {questions.map((q, i) => (
-              <QuestionAnswer
-                index={i}
-                key={q.id}
-                onChange={(v) => setAnswer(q.id, v)}
-                q={q}
-                value={answers[q.id]}
-              />
-            ))}
-          </div>
-        )}
+        <Show
+          fallback={
+            <div class="ts-answer-list">
+              <For each={props.questions}>
+                {(q, i) => (
+                  <QuestionAnswer
+                    index={i()}
+                    onChange={(v) => setAnswer(q.id, v)}
+                    q={q}
+                    value={answers()[q.id]}
+                  />
+                )}
+              </For>
+            </div>
+          }
+          when={props.questions.length === 0}
+        >
+          <p class="ts-empty">这份任务单还没有题目。</p>
+        </Show>
 
-        <div className="ts-actions">
-          <button className="button button-primary" disabled type="button">
+        <div class="ts-actions">
+          <Button class="button button-primary" disabled type="button">
             提交
-          </button>
-          <button className="button button-secondary" onClick={onClose} type="button">
+          </Button>
+          <Button class="button button-secondary" onClick={() => props.onClose()} type="button">
             关闭预览
-          </button>
+          </Button>
         </div>
       </div>
     </div>

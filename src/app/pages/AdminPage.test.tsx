@@ -1,4 +1,4 @@
-import { screen, waitFor } from "@testing-library/react";
+import { screen, waitFor } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { adminAuthState, renderAppAt } from "../../test/router-test-helpers";
@@ -68,7 +68,7 @@ describe("AdminPage", () => {
     mockAdminApi();
     await renderAppAt("/admin", { auth: adminAuthState });
 
-    expect(screen.getByRole("heading", { name: "账号管理" })).toBeInTheDocument();
+    expect(await screen.findByRole("heading", { name: "账号管理" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /全部账号/ })).toBeInTheDocument();
     expect(screen.queryByRole("tab")).not.toBeInTheDocument();
   });
@@ -79,8 +79,8 @@ describe("AdminPage", () => {
 
     await renderAppAt("/admin", { auth: adminAuthState });
 
-    const roleSelect = screen.getByLabelText("张三 的角色");
-    const classSelect = screen.getByLabelText("把 张三 加入班级");
+    const roleSelect = await screen.findByLabelText("张三 的角色");
+    const classSelect = await screen.findByLabelText("把 张三 加入班级");
     expect(roleSelect).toHaveClass("admin-table-select");
     expect(classSelect).toHaveClass("admin-table-select");
     expect(roleSelect).toHaveClass("field-select-native");
@@ -129,7 +129,7 @@ describe("AdminPage", () => {
 
     await renderAppAt("/admin", { auth: adminAuthState });
 
-    await user.type(screen.getByRole("searchbox", { name: "搜索学号或姓名" }), "张三");
+    await user.type(await screen.findByRole("searchbox", { name: "搜索学号或姓名" }), "张三");
     await user.click(screen.getByRole("button", { name: "搜索" }));
     await waitFor(() =>
       expect(
