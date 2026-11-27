@@ -134,6 +134,70 @@
   color: var(--muted);
 }
 
+.matrix-stage-title {
+  display: block;
+  color: var(--primary);
+  font-weight: 600;
+}
+
+.matrix-stage-meter {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 5px;
+  min-width: 76px;
+  margin-top: 7px;
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+.matrix-stage-meter-label {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.matrix-stage-meter-value {
+  color: var(--secondary);
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  font-weight: 650;
+}
+
+.matrix-stage-meter-track {
+  flex: 1 0 100%;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--subtle);
+}
+
+.matrix-stage-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--success);
+  transition: width 180ms ease;
+}
+
+.matrix-stage-meter.is-complete .matrix-stage-meter-value {
+  color: var(--success);
+}
+
+.matrix-stage-completion.is-empty {
+  display: block;
+  margin-top: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: normal;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .matrix-stage-meter-fill {
+    transition: none;
+  }
+}
+
 .matrix-table tbody th {
   font-family: "SFMono-Regular", Consolas, monospace;
   font-weight: 600;

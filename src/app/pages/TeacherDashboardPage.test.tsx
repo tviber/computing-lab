@@ -135,6 +135,59 @@ describe("TeacherDashboardPage", () => {
     expect(screen.getByRole("button", { name: "清空记录" })).toHaveClass("is-destructive");
   });
 
+  it("shows completed / total students in every stage column", async () => {
+    const passedCell = (stageIndex: number, submissionId: string) => ({
+      stageIndex,
+      score: 1,
+      total: 1,
+      passed: true,
+      submissionId,
+      submittedAt: "2026-01-01T00:00:00.000Z",
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
+      String(input).endsWith("/api/labs")
+        ? Response.json({ labs: [] })
+        : Response.json({
+            classId: "c11",
+            className: "示范班",
+            rows: [
+              {
+                userId: "u1",
+                studentNo: "001",
+                name: "甲",
+                currentStage: 2,
+                cells: {
+                  1: passedCell(1, "s1"),
+                  2: passedCell(2, "s2"),
+                },
+                lastActiveAt: null,
+              },
+              {
+                userId: "u2",
+                studentNo: "002",
+                name: "乙",
+                currentStage: 1,
+                cells: { 1: passedCell(1, "s3") },
+                lastActiveAt: null,
+              },
+            ],
+          }),
+    );
+
+    await renderAppAt("/classes/c11/dashboard?lab=calculator", { auth: multiClassTeacher });
+
+    await screen.findByText("甲");
+    const firstStage = await screen.findByRole("meter", { name: "连接导线完成人数" });
+    expect(firstStage).toHaveAttribute("aria-valuenow", "2");
+    expect(firstStage).toHaveAttribute("aria-valuemax", "2");
+    expect(firstStage).toHaveClass("is-complete");
+    expect(within(firstStage).getByText("2/2")).toBeInTheDocument();
+
+    const secondStage = screen.getByRole("meter", { name: "半加器完成人数" });
+    expect(secondStage).toHaveAttribute("aria-valuenow", "1");
+    expect(within(secondStage).getByText("1/2")).toBeInTheDocument();
+  });
+
   it("lists all labs and marks the five-stage logistic regression experience completed", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
       const path = String(input);

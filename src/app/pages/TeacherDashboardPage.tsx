@@ -1,6 +1,7 @@
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from "@ui-sdk/solid/dialog";
+import { Meter, MeterIndicator, MeterTrack, MeterValue } from "@ui-sdk/solid/meter";
 import {
   createEffect,
   createMemo,
@@ -239,6 +240,19 @@ export function TeacherDashboardPage() {
     const list = assignments();
     const requested = assignmentParam();
     return list.find((a) => a.id === requested) ?? list[0] ?? null;
+  });
+
+  const stageCompletion = createMemo(() => {
+    const currentRows = payload()?.rows ?? [];
+    const counts = new Map<number, number>();
+    for (const stage of lab().stages) {
+      let completed = 0;
+      for (const row of currentRows) {
+        if (row.cells[String(stage.index)]?.passed) completed += 1;
+      }
+      counts.set(stage.index, completed);
+    }
+    return { counts, total: currentRows.length };
   });
 
   const detailResetKey = createMemo(
@@ -500,20 +514,56 @@ export function TeacherDashboardPage() {
                   tabindex={0}
                 >
                   <table class="matrix-table">
-                    <caption class="sr-only">按关卡显示每位学生的最新提交结果</caption>
+                    <caption class="sr-only">
+                      按关卡显示每位学生的最新提交结果，并标注每关完成人数与班级人数
+                    </caption>
                     <thead>
                       <tr>
                         <th scope="col">学号</th>
                         <th scope="col">姓名</th>
                         <For each={lab().stages}>
-                          {(stage) => (
-                            <th scope="col" title={stage.englishTitle}>
-                              <span aria-hidden="true" class="matrix-stage-index">
-                                {String(stage.index).padStart(2, "0")}
-                              </span>
-                              {stage.title}
-                            </th>
-                          )}
+                          {(stage) => {
+                            const completed = () => stageCompletion().counts.get(stage.index) ?? 0;
+                            const total = () => stageCompletion().total;
+                            return (
+                              <th aria-label={stage.title} scope="col" title={stage.englishTitle}>
+                                <span aria-hidden="true" class="matrix-stage-index">
+                                  {String(stage.index).padStart(2, "0")}
+                                </span>
+                                <span class="matrix-stage-title">{stage.title}</span>
+                                <Show
+                                  fallback={
+                                    <span class="matrix-stage-completion is-empty">完成 —</span>
+                                  }
+                                  when={total() > 0}
+                                >
+                                  <Meter
+                                    aria-label={`${stage.title}完成人数`}
+                                    class={(state) =>
+                                      state.percent === 100
+                                        ? "matrix-stage-meter is-complete"
+                                        : "matrix-stage-meter"
+                                    }
+                                    format={(value) => `${value}/${total()}`}
+                                    getValueLabel={(value, details) =>
+                                      `${value} / ${details.max} 人已完成`
+                                    }
+                                    max={total()}
+                                    title={`${completed()} 人已完成，${total() - completed()} 人未完成`}
+                                    value={completed()}
+                                  >
+                                    <span aria-hidden="true" class="matrix-stage-meter-label">
+                                      完成
+                                    </span>
+                                    <MeterValue class="matrix-stage-meter-value" />
+                                    <MeterTrack class="matrix-stage-meter-track">
+                                      <MeterIndicator class="matrix-stage-meter-fill" />
+                                    </MeterTrack>
+                                  </Meter>
+                                </Show>
+                              </th>
+                            );
+                          }}
                         </For>
                         <th scope="col">最后活动</th>
                         <Show when={isAdmin()}>
