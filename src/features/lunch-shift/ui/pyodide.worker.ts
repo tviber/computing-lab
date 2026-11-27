@@ -19,7 +19,7 @@
 
 import type { PyodideInterface } from "pyodide";
 import { installPyodideWorker } from "../../../shared/worker/workerProtocol.ts";
-import { withPyCallable } from "../../../shared/lab/pyProxy.ts";
+import { assertPyCallable } from "../../../shared/lab/pyProxy.ts";
 
 type RunRequest =
   | { id: number; kind: "priority"; code: string }
@@ -41,12 +41,7 @@ async function runRequest(pyodide: PyodideInterface, request: RunRequest): Promi
   try {
     pyodide.runPython(request.code, { globals });
     const name = request.kind === "confirm" ? "need_confirm" : request.kind;
-    withPyCallable(
-      globals,
-      name,
-      SIGNATURES[request.kind as keyof typeof SIGNATURES],
-      () => undefined,
-    );
+    assertPyCallable(globals, name, SIGNATURES[request.kind as keyof typeof SIGNATURES]);
     if (request.kind === "confirm") {
       globals.set("cases_json", JSON.stringify(request.cases));
     }

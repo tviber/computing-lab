@@ -25,7 +25,7 @@
 
 import type { PyodideInterface } from "pyodide";
 import { installPyodideWorker } from "../../../shared/worker/workerProtocol.ts";
-import { withPyCallable, withPyValue } from "../../../shared/lab/pyProxy.ts";
+import { assertPyCallable, withPyValue } from "../../../shared/lab/pyProxy.ts";
 
 type RunRequest =
   | { id: number; kind: "toner"; code: string; colors: number[][]; toners: number[][] }
@@ -60,7 +60,7 @@ async function runToner(
     pyodide.runPython(code, { globals });
     withPyValue(pyodide.toPy(colors), (value) => globals.set("colors", value));
     withPyValue(pyodide.toPy(toners), (value) => globals.set("toners", value));
-    withPyCallable(globals, "nearest_toner", "nearest_toner(r, g, b, toners)。", () => undefined);
+    assertPyCallable(globals, "nearest_toner", "nearest_toner(r, g, b, toners)。");
     const out = pyodide.runPython("[nearest_toner(c[0], c[1], c[2], toners) for c in colors]", {
       globals,
     });
@@ -151,11 +151,10 @@ async function runPick(
     pyodide.runPython(code, { globals });
     withPyValue(pyodide.toPy(images), (value) => globals.set("images", value));
     withPyValue(pyodide.toPy(k), (value) => globals.set("k", value));
-    withPyCallable(
+    assertPyCallable(
       globals,
       "choose_toners",
       "choose_toners(toners, palette, images, k)，返回要装的粉的编号列表。",
-      () => undefined,
     );
     const out = pyodide.runPython("choose_toners(TONERS, PALETTE, images, k)", { globals });
     try {
@@ -181,11 +180,10 @@ async function runMapAll(
     const helperFailed = injectShared(pyodide, globals, helpers, toners, palette, [245, 245, 240]);
     pyodide.runPython(code, { globals });
     withPyValue(pyodide.toPy(colors), (value) => globals.set("colors", value));
-    withPyCallable(
+    assertPyCallable(
       globals,
       "map_color",
       "map_color(r, g, b)，返回墨粉编号（-1 表示留白/纸色）。",
-      () => undefined,
     );
     const out = pyodide.runPython("[map_color(c[0], c[1], c[2]) for c in colors]", { globals });
     try {

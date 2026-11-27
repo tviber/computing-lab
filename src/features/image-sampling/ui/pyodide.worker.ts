@@ -18,7 +18,7 @@
 
 import type { PyodideInterface } from "pyodide";
 import { installPyodideWorker } from "../../../shared/worker/workerProtocol.ts";
-import { withPyCallable, withPyValue } from "../../../shared/lab/pyProxy.ts";
+import { assertPyCallable, withPyValue } from "../../../shared/lab/pyProxy.ts";
 
 type RunRequest =
   | { id: number; kind: "cell"; code: string; regions: number[][][] }
@@ -33,12 +33,7 @@ async function runCell(
   try {
     pyodide.runPython(code, { globals });
     withPyValue(pyodide.toPy(regions), (value) => globals.set("regions", value));
-    withPyCallable(
-      globals,
-      "cell_value",
-      "cell_value(region)。region 是 0/1 的二维列表。",
-      () => undefined,
-    );
+    assertPyCallable(globals, "cell_value", "cell_value(region)。region 是 0/1 的二维列表。");
     const out = pyodide.runPython("[cell_value(r) for r in regions]", { globals });
     try {
       return out.toJs() as unknown[];
@@ -104,7 +99,7 @@ async function runSize(
     }
     pyodide.runPython(code, { globals });
     withPyValue(pyodide.toPy(images), (value) => globals.set("images", value));
-    withPyCallable(globals, "choose_size", "choose_size(images)，返回 (宽, 高)。", () => undefined);
+    assertPyCallable(globals, "choose_size", "choose_size(images)，返回 (宽, 高)。");
     const out = pyodide.runPython("choose_size(images)", { globals });
     try {
       const result = typeof out?.toJs === "function" ? out.toJs() : out;

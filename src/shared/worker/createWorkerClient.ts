@@ -9,9 +9,10 @@
  * on the next run; a load timeout only rejects that request, the download
  * continues in the background and a retry reuses it.
  *
- * An idle worker is released after `idleTimeoutMs`, and page-hide/hidden-tab
- * transitions release it immediately. The next `run()` or `warm()` cold-starts
- * a fresh runtime.
+ * An idle worker is released after `idleTimeoutMs`. A hidden tab gets a shorter
+ * grace period so switching tabs mid-run never interrupts Python, while a
+ * pagehide releases immediately. The next `run()` or `warm()` cold-starts a
+ * fresh runtime.
  */
 import type { WorkerRequestBase, WorkerResponse } from "./workerProtocol.ts";
 import {
@@ -24,6 +25,7 @@ import {
 export const WORKER_RUN_TIMEOUT_MS = 15_000;
 export const WORKER_LOAD_TIMEOUT_MS = 90_000;
 export const WORKER_IDLE_TIMEOUT_MS = 90_000;
+export const WORKER_HIDDEN_IDLE_TIMEOUT_MS = 30_000;
 
 type Pending = {
   resolve: (payload: object) => void;
@@ -46,12 +48,16 @@ export type WorkerClient = {
   ) => Promise<TPayload>;
   /** Spawn the worker now so the runtime download finishes before the first run. */
   warm: () => void;
+  /** Stop the worker and remove page-lifecycle listeners. */
+  dispose: () => void;
 };
 
 export type WorkerClientOptions = {
   /** Release an unused runtime after this long. Defaults to 90 seconds. */
   idleTimeoutMs?: number;
-  /** Release on pagehide / a hidden tab. Enabled by default in the browser. */
+  /** Release an unused runtime this long after the tab becomes hidden. */
+  hiddenIdleTimeoutMs?: number;
+  /** Release on pagehide / after a hidden tab's grace period. Enabled in the browser. */
   pageLifecycle?: boolean;
 };
 
@@ -63,7 +69,9 @@ export function createWorkerClient(
   let seq = 0;
   const pending = new Map<number, Pending>();
   const idleTimeoutMs = options.idleTimeoutMs ?? WORKER_IDLE_TIMEOUT_MS;
+  const hiddenIdleTimeoutMs = options.hiddenIdleTimeoutMs ?? WORKER_HIDDEN_IDLE_TIMEOUT_MS;
   let idleTimer: ReturnType<typeof setTimeout> | null = null;
+  let pageHidden = false;
 
   function clearIdleTimer(): void {
     if (idleTimer === null) return;
@@ -85,10 +93,11 @@ export function createWorkerClient(
   function scheduleIdleRelease(): void {
     clearIdleTimer();
     if (worker === null || pending.size > 0) return;
+    const delay = pageHidden ? hiddenIdleTimeoutMs : idleTimeoutMs;
     idleTimer = setTimeout(() => {
       idleTimer = null;
       killWorker(PYODIDE_WORKER_RELEASED_MESSAGE);
-    }, idleTimeoutMs);
+    }, delay);
   }
 
   function onTimeout(id: number): void {
@@ -133,21 +142,22 @@ export function createWorkerClient(
     return worker;
   }
 
-  function releaseOnPageHide(): void {
+  function onPageHide(): void {
     killWorker(PYODIDE_WORKER_RELEASED_MESSAGE);
   }
 
-  function releaseOnVisibilityChange(): void {
-    if (document.visibilityState === "hidden") {
-      killWorker(PYODIDE_WORKER_RELEASED_MESSAGE);
-    }
+  function onVisibilityChange(): void {
+    const hidden = document.visibilityState === "hidden";
+    if (hidden === pageHidden) return;
+    pageHidden = hidden;
+    if (worker !== null) scheduleIdleRelease();
   }
 
   const canObservePage = typeof window !== "undefined" && typeof document !== "undefined";
   const pageLifecycle = canObservePage && (options.pageLifecycle ?? true);
   if (pageLifecycle) {
-    window.addEventListener("pagehide", releaseOnPageHide);
-    document.addEventListener("visibilitychange", releaseOnVisibilityChange);
+    window.addEventListener("pagehide", onPageHide);
+    document.addEventListener("visibilitychange", onVisibilityChange);
   }
 
   return {
@@ -173,6 +183,13 @@ export function createWorkerClient(
       clearIdleTimer();
       ensureWorker();
       scheduleIdleRelease();
+    },
+    dispose(): void {
+      if (pageLifecycle) {
+        window.removeEventListener("pagehide", onPageHide);
+        document.removeEventListener("visibilitychange", onVisibilityChange);
+      }
+      killWorker(PYODIDE_WORKER_RELEASED_MESSAGE);
     },
   };
 }

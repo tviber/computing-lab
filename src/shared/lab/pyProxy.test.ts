@@ -1,7 +1,7 @@
 import { describe, expect, it, vi, type Mock } from "vitest";
-import { withPyCallable, withPyValue, type PyCallableHandle, type PyHandle } from "./pyProxy.ts";
+import { assertPyCallable, destroyIfProxy, withPyValue, type PyCallableHandle } from "./pyProxy.ts";
 
-function fakeHandle(): PyHandle & { destroy: Mock<() => void> } {
+function fakeHandle(): { destroy: Mock<() => void> } {
   return { destroy: vi.fn() };
 }
 
@@ -28,30 +28,41 @@ describe("withPyValue", () => {
     ).toThrow("student code failed");
     expect(value.destroy).toHaveBeenCalledOnce();
   });
+
+  it.each([42, "decode", false, null, undefined])(
+    "passes primitive %s through without attempting destroy",
+    (value) => {
+      expect(withPyValue(value, (input) => input)).toBe(value);
+    },
+  );
 });
 
-describe("withPyCallable", () => {
-  it("passes the callable through and destroys it once after use", () => {
-    const callable = fakeCallable();
-    const globals = { get: () => callable };
-    expect(withPyCallable(globals, "decode", "decode(data)", (fn) => fn === callable)).toBe(true);
-    expect(callable.destroy).toHaveBeenCalledOnce();
+describe("destroyIfProxy", () => {
+  it("destroys an object with a destroy method", () => {
+    const value = fakeHandle();
+    destroyIfProxy(value);
+    expect(value.destroy).toHaveBeenCalledOnce();
   });
 
-  it("destroys the callable once when use throws", () => {
+  it.each([42, "decode", false, null, undefined, {}])(
+    "ignores %s when there is no destroy method",
+    (value) => {
+      expect(() => destroyIfProxy(value)).not.toThrow();
+    },
+  );
+});
+
+describe("assertPyCallable", () => {
+  it("destroys a valid callable once after checking it", () => {
     const callable = fakeCallable();
     const globals = { get: () => callable };
-    expect(() =>
-      withPyCallable(globals, "decode", "decode(data)", () => {
-        throw new Error("student code failed");
-      }),
-    ).toThrow("student code failed");
+    expect(() => assertPyCallable(globals, "decode", "decode(data)")).not.toThrow();
     expect(callable.destroy).toHaveBeenCalledOnce();
   });
 
   it("rejects a missing function without creating a handle", () => {
     const globals = { get: () => undefined };
-    expect(() => withPyCallable(globals, "decode", "decode(data)", () => undefined)).toThrow(
+    expect(() => assertPyCallable(globals, "decode", "decode(data)")).toThrow(
       "需要一个函数 decode(data)",
     );
   });
@@ -59,9 +70,19 @@ describe("withPyCallable", () => {
   it("destroys a non-callable handle once before rejecting it", () => {
     const value = fakeHandle();
     const globals = { get: () => value };
-    expect(() => withPyCallable(globals, "decode", "decode(data)", () => undefined)).toThrow(
+    expect(() => assertPyCallable(globals, "decode", "decode(data)")).toThrow(
       "需要一个函数 decode(data)",
     );
     expect(value.destroy).toHaveBeenCalledOnce();
   });
+
+  it.each([42, "abc", false, null])(
+    "rejects primitive %s with the friendly function error",
+    (value) => {
+      const globals = { get: () => value };
+      expect(() => assertPyCallable(globals, "decode", "decode(data)")).toThrow(
+        "需要一个函数 decode(data)",
+      );
+    },
+  );
 });
