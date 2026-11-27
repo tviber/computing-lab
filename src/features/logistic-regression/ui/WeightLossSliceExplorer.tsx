@@ -391,7 +391,7 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
         真实模型有几千个词，画不出来全貌。我们先把其他词权重固定住，只单独调「{selectedWord()}
         」的权重：不含该词的短信（<MathFormula>x_j=0</MathFormula>
         ）不会受这个词影响，所以这里只统计包含该词的 {dataset().totalCount}{" "}
-        条短信，观察权重怎么顺着坡度滑进最低点。
+        条短信的平均损失。沿负梯度更新时，步长合适才会下降；步长太大也可能越过谷底。
       </p>
 
       <div class="logistic-regression-slice-toolbar">
@@ -440,9 +440,9 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
         {wordMeta().note}
         {contextMode() === "trained" && learnedW() !== undefined
           ? Math.abs(learnedW()! - curve().minPoint.w) <= 0.35
-            ? ` 当前模型为「${selectedWord()}」学到的权重是 ${fmtSigned(learnedW()!)}，已经靠近这条曲线的最低谷 w* ≈ ${fmtSigned(curve().minPoint.w, 2)}。`
-            : ` 当前模型为「${selectedWord()}」学到的权重是 ${fmtSigned(learnedW()!)}，与当前曲线最低谷 w* ≈ ${fmtSigned(curve().minPoint.w, 2)} 仍有差距（可能上方学习率/轮数尚未收敛或波动较大）。`
-          : ` 在起点全 0 时，曲线最低点位于 w* ≈ ${fmtSigned(curve().minPoint.w, 2)}。`}
+            ? ` 当前模型为「${selectedWord()}」学到的权重是 ${fmtSigned(learnedW()!)}，已经靠近当前绘图区间内的最低点 w* ≈ ${fmtSigned(curve().minPoint.w, 2)}。`
+            : ` 当前模型为「${selectedWord()}」学到的权重是 ${fmtSigned(learnedW()!)}，与当前绘图区间内的最低点 w* ≈ ${fmtSigned(curve().minPoint.w, 2)} 仍有差距（可能上方学习率/轮数尚未收敛或波动较大）。`
+          : ` 其余参数全为 0 时，当前绘图区间内的最低点位于 w* ≈ ${fmtSigned(curve().minPoint.w, 2)}。`}
       </p>
 
       <div class="logistic-regression-slice-eta-bar">
@@ -574,7 +574,7 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
             x={Math.max(PAD_L + 26, Math.min(W - PAD_R - 26, xOfW(curve().minPoint.w)))}
             y={PAD_T - 4}
           >
-            最低谷 w*≈{curve().minPoint.w.toFixed(2)}
+            区间最低点 w*≈{curve().minPoint.w.toFixed(2)}
           </text>
 
           <Show
@@ -756,7 +756,7 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
         <div class="logistic-regression-stat-box">
           <span>平均损失</span>
           <strong class="logistic-regression-mono">{currentEval().loss.toFixed(4)}</strong>
-          <small>曲线最低值：{curve().minPoint.loss.toFixed(4)}</small>
+          <small>区间最低值：{curve().minPoint.loss.toFixed(4)}</small>
         </div>
         <div class="logistic-regression-stat-box">
           <span>当前坡度（往哪边是下坡）</span>
