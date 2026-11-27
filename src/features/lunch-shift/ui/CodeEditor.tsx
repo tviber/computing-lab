@@ -15,7 +15,7 @@ export function CodeEditor(props: {
   return (
     <PythonEditor
       ariaLabel={props.ariaLabel}
-      className="lunch-editor"
+      class="lunch-editor"
       editable={!(props.disabled ?? false)}
       height={props.height ?? "220px"}
       onChange={(value) => props.onChange(value)}

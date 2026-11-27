@@ -3,14 +3,11 @@ import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, Match, Show, Switch, untrack } from "solid-js";
 import { useLabRuntime } from "../../../shared/lab/runtime";
 import { createReducer } from "../../../shared/lab/createReducer";
-import { SaveIndicator } from "../../../shared/lab/SaveIndicator";
+import { LabSaveIndicator, useLabSession } from "../../../shared/lab/useLabSession";
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
-import { statusForStage, syncConflictForStage } from "../../../shared/lab/saveStatus.ts";
 import { StageBrief } from "../../../shared/lab/StageBrief";
 import { StageRail } from "../../../shared/lab/StageRail";
-import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
-import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import type {
   ConditionalProbDraft,
@@ -28,6 +25,7 @@ import {
   stageOf,
   transitionStatsFoundationsLesson,
   type StatsFoundationsLessonAction,
+  type StatsFoundationsLessonState,
 } from "../lesson/state.ts";
 import { ConditionalProbPanel } from "./ConditionalProbPanel.tsx";
 import { LikelihoodPanel } from "./LikelihoodPanel.tsx";
@@ -64,17 +62,24 @@ export function StatsFoundationsLabPage() {
   const currentDraft = createMemo(() => draftOf<StatsFoundationsDraft>(state(), stage().index));
   const passed = createMemo(() => state().passedStages.includes(stage().index));
 
-  const project = useLabProject<
+  const session = useLabSession<
     StatsFoundationsDraft,
     Record<string, never>,
-    StatsFoundationsLessonAction
+    StatsFoundationsLessonAction,
+    StatsFoundationsLessonState
   >(() => ({
-    scopeId: runtime.scopeId,
+    scopeId: () => runtime.scopeId,
+    ready: () => runtime.ready,
     labId: "stats-foundations",
-    ready: runtime.ready,
-    stageIndex: state().stageIndex,
+    state,
+    dispatch,
+    dispatchSession: dispatch,
+    draftOf: (stageIndex) => draftOf(state(), stageIndex),
     onResetSuccess: () => {
       setSubmitError(null);
+    },
+    autosave: {
+      ready: (project) => project.projectLoaded && project.loadError === null,
     },
     toAction: (loaded, meta) => ({
       type: "load-project",
@@ -87,45 +92,10 @@ export function StatsFoundationsLabPage() {
       freeNavigation: freeNavigation(),
       isReset: meta?.isReset,
     }),
-    dispatch,
   }));
+  const { project } = session;
 
   const projectReady = createMemo(() => project.projectLoaded && project.loadError === null);
-  const reconcileConflict = (s: number) =>
-    reconcileConflictedStage({
-      fetchProject: project.fetchProject,
-      stageIndex: s,
-      onResolved: (stageIndex, loaded) =>
-        dispatch({
-          type: "resolve-save-conflict",
-          stageIndex,
-          draft: loaded.drafts?.[stageIndex],
-          revision: loaded.draftRevisions?.[stageIndex],
-        }),
-      onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
-    });
-
-  useAutosaveDraft<StatsFoundationsDraft>(() => ({
-    flushPreservedDrafts: project.flushPreservedDrafts,
-    saveStatuses: projectReady() ? state().saveStatusByStage : undefined,
-    scopeId: runtime.scopeId,
-    labId: "stats-foundations",
-    saveStatus:
-      projectReady() && !project.resetting
-        ? statusForStage(state().saveStatusByStage, state().stageIndex)
-        : "idle",
-    stageIndex: state().stageIndex,
-    draftOf: (index) => draftOf(state(), index),
-    deps: [state().drafts],
-    expectedGeneration: project.projectGeneration,
-    resetVersion: project.saveGeneration,
-    expectedRevisionOf: (s) => state().draftRevisions[s] ?? 0,
-    onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-    onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-    onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-    onConflict: (s) => reconcileConflict(s),
-  }));
-
   const handleDraftChange = (next: StatsFoundationsDraft) => {
     dispatch({ type: "update-draft", stageIndex: stage().index, draft: next });
   };
@@ -153,26 +123,7 @@ export function StatsFoundationsLabPage() {
 
   return (
     <AppPageLayout
-      topbar={
-        <SaveIndicator
-          onDiscardLocal={
-            state().conflictedLocalDrafts[stage().index]
-              ? () => dispatch({ type: "discard-conflict-draft", stageIndex: stage().index })
-              : undefined
-          }
-          onRestoreLocal={
-            state().conflictedLocalDrafts[stage().index]
-              ? () => dispatch({ type: "restore-conflict-draft", stageIndex: stage().index })
-              : undefined
-          }
-          onRetrySync={() => reconcileConflict(state().stageIndex)}
-          status={statusForStage(state().saveStatusByStage, state().stageIndex)}
-          unresolvedSyncConflict={syncConflictForStage(
-            state().unresolvedSyncConflicts,
-            state().stageIndex,
-          )}
-        />
-      }
+      topbar={<LabSaveIndicator controls={session.saveIndicator} />}
       topbarProps={{
         title: labStageTitle("stats-foundations", stage().title),
       }}

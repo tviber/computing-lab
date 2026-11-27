@@ -205,7 +205,7 @@ export function SgdCodePanel(props: {
           <PythonEditor
             ariaDescribedBy="sgd-code-help"
             ariaLabel="单条短信的更新代码"
-            className="sgd-editor"
+            class="sgd-editor"
             editable={mode() === "free"}
             height={mode() === "guided" ? "150px" : "210px"}
             onChange={(next) => {

@@ -256,7 +256,11 @@ export function TeacherDashboardPage() {
   });
 
   const detailResetKey = createMemo(
-    () => `${classId() ?? ""}\0${kind()}\0${lab().id}\0${auth.status}`,
+    () => [classId() ?? "", kind(), lab().id, auth.status] as const,
+    {
+      equals: (prev, next) =>
+        prev[0] === next[0] && prev[1] === next[1] && prev[2] === next[2] && prev[3] === next[3],
+    },
   );
   createEffect(detailResetKey, () => {
     ++detailSeq;

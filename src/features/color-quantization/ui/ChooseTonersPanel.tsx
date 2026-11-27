@@ -101,7 +101,7 @@ export function ChooseTonersPanel(props: {
       </p>
       <PythonEditor
         ariaLabel="choose_toners 代码"
-        className="quant-editor"
+        class="quant-editor"
         height="220px"
         onChange={(value) => props.onCodeChange(value)}
         value={source()}

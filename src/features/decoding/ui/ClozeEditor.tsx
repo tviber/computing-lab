@@ -28,7 +28,7 @@ export function ClozeEditor(props: {
   return (
     <PythonCodeWithBlanks
       ariaLabel={props.ariaLabel ?? "decode 填空代码"}
-      className="cloze-code"
+      class="cloze-code"
       parts={codeParts()}
     />
   );
