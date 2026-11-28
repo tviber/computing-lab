@@ -326,7 +326,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   const optionalChallengeChevron = optionalChallenges.locator(".disclosure-chevron .ui-icon");
   expect((await optionalChallenges.boundingBox())?.height).toBe(24);
   expect(await optionalChallenges.evaluate((element) => getComputedStyle(element).fontSize)).toBe(
-    "8px",
+    "10px",
   );
   expect(
     await optionalChallengeChevron.evaluate((element) => getComputedStyle(element).rotate),
