@@ -83,6 +83,9 @@ test("statistics math updates through sliders, answers, feedback and narrow layo
       await expect(page.locator(".concept-checklist-note math")).toBeAttached();
       await page.getByRole("button", { name: /取对数能把/ }).click();
       await expect(page.locator(".concept-checklist-reveal math")).toHaveCount(2);
+      const prompt = page.locator(".concept-checklist-prompt");
+      await expect(prompt.locator(":scope > span")).toHaveCount(2);
+      await expect(prompt.locator(":scope > span:last-child math")).toHaveCount(3);
       await page.getByRole("button", { name: "提交检查本关" }).click();
       await expect(page.locator(".sf-feedback.is-pass math")).toBeAttached();
       await expectHealthyMath(page);

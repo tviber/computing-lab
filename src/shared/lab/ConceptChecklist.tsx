@@ -87,7 +87,7 @@ export function ConceptChecklist(props: ConceptChecklistProps) {
                         <Icon name="check" size={13} />
                       </span>
                     </Show>
-                    {renderText(prompt.prompt)}
+                    <span>{renderText(prompt.prompt)}</span>
                   </p>
                   <Show
                     fallback={
