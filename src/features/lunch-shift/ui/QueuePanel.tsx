@@ -5,21 +5,28 @@
  */
 
 import { Button } from "@ui-sdk/solid/button";
-import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
+import { createMemo, createSignal, For, Show } from "solid-js";
 import { Disclosure } from "../../../shared/ui/Disclosure";
-import { Icon } from "../../../shared/ui/Icon";
-import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
-import type { OrderResult, QueuePick, RunSummary, SimulationEvent } from "../domain/contracts.ts";
-import { checkPriorityTable, priorityIndex, PRIORITY_TABLE_SIZE } from "../domain/priority.ts";
+import type { RunSummary } from "../domain/contracts.ts";
+import { checkPriorityTable } from "../domain/priority.ts";
 import type { LunchTestSummary, QueueDraft } from "../domain/protocol.ts";
-import { pickProbe, QUEUE_PROBES } from "../domain/queueProbes.ts";
+import { QUEUE_PROBES } from "../domain/queueProbes.ts";
 import { describeFullWidthPunctuation, friendlyRunError } from "../domain/runErrors.ts";
 import { EXPERIMENTS, QUEUE_SCENARIO, RUSH_SCENARIO } from "../domain/scenarios.ts";
 import { simulate } from "../domain/simulator.ts";
 import { CodeEditor } from "./CodeEditor.tsx";
 import { runPriorityTable } from "./pyodideRunner.ts";
-import { SimMap } from "./SimMap.tsx";
+import {
+  presetPriorityTable,
+  probePassCount,
+  probeRowsFromTable,
+  type ProbeRow,
+} from "./queueModel";
+import { QueueProbeResults } from "./QueueProbeResults";
+import { QueueResultView } from "./QueueResultView";
+
+export { QueueResultView };
 
 export const QUEUE_STARTER = `def priority(urgent, wait, cook):
     # 返回的数越大越先做；一样大就先来先做
@@ -31,297 +38,6 @@ export const QUEUE_STARTER = `def priority(urgent, wait, cook):
         score = 0      # 加急单该给多少分？
     return score
 `;
-
-const STAGE_LABEL = { kitchen: "厨房", delivery: "出餐" } as const;
-
-type ProbeRow = { id: string; title: string; passed: boolean; picked: number; answer: number };
-
-/** The 12 grading probes: each is one queue snapshot asking "who first?". */
-function ProbeResults(props: { probes: ProbeRow[] }) {
-  const passedCount = () => props.probes.filter((row) => row.passed).length;
-  return (
-    <section class="lunch-result" role="status">
-      <p class="eyebrow">
-        抽检结果 · 答对 {passedCount()} / {props.probes.length}
-      </p>
-      <p class="lunch-note">
-        每张卡列出正在等餐的订单，顺序是先来后到。运行后会显示你的函数选了哪张、按等待上限该选哪张；一样急时保持先来后到。
-      </p>
-      <div class="lunch-table-wrap">
-        <table class="lunch-orders-table">
-          <thead>
-            <tr>
-              <th>情况</th>
-              <th>在等的单（先来后到）</th>
-              <th>你的函数选</th>
-              <th>该先做</th>
-              <th>结果</th>
-            </tr>
-          </thead>
-          <tbody>
-            <For each={props.probes}>
-              {(row) => {
-                const probe = QUEUE_PROBES.find((item) => item.id === row.id);
-                const label = (index: number) => {
-                  const c = probe?.candidates[index];
-                  return c
-                    ? `${index + 1} 号（${c.urgent ? "加急" : "普通"}·等${c.wait}拍·${c.cook}拍菜）`
-                    : `${index + 1} 号`;
-                };
-                return (
-                  <tr>
-                    <td>{row.title}</td>
-                    <td>
-                      {probe?.candidates
-                        .map((c, i) => `${i + 1} 号${c.urgent ? "加急" : "普通"}(等${c.wait})`)
-                        .join("、")}
-                    </td>
-                    <td>{label(row.picked)}</td>
-                    <td>{label(row.answer)}</td>
-                    <td>
-                      <Icon name={row.passed ? "check" : "x"} size={12} />
-                    </td>
-                  </tr>
-                );
-              }}
-            </For>
-          </tbody>
-        </table>
-      </div>
-    </section>
-  );
-}
-
-function waitLimit(order: OrderResult): number {
-  return (order.expected?.urgent ?? order.urgent) ? 9 : 18;
-}
-
-function presetTable(kind: "fifo" | "urgent"): number[] {
-  const table = new Array<number>(PRIORITY_TABLE_SIZE).fill(0);
-  if (kind === "fifo") return table;
-  for (const urgent of [false, true]) {
-    for (let wait = 0; wait <= 30; wait++) {
-      for (const cook of [1, 3] as const) {
-        table[priorityIndex(urgent, wait, cook)] = urgent ? 1 : 0;
-      }
-    }
-  }
-  return table;
-}
-
-function PickCard(props: { pick: QueuePick }) {
-  return (
-    <div class="lunch-pick-card">
-      <p class="lunch-pick-head">
-        第 {props.pick.tick} 拍 · {STAGE_LABEL[props.pick.stage]} 选单
-      </p>
-      <table>
-        <thead>
-          <tr>
-            <th>订单</th>
-            <th>urgent</th>
-            <th>wait</th>
-            <th>cook</th>
-            <th>priority() 输出</th>
-            <th></th>
-          </tr>
-        </thead>
-        <tbody>
-          <For each={props.pick.candidates}>
-            {(c) => (
-              <tr class={c.id === props.pick.picked ? "picked" : ""}>
-                <td>
-                  <b>{c.id}</b>
-                </td>
-                <td>{c.urgent ? "True" : "False"}</td>
-                <td>{c.waitTicks}</td>
-                <td>{c.cookTicks}</td>
-                <td>{c.value ?? "没用到函数"}</td>
-                <td>{c.id === props.pick.picked ? "← 先做" : ""}</td>
-              </tr>
-            )}
-          </For>
-        </tbody>
-      </table>
-    </div>
-  );
-}
-
-function LateOrders(props: { run: RunSummary }) {
-  const late = createMemo(() => props.run.orders.filter((order) => !order.onTime));
-  // A normal order that kept losing to an urgent one: that's the
-  // starvation lesson, and it should be named, not mysterious.
-  const starvedBy = (id: string) =>
-    (props.run.picks ?? []).some((pick) => {
-      const me = pick.candidates.find((c) => c.id === id);
-      const winner = pick.candidates.find((c) => c.id === pick.picked);
-      // Only queue-jumping counts — an urgent order that had already waited
-      // longer is just first-come-first-served.
-      return me !== undefined && winner?.urgent === true && winner.waitTicks < me.waitTicks;
-    });
-
-  return (
-    <Show
-      fallback={<p class="lunch-feedback success">12 张订单全部准时送达。</p>}
-      when={late().length > 0}
-    >
-      <ul class="lunch-late-list">
-        <For each={late()}>
-          {(order) => (
-            <li>
-              <b>{order.id}</b>（{(order.expected?.urgent ?? order.urgent) ? "加急" : "普通"}）
-              {order.delivered
-                ? `送到时已经等了 ${order.wait} 拍，等待上限是 ${waitLimit(order)} 拍`
-                : `到第 30 拍还没送出去，等待上限是 ${waitLimit(order)} 拍`}
-              {!order.expected?.urgent && starvedBy(order.id) ? "，一直排在加急单后面" : ""}
-            </li>
-          )}
-        </For>
-      </ul>
-    </Show>
-  );
-}
-
-const EVENT_TEXT = {
-  arrive: "到达，开始等",
-  held: "小票暂缓录入",
-  ticket: "小票记好了",
-  cook: "厨房开始做",
-  ready: "做好了，等送出",
-  send: "送达",
-} as const;
-
-function Replay(props: { run: RunSummary; autoPlay?: boolean }) {
-  // The simulation is parallel, but watching several stations at once is
-  // unreadable — the replay advances one tick at a time and shows every
-  // station action that happened on that tick.
-  const events = () => props.run.events ?? [];
-  const frames = createMemo(() => {
-    const byTick = new Map<number, SimulationEvent[]>();
-    for (const event of events()) {
-      const list = byTick.get(event.tick);
-      if (list) list.push(event);
-      else byTick.set(event.tick, [event]);
-    }
-    return [...byTick.entries()]
-      .sort(([left], [right]) => left - right)
-      .map(([tick, frameEvents]) => ({ tick, events: frameEvents }));
-  });
-  const [step, setStep] = createSignal(0);
-  const [playing, setPlaying] = createSignal(Boolean(props.autoPlay));
-
-  createEffect(
-    () => props.run,
-    () => {
-      setStep(0);
-      setPlaying(Boolean(props.autoPlay));
-    },
-  );
-
-  createEffect(
-    () => (playing() ? frames().length : 0),
-    (length) => {
-      if (length === 0) return;
-      const timer = window.setInterval(
-        () =>
-          setStep((current) => {
-            if (current >= length - 1) {
-              setPlaying(false);
-              return current;
-            }
-            return current + 1;
-          }),
-        650,
-      );
-      return () => window.clearInterval(timer);
-    },
-  );
-
-  const current = () => frames()[step()];
-  const lastTick = () => current()?.tick ?? 0;
-  // Draw only the ticks revealed so far, so the map never gets ahead of
-  // the caption.
-  const viewRun = createMemo(() => ({
-    ...props.run,
-    events: events().filter((event) => event.tick <= lastTick()),
-  }));
-  const caption = () => {
-    const frame = current();
-    if (!frame) return "——";
-    const details = frame.events.map((event) => `${event.orderId} ${EVENT_TEXT[event.action]}`);
-    const shown = details.slice(0, 2).join("；");
-    return `第 ${frame.tick} 拍 · ${shown}${details.length > 2 ? `；另有 ${details.length - 2} 件事` : ""}`;
-  };
-
-  const onSeek = (value: string) => {
-    setPlaying(false);
-    setStep(Number(value) || 0);
-  };
-  const atEnd = () => frames().length > 0 && step() >= frames().length - 1;
-  const togglePlay = () => {
-    if (!playing() && atEnd()) setStep(0);
-    setPlaying((value) => !value);
-  };
-
-  return (
-    <div class="lunch-replay">
-      <SimMap run={viewRun()} tick={current()?.tick ?? 0} />
-      <p aria-live="polite" class="lunch-replay-caption">
-        {caption()}
-      </p>
-      <div class="lunch-replay-controls">
-        <Button class="button button-secondary" onClick={togglePlay} type="button">
-          {playing() ? "暂停回放" : atEnd() ? "重播回放" : "播放回放"}
-        </Button>
-        <LabeledSlider
-          class="lunch-replay-range"
-          label="进度"
-          max={Math.max(frames().length - 1, 0)}
-          min={0}
-          onChange={(next) => onSeek(String(next))}
-          step={1}
-          value={step()}
-          valueText={`第 ${step() + 1} 帧`}
-        />
-        <strong>
-          {frames().length ? `第 ${current()!.tick} 拍 · 共 ${frames().length} 帧` : "没有事件"}
-        </strong>
-      </div>
-    </div>
-  );
-}
-
-export function QueueResultView(props: { run: RunSummary; title: string; autoPlay?: boolean }) {
-  const picks = () => props.run.picks ?? [];
-  return (
-    <section class="lunch-result" role="status">
-      <p class="eyebrow">{props.title}</p>
-      <div aria-label="本轮关键指标" class="lunch-stat-row">
-        <span>
-          <b>
-            {props.run.onTime} / {props.run.orders.length}
-          </b>
-          准时送达{props.run.onTime === props.run.orders.length ? " ★" : ""}
-        </span>
-        <span>
-          <b>
-            {props.run.delivered} / {props.run.orders.length}
-          </b>
-          实际送达
-        </span>
-      </div>
-      <Replay autoPlay={props.autoPlay} run={props.run} />
-      <LateOrders run={props.run} />
-      <Show when={picks().length > 0}>
-        <Disclosure class="lunch-pick-table" summary="每一拍怎么选的">
-          <div>
-            <For each={picks()}>{(pick) => <PickCard pick={pick} />}</For>
-          </div>
-        </Disclosure>
-      </Show>
-    </section>
-  );
-}
 
 export function QueuePanel(props: {
   draft: QueueDraft;
@@ -357,7 +73,7 @@ export function QueuePanel(props: {
   const probeScore = () => {
     const probes = shownProbes();
     if (!probes || probes.length === 0) return null;
-    return `${probes.filter((row) => row.passed).length} / ${probes.length}`;
+    return `${probePassCount(probes)} / ${probes.length}`;
   };
   const replayRun = () => {
     const id = replaySource();
@@ -398,18 +114,7 @@ export function QueuePanel(props: {
         return;
       }
       props.onChange({ code, priority: table });
-      setLocalProbes(
-        QUEUE_PROBES.map((probe) => {
-          const picked = pickProbe(table, probe);
-          return {
-            id: probe.id,
-            title: probe.title,
-            passed: picked === probe.answer,
-            picked,
-            answer: probe.answer,
-          };
-        }),
-      );
+      setLocalProbes(probeRowsFromTable(table));
       setLocalRun(simulate(QUEUE_SCENARIO, { priority: table }).result);
       showReplay("mine");
     } catch (err) {
@@ -420,7 +125,7 @@ export function QueuePanel(props: {
   };
 
   const runPreset = (id: "fifo" | "urgent") => {
-    const run = simulate(QUEUE_SCENARIO, { priority: presetTable(id) }).result;
+    const run = simulate(QUEUE_SCENARIO, { priority: presetPriorityTable(id) }).result;
     setPresetRuns((current) => ({ ...current, [id]: run }));
     showReplay(id);
   };
@@ -522,8 +227,8 @@ export function QueuePanel(props: {
                     <td>
                       {probe.candidates
                         .map(
-                          (c, i) =>
-                            `${i + 1} 号${c.urgent ? "加急" : "普通"}(等${c.wait}拍·${c.cook}拍菜)`,
+                          (candidate, index) =>
+                            `${index + 1} 号${candidate.urgent ? "加急" : "普通"}(等${candidate.wait}拍·${candidate.cook}拍菜)`,
                         )
                         .join("、")}
                     </td>
@@ -614,7 +319,7 @@ export function QueuePanel(props: {
           <For each={allTableErrors()}>{(text) => <li>{text}</li>}</For>
         </ul>
       </Show>
-      <Show when={shownProbes()}>{(probes) => <ProbeResults probes={probes()} />}</Show>
+      <Show when={shownProbes()}>{(probes) => <QueueProbeResults probes={probes()} />}</Show>
 
       <Show when={extraArea()}>
         {(extra) => (
@@ -666,7 +371,7 @@ export function QueuePanel(props: {
               )}
             </For>
             <Show when={rushRun()}>
-              {(r) => <QueueResultView run={r()} title="晚高峰 20 单" />}
+              {(run) => <QueueResultView run={run()} title="晚高峰 20 单" />}
             </Show>
           </div>
         )}
