@@ -8,6 +8,7 @@ import {
   DEFAULT_BUSY_TIMEOUT_MS,
   findPackageRoot,
   migrate,
+  MIN_SUPPORTED_SCHEMA_VERSION,
   openDb,
   openMemoryDb,
   resolveDbPath,
@@ -51,34 +52,58 @@ const tableExists = (db: DatabaseSync, name: string) =>
   db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = ?").get(name) !==
   undefined;
 
-describe("migrate", () => {
-  it.each([1, 2, 3, 4, 5, 6, 7, 8, 9])(
-    "upgrades a v%i database to the current schema",
-    (version) => {
-      const db = fixtureDb(version);
-      migrate(db);
+const supportedStartVersions = Array.from(
+  { length: SCHEMA_VERSION - MIN_SUPPORTED_SCHEMA_VERSION + 1 },
+  (_, index) => MIN_SUPPORTED_SCHEMA_VERSION + index,
+);
 
-      expect(versionOf(db)).toBe(SCHEMA_VERSION);
-      for (const table of [
-        "task_sheets",
-        "task_assignments",
-        "task_responses",
-        "cpu_guided_first_answers",
-        "calculator_full_adder_guide_acknowledgements",
-      ]) {
-        expect(tableExists(db, table), table).toBe(true);
-      }
-      // v2/v3 columns exist after the chain ran.
-      expect(db.prepare("SELECT passed_stages FROM student_projects LIMIT 0")).toBeDefined();
-      expect(db.prepare("SELECT role FROM users LIMIT 0")).toBeDefined();
-      expect(
-        db
-          .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
-          .get("idx_submissions_user_stage"),
-      ).toBeDefined();
+describe("migrate", () => {
+  it.each(supportedStartVersions)("upgrades a v%i database to the current schema", (version) => {
+    const db = fixtureDb(version);
+    migrate(db);
+
+    expect(versionOf(db)).toBe(SCHEMA_VERSION);
+    for (const table of [
+      "task_sheets",
+      "task_assignments",
+      "task_responses",
+      "cpu_guided_first_answers",
+      "calculator_full_adder_guide_acknowledgements",
+    ]) {
+      expect(tableExists(db, table), table).toBe(true);
+    }
+    // v2/v3 columns exist after the chain ran.
+    expect(db.prepare("SELECT passed_stages FROM student_projects LIMIT 0")).toBeDefined();
+    expect(db.prepare("SELECT role FROM users LIMIT 0")).toBeDefined();
+    expect(
+      db
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND name = ?")
+        .get("idx_submissions_user_stage"),
+    ).toBeDefined();
+    db.close();
+  });
+
+  it("creates the full schema from an empty database", () => {
+    const db = new DatabaseSync(":memory:");
+    migrate(db);
+
+    expect(versionOf(db)).toBe(SCHEMA_VERSION);
+    expect(tableExists(db, "task_responses")).toBe(true);
+    expect(tableExists(db, "calculator_full_adder_guide_acknowledgements")).toBe(true);
+    db.close();
+  });
+
+  it("refuses a database newer than this build without rewriting its version", () => {
+    const db = fixtureDb(SCHEMA_VERSION);
+    db.exec(`PRAGMA user_version = ${SCHEMA_VERSION + 1}`);
+
+    try {
+      expect(() => migrate(db)).toThrow(/newer than this build/);
+      expect(versionOf(db)).toBe(SCHEMA_VERSION + 1);
+    } finally {
       db.close();
-    },
-  );
+    }
+  });
 
   it("resets cpu progress and submissions when a v9 db upgrades (issue #100)", () => {
     // The issue-#100 re-cut reindexes every cpu stage, so old indices map to
