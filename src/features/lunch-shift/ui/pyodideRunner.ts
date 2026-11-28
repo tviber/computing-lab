@@ -12,7 +12,7 @@ import {
 export { PythonRunError } from "../../../shared/worker/workerErrors.ts";
 
 const client = createWorkerClient(
-  () => new Worker(new URL("./pyodide.worker.ts", import.meta.url), { type: "module" }),
+  () => new Worker(new URL("../runtime/pyodide.worker.ts", import.meta.url), { type: "module" }),
 );
 
 /** Spawn the worker now so the runtime download finishes before the first run. */

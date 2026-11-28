@@ -214,7 +214,7 @@ export default tseslint.config(
     },
   },
   {
-    // Pilot boundary: other lab pages still own their application logic.
+    // Decoding stays the one controller/preview lab; its UI only renders the view model.
     files: ["src/features/decoding/ui/**/*.{ts,tsx}"],
     ignores: ["src/features/decoding/ui/DecodingLabPage.tsx"],
     rules: {
