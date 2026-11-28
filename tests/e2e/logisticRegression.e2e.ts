@@ -322,7 +322,16 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     page.getByRole("heading", { name: "逻辑回归 - 用新短信试试模型", exact: true }),
   ).toBeVisible();
 
-  await page.getByRole("button", { name: /选做挑战/ }).click();
+  const optionalChallenges = page.getByRole("button", { name: /选做挑战/ });
+  const optionalChallengeChevron = optionalChallenges.locator(".disclosure-chevron .ui-icon");
+  expect((await optionalChallenges.boundingBox())?.height).toBe(24);
+  expect(
+    await optionalChallengeChevron.evaluate((element) => getComputedStyle(element).rotate),
+  ).toBe("-90deg");
+  await optionalChallenges.click();
+  await expect
+    .poll(() => optionalChallengeChevron.evaluate((element) => getComputedStyle(element).rotate))
+    .toBe("0deg");
   await page.getByRole("button", { name: /梯度维修台/ }).click();
   await expect(
     page.getByRole("heading", { name: "逻辑回归 - 梯度维修台", exact: true }),

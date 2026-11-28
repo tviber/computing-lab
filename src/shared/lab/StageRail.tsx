@@ -68,7 +68,6 @@ export function OptionalChallengeGroup(props: {
   open: boolean;
   note?: JSX.Element;
   class?: string;
-  summaryClass?: string;
   children: JSX.Element;
 }) {
   const label = () =>
@@ -76,7 +75,12 @@ export function OptionalChallengeGroup(props: {
 
   return (
     <Disclosure
-      class={props.class ? `stage-branch ${props.class}` : "stage-branch"}
+      chevronSize={12}
+      class={
+        props.class
+          ? `stage-branch optional-challenge-group ${props.class}`
+          : "stage-branch optional-challenge-group"
+      }
       open={props.open}
       summary={
         <>
@@ -86,9 +90,7 @@ export function OptionalChallengeGroup(props: {
           </span>
         </>
       }
-      summaryClass={
-        props.summaryClass ? `${props.summaryClass} stage-branch-summary` : "stage-branch-summary"
-      }
+      summaryClass="stage-branch-summary"
     >
       <Show when={props.note}>{props.note}</Show>
       <ol class="stage-list stage-branch-list">{props.children}</ol>
