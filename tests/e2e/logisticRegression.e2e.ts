@@ -330,11 +330,11 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   );
   expect(
     await optionalChallengeChevron.evaluate((element) => getComputedStyle(element).rotate),
-  ).toBe("-90deg");
+  ).toBe("none");
   await optionalChallenges.click();
   await expect
     .poll(() => optionalChallengeChevron.evaluate((element) => getComputedStyle(element).rotate))
-    .toBe("0deg");
+    .toBe("90deg");
   await page.getByRole("button", { name: /梯度维修台/ }).click();
   await expect(
     page.getByRole("heading", { name: "逻辑回归 - 梯度维修台", exact: true }),
