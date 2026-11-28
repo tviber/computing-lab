@@ -54,6 +54,7 @@ bun run lint
 bun run typecheck
 bun run test:run
 bun run build
+bun run bundle:check
 bun run build:classroom
 bun run build:server
 bunx playwright test --config playwright.showcase.config.ts --workers=1

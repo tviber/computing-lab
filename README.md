@@ -58,6 +58,7 @@ bun run lint
 bun run typecheck
 bun run test:run
 bun run build
+bun run bundle:check
 ```
 
 `typecheck` 会分别检查前端、Node API 和构建/测试配置；不要用根目录的空
@@ -85,3 +86,4 @@ bun run test:caddy
 - 架构测试遍历包括动态导入的依赖图，确保展示版不触达校内模块和服务端。
 
 详细说明见 [docs/architecture.md](docs/architecture.md)。
+首屏、实验路由与重资源预算见 [docs/bundle-budget.md](docs/bundle-budget.md)。
