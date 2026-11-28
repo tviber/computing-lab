@@ -332,6 +332,8 @@ test("completes the first calculator stage through the real API", async ({ page,
   );
   await page.getByRole("button", { name: "登录" }).click();
   expect((await loginResponse).status()).toBe(200);
+  // The response precedes auth hydration and the login page's redirect.
+  await expect(page.getByRole("heading", { name: "实验课程", exact: true })).toBeVisible();
 
   await page.goto(`classes/${classId}/labs/calculator`, { waitUntil: "networkidle" });
   await expect(page.getByRole("main", { name: "计算器实验区" })).toBeVisible();
