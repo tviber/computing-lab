@@ -13,14 +13,16 @@ export function ShowcaseHomePage() {
         <section class="home-hero">
           <div class="home-hero-copy">
             <p class="eyebrow">COMPUTING LAB / 在线互动实验</p>
-            <h1>动手实验，理解计算。</h1>
-            <p class="home-lede">从一根导线到人工智能，在浏览器里探索每一步。</p>
+            <h1>计算机怎么处理信息？</h1>
+            <p class="home-lede">
+              搭一段逻辑电路、拆开一张位图文件头、训练一个垃圾短信分类器——每个实验都能在浏览器里直接观察结果。
+            </p>
             <p class="home-availability">
               无需登录，所有实验直接开放。进度保存在当前浏览器，可随时回来继续。
             </p>
             <div class="home-hero-actions">
               <AppLink class="button button-primary" href="/labs/calculator">
-                从第一根导线开始
+                开始实现 ALU
               </AppLink>
             </div>
           </div>

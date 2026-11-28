@@ -84,8 +84,11 @@ export function LossChartSvg(props: {
       : epochs[epochs.length - 1];
   });
 
+  const hasModifier = (event: KeyboardEvent) =>
+    event.altKey || event.ctrlKey || event.metaKey || event.shiftKey;
+
   const onPointKeyDown = (event: KeyboardEvent, epoch: number) => {
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (hasModifier(event)) return;
     if (event.key === "Enter" || event.key === " ") {
       event.preventDefault();
       if (event.key === "Enter") props.onSelectEpoch?.(epoch);
@@ -101,14 +104,21 @@ export function LossChartSvg(props: {
             ? 0
             : event.key === "End"
               ? props.history.length - 1
-              : -1;
+              : undefined;
+    if (next === undefined) return;
+    event.preventDefault();
     const target = props.history[next];
     if (!target || target.epoch === epoch) return;
-    event.preventDefault();
     const point = pointElements.get(target.epoch);
     point?.focus();
     point?.scrollIntoView({ block: "nearest", inline: "nearest" });
     props.onSelectEpoch?.(target.epoch);
+  };
+
+  const onPointKeyUp = (event: KeyboardEvent, epoch: number) => {
+    if (event.key !== " " || hasModifier(event)) return;
+    event.preventDefault();
+    props.onSelectEpoch?.(epoch);
   };
 
   const selectPoint = (event: MouseEvent, fallbackEpoch: number, point: SVGGElement) => {
@@ -289,14 +299,7 @@ export function LossChartSvg(props: {
                       props.onSelectEpoch ? (event) => onPointKeyDown(event, epoch) : undefined
                     }
                     onKeyUp={
-                      props.onSelectEpoch
-                        ? (event) => {
-                            if (event.key === " ") {
-                              event.preventDefault();
-                              props.onSelectEpoch?.(epoch);
-                            }
-                          }
-                        : undefined
+                      props.onSelectEpoch ? (event) => onPointKeyUp(event, epoch) : undefined
                     }
                     ref={(element) => {
                       point = element;

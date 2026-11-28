@@ -1,4 +1,4 @@
-import { createSignal, For } from "solid-js";
+import { createEffect, createMemo, createSignal, For, untrack } from "solid-js";
 import { labMetadata, type LabId } from "../../shared/lab/labMetadata";
 import { SegmentedPicker } from "../../shared/ui/SegmentedPicker";
 import { useChangeAnimation } from "../../shared/ui/useChangeAnimation";
@@ -13,8 +13,14 @@ const FEATURED_LABS: readonly LabId[] = [
 
 /** A manually selected deck; every specimen stays mounted in its own spatial slot. */
 export function FeaturedLabDeck(props: { labs?: readonly [LabId, ...LabId[]] }) {
-  const labs = () => props.labs ?? FEATURED_LABS;
+  const labs = createMemo(() => props.labs ?? FEATURED_LABS);
   const [selection, setSelected] = createSignal<LabId>(labs()[0]);
+  createEffect(
+    () => labs(),
+    (current) => {
+      if (!current.includes(untrack(selection))) setSelected(current[0]);
+    },
+  );
   const selected = () => (labs().includes(selection()) ? selection() : labs()[0]);
   const selectedIndex = () => labs().indexOf(selected());
   const descriptionRef = useChangeAnimation<HTMLParagraphElement>(
@@ -27,7 +33,7 @@ export function FeaturedLabDeck(props: { labs?: readonly [LabId, ...LabId[]] }) 
 
   return (
     <div class="featured-lab-deck">
-      <div aria-label="实验示意" class="featured-lab-stage">
+      <div aria-label="实验示意" class="featured-lab-stage" role="group">
         <For each={labs()}>
           {(id, index) => {
             const role = () => {
