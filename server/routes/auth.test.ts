@@ -111,3 +111,135 @@ describe("password changes", () => {
     expect(await weak.json()).toEqual({ error: "weak-password" });
   });
 });
+
+describe("login rate limiting", () => {
+  it("throttles after 10 failed attempts and resets the counter on success", async () => {
+    const { app } = await setup();
+
+    for (let i = 0; i < 9; i += 1) {
+      const fail = await app.fetch(
+        new Request("http://lab.test/api/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ studentNo: "20260101", password: "wrong" }),
+        }),
+      );
+      expect(fail.status).toBe(401);
+    }
+
+    // A successful login before hitting the limit resets the counter.
+    await login(app);
+
+    for (let i = 0; i < 10; i += 1) {
+      const fail = await app.fetch(
+        new Request("http://lab.test/api/auth/login", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ studentNo: "20260101", password: "wrong" }),
+        }),
+      );
+      expect(fail.status).toBe(401);
+    }
+
+    const blocked = await app.fetch(
+      new Request("http://lab.test/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ studentNo: "20260101", password: "old-pass" }),
+      }),
+    );
+    expect(blocked.status).toBe(429);
+    expect(await blocked.json()).toEqual({ error: "too-many-attempts" });
+  });
+});
+
+describe("password change session revocation and rate limiting", () => {
+  it("revokes other sessions on password change while keeping the current session valid", async () => {
+    const { app } = await setup();
+    const cookieA = await login(app);
+    const cookieB = await login(app);
+
+    const change = await app.fetch(
+      new Request("http://lab.test/api/auth/change-password", {
+        method: "POST",
+        headers: { cookie: cookieA, "content-type": "application/json" },
+        body: JSON.stringify({ currentPassword: "old-pass", newPassword: "new-pass" }),
+      }),
+    );
+    expect(change.status).toBe(200);
+
+    const meA = await app.fetch(
+      new Request("http://lab.test/api/auth/me", { headers: { cookie: cookieA } }),
+    );
+    expect(meA.status).toBe(200);
+
+    const meB = await app.fetch(
+      new Request("http://lab.test/api/auth/me", { headers: { cookie: cookieB } }),
+    );
+    expect(meB.status).toBe(401);
+
+    const oldLogin = await app.fetch(
+      new Request("http://lab.test/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ studentNo: "20260101", password: "old-pass" }),
+      }),
+    );
+    expect(oldLogin.status).toBe(401);
+
+    const newLogin = await app.fetch(
+      new Request("http://lab.test/api/auth/login", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ studentNo: "20260101", password: "new-pass" }),
+      }),
+    );
+    expect(newLogin.status).toBe(200);
+  });
+
+  it("throttles repeated wrong current passwords and recovers after window expiry or success", async () => {
+    const { vi } = await import("vitest");
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-28T00:00:00.000Z"));
+    try {
+      const { app } = await setup();
+      const cookie = await login(app);
+
+      for (let i = 0; i < 5; i += 1) {
+        const wrong = await app.fetch(
+          new Request("http://lab.test/api/auth/change-password", {
+            method: "POST",
+            headers: { cookie, "content-type": "application/json" },
+            body: JSON.stringify({ currentPassword: "wrong", newPassword: "new-pass" }),
+          }),
+        );
+        expect(wrong.status).toBe(401);
+        expect(await wrong.json()).toEqual({ error: "current-password-incorrect" });
+      }
+
+      const throttled = await app.fetch(
+        new Request("http://lab.test/api/auth/change-password", {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({ currentPassword: "old-pass", newPassword: "new-pass" }),
+        }),
+      );
+      expect(throttled.status).toBe(429);
+      expect(await throttled.json()).toEqual({ error: "too-many-attempts" });
+
+      // Advance past the 15-minute window: attempts recover.
+      vi.advanceTimersByTime(15 * 60 * 1000 + 1);
+
+      const recovered = await app.fetch(
+        new Request("http://lab.test/api/auth/change-password", {
+          method: "POST",
+          headers: { cookie, "content-type": "application/json" },
+          body: JSON.stringify({ currentPassword: "old-pass", newPassword: "new-pass" }),
+        }),
+      );
+      expect(recovered.status).toBe(200);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

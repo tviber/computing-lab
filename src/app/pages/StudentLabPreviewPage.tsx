@@ -19,6 +19,7 @@ import {
 import { api, describeApiError } from "../../shared/api/client";
 import { useAuth } from "../../shared/auth";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
+import { formatDateTime, formatFullDateTime } from "../../shared/ui/formatDateTime";
 import { Icon } from "../../shared/ui/Icon";
 import type { CircuitGraph, ComponentDef } from "../../features/calculator/domain/graph";
 import { getStage } from "../../features/calculator/domain/stages";
@@ -77,10 +78,6 @@ function firstParam(value: string | string[] | undefined): string | undefined {
   return Array.isArray(value) ? value[0] : value;
 }
 
-function fmtTime(iso: string): string {
-  return iso.slice(0, 16).replace("T", " ");
-}
-
 function InspectMeta(props: { submission: InspectTarget["submission"] }) {
   const categories = createMemo(() =>
     Object.entries(props.submission.testSummary?.categories ?? {}),
@@ -92,7 +89,9 @@ function InspectMeta(props: { submission: InspectTarget["submission"] }) {
           提交快照 · {props.submission.score}/{props.submission.total} ·{" "}
           {props.submission.passed ? "通过" : "未通过"}
         </strong>
-        <span class="inspect-meta-time">提交于 {fmtTime(props.submission.submittedAt)}</span>
+        <span class="inspect-meta-time" title={formatFullDateTime(props.submission.submittedAt)}>
+          提交于 {formatDateTime(props.submission.submittedAt)}
+        </span>
       </p>
       <Show when={props.submission.testSummary?.error}>
         {(err) => <p class="test-error">{err()}</p>}
@@ -304,7 +303,7 @@ export function StudentLabPreviewPage() {
                 value={inspect()?.submission.id ?? ""}
               >
                 <option value="">
-                  当前草稿{updatedAt() ? ` · 更新于 ${fmtTime(updatedAt()!)}` : ""}
+                  当前草稿{updatedAt() ? ` · 更新于 ${formatDateTime(updatedAt())}` : ""}
                 </option>
                 <For each={stageSubmissions()}>
                   {(submission) => (
@@ -313,7 +312,7 @@ export function StudentLabPreviewPage() {
                       value={submission.id}
                     >
                       提交 · {submission.score}/{submission.total} ·{" "}
-                      {fmtTime(submission.submittedAt)}
+                      {formatDateTime(submission.submittedAt)}
                     </option>
                   )}
                 </For>

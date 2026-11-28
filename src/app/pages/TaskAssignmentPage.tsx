@@ -13,6 +13,7 @@ import {
 import { api, describeApiError } from "../../shared/api/client";
 import { useAuth } from "../../shared/auth";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
+import { formatDateTime } from "../../shared/ui/formatDateTime";
 import { Icon } from "../../shared/ui/Icon";
 import {
   QuestionAnswer,
@@ -161,7 +162,7 @@ export function TaskAssignmentPage() {
                 <p>
                   <span class={`ts-task-badge ${statusKey()}`}>{STATUS_LABELS[statusKey()]}</span>{" "}
                   {assignment()?.dueAt
-                    ? `截止 ${new Date(assignment()!.dueAt!).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}`
+                    ? `截止 ${formatDateTime(assignment()!.dueAt!)}`
                     : "无截止时间"}
                   {overdue() ? "（已过截止，仍可提交，会标记为迟交）" : ""}
                 </p>

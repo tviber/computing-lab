@@ -482,18 +482,6 @@ ul.lunch-order-fix {
   margin-top: var(--space-4);
 }
 
-/* The bonus stage hides behind a collapsed rail toggle */
-.lab-stage-bonus .disclosure-trigger {
-  cursor: pointer;
-  padding: 6px 10px;
-  color: var(--muted);
-  font-size: 13px;
-  user-select: none;
-}
-.lab-stage-bonus .disclosure-trigger[aria-expanded="true"] {
-  color: var(--accent);
-}
-
 /* Stage 1 — the lunch-rush premise. */
 .lunch-story {
   margin: var(--space-3) 0 var(--space-4);

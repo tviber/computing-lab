@@ -319,7 +319,7 @@ export function SgdCodePanel(props: {
         onClick={() => props.onSubmit()}
         type="button"
       >
-        {props.submitting ? "正在判定…" : "提交附加挑战"}
+        {props.submitting ? "判定中…" : "提交选做挑战"}
       </Button>
     </div>
   );

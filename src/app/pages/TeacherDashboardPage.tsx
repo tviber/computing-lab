@@ -1,5 +1,6 @@
 import { dynamic } from "@solidjs/web";
 import type { SubmissionCheck } from "../../shared/lab/submissionPresentation";
+import { formatDateTime, formatFullDateTime } from "../../shared/ui/formatDateTime";
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from "@ui-sdk/solid/dialog";
@@ -114,14 +115,6 @@ function drawerChecks(summary: SubmissionDetail["testSummary"]): DrawerCheck[] {
     feedback: part.feedback,
     answerSummary: part.answerSummary,
   }));
-}
-
-function timeOf(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? "—"
-    : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function CellView(props: {
@@ -607,7 +600,9 @@ export function TeacherDashboardPage() {
                                 );
                               }}
                             </For>
-                            <td>{timeOf(row.lastActiveAt)}</td>
+                            <td title={formatFullDateTime(row.lastActiveAt)}>
+                              {formatDateTime(row.lastActiveAt)}
+                            </td>
                             <Show when={isAdmin()}>
                               <td>
                                 <div class="matrix-row-actions">
@@ -741,7 +736,9 @@ export function TeacherDashboardPage() {
                             }}
                           </For>
                         </ul>
-                        <p class="drawer-note">提交时间 {timeOf(d().submittedAt)}</p>
+                        <p class="drawer-note" title={formatFullDateTime(d().submittedAt)}>
+                          提交时间 {formatDateTime(d().submittedAt)}
+                        </p>
                       </>
                     )}
                   </Match>

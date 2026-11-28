@@ -14,6 +14,7 @@ import {
 import { getRecentLab } from "../../shared/lab/recentLab";
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { AppLink } from "../../shared/ui/AppLink";
+import { formatDateTime } from "../../shared/ui/formatDateTime";
 import { Icon } from "../../shared/ui/Icon";
 import { SegmentedPicker } from "../../shared/ui/SegmentedPicker";
 import { APP_LABS, type AppLabEntry } from "../labRegistry";
@@ -121,9 +122,7 @@ function StudentTasks(props: { classId: string }) {
                       <span class={`ts-task-badge ${task.status}`}>{TASK_STATUS[task.status]}</span>
                       <h3>{task.title}</h3>
                       <p>
-                        {task.dueAt
-                          ? `截止 ${new Date(task.dueAt).toLocaleString("zh-CN", { month: "numeric", day: "numeric", hour: "numeric", minute: "2-digit" })}`
-                          : "无截止时间"}
+                        {task.dueAt ? `截止 ${formatDateTime(task.dueAt)}` : "无截止时间"}
                         {task.status === "reviewed" && task.finalScore !== null
                           ? ` · ${task.finalScore}/${task.finalTotal} 分`
                           : ""}

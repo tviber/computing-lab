@@ -40,6 +40,18 @@ export function destroySession(db: DatabaseSync, sessionId: string): void {
   db.prepare("DELETE FROM sessions WHERE id = ?").run(sessionId);
 }
 
+/** Revoke every session belonging to `userId` except `keepSessionId`. */
+export function destroyOtherSessions(
+  db: DatabaseSync,
+  userId: string,
+  keepSessionId: string,
+): number {
+  return Number(
+    db.prepare("DELETE FROM sessions WHERE user_id = ? AND id != ?").run(userId, keepSessionId)
+      .changes,
+  );
+}
+
 /**
  * Delete session rows past their expiry. `findSessionUser` already ignores
  * them; this just keeps the table bounded. Called once at boot and then on a

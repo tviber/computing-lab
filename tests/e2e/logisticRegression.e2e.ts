@@ -322,6 +322,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
     page.getByRole("heading", { name: "逻辑回归 - 用新短信试试模型", exact: true }),
   ).toBeVisible();
 
+  await page.getByRole("button", { name: /选做挑战/ }).click();
   await page.getByRole("button", { name: /梯度维修台/ }).click();
   await expect(
     page.getByRole("heading", { name: "逻辑回归 - 梯度维修台", exact: true }),

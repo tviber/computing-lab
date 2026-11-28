@@ -4,7 +4,15 @@ import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "nod
 import { tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
-import { findPackageRoot, migrate, resolveDbPath, SCHEMA_VERSION } from "./client.ts";
+import {
+  DEFAULT_BUSY_TIMEOUT_MS,
+  findPackageRoot,
+  migrate,
+  openDb,
+  openMemoryDb,
+  resolveDbPath,
+  SCHEMA_VERSION,
+} from "./client.ts";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const schemaSql = readFileSync(resolve(here, "schema.sql"), "utf8");
@@ -573,6 +581,26 @@ describe("database path", () => {
       expect(resolveDbPath(serverDir, "./custom.db")).toBe(resolve("custom.db"));
     } finally {
       rmSync(root, { recursive: true, force: true });
+    }
+  });
+});
+
+describe("connection pragmas", () => {
+  it("sets PRAGMA busy_timeout to 5000 on both file and in-memory databases", () => {
+    const dir = mkdtempSync(join(tmpdir(), "computing-lab-pragma-"));
+    const fileDb = openDb(join(dir, "lab.db"));
+    const memoryDb = openMemoryDb();
+    try {
+      expect(fileDb.prepare("PRAGMA busy_timeout").get()).toEqual({
+        timeout: DEFAULT_BUSY_TIMEOUT_MS,
+      });
+      expect(memoryDb.prepare("PRAGMA busy_timeout").get()).toEqual({
+        timeout: DEFAULT_BUSY_TIMEOUT_MS,
+      });
+    } finally {
+      fileDb.close();
+      memoryDb.close();
+      rmSync(dir, { recursive: true, force: true });
     }
   });
 });

@@ -353,7 +353,7 @@ export function CompensatePanel(props: {
           onClick={() => props.onSubmit()}
           type="button"
         >
-          {props.submitting ? "判定中…" : "提交附加挑战"}
+          {props.submitting ? "判定中…" : "提交选做挑战"}
         </Button>
         <Show when={!ready()}>
           <span class="submit-note">还没有运行 compensate，请先算一遍。</span>

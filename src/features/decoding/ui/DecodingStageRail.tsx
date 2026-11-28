@@ -1,7 +1,6 @@
 import { For, Show } from "solid-js";
 import { labMetadata } from "../../../shared/lab/labMetadata";
-import { StageLink } from "../../../shared/lab/StageRail";
-import { Disclosure } from "../../../shared/ui/Disclosure";
+import { OptionalChallengeGroup, StageLink } from "../../../shared/lab/StageRail";
 import type { DecodingLabViewModel, DecodingStageItem } from "../controller/viewModel.ts";
 
 function StageRow(props: {
@@ -26,8 +25,7 @@ function StageRow(props: {
 
 /**
  * The decoding rail: core stages in order, with each `railAfter` challenge
- * anchored in a collapsible 支线练习 group right behind its core stage —
- * the same pattern as the cpu rail.
+ * anchored in a collapsible 选做挑战 group right behind its core stage.
  */
 export function DecodingStageRail(props: {
   model: DecodingLabViewModel["rail"];
@@ -37,7 +35,7 @@ export function DecodingStageRail(props: {
     <aside aria-label="关卡进度" class="lab-rail">
       <p class="eyebrow">
         {labMetadata.decoding.title}{" "}
-        <span class="cpu-rail-count">
+        <span class="lab-rail-count">
           {props.model.corePassed} / {props.model.coreTotal} 主线
         </span>
       </p>
@@ -48,44 +46,24 @@ export function DecodingStageRail(props: {
               <StageRow onSelect={props.onSelect} stage={entry.stage} />
               <Show when={entry.challenges.length > 0}>
                 <li class="stage-branch-item">
-                  <Disclosure
-                    class="stage-branch"
+                  <OptionalChallengeGroup
+                    afterStage={entry.stage.index}
                     open={entry.challenges.some((s) => s.active)}
-                    summary={
-                      <>
-                        <span>支线练习 · 第 {entry.stage.index} 关后</span>
-                        <span>
-                          {entry.challenges.filter((s) => s.passed).length} /{" "}
-                          {entry.challenges.length}
-                        </span>
-                      </>
-                    }
-                    summaryClass="stage-branch-summary"
+                    passedCount={entry.challenges.filter((s) => s.passed).length}
+                    totalCount={entry.challenges.length}
                   >
-                    <ol class="stage-list stage-branch-list">
-                      <For each={entry.challenges}>
-                        {(challenge) => (
-                          <StageRow onSelect={props.onSelect} optional stage={challenge} />
-                        )}
-                      </For>
-                    </ol>
-                  </Disclosure>
+                    <For each={entry.challenges}>
+                      {(challenge) => (
+                        <StageRow onSelect={props.onSelect} optional stage={challenge} />
+                      )}
+                    </For>
+                  </OptionalChallengeGroup>
                 </li>
               </Show>
             </>
           )}
         </For>
       </ol>
-      <Show when={props.model.challenges.length > 0}>
-        <div class="cpu-rail-challenges">
-          <p class="cpu-rail-group">选做挑战</p>
-          <ol class="stage-list">
-            <For each={props.model.challenges}>
-              {(stage) => <StageRow onSelect={props.onSelect} stage={stage} />}
-            </For>
-          </ol>
-        </div>
-      </Show>
     </aside>
   );
 }
