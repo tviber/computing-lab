@@ -87,3 +87,4 @@ bun run test:caddy
 
 详细说明见 [docs/architecture.md](docs/architecture.md)。
 首屏、实验路由与重资源预算见 [docs/bundle-budget.md](docs/bundle-budget.md)。
+历史调研过程稿统一归档在 [docs/archive/](docs/archive/README.md)，不作为现行契约。

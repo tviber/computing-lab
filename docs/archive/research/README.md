@@ -1,6 +1,23 @@
 # Research archive policy
 
+> **Archived 2026-11-28 from `main` at `ec8df73`.** These files are historical
+> process records, not current architecture or implementation authority.
+> Current product decisions live in [docs/architecture.md](../../architecture.md),
+> [docs/retired-labs.md](../../retired-labs.md), and
+> [docs/deployment.md](../../deployment.md).
+
 This directory keeps durable, decision-level research summaries for Computing Lab. It is not a source dump or an implementation backlog.
+
+## Archived groups
+
+- `learner-studies-v1/` — superseded simulated learner-study observations.
+- `learner-studies-v2/` — the historical study methodology and review ledgers.
+- `output/` — curriculum inventory, candidate ideation, evaluation, and precedent research.
+- `source/` — bibliographic locator only; no textbook text or scans are stored.
+
+Some archived prose keeps its original `research/...` path locators for provenance.
+After the move, retained files live under `docs/archive/research/...`; PR20 source
+records that were intentionally not retained remain historical references, not live links.
 
 ## What is versioned
 

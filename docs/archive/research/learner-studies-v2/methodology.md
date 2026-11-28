@@ -104,7 +104,7 @@ Run a separate critic who must not solve the computer-science task. For each imp
 - Would a concrete sentence be clearer?
 - Does English add curriculum value here?
 
-Critic output: `research/learner-studies-v2/human-language-critic.md`, with severity, exact rendered copy, suggested Chinese rewrite, and whether the issue is copy-only or changes the learning sequence.
+Critic output: `docs/archive/research/learner-studies-v2/human-language-critic.md`, with severity, exact rendered copy, suggested Chinese rewrite, and whether the issue is copy-only or changes the learning sequence.
 
 ## Evaluation rule
 
