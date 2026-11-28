@@ -170,7 +170,6 @@ export function StageRail(props: StageRailProps) {
           }
           open={lateChallengeActive()}
           passedCount={lateChallengesPassed()}
-          summaryClass="stage-group-title"
           totalCount={LATE_CHALLENGES.length}
         >
           <For each={LATE_CHALLENGES}>

@@ -250,20 +250,34 @@
 }
 
 .stage-branch {
-  margin: 2px 0;
+  margin: 1px 0;
 }
 
 .stage-branch-summary {
   display: flex;
   align-items: center;
-  padding: 6px 10px;
+  min-height: 24px;
+  gap: 3px;
+  padding: 2px 10px;
   color: var(--muted);
   cursor: pointer;
   font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  line-height: 14px;
+  text-transform: uppercase;
 }
 
 .stage-branch-summary:hover {
   color: var(--primary);
+}
+
+.optional-challenge-group .disclosure-trigger .disclosure-chevron .ui-icon {
+  rotate: -90deg;
+}
+
+.optional-challenge-group .disclosure-trigger[aria-expanded="true"] .disclosure-chevron .ui-icon {
+  rotate: 0deg;
 }
 
 .stage-branch-summary span:last-child {
