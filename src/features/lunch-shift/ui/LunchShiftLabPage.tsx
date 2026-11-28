@@ -148,7 +148,6 @@ export function LunchShiftLabPage() {
                     <Show when={item.index === 3}>
                       <li class="stage-branch-item">
                         <OptionalChallengeGroup
-                          afterStage={3}
                           open={state().stageIndex === 5}
                           passedCount={passedStages().includes(5) ? 1 : 0}
                           totalCount={1}

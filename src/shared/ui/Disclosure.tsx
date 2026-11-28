@@ -1,7 +1,7 @@
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
-import { Icon } from "./Icon";
+import { DisclosureChevron } from "./DisclosureChevron";
 
 export type DisclosureProps = {
   summary: JSX.Element;
@@ -16,11 +16,12 @@ export type DisclosureProps = {
   keepMounted?: boolean;
   disabled?: boolean;
   chevronSize?: number;
+  chevronColor?: string;
 };
 
 /**
  * One disclosure for the whole site: the ui-sdk collapsible behavior plus the
- * shared chevron icon, so summary rows look and behave the same everywhere.
+ * shared chevron direction, so summary rows look and behave the same everywhere.
  */
 export function Disclosure(props: DisclosureProps) {
   const [innerOpen, setInnerOpen] = createSignal(
@@ -49,9 +50,11 @@ export function Disclosure(props: DisclosureProps) {
         type="button"
       >
         <Show when={props.chevronSize !== 0}>
-          <span aria-hidden="true" class="disclosure-chevron">
-            <Icon name="chevron-down" size={props.chevronSize ?? 14} />
-          </span>
+          <DisclosureChevron
+            color={props.chevronColor}
+            open={innerOpen()}
+            size={props.chevronSize}
+          />
         </Show>
         {props.summary}
       </CollapsibleTrigger>

@@ -59,10 +59,9 @@ export function StageLink(props: {
 
 /**
  * Shared collapsible group for optional challenge stages across labs.
- * Anchored groups render 「选做挑战 · 第 X 关后」; trailing groups render 「选做挑战」.
+ * Every group renders the same 「选做挑战」 summary.
  */
 export function OptionalChallengeGroup(props: {
-  afterStage?: number;
   passedCount: number;
   totalCount: number;
   open: boolean;
@@ -70,9 +69,6 @@ export function OptionalChallengeGroup(props: {
   class?: string;
   children: JSX.Element;
 }) {
-  const label = () =>
-    props.afterStage !== undefined ? `选做挑战 · 第 ${props.afterStage} 关后` : "选做挑战";
-
   return (
     <Disclosure
       chevronSize={12}
@@ -84,7 +80,7 @@ export function OptionalChallengeGroup(props: {
       open={props.open}
       summary={
         <>
-          <span>{label()}</span>
+          <span>选做挑战</span>
           <span>
             {props.passedCount} / {props.totalCount}
           </span>

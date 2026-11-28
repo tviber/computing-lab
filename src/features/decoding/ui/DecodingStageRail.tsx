@@ -47,7 +47,6 @@ export function DecodingStageRail(props: {
               <Show when={entry.challenges.length > 0}>
                 <li class="stage-branch-item">
                   <OptionalChallengeGroup
-                    afterStage={entry.stage.index}
                     open={entry.challenges.some((s) => s.active)}
                     passedCount={entry.challenges.filter((s) => s.passed).length}
                     totalCount={entry.challenges.length}

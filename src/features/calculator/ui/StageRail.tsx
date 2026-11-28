@@ -82,12 +82,7 @@ function OptionalBranch(props: {
   return (
     <Show when={stages.length > 0}>
       <li class="stage-branch-item">
-        <OptionalChallengeGroup
-          afterStage={props.anchor}
-          open={active()}
-          passedCount={passed()}
-          totalCount={stages.length}
-        >
+        <OptionalChallengeGroup open={active()} passedCount={passed()} totalCount={stages.length}>
           <For each={stages}>
             {(stage) => (
               <StageItem

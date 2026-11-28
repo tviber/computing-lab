@@ -4,6 +4,7 @@ import { createMemo, createSignal, For, Show } from "solid-js";
 import { LabPageShell, type LabResetControlsProps } from "../../../shared/lab/LabPageShell";
 import { StageBrief } from "../../../shared/lab/StageBrief";
 import { Disclosure } from "../../../shared/ui/Disclosure";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { evaluateGraph } from "../domain/evaluate";
 import { GATE_LABEL, type CircuitGraph, type CircuitNode } from "../domain/graph";
 import {
@@ -290,6 +291,7 @@ export function CalculatorLabWorkspace(props: CalculatorLabWorkspaceProps) {
                     }
                     type="button"
                   >
+                    <DisclosureChevron open={!selected().collapsed} size={13} />
                     {selected().collapsed ? "展开组件" : "折叠组件"}
                   </Button>
                 )}

@@ -413,6 +413,9 @@
 }
 
 .decoding-byte-more {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
   color: var(--accent-ink);
   background: none;
   border: none;

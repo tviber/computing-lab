@@ -1,6 +1,7 @@
 import { Menu, MenuContent, MenuItem, MenuTrigger } from "@ui-sdk/solid/menu";
 import { createSignal, Show } from "solid-js";
 import { AppLink } from "../ui/AppLink";
+import { DisclosureChevron } from "../ui/DisclosureChevron";
 import { Icon } from "../ui/Icon";
 import { isStaffRole, ROLE_LABELS, useAuth } from "./AuthProvider";
 import "./account-menu.css";
@@ -19,13 +20,7 @@ export function AccountMenu() {
                 <Icon name="user" size={20} />
               </span>
               <span class="account-menu-name">{session().user.name}</span>
-              <span
-                aria-hidden="true"
-                class="account-menu-chevron"
-                data-open={open() ? "true" : "false"}
-              >
-                <Icon name="chevron-down" size={13} />
-              </span>
+              <DisclosureChevron class="account-menu-chevron" open={open()} size={13} />
             </MenuTrigger>
             <MenuContent
               align="end"

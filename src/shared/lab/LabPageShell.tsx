@@ -10,6 +10,7 @@ import {
 } from "@ui-sdk/solid/alert-dialog";
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
 import { createSignal, onSettled, Show, untrack } from "solid-js";
+import { DisclosureChevron } from "../ui/DisclosureChevron";
 import { Icon } from "../ui/Icon";
 import { useScrollEdges } from "../ui/scrollEdges";
 
@@ -206,18 +207,14 @@ export function LabPageShell(props: LabPageShellProps) {
             title={collapsed() ? "展开关卡栏" : "收起关卡栏"}
             type="button"
           >
-            <Icon
-              name={
-                narrow()
-                  ? collapsed()
-                    ? "chevron-down"
-                    : "chevron-up"
-                  : collapsed()
-                    ? "panel-left-open"
-                    : "panel-left-close"
+            <Show
+              fallback={
+                <Icon name={collapsed() ? "panel-left-open" : "panel-left-close"} size={18} />
               }
-              size={18}
-            />
+              when={narrow()}
+            >
+              <DisclosureChevron open={!collapsed()} size={18} />
+            </Show>
             <Show when={narrow()}>
               <span>{props.collapsedLabel ?? "关卡"}</span>
             </Show>

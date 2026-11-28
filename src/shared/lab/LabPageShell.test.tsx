@@ -1,10 +1,11 @@
 import { render, screen, waitFor } from "@solidjs/testing-library";
 import userEvent from "@testing-library/user-event";
 import { createSignal } from "solid-js";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LabPageShell, type LabResetControlsProps } from "./LabPageShell";
 
 beforeEach(() => localStorage.clear());
+afterEach(() => vi.unstubAllGlobals());
 
 function renderShell(extra?: { collapsedLabel?: string; labId?: string }) {
   return render(() => (
@@ -44,6 +45,28 @@ describe("LabPageShell", () => {
     await waitFor(() => expect(panel).not.toBeVisible());
     await user.keyboard("{Enter}");
     expect(panel).toBeVisible();
+  });
+
+  it("uses the shared fold direction for the narrow rail toggle", async () => {
+    const user = userEvent.setup();
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn(() => ({
+        matches: true,
+        media: "(max-width: 960px)",
+        addEventListener: vi.fn(),
+        removeEventListener: vi.fn(),
+      })),
+    );
+    renderShell();
+
+    const trigger = screen.getByRole("button", { name: "展开关卡栏" });
+    const chevron = trigger.querySelector(".disclosure-chevron") as HTMLElement;
+    expect(chevron).toHaveAttribute("data-open", "false");
+
+    await user.click(trigger);
+    expect(screen.getByRole("button", { name: "收起关卡栏" })).toContainElement(chevron);
+    expect(chevron).toHaveAttribute("data-open", "true");
   });
 
   it("persists the collapsed state under the lab-scoped key and restores it", async () => {
