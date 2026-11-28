@@ -114,11 +114,15 @@ test("ALU stage drawer stays on the shared page edge", async ({ page }, testInfo
       }
       if (expanded === "true") {
         const branch = page.locator(".stage-branch-summary").first();
+        const branchChevron = branch.locator(".disclosure-chevron .ui-icon");
         await expect(branch).toHaveAttribute("aria-expanded", "false");
+        await expect(branchChevron).toHaveCSS("rotate", "none");
         await branch.press("Enter");
         await expect(branch).toHaveAttribute("aria-expanded", "true");
+        await expect(branchChevron).toHaveCSS("rotate", "90deg");
         await branch.press("Space");
         await expect(branch).toHaveAttribute("aria-expanded", "false");
+        await expect(branchChevron).toHaveCSS("rotate", "none");
         await page.screenshot({ path: testInfo.outputPath(`alu-${width}.png`) });
       }
     }

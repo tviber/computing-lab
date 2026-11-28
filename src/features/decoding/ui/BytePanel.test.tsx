@@ -25,9 +25,16 @@ it("locates a four-byte field across rows without inserting labels or losing the
   expect(
     [...table.querySelectorAll(".is-field")].map((cell) => cell.getAttribute("title")),
   ).toEqual(["data[18]", "data[19]", "data[20]", "data[21]"]);
-  fireEvent.click(screen.getByRole("button", { name: /展开其余/ }));
+  const moreButton = screen.getByRole("button", { name: /展开其余/ });
+  const moreChevron = moreButton.querySelector(".disclosure-chevron")!;
+  expect(moreChevron).toHaveAttribute("data-open", "false");
+  expect(moreChevron).toHaveAttribute("data-expand-direction", "up");
+  fireEvent.click(moreButton);
   flush();
   expect(visibleBytes()).toEqual(bytes);
+  expect(
+    screen.getByRole("button", { name: /收起后续/ }).querySelector(".disclosure-chevron"),
+  ).toHaveAttribute("data-open", "true");
   fireEvent.click(screen.getByRole("button", { name: /收起后续/ }));
   flush();
   expect(visibleBytes()).toEqual(bytes.slice(0, 60));

@@ -475,8 +475,20 @@ p {
   }
 }
 
-.disclosure-chevron[data-open="true"] .ui-icon {
+.disclosure-chevron[data-open="true"][data-expand-direction="down"] .ui-icon {
   rotate: 90deg;
+}
+
+.disclosure-chevron[data-open="true"][data-expand-direction="up"] .ui-icon {
+  rotate: -90deg;
+}
+
+.disclosure-chevron[data-open="true"][data-expand-direction="left"] .ui-icon {
+  rotate: 180deg;
+}
+
+.disclosure-chevron[data-open="true"][data-expand-direction="right"] .ui-icon {
+  rotate: 0deg;
 }
 
 .disclosure-panel {

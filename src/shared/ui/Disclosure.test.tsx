@@ -11,6 +11,7 @@ describe("Disclosure", () => {
     const trigger = screen.getByRole("button", { name: "提示" });
     const chevron = trigger.querySelector(".disclosure-chevron")!;
     expect(chevron).toHaveAttribute("data-open", "false");
+    expect(chevron).toHaveAttribute("data-expand-direction", "down");
     expect(chevron.querySelector("path")?.getAttribute("d")).toBe("M9 18l6-6-6-6");
 
     await user.click(trigger);
@@ -29,5 +30,17 @@ describe("Disclosure", () => {
       .querySelector(".disclosure-chevron") as HTMLElement;
     expect(chevron.style.color).toBe("rgb(1, 2, 3)");
     expect(chevron.querySelector("svg")).toHaveAttribute("width", "18");
+  });
+
+  it("can point up when its content opens above the trigger", () => {
+    render(() => (
+      <Disclosure expandDirection="up" summary="上方内容">
+        内容
+      </Disclosure>
+    ));
+
+    expect(
+      screen.getByRole("button", { name: "上方内容" }).querySelector(".disclosure-chevron"),
+    ).toHaveAttribute("data-expand-direction", "up");
   });
 });
