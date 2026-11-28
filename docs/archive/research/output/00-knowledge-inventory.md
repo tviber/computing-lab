@@ -2,7 +2,7 @@
 
 > **Historical snapshot — not current architecture authority.** This inventory predates the completed Sound, Home Network, and Image reference implementations. Keep it for curriculum-coverage and candidate provenance only. Its descriptions of the implementation, shared components, and future reset plan are historical; current authority is `docs/architecture.md` and `docs/retired-labs.md`.
 
-- 教材：沪科教版《信息技术 必修1：数据与计算》（2022 年 7 月第 1 版；见 `research/source/README.md` 的书目信息）
+- 教材：沪科教版《信息技术 必修1：数据与计算》（2022 年 7 月第 1 版；见 `docs/archive/research/source/README.md` 的书目信息）
 - 项目代码：当时的 `computing-lab` 快照（Vite + React + TypeScript + TanStack Router，纯静态本地优先应用）
 - 文档目的：建立"教材知识点 → 当时实验覆盖情况"的映射，识别覆盖程度、已有实验帮助理解的抽象概念、可复用交互范式与组件、以及天然不适合网页实验的知识点。
 - 文档性质：只做历史现状盘点与事实判断，不提出任何新实验设计（按任务约束）。
@@ -297,6 +297,6 @@
 
 ## 附：事实来源清单
 
-- 教材：沪科教版《信息技术 必修1：数据与计算》（2022 年 7 月第 1 版；见 `research/source/README.md`）
+- 教材：沪科教版《信息技术 必修1：数据与计算》（2022 年 7 月第 1 版；见 `docs/archive/research/source/README.md`）
 - 项目文档：README.md、AGENTS.md、docs/architecture.md、docs/retired-labs.md、docs/research/vercel_design.md
 - 代码：`src/app/catalog/{labs,types}.ts`、`src/app/router.tsx`、`src/app/pages/HomePage.tsx`、三个 feature 的 `domain/model.ts`、`lesson/{scenario,state}.ts`、`ui/*Page.tsx`、`src/shared/lab/*`（LabShell、LabNavigationProvider、ParameterControl、VisualizationPanel、FormulaPanel、ExperimentStatus、number.ts）、`src/design/tokens.css`、测试文件（单元与 e2e）
