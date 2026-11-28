@@ -334,6 +334,7 @@ export function createLogisticRegressionLessonState(
     draftRevisions: {},
     judgeOutcome: null,
     runSummaries: { ...EMPTY_SUMMARIES },
+    trainedSettings: undefined,
     saveStatusByStage: {},
     unresolvedSyncConflicts: {},
     message: null,

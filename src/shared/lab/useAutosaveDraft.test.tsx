@@ -2,6 +2,7 @@ import { TestLabRuntime } from "../../test/lab-runtime";
 import { renderHook } from "@solidjs/testing-library";
 import { createSignal, flush } from "solid-js";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { createReducer } from "./createReducer";
 import { useAutosaveDraft, type AutosaveDraftOptions } from "./useAutosaveDraft";
 
 type Draft = { text: string };
@@ -107,6 +108,51 @@ describe("useAutosaveDraft", () => {
     calls[0].done.resolve(ok());
     await settle();
     expect(fetch).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets the debounce for every reducer-backed draft edit", async () => {
+    type State = { stageIndex: number; drafts: Record<number, Draft> };
+    type Action = { type: "set-draft"; text: string };
+    const reducer = (state: State, action: Action): State => ({
+      ...state,
+      drafts: { ...state.drafts, 1: { text: action.text } },
+    });
+    let dispatch!: (action: Action) => void;
+    const hook = renderHook(
+      () => {
+        const [state, localDispatch] = createReducer(reducer, {
+          stageIndex: 1,
+          drafts: { 1: { text: "" } },
+        });
+        dispatch = localDispatch;
+        useAutosaveDraft<Draft>(() =>
+          base({
+            draftOf: (stage) => state().drafts[stage],
+            deps: [state().drafts],
+            bodyFor: (stage, draft) => ({ stageIndex: stage, draft }),
+          }),
+        );
+      },
+      { wrapper: TestLabRuntime },
+    );
+    flush();
+
+    dispatch({ type: "set-draft", text: "first" });
+    flush();
+    vi.advanceTimersByTime(800);
+    dispatch({ type: "set-draft", text: "second" });
+    flush();
+    vi.advanceTimersByTime(800);
+    expect(fetch).not.toHaveBeenCalled();
+
+    vi.advanceTimersByTime(700);
+    await settle();
+    expect(fetch).toHaveBeenCalledTimes(1);
+    expect(calls[0].body.draft).toEqual({ text: "second" });
+
+    calls[0].done.resolve(ok());
+    await settle();
+    hook.cleanup();
   });
 
   it("settles every stage's flag on its own response, whatever order they return", async () => {

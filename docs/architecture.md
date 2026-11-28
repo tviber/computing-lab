@@ -53,6 +53,18 @@ POST judge 跑隐藏用例并推进 `passedStages`。每个实验只提供 spec�
 参数/公式/可视化面板以及 Slidev 编辑服务没有保留；它们在当前课程集合里不再
 形成有价值的边界。
 
+## 实验状态绑定
+
+`shared/lab/createReducer.ts` 为 lesson state 的每个顶层字段维护独立 signal，
+并通过稳定的 getter 对象暴露状态；`domain/`、`lesson/` 的 reducer 仍保持纯函数。
+读取 `stageIndex` 的视图不会因草稿变化而重跑，读取某一切片的视图只订阅该切片。
+
+这里没有采用 `createStore` + `reconcile`：`useAutosaveDraft` 需要把每次编辑的草稿
+当成不可变快照并据此重置防抖，Worker 的 structured clone 也不能接收 Store Proxy。
+顶层切片方案同时避免每次 dispatch 深拷贝并 diff 整棵状态树。约束是 reducer 必须
+保持顶层 key 集合稳定；可选字段在初始 state 中显式写 `undefined`，不得等到加载后
+才新增键。
+
 ## 教学逻辑与视觉开发边界（B 方案：decoding 局部试点）
 
 `DecodingLabPage` 只包裹 `DecodingWorkspace` 与共享页面布局，校内访问守卫由
