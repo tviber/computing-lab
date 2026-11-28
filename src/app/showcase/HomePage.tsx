@@ -3,6 +3,7 @@ import { LAB_IDS, labMetadata, LAB_CATEGORY_LABELS } from "../../shared/lab/labM
 import { AppPageLayout } from "../../shared/layout/AppTopbar";
 import { AppLink } from "../../shared/ui/AppLink";
 import { AtlasPlate } from "../atlas/AtlasPlate";
+import { FeaturedLabDeck } from "../atlas/FeaturedLabDeck";
 import "../pages/home.css";
 
 export function ShowcaseHomePage() {
@@ -13,12 +14,19 @@ export function ShowcaseHomePage() {
           <div class="home-hero-copy">
             <p class="eyebrow">COMPUTING LAB / 在线互动实验</p>
             <h1>动手实验，理解计算。</h1>
-            <p>从一根导线到人工智能，在浏览器里探索每一步。</p>
-            <p>无需登录，所有实验直接开放。进度保存在当前浏览器，可随时回来继续。</p>
+            <p class="home-lede">从一根导线到人工智能，在浏览器里探索每一步。</p>
+            <p class="home-availability">
+              无需登录，所有实验直接开放。进度保存在当前浏览器，可随时回来继续。
+            </p>
+            <div class="home-hero-actions">
+              <AppLink class="button button-primary" href="/labs/calculator">
+                从第一根导线开始
+              </AppLink>
+            </div>
           </div>
-          <AtlasPlate featured labId="calculator" />
+          <FeaturedLabDeck />
         </section>
-        <section aria-label="全部实验" class="lab-card-grid lab-catalog-grid">
+        <section aria-label="全部实验" class="lab-card-grid lab-catalog-grid home-catalog-reveal">
           <For each={LAB_IDS}>
             {(id, index) => (
               <article class="lab-card is-interactive" data-category={labMetadata[id].category}>

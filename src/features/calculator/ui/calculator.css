@@ -617,6 +617,16 @@
   cursor: pointer;
 }
 
+.wire-signal {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 4;
+  stroke-linecap: round;
+  stroke-dasharray: 0.14 1.86;
+  opacity: 0;
+  pointer-events: none;
+}
+
 .wire:hover {
   stroke: var(--danger);
   stroke-width: 3;

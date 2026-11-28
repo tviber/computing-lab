@@ -1,5 +1,6 @@
 import { MathFormula } from "../../../shared/ui/MathFormula";
 import { createMemo, For, Show } from "solid-js";
+import { useChangeAnimation } from "../../../shared/ui/useChangeAnimation";
 import {
   BLIND_GUESS_LOSS,
   type BgdEpochPoint,
@@ -55,6 +56,10 @@ export function LossChartSvg(props: {
     props.history
       .map((h) => `${xOfEp(h.epoch).toFixed(1)},${yOfLoss(h.valLoss).toFixed(1)}`)
       .join(" "),
+  );
+  const seriesRef = useChangeAnimation<SVGGElement>(
+    () => `${trainPts()}|${valPts()}`,
+    [{ opacity: 0.55 }, { opacity: 1 }],
   );
   const bgdPts = createMemo(() =>
     props.showBgd && props.bgdHistory
@@ -159,29 +164,61 @@ export function LossChartSvg(props: {
               stroke-width="1.8"
             />
           </Show>
-          <polyline fill="none" points={trainPts()} stroke="var(--accent)" stroke-width="2.2" />
-          <polyline fill="none" points={valPts()} stroke="var(--success)" stroke-width="2.2" />
+          <g class="logistic-regression-loss-series" ref={seriesRef}>
+            <polyline fill="none" points={trainPts()} stroke="var(--accent)" stroke-width="2.2" />
+            <polyline fill="none" points={valPts()} stroke="var(--success)" stroke-width="2.2" />
+          </g>
           <Show when={props.inspectEpoch !== undefined}>
-            <line
-              stroke="var(--ink)"
-              stroke-dasharray="2 2"
-              stroke-opacity="0.45"
-              stroke-width="1.2"
-              x1={xOfEp(props.inspectEpoch!)}
-              x2={xOfEp(props.inspectEpoch!)}
-              y1={PAD_T}
-              y2={H - PAD_B}
-            />
+            <g
+              class="logistic-regression-epoch-cursor"
+              style={{ transform: `translateX(${xOfEp(props.inspectEpoch!)}px)` }}
+            >
+              <line
+                stroke="var(--ink)"
+                stroke-dasharray="2 2"
+                stroke-opacity="0.45"
+                stroke-width="1.2"
+                x1={0}
+                x2={0}
+                y1={PAD_T}
+                y2={H - PAD_B}
+              />
+            </g>
           </Show>
           <For each={props.history}>
             {(h) => (
               <circle
+                aria-label={
+                  props.onSelectEpoch
+                    ? `查看第 ${h.epoch} 轮，验证损失 ${h.valLoss.toFixed(3)}`
+                    : undefined
+                }
+                aria-pressed={
+                  props.onSelectEpoch
+                    ? props.inspectEpoch === h.epoch
+                      ? "true"
+                      : "false"
+                    : undefined
+                }
+                class="logistic-regression-epoch-point"
                 cx={xOfEp(h.epoch)}
                 cy={yOfLoss(h.valLoss)}
                 fill={props.inspectEpoch === h.epoch ? "var(--ink)" : "var(--success)"}
                 onClick={props.onSelectEpoch ? () => props.onSelectEpoch?.(h.epoch) : undefined}
+                onKeyDown={
+                  props.onSelectEpoch
+                    ? (event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          props.onSelectEpoch?.(h.epoch);
+                        }
+                      }
+                    : undefined
+                }
                 r={props.inspectEpoch === h.epoch ? 4.2 : 2.6}
                 style={props.onSelectEpoch ? { cursor: "pointer" } : undefined}
+                role={props.onSelectEpoch ? "button" : undefined}
+                tabindex={props.onSelectEpoch ? 0 : undefined}
               />
             )}
           </For>
