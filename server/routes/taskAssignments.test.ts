@@ -1,9 +1,9 @@
 // @vitest-environment node
 import { Hono } from "hono";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { openMemoryDb } from "../db/client.ts";
 import type { AppVariables } from "../http/context.ts";
-import { taskAssignmentRoutes } from "./taskAssignments.ts";
+import { isValidReviewScore, taskAssignmentRoutes } from "./taskAssignments.ts";
 
 const schema = {
   version: 1,
@@ -62,12 +62,43 @@ describe("task assignment JSON request contracts", () => {
 
   afterEach(() => db.close());
 
-  function request(method: string, path: string, body?: string, user = "teacher") {
+  async function request(method: string, path: string, body?: string, user = "teacher") {
     return app.request(`/api/classes/class/task-assignments${path}`, {
       method,
       headers: { "content-type": "application/json", "x-test-user": user },
       body,
     });
+  }
+
+  function delayedJsonRequest(method: string, path: string, body: unknown, user = "teacher") {
+    let bodyRead!: () => void;
+    const reading = new Promise<void>((resolve) => {
+      bodyRead = resolve;
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const encoded = new TextEncoder().encode(JSON.stringify(body));
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        bodyRead();
+        await gate;
+        controller.enqueue(encoded);
+        controller.close();
+      },
+    });
+    const input = new Request(`http://localhost/api/classes/class/task-assignments${path}`, {
+      method,
+      headers: { "content-type": "application/json", "x-test-user": user },
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    return {
+      bodyRead: reading,
+      release,
+      response: Promise.resolve(app.request(input)),
+    };
   }
 
   it.each(nonObjects)("keeps endpoint-specific behavior for %s", async (_label, body) => {
@@ -153,5 +184,182 @@ describe("task assignment JSON request contracts", () => {
     );
     expect(reviewed.status).toBe(200);
     expect(await reviewed.json()).toEqual({ ok: true, finalScore: 4, finalTotal: 5 });
+  });
+
+  it("compares due and submitted timestamps by instant", async () => {
+    const cases = [
+      {
+        due: "2026-11-28T10:00:00-05:00", // 15:00Z
+        submitted: "2026-11-28T12:00:00.000Z",
+        late: false,
+      },
+      {
+        due: "2026-11-28T10:00:00+08:00", // 02:00Z
+        submitted: "2026-11-28T02:30:00.000Z",
+        late: true,
+      },
+      {
+        due: "2026-11-28T10:00:00Z",
+        submitted: "2026-11-28T10:00:00.000Z",
+        late: false,
+      },
+    ] as const;
+
+    for (const item of cases) {
+      db.prepare("UPDATE task_assignments SET due_at = ? WHERE id = 'assignment'").run(item.due);
+      db.prepare("UPDATE task_responses SET submitted_at = ? WHERE id = 'response'").run(
+        item.submitted,
+      );
+      const response = await request("GET", "/assignment/responses");
+      expect(response.status).toBe(200);
+      const body = (await response.json()) as { rows: { late: boolean }[] };
+      expect(body.rows[0]?.late).toBe(item.late);
+    }
+  });
+
+  it("requires an explicit UTC offset on due dates", async () => {
+    for (const dueAt of [
+      "2026-11-28",
+      "2026-11-28 10:00:00",
+      "2026-11-28T10:00:00",
+      "2026-13-01T10:00:00Z",
+    ]) {
+      const response = await request("PATCH", "/assignment", JSON.stringify({ dueAt }));
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "invalid-due-at" });
+    }
+    for (const dueAt of [
+      "2026-11-28T10:00:00Z",
+      "2026-11-28T10:00:00.000Z",
+      "2026-11-28T10:00:00+08:00",
+      "2026-11-28T10:00:00-05:00",
+    ]) {
+      const response = await request("PATCH", "/assignment", JSON.stringify({ dueAt }));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ assignment: { due_at: dueAt } });
+    }
+  });
+
+  it("rejects non-finite review scores", () => {
+    expect(isValidReviewScore(NaN, 5)).toBe(false);
+    expect(isValidReviewScore(Infinity, 5)).toBe(false);
+    expect(isValidReviewScore(-Infinity, 5)).toBe(false);
+    expect(isValidReviewScore(0, 5)).toBe(true);
+    expect(isValidReviewScore(5, 5)).toBe(true);
+    expect(isValidReviewScore(5.01, 5)).toBe(false);
+  });
+
+  it("rejects an overflowing JSON score as non-finite", async () => {
+    db.prepare("UPDATE task_responses SET status = 'submitted'").run();
+    const response = await request(
+      "PATCH",
+      "/assignment/responses/response/review",
+      '{"questions":{"q1":{"score":1e400}}}',
+    );
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "invalid-review-score" });
+  });
+
+  it("does not create a response when submit validation fails", async () => {
+    db.prepare("DELETE FROM task_responses").run();
+    db.prepare("UPDATE task_assignments SET schema_json = ? WHERE id = 'assignment'").run(
+      JSON.stringify({
+        version: 1,
+        questions: [{ id: "q1", type: "short", prompt: "必答", required: true, maxScore: 5 }],
+      }),
+    );
+
+    const response = await request("POST", "/assignment/response/submit", undefined, "student");
+    expect(response.status).toBe(400);
+    expect(await response.json()).toEqual({ error: "required-question-unanswered" });
+    const row = db.prepare("SELECT COUNT(*) AS count FROM task_responses").get() as {
+      count: number;
+    };
+    expect(row.count).toBe(0);
+  });
+
+  it("allows one concurrent submit and locks the other", async () => {
+    const statuses = await Promise.all([
+      request("POST", "/assignment/response/submit", undefined, "student").then((r) => r.status),
+      request("POST", "/assignment/response/submit", undefined, "student").then((r) => r.status),
+    ]);
+    expect(statuses.sort()).toEqual([200, 409]);
+
+    const row = db
+      .prepare("SELECT status, auto_score AS autoScore FROM task_responses WHERE id = 'response'")
+      .get() as { status: string; autoScore: number | null };
+    expect(row.status).toBe("submitted");
+    expect(row.autoScore).toBe(0);
+  });
+
+  it("does not let a delayed autosave reopen a submitted response", async () => {
+    const delayed = delayedJsonRequest(
+      "PUT",
+      "/assignment/response",
+      { answers: { q1: { type: "short", text: "迟到的自动保存" } } },
+      "student",
+    );
+    await delayed.bodyRead;
+
+    const submitted = await request("POST", "/assignment/response/submit", undefined, "student");
+    expect(submitted.status).toBe(200);
+
+    delayed.release();
+    const saved = await delayed.response;
+    expect(saved.status).toBe(409);
+    expect(await saved.json()).toEqual({ error: "response-locked" });
+
+    const row = db
+      .prepare(
+        "SELECT status, answers_json AS answersJson FROM task_responses WHERE id = 'response'",
+      )
+      .get() as { status: string; answersJson: string };
+    expect(row.status).toBe("submitted");
+    expect(JSON.parse(row.answersJson)).toEqual(answers);
+  });
+
+  it("does not let a delayed review revive a returned response", async () => {
+    db.prepare("UPDATE task_responses SET status = 'submitted'").run();
+    const delayed = delayedJsonRequest("PATCH", "/assignment/responses/response/review", {
+      questions: { q1: { score: 4 } },
+    });
+    await delayed.bodyRead;
+
+    const returned = await request("POST", "/assignment/responses/response/return");
+    expect(returned.status).toBe(200);
+
+    delayed.release();
+    const reviewed = await delayed.response;
+    expect(reviewed.status).toBe(409);
+    expect(await reviewed.json()).toEqual({ error: "response-not-submitted" });
+
+    const row = db
+      .prepare("SELECT status, review_json AS reviewJson FROM task_responses WHERE id = 'response'")
+      .get() as { status: string; reviewJson: string | null };
+    expect(row.status).toBe("returned");
+    expect(row.reviewJson).toBeNull();
+  });
+
+  it("rolls back a created response when the submit write fails", async () => {
+    db.prepare("DELETE FROM task_responses").run();
+    const originalPrepare = db.prepare.bind(db);
+    const prepare = vi.spyOn(db, "prepare").mockImplementation((sql: string) => {
+      if (sql.includes("UPDATE task_responses") && sql.includes("status = 'submitted'")) {
+        throw new Error("forced submit write failure");
+      }
+      return originalPrepare(sql);
+    });
+
+    try {
+      const response = await request("POST", "/assignment/response/submit", undefined, "student");
+      expect(response.status).toBe(500);
+    } finally {
+      prepare.mockRestore();
+    }
+
+    const row = db.prepare("SELECT COUNT(*) AS count FROM task_responses").get() as {
+      count: number;
+    };
+    expect(row.count).toBe(0);
   });
 });

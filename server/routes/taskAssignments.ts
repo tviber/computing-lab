@@ -145,8 +145,27 @@ function recomputeFinal(
   };
 }
 
+const ISO_DATE_WITH_TIMEZONE =
+  /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})$/;
+
 function isoDate(value: unknown): value is string {
-  return typeof value === "string" && !Number.isNaN(new Date(value).getTime());
+  return (
+    typeof value === "string" &&
+    ISO_DATE_WITH_TIMEZONE.test(value) &&
+    !Number.isNaN(Date.parse(value))
+  );
+}
+
+/** Compare instants, not formatted timestamps: dueAt may carry a UTC offset. */
+export function isLateSubmission(submittedAt: string | null, dueAt: string | null): boolean {
+  if (submittedAt === null || dueAt === null) return false;
+  const submitted = Date.parse(submittedAt);
+  const due = Date.parse(dueAt);
+  return Number.isFinite(submitted) && Number.isFinite(due) && submitted > due;
+}
+
+export function isValidReviewScore(score: unknown, max: number): score is number {
+  return typeof score === "number" && Number.isFinite(score) && score >= 0 && score <= max;
 }
 
 function assignmentMeta(row: AssignmentRow, schema: SheetSchema) {
@@ -388,20 +407,23 @@ export function taskAssignmentRoutes() {
     const row = assignmentOf(db, auth.membership.classId, c.req.param("id"));
     if (!row || row.archived === 1) return jsonError(c, 404, "assignment-not-found");
     const schema = assignmentSchema(row);
-    const existing = responseOf(db, row.id, auth.user.id);
-    if (existing && (existing.status === "submitted" || existing.status === "reviewed")) {
-      return jsonError(c, 409, "response-locked");
-    }
     const body = await readJsonObject(c);
     const answers = sanitizeAnswers(schema, body?.answers);
-    // Create-if-missing plus the answer write commit together.
-    withTransaction(db, () => {
+    // Re-read inside the transaction: a submit may finish while the body is
+    // still being parsed, and this autosave must not reopen that response.
+    const outcome = withTransaction(db, (): "locked" | "saved" => {
+      const existing = responseOf(db, row.id, auth.user.id);
+      if (existing && (existing.status === "submitted" || existing.status === "reviewed")) {
+        return "locked";
+      }
       const resp = existing ?? getOrCreateResponse(db, row.id, auth.user.id);
       db.prepare(
         `UPDATE task_responses SET answers_json = ?, status = 'in_progress',
          updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now') WHERE id = ?`,
       ).run(JSON.stringify(answers), resp.id);
+      return "saved";
     });
+    if (outcome === "locked") return jsonError(c, 409, "response-locked");
     return c.json({ ok: true, savedAt: new Date().toISOString() });
   });
 
@@ -413,43 +435,65 @@ export function taskAssignmentRoutes() {
     const row = assignmentOf(db, auth.membership.classId, c.req.param("id"));
     if (!row || row.archived === 1) return jsonError(c, 404, "assignment-not-found");
     const schema = assignmentSchema(row);
-    const existing = responseOf(db, row.id, auth.user.id);
-    if (existing && (existing.status === "submitted" || existing.status === "reviewed")) {
-      return jsonError(c, 409, "response-locked");
-    }
-    const resp = withTransaction(
-      db,
-      () => existing ?? getOrCreateResponse(db, row.id, auth.user.id),
-    );
-    const answers = parseJsonColumn<AnswerMap>(resp.answers_json, {});
-    const invalid = validateAnswers(schema, answers);
-    if (invalid) return jsonError(c, 400, invalid);
+    type SubmitOutcome =
+      | { kind: "locked" }
+      | { kind: "invalid"; error: string }
+      | {
+          kind: "ok";
+          autoScore: number;
+          autoTotal: number;
+          grading: ReturnType<typeof publicGrading>;
+          finalScore: number;
+          finalTotal: number;
+        };
 
-    const graded = autoGrade(schema, answers);
-    const review = parseReview(null);
-    const { finalScore, finalTotal } = recomputeFinal(schema, graded.perQuestion, review);
-    db.prepare(
-      `UPDATE task_responses
-       SET status = 'submitted', submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-           auto_score = ?, auto_total = ?, grading_json = ?, review_json = NULL,
-           reviewed_by = NULL, reviewed_at = NULL, final_score = ?, final_total = ?,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-       WHERE id = ?`,
-    ).run(
-      graded.autoScore,
-      graded.autoTotal,
-      JSON.stringify(graded.perQuestion),
-      finalScore,
-      finalTotal,
-      resp.id,
-    );
+    const outcome = withTransaction(db, (): SubmitOutcome => {
+      const current = responseOf(db, row.id, auth.user.id);
+      if (current && (current.status === "submitted" || current.status === "reviewed")) {
+        return { kind: "locked" };
+      }
+      const answers = parseJsonColumn<AnswerMap>(current?.answers_json ?? null, {});
+      const invalid = validateAnswers(schema, answers);
+      if (invalid) return { kind: "invalid", error: invalid };
+
+      const resp = current ?? getOrCreateResponse(db, row.id, auth.user.id);
+      const graded = autoGrade(schema, answers);
+      const review = parseReview(null);
+      const { finalScore, finalTotal } = recomputeFinal(schema, graded.perQuestion, review);
+      const grading = publicGrading(graded.perQuestion);
+      db.prepare(
+        `UPDATE task_responses
+         SET status = 'submitted', submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+             auto_score = ?, auto_total = ?, grading_json = ?, review_json = NULL,
+             reviewed_by = NULL, reviewed_at = NULL, final_score = ?, final_total = ?,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         WHERE id = ?`,
+      ).run(
+        graded.autoScore,
+        graded.autoTotal,
+        JSON.stringify(graded.perQuestion),
+        finalScore,
+        finalTotal,
+        resp.id,
+      );
+      return {
+        kind: "ok",
+        autoScore: graded.autoScore,
+        autoTotal: graded.autoTotal,
+        grading,
+        finalScore,
+        finalTotal,
+      };
+    });
+    if (outcome.kind === "locked") return jsonError(c, 409, "response-locked");
+    if (outcome.kind === "invalid") return jsonError(c, 400, outcome.error);
     return c.json({
       ok: true,
-      autoScore: graded.autoScore,
-      autoTotal: graded.autoTotal,
-      grading: publicGrading(graded.perQuestion),
-      finalScore,
-      finalTotal,
+      autoScore: outcome.autoScore,
+      autoTotal: outcome.autoTotal,
+      grading: outcome.grading,
+      finalScore: outcome.finalScore,
+      finalTotal: outcome.finalTotal,
     });
   });
 
@@ -491,7 +535,7 @@ export function taskAssignmentRoutes() {
       rows: rows.map((r) => ({
         ...r,
         status: r.status ?? "not_started",
-        late: row.due_at !== null && r.submittedAt !== null && r.submittedAt > row.due_at,
+        late: isLateSubmission(r.submittedAt, row.due_at),
       })),
     });
   });
@@ -549,28 +593,25 @@ export function taskAssignmentRoutes() {
     const db = c.get("db");
     const row = assignmentOf(db, auth.membership.classId, c.req.param("id"));
     if (!row) return jsonError(c, 404, "assignment-not-found");
-    const target = db
-      .prepare("SELECT * FROM task_responses WHERE id = ? AND assignment_id = ?")
-      .get(c.req.param("responseId"), row.id) as ResponseRow | undefined;
-    if (!target) return jsonError(c, 404, "response-not-found");
-    if (target.status !== "submitted" && target.status !== "reviewed") {
-      return jsonError(c, 409, "response-not-submitted");
-    }
+    const exists = db
+      .prepare("SELECT id FROM task_responses WHERE id = ? AND assignment_id = ?")
+      .get(c.req.param("responseId"), row.id);
+    if (!exists) return jsonError(c, 404, "response-not-found");
     const body = await readJsonObject(c);
     if (!body) return jsonError(c, 400, "invalid-body");
     const patch = body;
     const schema = assignmentSchema(row);
-    const grading = parseJsonColumn<Record<string, QuestionGrading>>(target.grading_json, {});
-    const review = parseReview(target.review_json);
+    const requested: ReviewPatch = { questions: {} };
+    let commentProvided = false;
 
     if (patch.questions && typeof patch.questions === "object") {
       for (const [qid, entry] of Object.entries(patch.questions)) {
         const q = schema.questions.find((x) => x.id === qid);
         if (!q || !entry || typeof entry !== "object") continue;
-        const next = { ...(review.questions[qid] ?? {}) };
+        const next: { score?: number; comment?: string } = {};
         if (entry.score !== undefined) {
           const max = q.type === "short" ? q.maxScore : q.score;
-          if (typeof entry.score !== "number" || entry.score < 0 || entry.score > max) {
+          if (!isValidReviewScore(entry.score, max)) {
             return jsonError(c, 400, "invalid-review-score");
           }
           next.score = entry.score;
@@ -579,20 +620,49 @@ export function taskAssignmentRoutes() {
           next.comment =
             typeof entry.comment === "string" ? entry.comment.slice(0, 2000) : undefined;
         }
-        review.questions[qid] = next;
+        requested.questions[qid] = next;
       }
     }
     if (patch.comment !== undefined) {
-      review.comment = typeof patch.comment === "string" ? patch.comment.slice(0, 2000) : undefined;
+      commentProvided = true;
+      requested.comment =
+        typeof patch.comment === "string" ? patch.comment.slice(0, 2000) : undefined;
     }
 
-    const { finalScore, finalTotal } = recomputeFinal(schema, grading, review);
-    db.prepare(
-      `UPDATE task_responses
-       SET review_json = ?, status = 'reviewed', reviewed_by = ?, reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-           final_score = ?, final_total = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-       WHERE id = ?`,
-    ).run(JSON.stringify(review), auth.user.id, finalScore, finalTotal, target.id);
+    type ReviewOutcome =
+      | { kind: "not-found" }
+      | { kind: "not-submitted" }
+      | { kind: "ok"; finalScore: number; finalTotal: number };
+
+    // A return may land while the review body is being parsed. Re-read the
+    // row and write inside one transaction so a stale target cannot revive a
+    // returned submission.
+    const outcome = withTransaction(db, (): ReviewOutcome => {
+      const target = db
+        .prepare("SELECT * FROM task_responses WHERE id = ? AND assignment_id = ?")
+        .get(c.req.param("responseId"), row.id) as ResponseRow | undefined;
+      if (!target) return { kind: "not-found" };
+      if (target.status !== "submitted" && target.status !== "reviewed") {
+        return { kind: "not-submitted" };
+      }
+      const grading = parseJsonColumn<Record<string, QuestionGrading>>(target.grading_json, {});
+      const review = parseReview(target.review_json);
+      for (const [qid, entry] of Object.entries(requested.questions)) {
+        review.questions[qid] = { ...(review.questions[qid] ?? {}), ...entry };
+      }
+      if (commentProvided) review.comment = requested.comment;
+      const { finalScore, finalTotal } = recomputeFinal(schema, grading, review);
+      db.prepare(
+        `UPDATE task_responses
+         SET review_json = ?, status = 'reviewed', reviewed_by = ?, reviewed_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+             final_score = ?, final_total = ?, updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         WHERE id = ?`,
+      ).run(JSON.stringify(review), auth.user.id, finalScore, finalTotal, target.id);
+      return { kind: "ok", finalScore, finalTotal };
+    });
+    if (outcome.kind === "not-found") return jsonError(c, 404, "response-not-found");
+    if (outcome.kind === "not-submitted") return jsonError(c, 409, "response-not-submitted");
+    const { finalScore, finalTotal } = outcome;
     return c.json({ ok: true, finalScore, finalTotal });
   });
 
