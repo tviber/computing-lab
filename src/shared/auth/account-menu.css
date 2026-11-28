@@ -55,11 +55,6 @@
   display: inline-flex;
   color: var(--muted);
   line-height: 1;
-  transition: transform 140ms ease;
-}
-
-.account-menu-chevron[data-open="true"] {
-  transform: rotate(180deg);
 }
 
 .account-menu-popover {
@@ -131,8 +126,7 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .account-menu-trigger,
-  .account-menu-chevron {
+  .account-menu-trigger {
     transition: none;
   }
 }

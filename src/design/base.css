@@ -470,13 +470,13 @@ p {
 }
 
 @media (prefers-reduced-motion: no-preference) {
-  .disclosure-trigger .disclosure-chevron .ui-icon {
+  .disclosure-chevron .ui-icon {
     transition: rotate 140ms ease-out;
   }
 }
 
-.disclosure-trigger[aria-expanded="true"] .disclosure-chevron .ui-icon {
-  rotate: 180deg;
+.disclosure-chevron[data-open="true"] .ui-icon {
+  rotate: 90deg;
 }
 
 .disclosure-panel {

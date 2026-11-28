@@ -2,6 +2,7 @@ import { MathFormula } from "../../../shared/ui/MathFormula";
 import { Button } from "@ui-sdk/solid/button";
 import { createSignal, createUniqueId, For, lazy, Loading, Match, Show, Switch } from "solid-js";
 import { Disclosure } from "../../../shared/ui/Disclosure";
+import { DisclosureChevron } from "../../../shared/ui/DisclosureChevron";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { BMP_FIELD_OFFSETS, BMP_PROFILE } from "../domain/bmp.ts";
 import { bitsToByte, CHAR_TABLE } from "../domain/encoding.ts";
@@ -112,6 +113,7 @@ function BmpBytes(props: { bytes: number[]; allowHeightPractice: boolean }) {
                   onClick={() => setExpanded((e) => !e)}
                   type="button"
                 >
+                  <DisclosureChevron open={expanded()} size={12} />
                   {expanded()
                     ? "收起后续字节"
                     : `展开其余 ${props.bytes.length - previewLength} 字节`}
