@@ -47,7 +47,10 @@ describe("loss chart epoch navigation", () => {
     fireEvent.keyDown(point(4), { key: "Home" });
     flush();
     expect(point(0)).toHaveFocus();
-    expect(fireEvent.keyDown(point(0), { key: "ArrowLeft" })).toBe(true);
+    expect(fireEvent.keyDown(point(0), { key: "ArrowLeft" })).toBe(false);
+    expect(fireEvent.keyDown(point(0), { key: "Home" })).toBe(false);
+    expect(fireEvent.keyDown(point(4), { key: "ArrowRight" })).toBe(false);
+    expect(fireEvent.keyDown(point(4), { key: "End" })).toBe(false);
     point(3).focus();
     fireEvent.keyDown(point(3), { key: "Enter" });
     flush();
@@ -55,6 +58,19 @@ describe("loss chart epoch navigation", () => {
     point(2).focus();
     fireEvent.keyDown(point(2), { key: " " });
     expect(epoch()).toBe(3);
+    fireEvent.keyUp(point(2), { key: " " });
+    flush();
+    expect(epoch()).toBe(2);
+  });
+
+  it("ignores modified Space and selects only on plain Space", () => {
+    const { point, epoch } = harness();
+    point(2).focus();
+    fireEvent.keyDown(point(2), { key: " ", shiftKey: true });
+    fireEvent.keyUp(point(2), { key: " ", shiftKey: true });
+    flush();
+    expect(epoch()).toBe(1);
+    fireEvent.keyDown(point(2), { key: " " });
     fireEvent.keyUp(point(2), { key: " " });
     flush();
     expect(epoch()).toBe(2);
