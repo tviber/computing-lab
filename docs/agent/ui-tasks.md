@@ -1,7 +1,7 @@
 # 实验视觉任务
 
-`decoding` 采用 Controller / Workspace / Preview 分层边界（其他实验按修改成本迁移，
-不用为了目录对称进行重构）。保持单 Vite 包，不引入通用 LessonRuntime 或新后端。
+`decoding` 保留 Controller / Workspace / Preview 分层；其余实验使用入口页 +
+`useLabSession`，不为目录对称做重构。保持单 Vite 包，不引入通用 LessonRuntime 或新后端。
 
 ## 视觉开发边界（以 decoding 为例）
 
@@ -21,6 +21,9 @@
 Workspace 可以持有纯展示状态；Pyodide 执行、作答编辑、保存和判题由
 Controller 管理。不要在 UI 新建运行时或自行 dispatch 教学 action。
 新增 CSS 使用对应实验的命名空间（如 `decoding-`）和已有 tokens，不改变其他实验的共享样式。
+feature CSS 默认把通用类名收在实验根节点下（如 `.decoding-lab .submit-row`）；只有
+`src/design/base.css` 可声明跨实验共享的裸类。提交前运行 `bun run check:css`，它由
+`bun run lint` 自动执行并拦截跨文件及同文件互相覆盖的裸类选择器。
 
 ## 本地预览
 

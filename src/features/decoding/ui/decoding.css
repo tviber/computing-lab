@@ -42,8 +42,7 @@
 
 /* ---- stage brief: mission / task / hint ---- */
 
-.submit-note {
-  color: var(--muted);
+.decoding-lab .submit-note {
   font-size: var(--font-size-xs);
 }
 
@@ -431,9 +430,14 @@
   grid-template-columns: repeat(auto-fill, var(--cell-width, 2.5rem));
   grid-auto-rows: var(--cell-height, 1.75rem);
   list-style: none;
-  margin: 0;
   padding: 0;
   font: 13px/1.2 var(--font-mono);
+}
+
+.byte-stream,
+.bit-stream,
+.char-table ol {
+  margin: 0;
 }
 
 .byte-stream > li,
@@ -557,7 +561,7 @@
   border-radius: 4px;
 }
 
-.preview-note {
+.decoding-preview-note {
   margin: 0;
   font-size: var(--font-size-xs);
   color: var(--muted);
@@ -881,30 +885,19 @@
 
 /* ---- run row / errors / submit ---- */
 
-.guided-actions {
+.decoding-lab .guided-actions {
   display: flex;
   align-items: center;
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
 
-.python-error {
+.decoding-lab .python-error {
   margin: 0 0 var(--space-3);
   padding: var(--space-2);
-  border: 1px solid var(--danger-border);
-  border-radius: var(--radius-control);
-  background: var(--danger-soft);
   color: var(--danger);
   font-family: var(--font-mono, ui-monospace, monospace);
   font-size: var(--font-size-xs);
-  white-space: pre-wrap;
-  overflow-x: auto;
-}
-
-.submit-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
 }
 
 /* ---- cloze decoder editor ---- */

@@ -187,7 +187,7 @@ export function DecodingWorkspace(props: DecodingWorkspaceProps) {
                             {(previewPixels) => (
                               <div class="preview-block">
                                 <PixelCanvas ariaLabel="图片预览" pixels={previewPixels()} />
-                                <p class="preview-note">
+                                <p class="decoding-preview-note">
                                   按 BMP 约定读是一张正常图片。但传入的数值里似乎不只是颜色。
                                 </p>
                               </div>

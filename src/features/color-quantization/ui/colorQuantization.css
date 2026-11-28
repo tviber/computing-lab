@@ -454,6 +454,7 @@
 }
 
 .quant-error {
+  color-scheme: light;
   border: 1px solid var(--danger-border);
   background: var(--error-surface);
   border-radius: var(--radius-control);

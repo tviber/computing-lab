@@ -485,16 +485,24 @@ p {
 
 .eyebrow,
 .context-label,
-.context-value,
-.category-label {
+.context-value {
   font-family: var(--font-mono);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
 
-.eyebrow,
-.context-label,
 .category-label {
+  color: var(--muted);
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  line-height: 14px;
+  text-transform: uppercase;
+}
+
+.eyebrow,
+.context-label {
   color: var(--muted);
   font-size: 10px;
   font-weight: 600;
@@ -603,6 +611,18 @@ p {
   font-size: 13px;
 }
 
+.python-error {
+  color-scheme: light;
+  padding: 12px;
+  border: 1px solid var(--danger-border);
+  border-radius: var(--radius-control);
+  background: var(--error-surface);
+  color: var(--error-ink);
+  font-size: 12px;
+  overflow-x: auto;
+  white-space: pre-wrap;
+}
+
 .test-error button {
   display: inline-flex;
   align-items: center;
@@ -635,6 +655,17 @@ p {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-panel);
+}
+
+.submit-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.submit-note {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .stage-brief > :where(p:not(.stage-takeaway)) {
