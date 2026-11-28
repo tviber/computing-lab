@@ -1,8 +1,6 @@
 import { createEffect, createMemo, createSignal, onSettled } from "solid-js";
 import { createReducer } from "../../../shared/lab/createReducer";
-import { statusForStage } from "../../../shared/lab/saveStatus.ts";
-import { useAutosaveDraft } from "../../../shared/lab/useAutosaveDraft";
-import { reconcileConflictedStage, useLabProject } from "../../../shared/lab/useLabProject";
+import { useLabSession } from "../../../shared/lab/useLabSession";
 import type { PixelHover, PixelMatrix } from "../domain/bmp.ts";
 import { assembleCloze, hasCloze } from "../domain/cloze.ts";
 import { runData } from "../domain/payload.ts";
@@ -22,6 +20,7 @@ import {
   stageOf,
   transitionDecodingLesson,
   type DecodingLessonAction,
+  type DecodingLessonState,
 } from "../lesson/state.ts";
 import { BMP_HELPER, runDecode, warmPyodide } from "../runtime/pyodideRunner.ts";
 import { createDecodingViewModel } from "./createViewModel.ts";
@@ -69,17 +68,21 @@ export function useDecodingLabController(
 
   let clearTransientRef: (() => void) | null = null;
 
-  const project = useLabProject<
+  const session = useLabSession<
     DecodingDraft,
     { payloads: Record<number, LabPayload> },
-    DecodingLessonAction
+    DecodingLessonAction,
+    DecodingLessonState
   >(() => {
     const opts = getOpts();
     return {
-      scopeId: opts.scopeId,
+      scopeId: () => opts.scopeId,
       labId: "decoding",
-      ready: opts.ready,
-      stageIndex: state().stageIndex,
+      ready: () => opts.ready,
+      state,
+      dispatch,
+      dispatchSession: dispatch,
+      draftOf: (stageIndex) => draftOf(state(), stageIndex),
       onResetSuccess: () => clearTransientRef?.(),
       toAction: (proj, meta) => ({
         type: "load-project",
@@ -93,47 +96,9 @@ export function useDecodingLabController(
         freeNavigation: proj.staffFreeNavigation ?? getOpts().staff ?? false,
         isReset: meta?.isReset,
       }),
-      dispatch,
     };
   });
-
-  const reconcileConflict = (s: number) =>
-    reconcileConflictedStage({
-      fetchProject: project.fetchProject,
-      stageIndex: s,
-      onResolved: (stageIndex, proj) =>
-        dispatch({
-          type: "resolve-save-conflict",
-          stageIndex,
-          draft: proj.drafts?.[stageIndex],
-          revision: proj.draftRevisions?.[stageIndex],
-        }),
-      onSyncError: (stageIndex) => dispatch({ type: "mark-save-sync-error", stageIndex }),
-    });
-
-  useAutosaveDraft<DecodingDraft>(() => {
-    const currentState = state();
-    return {
-      flushPreservedDrafts: project.flushPreservedDrafts,
-      saveStatuses: project.projectLoaded ? currentState.saveStatusByStage : undefined,
-      scopeId: getOpts().scopeId,
-      labId: "decoding",
-      saveStatus:
-        project.projectLoaded && !project.resetting
-          ? statusForStage(currentState.saveStatusByStage, currentState.stageIndex)
-          : "idle",
-      stageIndex: currentState.stageIndex,
-      draftOf: (index) => draftOf(state(), index),
-      deps: [currentState.drafts],
-      expectedGeneration: project.projectGeneration,
-      resetVersion: project.saveGeneration,
-      expectedRevisionOf: (s) => state().draftRevisions[s] ?? 0,
-      onSaving: (s) => dispatch({ type: "mark-saving", stageIndex: s }),
-      onSaved: (s, revision) => dispatch({ type: "mark-saved", stageIndex: s, revision }),
-      onError: (s) => dispatch({ type: "mark-save-error", stageIndex: s }),
-      onConflict: (s) => reconcileConflict(s),
-    };
-  });
+  const project = session.project;
 
   const decodeExec = useDecodeExecution<DecodingRunResult>(() => ({
     stageIndex: state().stageIndex,
@@ -368,7 +333,7 @@ export function useDecodingLabController(
       dispatch({ type: "restore-conflict-draft", stageIndex: state().stageIndex }),
     discardConflictLocal: () =>
       dispatch({ type: "discard-conflict-draft", stageIndex: state().stageIndex }),
-    retrySyncConflict: () => reconcileConflict(state().stageIndex),
+    retrySyncConflict: () => session.reconcileConflict(state().stageIndex),
   };
 
   return {

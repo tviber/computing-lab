@@ -53,12 +53,20 @@ POST judge 跑隐藏用例并推进 `passedStages`。每个实验只提供 spec�
 参数/公式/可视化面板以及 Slidev 编辑服务没有保留；它们在当前课程集合里不再
 形成有价值的边界。
 
-## 教学逻辑与视觉开发边界（Decoding 试点）
+## 教学逻辑与视觉开发边界（B 方案：decoding 局部试点）
 
 `DecodingLabPage` 只包裹 `DecodingWorkspace` 与共享页面布局，校内访问守卫由
 路由层的 `GuardedLabRoute` + `LabAccessGate` 统一执行。
 `decoding/controller/useDecodingLabController.ts` 负责项目加载、Pyodide 执行、
 自动保存、判题和状态转换；`createViewModel.ts` 派生只读展示契约 `viewModel.ts`。
+
+其余六个实验不复制这套分层，入口页继续组合 `useLabSession` 与实验自己的 reducer。
+所有实验的项目加载、自动保存、409 冲突恢复、重置和保存指示器只能走
+`shared/lab/useLabSession.tsx`，不得再次手接 `useLabProject` + `useAutosaveDraft`。
+
+新增实验默认只建 `domain/lesson/ui` 三层；只有确实需要浏览器内 Python、
+独立预览或复杂交互状态机时，才增加 `controller/runtime/preview`。Pyodide worker
+统一放在 `runtime/pyodide.worker.ts`，`ui/` 只保留主线程入口与展示组件。
 
 校内开发入口中的 `/__dev/labs/decoding` 仅在 `import.meta.env.DEV` 分支注册，预览模块通过 lazy import
 加载并在生产构建中消除。它使用真实 `DecodingWorkspace` 和公开数据生成的固定 fixture，
