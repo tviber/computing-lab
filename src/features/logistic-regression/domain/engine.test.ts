@@ -1,18 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { getPublicCorpus } from "./corpus.ts";
 import { TRAIN_ROWS, VAL_ROWS } from "./corpusData.ts";
-import {
-  alwaysZeroBaseline,
-  BLIND_GUESS_LOSS,
-  classifyEtaRegime,
-  evaluateManualWeights,
-  rethresholdPredictions,
-  selectExperienceThreshold,
-  sigmoid,
-  singleUpdateDemo,
-  sweepThresholds,
-  trainLogisticRegression,
-} from "./logisticRegression.ts";
+import { evaluateManualWeights } from "./manualEvaluation.ts";
+import { alwaysZeroBaseline, BLIND_GUESS_LOSS, classifyEtaRegime, sigmoid } from "./math.ts";
 import {
   buildWordSliceDataset,
   evaluateSliceAt,
@@ -40,6 +30,8 @@ import {
   inspectCorpusMessageWithModel,
   inspectMessageWithModel,
 } from "./tokenizer.ts";
+import { singleUpdateDemo, trainLogisticRegression } from "./training.ts";
+import { rethresholdPredictions, selectExperienceThreshold, sweepThresholds } from "./vectorize.ts";
 
 const UNSAFE_OR_PII_PATTERNS: { name: string; re: RegExp }[] = [
   { name: "raw-mobile", re: /(?<!\d)1[3-9]\d{9}(?!\d)/ },
