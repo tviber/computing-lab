@@ -86,9 +86,17 @@ export function RecognitionPanel(props: { outcome: SamplingJudgeResult; stage: S
                     .join("、")} 一模一样`
                 : `接收端最可能认成 ${ce().predicted?.label ?? "?"}`}
               。
-              {ce().difference
-                ? `丢掉的差别在原图 x∈[${ce().difference!.x0}, ${ce().difference!.x1})、y∈[${ce().difference!.y0}, ${ce().difference!.y1}) 的 ${ce().difference!.pixels} 个像素里（原图已框出）。它们摊不满一个格子，所以被抹平了。`
-                : ""}
+              <Show when={ce().difference}>
+                {(bounds) => (
+                  <>
+                    {"丢掉的差别在原图 "}
+                    <MathFormula>{String.raw`x\in[${bounds().x0},${bounds().x1})`}</MathFormula>、
+                    <MathFormula>{String.raw`y\in[${bounds().y0},${bounds().y1})`}</MathFormula>
+                    {" 的 "}
+                    {bounds().pixels} 个像素里（原图已框出）。它们摊不满一个格子，所以被抹平了。
+                  </>
+                )}
+              </Show>
             </p>
             <div class="counterexample-triptych">
               <PackedFigure

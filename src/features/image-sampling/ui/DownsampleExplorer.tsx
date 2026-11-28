@@ -428,9 +428,19 @@ export function DownsampleExplorer(props: ExplorerProps) {
               >
                 {(info) => (
                   <p class="pair-diff-note">
-                    {info().bounds
-                      ? `${info().pair.aLabel} 与 ${info().pair.bLabel} 的差别只在原图 x∈[${info().bounds!.x0}, ${info().bounds!.x1})、y∈[${info().bounds!.y0}, ${info().bounds!.y1}) 的 ${info().bounds!.pixels} 个像素里（原图上的虚线框）。当前网格把它抹平了。`
-                      : `${info().pair.aLabel} 与 ${info().pair.bLabel} 原图完全相同。`}
+                    {info().pair.aLabel} 与 {info().pair.bLabel}
+                    <Show fallback=" 原图完全相同。" when={info().bounds}>
+                      {(bounds) => (
+                        <>
+                          {" 的差别只在原图 "}
+                          <MathFormula>{String.raw`x\in[${bounds().x0},${bounds().x1})`}</MathFormula>
+                          、
+                          <MathFormula>{String.raw`y\in[${bounds().y0},${bounds().y1})`}</MathFormula>
+                          {" 的 "}
+                          {bounds().pixels} 个像素里（原图上的虚线框）。当前网格把它抹平了。
+                        </>
+                      )}
+                    </Show>
                   </p>
                 )}
               </Show>

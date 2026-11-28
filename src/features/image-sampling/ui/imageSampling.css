@@ -27,8 +27,15 @@
 .resolution-inputs {
   align-items: center;
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
   margin: 8px 0 16px;
+}
+
+.resolution-inputs label {
+  display: grid;
+  justify-items: start;
+  gap: var(--space-1);
 }
 
 .resolution-inputs input[type="number"] {

@@ -115,14 +115,49 @@ test("other formula-heavy labs preserve data and render their teaching math", as
         await expect(page.locator("math[display=block]")).toHaveCount(6);
         await page.getByRole("button", { name: "按梯度更新一步", exact: true }).click();
         await expect(page.getByRole("list", { name: "跳跃历史轨迹" })).toBeVisible();
+        for (const [word, formula] of [
+          ["您", "w^* > 0"],
+          ["的", "w^* < 0"],
+        ]) {
+          await page
+            .getByRole("radiogroup", { name: "选择切片词" })
+            .getByRole("radio", { name: `「${word}」`, exact: true })
+            .click();
+          await expect(
+            page.locator(".logistic-regression-muted-note annotation").filter({ hasText: formula }),
+          ).toHaveCount(1);
+        }
       }
       if (labId === "decoding" && stage === 2) {
         await page.getByRole("button", { name: "试读第一组" }).click();
         await expect(page.locator(".bit-group code").first()).toHaveText(/^[01]{8}$/);
       }
+      if (labId === "image-sampling" && stage === 4) {
+        await page.getByRole("spinbutton", { name: "宽度（列数）" }).fill("2");
+        await page.getByRole("spinbutton", { name: "高度（行数）" }).fill("2");
+        await page.getByRole("spinbutton", { name: "高度（行数）" }).press("Tab");
+        await page.locator(".pair-link").first().click();
+        await expect(page.locator(".pair-diff-note annotation")).toHaveText([
+          /x\\in\[\d+,\d+\)/,
+          /y\\in\[\d+,\d+\)/,
+        ]);
+        await page.getByRole("button", { name: "提交判定", exact: true }).click();
+        await expect(page.locator(".counterexample-lede annotation")).toHaveText([
+          /x\\in\[\d+,\d+\)/,
+          /y\\in\[\d+,\d+\)/,
+        ]);
+      }
       for (const width of [1440, 320]) {
         await page.setViewportSize({ width, height: 900 });
         await expectHealthyMath(page);
+        if (labId === "image-sampling" && stage === 4) {
+          const controls = page.locator(".resolution-inputs");
+          expect(
+            await controls.evaluate((element) => element.scrollWidth <= element.clientWidth),
+          ).toBe(true);
+          await controls.scrollIntoViewIfNeeded();
+          await page.screenshot({ path: `/tmp/issue185-followup-sampling-${width}.png` });
+        }
       }
       if (labId === "logistic-regression" && stage === 6) {
         await page.screenshot({ path: "/tmp/issue185-logistic-mobile.png", fullPage: true });

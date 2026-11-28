@@ -229,7 +229,7 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
       </div>
 
       <p class="logistic-regression-muted-note">
-        {wordMeta().note}
+        <MathText>{wordMeta().note}</MathText>
         <Show when={contextMode() === "trained" && learnedW() !== undefined}>
           当前模型为「{selectedWord()}」学到的权重是{" "}
           <MathFormula>{`w=${fmtSigned(learnedW()!)}`}</MathFormula>，
