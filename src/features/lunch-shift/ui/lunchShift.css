@@ -207,11 +207,6 @@
   color: var(--accent);
 }
 
-.lunch-experiment-box {
-  border: 1px dashed var(--border);
-  border-radius: var(--radius-panel);
-  padding: var(--space-4);
-}
 .lunch-experiment-card {
   margin-top: var(--space-3);
   padding: var(--space-3);
@@ -221,15 +216,8 @@
   font-size: 13px;
 }
 
-.submit-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
+.lunch-lab .submit-row {
   margin: var(--space-3) 0;
-}
-.submit-note {
-  color: var(--muted);
-  font-size: 13px;
 }
 
 .lunch-journey h2,
@@ -259,10 +247,6 @@
 .lunch-replay-range {
   flex: 0 1 220px;
   min-inline-size: 160px;
-  font-size: 12px;
-  color: var(--secondary);
-}
-.lunch-replay-caption {
   font-size: 12px;
   color: var(--secondary);
 }
@@ -464,6 +448,7 @@ ul.lunch-order-fix {
 }
 .lunch-replay-caption {
   margin: var(--space-2) 0 0;
+  color: var(--secondary);
   font-size: 14px;
   font-weight: 600;
 }

@@ -1,8 +1,6 @@
 .python-code,
 .python-editor,
-.ai-json,
-.quant-error,
-.python-error {
+.ai-json {
   color-scheme: light;
 }
 

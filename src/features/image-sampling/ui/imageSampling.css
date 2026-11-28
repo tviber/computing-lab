@@ -251,7 +251,7 @@
   font-size: 13px;
 }
 
-.guided-actions {
+.sampling-lab .guided-actions {
   align-items: center;
   display: flex;
   gap: 10px;
@@ -355,17 +355,6 @@
   box-shadow: 0 0 0 2px var(--danger);
 }
 
-.python-error {
-  border: 1px solid var(--danger-border);
-  background: var(--error-surface);
-  border-radius: var(--radius-control);
-  color: var(--error-ink);
-  font-size: 12px;
-  overflow-x: auto;
-  padding: 12px;
-  white-space: pre-wrap;
-}
-
 .cell-check-table tr.is-bad {
   background: var(--danger-soft);
 }
@@ -414,17 +403,6 @@
   display: flex;
   gap: 16px;
   margin: 12px 0;
-}
-
-.submit-row {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-}
-
-.submit-note {
-  color: var(--muted);
-  font-size: 13px;
 }
 
 @media (max-width: 960px) {
