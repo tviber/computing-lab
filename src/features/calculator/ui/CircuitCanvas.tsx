@@ -363,18 +363,20 @@ export function CircuitCanvas(props: CircuitCanvasProps) {
                 if (!fromNode || !toNode || collapsedOf(fromNode) || collapsedOf(toNode)) {
                   return null;
                 }
+                const from = portAnchor(fromNode, current.from.port, "out", props.components);
+                const to = portAnchor(toNode, current.to.port, "in", props.components);
                 return {
                   edge: current,
                   fromNode,
                   toNode,
-                  from: portAnchor(fromNode, current.from.port, "out", props.components),
-                  to: portAnchor(toNode, current.to.port, "in", props.components),
+                  d: wirePath(from, to),
                   value: props.portValues[`${current.from.node}#${current.from.port}`],
                 };
               });
               // This traces changed values, not simulated electrical propagation time.
+              // Undefined (collapsed or unevaluated) resets the pulse baseline.
               const signalRef = useChangeAnimation<SVGPathElement>(
-                () => endpoints()?.value,
+                () => endpoints()?.value ?? undefined,
                 [
                   { strokeDashoffset: "0.14", opacity: 0 },
                   { opacity: 0.85, offset: 0.2 },
@@ -393,7 +395,7 @@ export function CircuitCanvas(props: CircuitCanvasProps) {
                             : `连线 ${nodeLabel(ep().fromNode)} → ${nodeLabel(ep().toNode)}，删除`
                         }
                         class={`wire${valueClass(ep().value)}`}
-                        d={wirePath(ep().from, ep().to)}
+                        d={ep().d}
                         onClick={(event) => {
                           if (readOnly()) return;
                           event.stopPropagation();
@@ -404,7 +406,7 @@ export function CircuitCanvas(props: CircuitCanvasProps) {
                       <path
                         aria-hidden="true"
                         class="wire-signal"
-                        d={wirePath(ep().from, ep().to)}
+                        d={ep().d}
                         pathLength={1}
                         ref={signalRef}
                       />

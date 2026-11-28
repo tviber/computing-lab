@@ -551,9 +551,20 @@ button.logistic-regression-triage-card {
   display: block;
 }
 
+.logistic-regression-epoch-point[role="button"] {
+  cursor: pointer;
+}
+
 .logistic-regression-epoch-point:focus-visible {
   outline: 1px solid var(--focus);
   outline-offset: 3px;
+}
+
+@media (pointer: coarse) {
+  .logistic-regression-epoch-hit-area {
+    /* Keep touch targets large even when the SVG viewBox shrinks on a phone. */
+    stroke-width: 44px;
+  }
 }
 
 @media (prefers-reduced-motion: no-preference) {
