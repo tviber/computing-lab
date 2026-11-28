@@ -36,8 +36,11 @@ export function getDb(): DatabaseSync {
   return singleton;
 }
 
+export const DEFAULT_BUSY_TIMEOUT_MS = 5000;
+
 export function openDb(path: string): DatabaseSync {
   const db = new DatabaseSync(path);
+  db.exec(`PRAGMA busy_timeout = ${DEFAULT_BUSY_TIMEOUT_MS}`);
   db.exec("PRAGMA journal_mode = WAL");
   db.exec("PRAGMA foreign_keys = ON");
   migrate(db);
@@ -47,6 +50,7 @@ export function openDb(path: string): DatabaseSync {
 /** Test helper: isolated in-memory database. */
 export function openMemoryDb(): DatabaseSync {
   const db = new DatabaseSync(":memory:");
+  db.exec(`PRAGMA busy_timeout = ${DEFAULT_BUSY_TIMEOUT_MS}`);
   db.exec("PRAGMA foreign_keys = ON");
   migrate(db);
   return db;

@@ -1,3 +1,4 @@
+import { MathFormula, MathText } from "../../../shared/ui/MathFormula";
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { PythonEditor } from "../../../shared/ui/PythonEditor";
@@ -73,14 +74,20 @@ export function SgdCodePanel(props: {
       <section class="logistic-regression-panel sgd-code-bench">
         <div class="logistic-regression-panel-head">
           <h3>先预测这一步</h3>
-          <span class="logistic-regression-badge-neutral">垃圾短信 · y=1</span>
+          <span class="logistic-regression-badge-neutral">
+            垃圾短信 · <MathFormula>{String.raw`y=1`}</MathFormula>
+          </span>
         </div>
         <p class="logistic-regression-data-guide">
-          这条短信里有「恭喜」「中奖」，没有「妈妈」。模型只给了 p = 0.20；学习率 η = 0.1。
+          这条短信里有「恭喜」「中奖」，没有「妈妈」。模型只给了{" "}
+          <MathFormula>{String.raw`p=0.20`}</MathFormula>；学习率{" "}
+          <MathFormula>{String.raw`\eta=0.1`}</MathFormula>。
         </p>
         <p class="logistic-regression-quote">【恭喜】你已中奖，点击查看活动详情</p>
         <fieldset class="sgd-choice-group">
-          <legend>猜一猜：p − yi 的符号是什么？</legend>
+          <legend>
+            猜一猜：<MathFormula>{String.raw`p-y_i`}</MathFormula> 的符号是什么？
+          </legend>
           <SegmentedPicker
             class="logistic-regression-segmented"
             label="p 减 yi 的符号"
@@ -101,12 +108,15 @@ export function SgdCodePanel(props: {
           {(st) => (
             <div class="logistic-regression-note-box sgd-step-result" role="status">
               <p class="logistic-regression-formula-conclusion">
-                {prediction() === 1
-                  ? "命中：−0.80，模型猜低了。"
-                  : "差一点：p−yi = 0.20−1 = −0.80。"}
+                <MathText>
+                  {prediction() === 1
+                    ? "命中：$-0.80$，模型猜低了。"
+                    : "差一点：$p-y_i=0.20-1=-0.80$。"}
+                </MathText>
               </p>
               <p class="logistic-regression-role-desc">
-                g=0.1×(−0.8)=−0.08，出现过的词执行 w ← w−g，权重增加 0.08。「妈妈」乘
+                <MathFormula>{String.raw`g=0.1\times(-0.8)=-0.08`}</MathFormula>，出现过的词执行{" "}
+                <MathFormula>{String.raw`w\leftarrow w-g`}</MathFormula>，权重增加 0.08。「妈妈」乘
                 0，这一步权重保持不变。
               </p>
               <SingleStepPenaltyVisual
@@ -136,8 +146,8 @@ export function SgdCodePanel(props: {
           />
         </div>
         <p class="logistic-regression-data-guide">
-          每条短信先预测一次；η=0.1、20 轮、固定训练数据。更新范围只允许简单算式，不会执行 Python
-          或浏览器命令。
+          每条短信先预测一次；<MathFormula>{String.raw`\eta=0.1`}</MathFormula>、20
+          轮、固定训练数据。更新范围只允许简单算式，不会执行 Python 或浏览器命令。
         </p>
         <Show
           fallback={
@@ -150,7 +160,9 @@ export function SgdCodePanel(props: {
         >
           <div class="sgd-guided-controls">
             <label class="field-select field-select-native sgd-guide-field">
-              <span>预测 p =</span>
+              <span>
+                预测 <MathFormula>{String.raw`p=`}</MathFormula>
+              </span>
               <select
                 aria-label="预测表达式"
                 onChange={(e) => setChosen({ ...chosen(), p: e.currentTarget.value })}
@@ -161,7 +173,9 @@ export function SgdCodePanel(props: {
               </select>
             </label>
             <label class="field-select field-select-native sgd-guide-field">
-              <span>步长 g =</span>
+              <span>
+                步长 <MathFormula>{String.raw`g=`}</MathFormula>
+              </span>
               <select
                 aria-label="步长表达式"
                 onChange={(e) => setChosen({ ...chosen(), g: e.currentTarget.value })}
@@ -276,10 +290,11 @@ export function SgdCodePanel(props: {
           <span class="logistic-regression-badge-neutral">单样本梯度 → 平均损失</span>
         </div>
         <p class="logistic-regression-data-guide">
-          代码每读一条短信，就用这一条的 p − y 调一次权重。下面的推导解释这个梯度从哪里来；
+          代码每读一条短信，就用这一条的 <MathFormula>{String.raw`p-y`}</MathFormula>{" "}
+          调一次权重。下面的推导解释这个梯度从哪里来；
           权重切片则固定其他参数，展示一组含某个词的短信的<strong>平均损失</strong>
-          。切片的坡度是这组短信的 p − y 的平均值；某一条短信的梯度方向可能与它不同，
-          因此单步更新不保证降低整组短信的平均损失。
+          。切片的坡度是这组短信的 <MathFormula>{String.raw`p-y`}</MathFormula>{" "}
+          的平均值；某一条短信的梯度方向可能与它不同， 因此单步更新不保证降低整组短信的平均损失。
         </p>
         <LossDerivationCard />
       </section>
@@ -304,7 +319,7 @@ export function SgdCodePanel(props: {
         onClick={() => props.onSubmit()}
         type="button"
       >
-        {props.submitting ? "正在判定…" : "提交附加挑战"}
+        {props.submitting ? "判定中…" : "提交选做挑战"}
       </Button>
     </div>
   );

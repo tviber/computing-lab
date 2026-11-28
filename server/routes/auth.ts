@@ -10,12 +10,15 @@ import {
 import { SlidingWindowLimiter } from "../auth/rateLimit.ts";
 import {
   createSession,
+  destroyOtherSessions,
   destroySession,
   sessionCookieValue,
   clearedSessionCookie,
   type SessionUser,
 } from "../auth/session.ts";
+import { withTransaction } from "../db/client.ts";
 import { jsonError, membershipsOf, type AppVariables } from "../http/context.ts";
+import { readJsonObject, readString } from "../http/validation.ts";
 
 function mePayload(db: Parameters<typeof membershipsOf>[0], user: SessionUser) {
   return {
@@ -63,11 +66,14 @@ export function authRoutes() {
   const app = new Hono<{ Variables: AppVariables }>();
   // 10 failed attempts per 5 minutes per (ip, account) — in-memory only.
   const loginLimiter = new SlidingWindowLimiter(10, 5 * 60 * 1000);
+  // 5 failed current-password attempts per 15 minutes per (ip, user.id).
+  const changePasswordLimiter = new SlidingWindowLimiter(5, 15 * 60 * 1000);
 
   app.post("/login", async (c) => {
-    const body = await c.req.json().catch(() => null);
-    const { studentNo, password } = (body ?? {}) as Record<string, unknown>;
-    if (typeof studentNo !== "string" || typeof password !== "string") {
+    const body = await readJsonObject(c);
+    const studentNo = body ? readString(body, "studentNo") : null;
+    const password = body ? readString(body, "password") : null;
+    if (studentNo === null || password === null) {
       return jsonError(c, 400, "invalid-body");
     }
     const limitKey = `${clientIp(c)}|${studentNo}`;
@@ -100,11 +106,16 @@ export function authRoutes() {
   app.post("/change-password", async (c) => {
     const user = c.get("user");
     if (!user) return jsonError(c, 401, "unauthenticated");
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body !== "object") return jsonError(c, 400, "invalid-body");
-    const { currentPassword, newPassword } = body as Record<string, unknown>;
-    if (typeof currentPassword !== "string" || typeof newPassword !== "string") {
+    const body = await readJsonObject(c);
+    if (!body) return jsonError(c, 400, "invalid-body");
+    const currentPassword = readString(body, "currentPassword");
+    const newPassword = readString(body, "newPassword");
+    if (currentPassword === null || newPassword === null) {
       return jsonError(c, 400, "invalid-body");
+    }
+    const limitKey = `${clientIp(c)}|${user.id}`;
+    if (changePasswordLimiter.exceeded(limitKey)) {
+      return jsonError(c, 429, "too-many-attempts");
     }
     if (
       newPassword.length < minPasswordLength(user.role) ||
@@ -114,17 +125,22 @@ export function authRoutes() {
     }
     if (currentPassword === newPassword) return jsonError(c, 400, "same-password");
 
-    const account = c
-      .get("db")
+    const db = c.get("db");
+    const account = db
       .prepare("SELECT password_hash AS passwordHash FROM users WHERE id = ?")
       .get(user.id) as { passwordHash: string } | undefined;
     if (!account || !(await verifyPassword(currentPassword, account.passwordHash))) {
+      changePasswordLimiter.hit(limitKey);
       return jsonError(c, 401, "current-password-incorrect");
     }
 
-    c.get("db")
-      .prepare("UPDATE users SET password_hash = ? WHERE id = ?")
-      .run(await hashPassword(newPassword), user.id);
+    changePasswordLimiter.reset(limitKey);
+    const passwordHash = await hashPassword(newPassword);
+    const sessionId = c.get("sessionId");
+    withTransaction(db, () => {
+      db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(passwordHash, user.id);
+      if (sessionId) destroyOtherSessions(db, user.id, sessionId);
+    });
     return c.json({ ok: true });
   });
 

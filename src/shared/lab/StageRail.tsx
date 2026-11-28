@@ -1,6 +1,7 @@
 import type { JSX } from "@solidjs/web";
 import { Button } from "@ui-sdk/solid/button";
-import { For, Match, Show, Switch } from "solid-js";
+import { createMemo, For, Match, Show, Switch } from "solid-js";
+import { Disclosure } from "../ui/Disclosure";
 import { Icon } from "../ui/Icon";
 
 /**
@@ -57,9 +58,49 @@ export function StageLink(props: {
 }
 
 /**
+ * Shared collapsible group for optional challenge stages across labs.
+ * Anchored groups render 「选做挑战 · 第 X 关后」; trailing groups render 「选做挑战」.
+ */
+export function OptionalChallengeGroup(props: {
+  afterStage?: number;
+  passedCount: number;
+  totalCount: number;
+  open: boolean;
+  note?: JSX.Element;
+  class?: string;
+  summaryClass?: string;
+  children: JSX.Element;
+}) {
+  const label = () =>
+    props.afterStage !== undefined ? `选做挑战 · 第 ${props.afterStage} 关后` : "选做挑战";
+
+  return (
+    <Disclosure
+      class={props.class ? `stage-branch ${props.class}` : "stage-branch"}
+      open={props.open}
+      summary={
+        <>
+          <span>{label()}</span>
+          <span>
+            {props.passedCount} / {props.totalCount}
+          </span>
+        </>
+      }
+      summaryClass={
+        props.summaryClass ? `${props.summaryClass} stage-branch-summary` : "stage-branch-summary"
+      }
+    >
+      <Show when={props.note}>{props.note}</Show>
+      <ol class="stage-list stage-branch-list">{props.children}</ol>
+    </Disclosure>
+  );
+}
+
+/**
  * The plain linear stage rail shared by the data labs — a labeled aside
- * listing every stage. Labs with richer rails (groups, branches, shelves)
- * compose `StageLink` directly instead.
+ * listing every core stage, with any optional challenges grouped under a
+ * shared collapsible 「选做挑战」 disclosure. Labs with anchored branches or
+ * shelves compose `StageLink` and `OptionalChallengeGroup` directly instead.
  */
 export function StageRail(props: {
   /** Eyebrow label over the list, e.g. 「空间采样」. */
@@ -70,33 +111,58 @@ export function StageRail(props: {
   stageIndex: number;
   onSelect: (index: number) => void;
 }) {
+  const coreStages = createMemo(() => props.stages.filter((stage) => !stage.optional));
+  const optionalStages = createMemo(() => props.stages.filter((stage) => stage.optional));
+  const optionalPassed = createMemo(
+    () => optionalStages().filter((stage) => props.passedStages.includes(stage.index)).length,
+  );
+  const optionalActive = createMemo(() =>
+    optionalStages().some((stage) => stage.index === props.stageIndex),
+  );
+
   return (
     <aside aria-label="关卡进度" class="lab-rail">
       <p class="eyebrow">{props.label}</p>
       <ol>
-        <For each={props.stages}>
+        <For each={coreStages()}>
           {(stage) => (
             <li>
               <StageLink
                 active={stage.index === props.stageIndex}
                 onSelect={() => props.onSelect(stage.index)}
-                optional={stage.optional}
                 passed={props.passedStages.includes(stage.index)}
                 subtitle={stage.englishTitle}
-                title={
-                  stage.optional ? (
-                    <>
-                      {stage.title} <small>附加关</small>
-                    </>
-                  ) : (
-                    stage.title
-                  )
-                }
+                title={stage.title}
                 unlocked={props.unlocked(stage)}
               />
             </li>
           )}
         </For>
+        <Show when={optionalStages().length > 0}>
+          <li class="stage-branch-item">
+            <OptionalChallengeGroup
+              open={optionalActive()}
+              passedCount={optionalPassed()}
+              totalCount={optionalStages().length}
+            >
+              <For each={optionalStages()}>
+                {(stage) => (
+                  <li>
+                    <StageLink
+                      active={stage.index === props.stageIndex}
+                      onSelect={() => props.onSelect(stage.index)}
+                      optional
+                      passed={props.passedStages.includes(stage.index)}
+                      subtitle={stage.englishTitle}
+                      title={stage.title}
+                      unlocked={props.unlocked(stage)}
+                    />
+                  </li>
+                )}
+              </For>
+            </OptionalChallengeGroup>
+          </li>
+        </Show>
       </ol>
     </aside>
   );

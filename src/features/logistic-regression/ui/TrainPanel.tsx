@@ -3,7 +3,7 @@ import { Checkbox, CheckboxIndicator } from "@ui-sdk/solid/checkbox";
 import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
-import { MathFormula } from "../../../shared/ui/MathFormula";
+import { MathFormula, MathText } from "../../../shared/ui/MathFormula";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import {
   binaryLogLoss,
@@ -28,10 +28,10 @@ import { SingleStepPenaltyVisual } from "./SingleStepPenaltyVisual.tsx";
 import { WeightSpectrum } from "./WeightSpectrum.tsx";
 
 const ETA_PRESETS = [
-  { label: "较小 η = 0.002", eta: 0.002, epochs: 12 },
-  { label: "适中 η = 0.1", eta: 0.1, epochs: 12 },
-  { label: "较大 η = 0.8", eta: 0.8, epochs: 12 },
-  { label: "更大 η = 5.0", eta: 5.0, epochs: 12 },
+  { label: "较小 $\\eta=0.002$", eta: 0.002, epochs: 12 },
+  { label: "适中 $\\eta=0.1$", eta: 0.1, epochs: 12 },
+  { label: "较大 $\\eta=0.8$", eta: 0.8, epochs: 12 },
+  { label: "更大 $\\eta=5.0$", eta: 5.0, epochs: 12 },
 ] as const;
 
 const SPOTLIGHT_VAL_IDS = [34, 81, 4] as const;
@@ -169,9 +169,12 @@ export function TrainPanel(props: {
     <div class="logistic-regression-stage-stack">
       <section class="logistic-regression-panel">
         <p class="logistic-regression-old-knowledge">
-          联系线性回归：单样本平方误差的梯度是 2×（预测 − 真实）× 输入。逻辑回归使用交叉熵损失，
-          梯度为 <MathFormula>{String.raw`(p-y)x_j`}</MathFormula>，其中 p 是预测的垃圾概率，y
-          是真实标签。 这一关先观察模型如何用它更新权重；完整求导和单权重切片放在附加挑战里。
+          联系线性回归：单样本平方误差的梯度是{" "}
+          <MathFormula>{String.raw`2(\hat y-y)x_j`}</MathFormula>。逻辑回归使用交叉熵损失， 梯度为{" "}
+          <MathFormula>{String.raw`(p-y)x_j`}</MathFormula>，其中{" "}
+          <MathFormula>{String.raw`p`}</MathFormula> 是预测的垃圾概率，
+          <MathFormula>{String.raw`y`}</MathFormula>
+          是真实标签。 这一关先观察模型如何用它更新权重；完整求导和单权重切片放在选做挑战里。
         </p>
         <div class="logistic-regression-panel-head">
           <h3>用 1,400 条短信自动训练模型（词表含 {run().vocabSize} 个词）</h3>
@@ -209,7 +212,7 @@ export function TrainPanel(props: {
           }}
           options={ETA_PRESETS.map((p) => ({
             value: String(p.eta),
-            label: <span>{p.label}</span>,
+            label: <MathText>{p.label}</MathText>,
           }))}
           value={
             ETA_PRESETS.find((p) => Math.abs(props.draft.eta - p.eta) < 0.0005)?.eta.toString() ??
@@ -220,7 +223,11 @@ export function TrainPanel(props: {
         <div class="logistic-regression-controls-grid">
           <div class="logistic-regression-control-card">
             <LabeledSlider
-              label="学习率 η（对数刻度）"
+              label={
+                <>
+                  学习率 <MathFormula>{String.raw`\eta`}</MathFormula>（对数刻度）
+                </>
+              }
               max={0.699}
               min={-3}
               onChange={(next) => updateEtaFromSlider(String(next))}
@@ -277,7 +284,9 @@ export function TrainPanel(props: {
                 {(stats().epoch0Acc * 100).toFixed(1)}%）
               </strong>
               <small class="logistic-regression-mono">
-                BCE Loss {stats().epoch0Loss.toFixed(4)}（p=0.5 按 p≥0.5 全判垃圾）
+                BCE Loss {stats().epoch0Loss.toFixed(4)}（
+                <MathFormula>{String.raw`p=0.5`}</MathFormula> 按{" "}
+                <MathFormula>{String.raw`p\ge0.5`}</MathFormula> 全判垃圾）
               </small>
             </div>
             <div class="logistic-regression-stat-box">
@@ -295,7 +304,8 @@ export function TrainPanel(props: {
               class={`logistic-regression-stat-box ${stats().beatsAccBaseline && stats().beatsBceBaseline ? "is-ok" : "is-warn"}`}
             >
               <span>
-                训练后（第 {finalEpoch().epoch} 轮 · η = {run().eta}）
+                训练后（第 {finalEpoch().epoch} 轮 ·{" "}
+                <MathFormula>{String.raw`\eta=${run().eta}`}</MathFormula>）
               </span>
               <strong class="logistic-regression-mono">
                 分对 {stats().finalCorrect} / {stats().valTotal} 条（
@@ -342,11 +352,17 @@ export function TrainPanel(props: {
 
         <div class="logistic-regression-target-strip">
           <div class={`logistic-regression-stat-box ${trOk() ? "is-ok" : "is-warn"}`}>
-            <span>最终训练损失（目标 ≤ {TRAIN_MAX_TRAIN_LOSS}）</span>
+            <span>
+              最终训练损失（目标{" "}
+              <MathFormula>{String.raw`\le ${TRAIN_MAX_TRAIN_LOSS}`}</MathFormula>）
+            </span>
             <strong class="logistic-regression-mono">{finalEpoch().trainLoss.toFixed(4)}</strong>
           </div>
           <div class={`logistic-regression-stat-box ${valOk() ? "is-ok" : "is-warn"}`}>
-            <span>最终验证损失（目标 ≤ {TRAIN_MAX_VAL_LOSS}）</span>
+            <span>
+              最终验证损失（目标 <MathFormula>{String.raw`\le ${TRAIN_MAX_VAL_LOSS}`}</MathFormula>
+              ）
+            </span>
             <strong class="logistic-regression-mono">{finalEpoch().valLoss.toFixed(4)}</strong>
           </div>
           <div class="logistic-regression-stat-box">
@@ -421,14 +437,32 @@ export function TrainPanel(props: {
             label="选择真实标签"
             onChange={(next) => setStepTrueY(next === "1" ? 1 : 0)}
             options={[
-              { value: "1", label: "垃圾短信（y = 1）" },
-              { value: "0", label: "正常短信（y = 0）" },
+              {
+                value: "1",
+                label: (
+                  <>
+                    垃圾短信（<MathFormula>{String.raw`y=1`}</MathFormula>）
+                  </>
+                ),
+              },
+              {
+                value: "0",
+                label: (
+                  <>
+                    正常短信（<MathFormula>{String.raw`y=0`}</MathFormula>）
+                  </>
+                ),
+              },
             ]}
             value={stepTrueY() === 1 ? "1" : "0"}
           />
           <LabeledSlider
             class="logistic-regression-inline-slider"
-            label="模型预测的垃圾概率 p"
+            label={
+              <>
+                模型预测的垃圾概率 <MathFormula>{String.raw`p`}</MathFormula>
+              </>
+            }
             max={0.98}
             min={0.02}
             onChange={setStepPredP}
@@ -484,8 +518,10 @@ export function TrainPanel(props: {
           trueY={stepTrueY()}
         />
         <p class="logistic-regression-muted-note">
-          代入上面的预测 p 和真实标签 y，就能算出这一条短信出现过的词要增加还是减少权重。
-          想追到导数怎么来、不同权重为什么有不同坡度，可以进入附加挑战「梯度维修台」继续拆解。
+          代入上面的预测 <MathFormula>{String.raw`p`}</MathFormula> 和真实标签{" "}
+          <MathFormula>{String.raw`y`}</MathFormula>
+          ，就能算出这一条短信出现过的词要增加还是减少权重。
+          想追到导数怎么来、不同权重为什么有不同坡度，可以进入选做挑战「梯度维修台」继续拆解。
         </p>
       </section>
 

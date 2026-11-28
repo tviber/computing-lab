@@ -1,3 +1,7 @@
+import { SubmissionFeedback } from "../../features/stats-foundations/ui/SubmissionFeedback";
+import { isMathJudgePart } from "../../features/logistic-regression/domain/mathContent";
+import { formatDateTime, formatFullDateTime } from "../../shared/ui/formatDateTime";
+import { MathText } from "../../shared/ui/MathFormula";
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from "@ui-sdk/solid/dialog";
@@ -110,14 +114,6 @@ function drawerChecks(summary: SubmissionDetail["testSummary"]): DrawerCheck[] {
     total: 1,
     detail: part.detail,
   }));
-}
-
-function timeOf(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? "—"
-    : `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }
 
 function CellView(props: {
@@ -603,7 +599,9 @@ export function TeacherDashboardPage() {
                                 );
                               }}
                             </For>
-                            <td>{timeOf(row.lastActiveAt)}</td>
+                            <td title={formatFullDateTime(row.lastActiveAt)}>
+                              {formatDateTime(row.lastActiveAt)}
+                            </td>
                             <Show when={isAdmin()}>
                               <td>
                                 <div class="matrix-row-actions">
@@ -710,9 +708,36 @@ export function TeacherDashboardPage() {
                               return (
                                 <li class={ok ? "is-pass" : "is-fail"}>
                                   <span>
-                                    {check.label}
+                                    <Show
+                                      when={
+                                        lab().id === "logistic-regression" &&
+                                        isMathJudgePart(check.id)
+                                      }
+                                      fallback={check.label}
+                                    >
+                                      <MathText>{check.label}</MathText>
+                                    </Show>
                                     <Show when={check.detail}>
-                                      {(det) => <small>{det()}</small>}
+                                      {(det) => (
+                                        <small>
+                                          <Switch fallback={det()}>
+                                            <Match when={lab().id === "stats-foundations"}>
+                                              <SubmissionFeedback
+                                                detail={det()}
+                                                summary={d().testSummary.detail ?? ""}
+                                              />
+                                            </Match>
+                                            <Match
+                                              when={
+                                                lab().id === "logistic-regression" &&
+                                                isMathJudgePart(check.id)
+                                              }
+                                            >
+                                              <MathText>{det()}</MathText>
+                                            </Match>
+                                          </Switch>
+                                        </small>
+                                      )}
                                     </Show>
                                   </span>
                                   <span class="drawer-category-score">
@@ -724,7 +749,9 @@ export function TeacherDashboardPage() {
                             }}
                           </For>
                         </ul>
-                        <p class="drawer-note">提交时间 {timeOf(d().submittedAt)}</p>
+                        <p class="drawer-note" title={formatFullDateTime(d().submittedAt)}>
+                          提交时间 {formatDateTime(d().submittedAt)}
+                        </p>
                       </>
                     )}
                   </Match>

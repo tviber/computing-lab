@@ -8,6 +8,7 @@ import {
   type GuardFailure,
   type Membership,
 } from "../http/context.ts";
+import { readJsonObject } from "../http/validation.ts";
 import {
   getOrCreateProject,
   loadRepairedProject,
@@ -127,7 +128,7 @@ export function labRoutes<TDraft, TOutcome extends object>(
   app.post("/reset", async (c) => {
     const auth = requireAccess(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
+    const body = await readJsonObject(c);
     if (body?.scope !== "lab" && body?.scope !== "stage") {
       return jsonError(c, 400, "invalid-reset-scope");
     }
@@ -174,10 +175,10 @@ export function labRoutes<TDraft, TOutcome extends object>(
   app.put("/draft", async (c) => {
     const auth = requireAccess(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
+    const body = await readJsonObject(c);
     const stageIndex = stageIndexOf(body);
-    if (stageIndex === null) return jsonError(c, 400, "invalid-stage");
-    const rawExpected = body?.expectedRevision;
+    if (stageIndex === null || !body) return jsonError(c, 400, "invalid-stage");
+    const rawExpected = body.expectedRevision;
     const expectedRevision = rawExpected === null ? 0 : rawExpected;
     if (
       typeof expectedRevision !== "number" ||
@@ -186,9 +187,9 @@ export function labRoutes<TDraft, TOutcome extends object>(
     ) {
       return jsonError(c, 400, "invalid-revision");
     }
-    const rawExpectedComponents = body?.expectedComponentsRevision;
+    const rawExpectedComponents = body.expectedComponentsRevision;
     const expectedComponentsRevision = rawExpectedComponents === null ? 0 : rawExpectedComponents;
-    if (spec.usesComponents && body?.components !== undefined) {
+    if (spec.usesComponents && body.components !== undefined) {
       if (
         typeof expectedComponentsRevision !== "number" ||
         !Number.isInteger(expectedComponentsRevision) ||
@@ -204,7 +205,7 @@ export function labRoutes<TDraft, TOutcome extends object>(
       db,
       projectOf(db, auth),
       stageIndex,
-      body as Record<string, unknown>,
+      body,
       expectedRevision,
       expectedComponentsRevision as number | undefined,
       expectedGeneration,
@@ -227,9 +228,9 @@ export function labRoutes<TDraft, TOutcome extends object>(
   app.post("/judge", async (c) => {
     const auth = requireAccess(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
+    const body = await readJsonObject(c);
     const stageIndex = stageIndexOf(body);
-    if (stageIndex === null) return jsonError(c, 400, "invalid-stage");
+    if (stageIndex === null || !body) return jsonError(c, 400, "invalid-stage");
     const expectedGeneration = parseRequiredGeneration(body);
     if (expectedGeneration === null) return jsonError(c, 400, "invalid-generation");
     const db = c.get("db");
@@ -237,7 +238,7 @@ export function labRoutes<TDraft, TOutcome extends object>(
     if (project.projectGeneration !== expectedGeneration) {
       return jsonError(c, 409, "stale-project-generation");
     }
-    const outcome = spec.judge(db, project, stageIndex, body as Record<string, unknown>, {
+    const outcome = spec.judge(db, project, stageIndex, body, {
       staff: canNavigateFreely(auth),
     });
     if ("error" in outcome) {

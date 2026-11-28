@@ -1,5 +1,6 @@
 import { Hono } from "hono";
 import { jsonError, requireStaff, type AppVariables } from "../http/context.ts";
+import { readJsonObject } from "../http/validation.ts";
 import { newId, parseJsonColumn } from "../db/client.ts";
 import {
   SHEET_LIMITS,
@@ -63,9 +64,9 @@ export function taskSheetRoutes() {
   app.post("/", async (c) => {
     const auth = requireStaff(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
-    const title = (body as { title?: unknown })?.title;
-    const description = (body as { description?: unknown })?.description;
+    const body = await readJsonObject(c);
+    const title = body?.title;
+    const description = body?.description;
     if (!validTitle(title)) return jsonError(c, 400, "invalid-title");
     if (!validDescription(description)) return jsonError(c, 400, "invalid-description");
     const id = newId();
@@ -134,9 +135,8 @@ export function taskSheetRoutes() {
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
     const row = getSheet(c, c.req.param("id"));
     if (!row || !canTouch(auth.user, row)) return jsonError(c, 404, "sheet-not-found");
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body !== "object") return jsonError(c, 400, "invalid-body");
-    const patch = body as Record<string, unknown>;
+    const patch = await readJsonObject(c);
+    if (!patch) return jsonError(c, 400, "invalid-body");
 
     let title = row.title;
     let description = row.description;
