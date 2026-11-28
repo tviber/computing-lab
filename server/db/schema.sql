@@ -1,6 +1,6 @@
 -- Minimal Lab Runtime schema (SQLite / node:sqlite).
 -- Mirrors the spec'd Prisma models one-to-one; naming is snake_case.
--- Additive changes only: bump PRAGMA user_version and add a migration step in client.ts.
+-- Additive changes only: bump PRAGMA user_version and add a step in migrations.ts.
 
 CREATE TABLE IF NOT EXISTS users (
   id            TEXT PRIMARY KEY,

@@ -35,6 +35,8 @@ LAB_DB_PATH=/path/to/lab.db LAB_HOST=127.0.0.1 LAB_PORT=8788 bun run start:serve
 必须让初始化与运行时使用同一个 `LAB_DB_PATH`。请通过环境注入管理员/教师密码，
 演示种子不适合作为生产账号配置。配置项参见 `.env.example`。
 未设置 `LAB_DB_PATH` 时，数据库默认写入包根目录的 `data/lab.db`，与启动时的工作目录无关。
+数据库升级支持边界、历史迁移保留策略和新增迁移步骤约定见
+[database-migrations.md](./database-migrations.md)。
 
 API 进程同时提供 `dist-classroom/` 的页面回退；拆分部署则将 `/api/*` 代理到 API，
 静态资源和其他页面路径转交校内 SPA。同源代理保留原有会话认证和权限验证。
