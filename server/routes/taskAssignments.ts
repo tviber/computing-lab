@@ -149,6 +149,18 @@ function isoDate(value: unknown): value is string {
   return typeof value === "string" && !Number.isNaN(new Date(value).getTime());
 }
 
+/** Compare instants, not formatted timestamps: dueAt may carry a UTC offset. */
+export function isLateSubmission(submittedAt: string | null, dueAt: string | null): boolean {
+  if (submittedAt === null || dueAt === null) return false;
+  const submitted = Date.parse(submittedAt);
+  const due = Date.parse(dueAt);
+  return Number.isFinite(submitted) && Number.isFinite(due) && submitted > due;
+}
+
+export function isValidReviewScore(score: unknown, max: number): score is number {
+  return typeof score === "number" && Number.isFinite(score) && score >= 0 && score <= max;
+}
+
 function assignmentMeta(row: AssignmentRow, schema: SheetSchema) {
   return {
     id: row.id,
@@ -413,43 +425,65 @@ export function taskAssignmentRoutes() {
     const row = assignmentOf(db, auth.membership.classId, c.req.param("id"));
     if (!row || row.archived === 1) return jsonError(c, 404, "assignment-not-found");
     const schema = assignmentSchema(row);
-    const existing = responseOf(db, row.id, auth.user.id);
-    if (existing && (existing.status === "submitted" || existing.status === "reviewed")) {
-      return jsonError(c, 409, "response-locked");
-    }
-    const resp = withTransaction(
-      db,
-      () => existing ?? getOrCreateResponse(db, row.id, auth.user.id),
-    );
-    const answers = parseJsonColumn<AnswerMap>(resp.answers_json, {});
-    const invalid = validateAnswers(schema, answers);
-    if (invalid) return jsonError(c, 400, invalid);
+    type SubmitOutcome =
+      | { kind: "locked" }
+      | { kind: "invalid"; error: string }
+      | {
+          kind: "ok";
+          autoScore: number;
+          autoTotal: number;
+          grading: ReturnType<typeof publicGrading>;
+          finalScore: number;
+          finalTotal: number;
+        };
 
-    const graded = autoGrade(schema, answers);
-    const review = parseReview(null);
-    const { finalScore, finalTotal } = recomputeFinal(schema, graded.perQuestion, review);
-    db.prepare(
-      `UPDATE task_responses
-       SET status = 'submitted', submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
-           auto_score = ?, auto_total = ?, grading_json = ?, review_json = NULL,
-           reviewed_by = NULL, reviewed_at = NULL, final_score = ?, final_total = ?,
-           updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
-       WHERE id = ?`,
-    ).run(
-      graded.autoScore,
-      graded.autoTotal,
-      JSON.stringify(graded.perQuestion),
-      finalScore,
-      finalTotal,
-      resp.id,
-    );
+    const outcome = withTransaction(db, (): SubmitOutcome => {
+      const current = responseOf(db, row.id, auth.user.id);
+      if (current && (current.status === "submitted" || current.status === "reviewed")) {
+        return { kind: "locked" };
+      }
+      const answers = parseJsonColumn<AnswerMap>(current?.answers_json ?? null, {});
+      const invalid = validateAnswers(schema, answers);
+      if (invalid) return { kind: "invalid", error: invalid };
+
+      const resp = current ?? getOrCreateResponse(db, row.id, auth.user.id);
+      const graded = autoGrade(schema, answers);
+      const review = parseReview(null);
+      const { finalScore, finalTotal } = recomputeFinal(schema, graded.perQuestion, review);
+      const grading = publicGrading(graded.perQuestion);
+      db.prepare(
+        `UPDATE task_responses
+         SET status = 'submitted', submitted_at = strftime('%Y-%m-%dT%H:%M:%fZ','now'),
+             auto_score = ?, auto_total = ?, grading_json = ?, review_json = NULL,
+             reviewed_by = NULL, reviewed_at = NULL, final_score = ?, final_total = ?,
+             updated_at = strftime('%Y-%m-%dT%H:%M:%fZ','now')
+         WHERE id = ?`,
+      ).run(
+        graded.autoScore,
+        graded.autoTotal,
+        JSON.stringify(graded.perQuestion),
+        finalScore,
+        finalTotal,
+        resp.id,
+      );
+      return {
+        kind: "ok",
+        autoScore: graded.autoScore,
+        autoTotal: graded.autoTotal,
+        grading,
+        finalScore,
+        finalTotal,
+      };
+    });
+    if (outcome.kind === "locked") return jsonError(c, 409, "response-locked");
+    if (outcome.kind === "invalid") return jsonError(c, 400, outcome.error);
     return c.json({
       ok: true,
-      autoScore: graded.autoScore,
-      autoTotal: graded.autoTotal,
-      grading: publicGrading(graded.perQuestion),
-      finalScore,
-      finalTotal,
+      autoScore: outcome.autoScore,
+      autoTotal: outcome.autoTotal,
+      grading: outcome.grading,
+      finalScore: outcome.finalScore,
+      finalTotal: outcome.finalTotal,
     });
   });
 
@@ -491,7 +525,7 @@ export function taskAssignmentRoutes() {
       rows: rows.map((r) => ({
         ...r,
         status: r.status ?? "not_started",
-        late: row.due_at !== null && r.submittedAt !== null && r.submittedAt > row.due_at,
+        late: isLateSubmission(r.submittedAt, row.due_at),
       })),
     });
   });
@@ -570,7 +604,7 @@ export function taskAssignmentRoutes() {
         const next = { ...(review.questions[qid] ?? {}) };
         if (entry.score !== undefined) {
           const max = q.type === "short" ? q.maxScore : q.score;
-          if (typeof entry.score !== "number" || entry.score < 0 || entry.score > max) {
+          if (!isValidReviewScore(entry.score, max)) {
             return jsonError(c, 400, "invalid-review-score");
           }
           next.score = entry.score;
