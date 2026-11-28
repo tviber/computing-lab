@@ -403,4 +403,128 @@ describe("TeacherDashboardPage", () => {
     await Promise.resolve();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
+
+  it("keeps the newest class matrix when an older response resolves late", async () => {
+    let resolveOld!: (response: Response) => void;
+    const oldMatrix = new Promise<Response>((resolve) => {
+      resolveOld = resolve;
+    });
+    const row = (studentNo: string, name: string) => ({
+      userId: studentNo,
+      studentNo,
+      name,
+      currentStage: 1,
+      cells: {},
+      lastActiveAt: null,
+    });
+    const fetchMock = vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const path = String(input);
+      if (path.endsWith("/api/labs")) return Promise.resolve(Response.json({ labs: [] }));
+      if (path.includes("/api/classes/c11/dashboard")) return oldMatrix;
+      return Promise.resolve(
+        Response.json({
+          classId: "c12",
+          className: "2026-高二信息技术-12",
+          rows: [row("001", "新班级学生")],
+        }),
+      );
+    });
+
+    await renderAppAt("/classes/c11/dashboard?lab=calculator", { auth: multiClassTeacher });
+    await waitFor(() =>
+      expect(
+        fetchMock.mock.calls.some(([url]) => String(url).includes("/api/classes/c11/dashboard")),
+      ).toBe(true),
+    );
+    await userEvent.selectOptions(screen.getByRole("combobox", { name: "选择班级" }), "c12");
+    expect(await screen.findByText("新班级学生")).toBeInTheDocument();
+
+    resolveOld(
+      Response.json({
+        classId: "c11",
+        className: "2026-高二信息技术-11",
+        rows: [row("002", "旧班级学生")],
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("旧班级学生")).not.toBeInTheDocument());
+    expect(screen.getByText("新班级学生")).toBeInTheDocument();
+  });
+
+  it("does not let a closed submission response overwrite a newer detail", async () => {
+    let resolveOld!: (response: Response) => void;
+    const oldDetail = new Promise<Response>((resolve) => {
+      resolveOld = resolve;
+    });
+    const cell = (stageIndex: number, score: number, total: number, submissionId: string) => ({
+      stageIndex,
+      score,
+      total,
+      passed: false,
+      submissionId,
+      submittedAt: "2026-10-11T00:00:00.000Z",
+    });
+    vi.spyOn(globalThis, "fetch").mockImplementation((input) => {
+      const path = String(input);
+      if (path.endsWith("/api/labs")) return Promise.resolve(Response.json({ labs: [] }));
+      if (path.includes("/submissions/old")) return oldDetail;
+      if (path.includes("/submissions/new")) {
+        return Promise.resolve(
+          Response.json({
+            id: "new",
+            studentNo: "002",
+            name: "新详情",
+            stageIndex: 2,
+            score: 2,
+            total: 3,
+            passed: false,
+            submittedAt: "2026-10-11T00:05:00.000Z",
+            testSummary: { parts: [{ id: "new-part", label: "新结果", ok: false }] },
+          }),
+        );
+      }
+      return Promise.resolve(
+        Response.json({
+          classId: "c11",
+          className: "2026-高二信息技术-11",
+          rows: [
+            {
+              userId: "u1",
+              studentNo: "001",
+              name: "学生",
+              currentStage: 2,
+              cells: {
+                1: cell(1, 1, 2, "old"),
+                2: cell(2, 2, 3, "new"),
+              },
+              lastActiveAt: null,
+            },
+          ],
+        }),
+      );
+    });
+
+    await renderAppAt("/classes/c11/dashboard?lab=decoding", { auth: multiClassTeacher });
+    await userEvent.click(await screen.findByRole("button", { name: "1/2" }));
+    expect(await screen.findByRole("dialog")).toBeInTheDocument();
+    await userEvent.click(screen.getByRole("button", { name: "关闭详情" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+
+    await userEvent.click(screen.getByRole("button", { name: "2/3" }));
+    expect(await screen.findByText("新结果")).toBeInTheDocument();
+    resolveOld(
+      Response.json({
+        id: "old",
+        studentNo: "001",
+        name: "旧详情",
+        stageIndex: 1,
+        score: 1,
+        total: 2,
+        passed: false,
+        submittedAt: "2026-10-11T00:00:00.000Z",
+        testSummary: { parts: [{ id: "old-part", label: "旧结果", ok: false }] },
+      }),
+    );
+    await waitFor(() => expect(screen.queryByText("旧结果")).not.toBeInTheDocument());
+    expect(screen.getByText("新结果")).toBeInTheDocument();
+  });
 });
