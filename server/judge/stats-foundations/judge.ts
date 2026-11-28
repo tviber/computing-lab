@@ -55,6 +55,8 @@ export function judgeStatsFoundationsSubmission(
             label: gated.stage.title,
             ok: passed,
             detail: `${feedback}（${summary.detail}）`,
+            feedback,
+            answerSummary: summary.detail,
           },
         ],
       },

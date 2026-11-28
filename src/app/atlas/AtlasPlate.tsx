@@ -1,4 +1,3 @@
-import { MathText } from "../../shared/ui/MathFormula";
 import type { JSX } from "@solidjs/web";
 import { createMemo, For, Show } from "solid-js";
 import {
@@ -248,7 +247,7 @@ const specimenDefinitions: Record<Specimen, SpecimenDefinition> = {
     ),
   },
   "coin-toss": {
-    spec: "$\\hat p=7/10$",
+    spec: "p̂ = 7/10",
     art: () => (
       <g>
         <g fill="var(--primary)" font-size="11" text-anchor="end">
@@ -271,7 +270,7 @@ const specimenDefinitions: Record<Specimen, SpecimenDefinition> = {
     ),
   },
   curve: {
-    spec: "$\\sigma(z)$ · CLASSIFY",
+    spec: "σ(z) · CLASSIFY",
     art: () => (
       <g fill="none" stroke-linecap="round" stroke-linejoin="round">
         <path d="M46 16v60h150" stroke="var(--border-strong)" stroke-width="1.4" />
@@ -459,9 +458,7 @@ export function AtlasPlate(props: { labId: LabId; featured?: boolean }) {
       <svg aria-hidden="true" class="atlas-drawing" viewBox="0 0 240 96">
         {definition().art()}
       </svg>
-      <span class="atlas-spec">
-        <MathText>{definition().spec}</MathText>
-      </span>
+      <span class="atlas-spec">{definition().spec}</span>
     </figure>
   );
 }

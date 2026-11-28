@@ -66,6 +66,8 @@ test("a student resumes a saved fit and completes all four statistics stages", a
   expect(submission.testSummary.parts[0]).toMatchObject({
     ok: false,
     detail: expect.stringContaining("MSE"),
+    feedback: expect.stringContaining("MSE"),
+    answerSummary: submission.testSummary.detail,
   });
 
   const otherTab = await page.context().newPage();

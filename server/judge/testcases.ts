@@ -39,8 +39,8 @@ function threeInputCases(
 
 function wireCases(): JudgeCase[] {
   return [
-    bitCase("$A=0$", "basic", { A: 0 }, { Y: 0 }),
-    bitCase("$A=1$", "basic", { A: 1 }, { Y: 1 }),
+    bitCase("A = 0", "basic", { A: 0 }, { Y: 0 }),
+    bitCase("A = 1", "basic", { A: 1 }, { Y: 1 }),
   ];
 }
 
@@ -59,7 +59,7 @@ function halfAdderCases(): JudgeCase[] {
     for (const b of [0, 1] as const)
       cases.push(
         bitCase(
-          `$${a}+${b}$`,
+          `${a}+${b}`,
           "basic",
           { A: a, B: b },
           { Sum: (a ^ b) as Bit, Carry: (a & b) as Bit },
@@ -76,7 +76,7 @@ function fullAdderCases(): JudgeCase[] {
         const total = a + b + cin;
         cases.push(
           bitCase(
-            `$${a}+${b}+${cin}$`,
+            `${a}+${b}+${cin}`,
             cin === 1 ? "carry-in" : "basic",
             { A: a, B: b, Cin: cin },
             { Sum: (total & 1) as Bit, Cout: (total >> 1) as Bit },
@@ -109,7 +109,7 @@ function add4Cases(): JudgeCase[] {
             : (a & b) !== 0
               ? "carry-chain"
               : "basic";
-      cases.push(add4(a, b, `$${a}+${b}$`, cat));
+      cases.push(add4(a, b, `${a}+${b}`, cat));
     }
   return cases;
 }
@@ -119,7 +119,7 @@ function neg4Cases(): JudgeCase[] {
   for (let a = 0; a < 16; a += 1) {
     const r = -a & 0xf;
     const category = a === 0 ? "zero" : a === 8 ? "sign-boundary" : a === 15 ? "max" : "basic";
-    cases.push(bitCase(`$-${a}$`, category, nib("A", a), nib("R", r)));
+    cases.push(bitCase(`-${a}`, category, nib("A", a), nib("R", r)));
   }
   return cases;
 }
@@ -140,7 +140,7 @@ function sub4Cases(): JudgeCase[] {
             : a === 15 || b === 15
               ? "max"
               : "basic";
-      cases.push(sub4(a, b, `$${a}-${b}$`, cat));
+      cases.push(sub4(a, b, `${a}-${b}`, cat));
     }
   return cases;
 }
@@ -164,7 +164,7 @@ function mul4Cases(): JudgeCase[] {
               : powerShift
                 ? "power-shift"
                 : "basic";
-      cases.push(mul4(a, b, `$${a}\\times${b}$`, cat));
+      cases.push(mul4(a, b, `${a}×${b}`, cat));
     }
   return cases;
 }

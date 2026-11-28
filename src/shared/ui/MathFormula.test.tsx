@@ -100,4 +100,36 @@ describe("explicit classroom math", () => {
     expect(view.container.querySelector("annotation")).not.toHaveTextContent("x^2");
     expect(view.container.querySelector("a")).toBeNull();
   });
+
+  it("prefers structured feedback and keeps the separately stored answer literal", () => {
+    const summary = String.raw`$P(\text{真下雨})$ <img src=x>`;
+    const view = render(() => (
+      <SubmissionFeedback
+        detail="outdated combined text"
+        summary="outdated summary"
+        feedback={String.raw`请核对 $P(\text{真下雨})$。`}
+        answerSummary={summary}
+      />
+    ));
+    expect(view.container.querySelectorAll("math")).toHaveLength(1);
+    expect(view.container).toHaveTextContent(summary);
+    expect(view.container).not.toHaveTextContent("outdated");
+    expect(view.container.querySelector("img")).toBeNull();
+  });
+
+  it.each(["", "historical summary with changed formatting"])(
+    "keeps legacy feedback readable without an exact summary suffix: %s",
+    (summary) => {
+      const view = render(() => (
+        <SubmissionFeedback
+          detail={String.raw`请核对 $P(\text{真下雨})$、$P(\text{真下雨}\mid\text{预报下雨})$。答案：$x^2$`}
+          summary={summary}
+        />
+      ));
+      expect(view.container).toHaveTextContent(
+        "请核对 P(真下雨)、P(真下雨 | 预报下雨)。答案：$x^2$",
+      );
+      expect(view.container.querySelector("math")).toBeNull();
+    },
+  );
 });

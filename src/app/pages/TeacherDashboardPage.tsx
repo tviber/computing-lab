@@ -1,6 +1,5 @@
-import { SubmissionFeedback } from "../../features/stats-foundations/ui/SubmissionFeedback";
-import { isMathJudgePart } from "../../features/logistic-regression/domain/mathContent";
-import { MathText } from "../../shared/ui/MathFormula";
+import { dynamic } from "@solidjs/web";
+import type { SubmissionCheck } from "../../shared/lab/submissionPresentation";
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from "@ui-sdk/solid/dialog";
@@ -35,6 +34,7 @@ type LabOption = {
   title: string;
   stages: readonly DashboardStage[];
   supportsCanvasPreview: boolean;
+  submissionCheck?: AppLabEntry["submissionCheck"];
 };
 
 const LAB_OPTIONS: LabOption[] = LAB_IDS.map((id) => {
@@ -44,6 +44,7 @@ const LAB_OPTIONS: LabOption[] = LAB_IDS.map((id) => {
     title: labMetadata[id].title,
     stages: appLab.dashboardStages,
     supportsCanvasPreview: appLab.supportsCanvasPreview ?? false,
+    submissionCheck: appLab.submissionCheck,
   };
 });
 
@@ -78,15 +79,13 @@ type SubmissionDetail = {
   submittedAt: string;
   testSummary: {
     categories?: Record<string, { passed: number; total: number }>;
-    parts?: { id: string; label: string; ok: boolean; detail: string | null }[];
+    parts?: (SubmissionCheck & { ok: boolean })[];
     error?: string | null;
     detail?: string;
   };
 };
 
-type DrawerCheck = {
-  id: string;
-  label: string;
+type DrawerCheck = SubmissionCheck & {
   passed: number;
   total: number;
   detail?: string | null;
@@ -112,6 +111,8 @@ function drawerChecks(summary: SubmissionDetail["testSummary"]): DrawerCheck[] {
     passed: part.ok ? 1 : 0,
     total: 1,
     detail: part.detail,
+    feedback: part.feedback,
+    answerSummary: part.answerSummary,
   }));
 }
 
@@ -710,39 +711,25 @@ export function TeacherDashboardPage() {
                           <For each={drawerChecks(d().testSummary)}>
                             {(check) => {
                               const ok = check.passed === check.total;
+                              const CheckContent = dynamic(() => lab().submissionCheck);
                               return (
                                 <li class={ok ? "is-pass" : "is-fail"}>
                                   <span>
                                     <Show
-                                      when={
-                                        lab().id === "logistic-regression" &&
-                                        isMathJudgePart(check.id)
+                                      when={lab().submissionCheck}
+                                      fallback={
+                                        <>
+                                          {check.label}
+                                          <Show when={check.detail}>
+                                            {(detail) => <small>{detail()}</small>}
+                                          </Show>
+                                        </>
                                       }
-                                      fallback={check.label}
                                     >
-                                      <MathText>{check.label}</MathText>
-                                    </Show>
-                                    <Show when={check.detail}>
-                                      {(det) => (
-                                        <small>
-                                          <Switch fallback={det()}>
-                                            <Match when={lab().id === "stats-foundations"}>
-                                              <SubmissionFeedback
-                                                detail={det()}
-                                                summary={d().testSummary.detail ?? ""}
-                                              />
-                                            </Match>
-                                            <Match
-                                              when={
-                                                lab().id === "logistic-regression" &&
-                                                isMathJudgePart(check.id)
-                                              }
-                                            >
-                                              <MathText>{det()}</MathText>
-                                            </Match>
-                                          </Switch>
-                                        </small>
-                                      )}
+                                      <CheckContent
+                                        check={check}
+                                        summary={d().testSummary.detail}
+                                      />
                                     </Show>
                                   </span>
                                   <span class="drawer-category-score">

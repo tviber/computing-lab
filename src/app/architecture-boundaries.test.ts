@@ -268,6 +268,7 @@ function runtimeDependencies(
 
 it("does not load feature UI or secondary route pages in the initial module graph", () => {
   const dependencies = runtimeDependencies(join(srcRoot, "main.tsx"), false);
+  expect([...dependencies]).not.toContain(join(sharedRoot, "ui/MathFormula.tsx"));
   const initialPages = new Set(["HomePage", "NotFoundPage", "LabErrorPage", "LabRedirectPage"]);
   const unexpected = [...dependencies]
     .map((file) => relative(srcRoot, file).split(sep))

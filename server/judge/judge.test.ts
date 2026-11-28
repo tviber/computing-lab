@@ -519,3 +519,11 @@ describe("judge persistence and unlocking", () => {
     expect(reloaded.unlockedSubmodules).toEqual([]);
   });
 });
+
+it("keeps server testcase names readable without TeX markup", () => {
+  for (const stage of CALCULATOR_STAGES) {
+    for (const testcase of hiddenTestsFor(stage.index)) {
+      expect(testcase.name).not.toMatch(/[$\\]/);
+    }
+  }
+});

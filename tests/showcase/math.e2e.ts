@@ -10,8 +10,8 @@ function watchErrors(page: Page) {
 }
 
 async function openStage(page: Page, labId: string, stage: number) {
-  await page.goto(`/labs/${labId}`);
-  await expect(page.getByRole("heading", { name: "本关任务", exact: true })).toBeVisible();
+  // Seed before mounting the lab so its autosave cannot overwrite the fixture.
+  await page.goto("/");
   await page.evaluate(
     ({ labId, stage }) => {
       localStorage.setItem(
@@ -31,8 +31,10 @@ async function openStage(page: Page, labId: string, stage: number) {
     },
     { labId, stage },
   );
-  await page.reload();
-  await expect(page).toHaveURL(new RegExp(`/labs/${labId}`));
+  // Optional stages (e.g. logistic regression 6) are selected explicitly;
+  // currentStage alone resumes the lab's mainline stage.
+  await page.goto(`/labs/${labId}?stage=${stage}`);
+  await expect(page).toHaveURL(new RegExp(`/labs/${labId}\\?stage=${stage}$`));
   await expect(page).not.toHaveTitle("");
   await expect(page.getByRole("heading", { name: "本关任务", exact: true })).toBeVisible();
   await expect(page.locator("main math").first()).toBeAttached();

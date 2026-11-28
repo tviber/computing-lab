@@ -237,6 +237,7 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
             ? "已经靠近区间最低点。"
             : "与区间最低点仍有差距（可能学习率/轮数尚未收敛或波动较大）。"}
         </Show>
+        <Show when={contextMode() === "zero"}>其余参数全为 0 时，</Show>
         当前绘图区间内的最低点位于{" "}
         <MathFormula>{String.raw`w^*\approx ${fmtSigned(curve().minPoint.w, 2)}`}</MathFormula>。
       </p>

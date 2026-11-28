@@ -4,8 +4,10 @@
 
 动态算式用 `MathFormula`，仅插入经过领域层验证的数字、数值格式化结果或固定符号。学生输入、任务单、运行错误、任意 API 文本不可交给 `MathText` 或插入 TeX。混合内容应在 JSX 中拆开；教师查看统计提交时，系统反馈与原始答案摘要分别渲染。逻辑回归只对明确的数值判题项启用公式。
 
-独立推导用 `display`。共享样式限制公式宽度并允许横向滚动，保留完整公式，不用省略号裁掉运算符。KaTeX 保留 `trust: false`、`throwOnError: false` 和 `htmlAndMathml`，不要隐藏 MathML。
+行内公式保持 inline 与文字基线对齐；独立推导用 `display`。仅块级公式限制宽度并允许横向滚动，保留完整公式，不用省略号裁掉运算符。KaTeX 保留 `trust: false`、`throwOnError: false` 和 `htmlAndMathml`，不要隐藏 MathML。
 
 SVG 的刻度、简短描述、原生 `title` 和 `select` 选项保留文本。需要完整排版的公式放在相邻 HTML 标注中，不能在 SVG `text` 中插入 HTML/KaTeX。
 
 添加课程公式后，运行 `MathFormula.test.tsx` 和相关实验测试；浏览器检查应覆盖滑块更新、答错提示/答对讲解、判题反馈与窄屏，确认没有 `.katex-error`、裸公式分隔符或页面横向溢出。
+
+首页封面角标与判题用例名称保持纯文本。教师提交详情的实验渲染器由 `APP_LABS.submissionCheck` 懒加载注册；统计提交分别保存 `feedback` 和 `answerSummary`，不从新记录的拼接文本反推字段。历史记录仅在摘要后缀精确匹配时拆分；不匹配时用纯文本展示已知系统公式，其他内容不作为 TeX 解析。
