@@ -602,6 +602,7 @@ export function taskAssignmentRoutes() {
     const patch = body;
     const schema = assignmentSchema(row);
     const requested: ReviewPatch = { questions: {} };
+    let commentProvided = false;
 
     if (patch.questions && typeof patch.questions === "object") {
       for (const [qid, entry] of Object.entries(patch.questions)) {
@@ -623,6 +624,7 @@ export function taskAssignmentRoutes() {
       }
     }
     if (patch.comment !== undefined) {
+      commentProvided = true;
       requested.comment =
         typeof patch.comment === "string" ? patch.comment.slice(0, 2000) : undefined;
     }
@@ -648,7 +650,7 @@ export function taskAssignmentRoutes() {
       for (const [qid, entry] of Object.entries(requested.questions)) {
         review.questions[qid] = { ...(review.questions[qid] ?? {}), ...entry };
       }
-      if (requested.comment !== undefined) review.comment = requested.comment;
+      if (commentProvided) review.comment = requested.comment;
       const { finalScore, finalTotal } = recomputeFinal(schema, grading, review);
       db.prepare(
         `UPDATE task_responses
