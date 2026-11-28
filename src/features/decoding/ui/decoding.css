@@ -16,23 +16,9 @@
   min-width: 0;
 }
 
-/* Rail counters and the late-challenge group reuse the cpu rail's markup. */
-.cpu-rail-count {
+.lab-rail-count {
   color: var(--muted);
   font-size: 11px;
-}
-
-.cpu-rail-challenges {
-  margin-top: 14px;
-}
-
-.cpu-rail-group {
-  color: var(--muted);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  padding: 0 10px 4px;
-  text-transform: uppercase;
 }
 
 .decoder-console {

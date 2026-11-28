@@ -6,6 +6,7 @@ import {
   requireStaff,
   type AppVariables,
 } from "../http/context.ts";
+import { readBoolean, readJsonObject } from "../http/validation.ts";
 import { labInfo, setLabClassOpen, teacherLabView } from "../labs.ts";
 
 /**
@@ -43,10 +44,9 @@ export function teacherRoutes() {
     if (!labInfo(labId)) return jsonError(c, 404, "unknown-lab");
     const auth = requireMembership(c, "teacher");
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
-    const open =
-      body && typeof body === "object" ? (body as Record<string, unknown>).open : undefined;
-    if (typeof open !== "boolean") return jsonError(c, 400, "invalid-body");
+    const body = await readJsonObject(c);
+    const open = body ? readBoolean(body, "open") : null;
+    if (open === null) return jsonError(c, 400, "invalid-body");
     const classId = auth.membership.classId;
     setLabClassOpen(c.get("db"), labId, classId, open);
     return c.json({ labId, classId, open });

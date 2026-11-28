@@ -67,7 +67,7 @@ export const LUNCH_STAGES: LunchStageDef[] = [
   {
     index: 5,
     id: "compensate",
-    title: "附加挑战",
+    title: "补偿超时单",
     task: "晚高峰结束后，有 11 张问题单要补偿。先在三张典型单上比较补偿的代价，再写 compensate 规则处理全部问题单。",
     judgeNote:
       "判题程序会用同一轮先来先做的结果找到这 11 张问题单，再按你的函数逐张计算差评率和花费。预计差评和总花费都在线内才过关。",

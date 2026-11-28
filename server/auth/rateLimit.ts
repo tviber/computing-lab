@@ -8,26 +8,62 @@ export class SlidingWindowLimiter {
   private readonly hits = new Map<string, number[]>();
   private readonly max: number;
   private readonly windowMs: number;
+  private lastSweepAt: number | null = null;
 
   constructor(max: number, windowMs: number) {
     this.max = max;
     this.windowMs = windowMs;
   }
 
-  private prune(key: string): number[] {
-    const cutoff = Date.now() - this.windowMs;
-    const list = (this.hits.get(key) ?? []).filter((at) => at > cutoff);
-    this.hits.set(key, list);
+  /** Number of keys currently retained in the map (intended for tests). */
+  get size(): number {
+    return this.hits.size;
+  }
+
+  private sweepIfDue(now: number): void {
+    if (this.lastSweepAt === null) {
+      this.lastSweepAt = now;
+      return;
+    }
+    if (now - this.lastSweepAt < this.windowMs) return;
+    this.lastSweepAt = now;
+    const cutoff = now - this.windowMs;
+    for (const [key, timestamps] of this.hits) {
+      const active = timestamps.filter((at) => at > cutoff);
+      if (active.length === 0) {
+        this.hits.delete(key);
+      } else if (active.length !== timestamps.length) {
+        this.hits.set(key, active);
+      }
+    }
+  }
+
+  private prune(key: string, now: number): number[] {
+    const existing = this.hits.get(key);
+    if (!existing) return [];
+    const cutoff = now - this.windowMs;
+    const list = existing.filter((at) => at > cutoff);
+    if (list.length === 0) {
+      this.hits.delete(key);
+    } else if (list.length !== existing.length) {
+      this.hits.set(key, list);
+    }
     return list;
   }
 
   /** True once `max` hits within the window have already been recorded. */
   exceeded(key: string): boolean {
-    return this.prune(key).length >= this.max;
+    const now = Date.now();
+    this.sweepIfDue(now);
+    return this.prune(key, now).length >= this.max;
   }
 
   hit(key: string): void {
-    this.prune(key).push(Date.now());
+    const now = Date.now();
+    this.sweepIfDue(now);
+    const list = this.prune(key, now);
+    list.push(now);
+    this.hits.set(key, list);
   }
 
   reset(key: string): void {

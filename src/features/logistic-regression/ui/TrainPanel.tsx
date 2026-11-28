@@ -174,7 +174,7 @@ export function TrainPanel(props: {
           <MathFormula>{String.raw`(p-y)x_j`}</MathFormula>，其中{" "}
           <MathFormula>{String.raw`p`}</MathFormula> 是预测的垃圾概率，
           <MathFormula>{String.raw`y`}</MathFormula>
-          是真实标签。 这一关先观察模型如何用它更新权重；完整求导和单权重切片放在附加挑战里。
+          是真实标签。 这一关先观察模型如何用它更新权重；完整求导和单权重切片放在选做挑战里。
         </p>
         <div class="logistic-regression-panel-head">
           <h3>用 1,400 条短信自动训练模型（词表含 {run().vocabSize} 个词）</h3>
@@ -521,7 +521,7 @@ export function TrainPanel(props: {
           代入上面的预测 <MathFormula>{String.raw`p`}</MathFormula> 和真实标签{" "}
           <MathFormula>{String.raw`y`}</MathFormula>
           ，就能算出这一条短信出现过的词要增加还是减少权重。
-          想追到导数怎么来、不同权重为什么有不同坡度，可以进入附加挑战「梯度维修台」继续拆解。
+          想追到导数怎么来、不同权重为什么有不同坡度，可以进入选做挑战「梯度维修台」继续拆解。
         </p>
       </section>
 
@@ -553,7 +553,7 @@ export function TrainPanel(props: {
       />
       <Show when={props.passed}>
         <Button class="button button-ghost" onClick={() => props.onBonusStage()} type="button">
-          可选挑战：揭开引擎盖，亲手写 4 行梯度下降 ↗
+          选做挑战：揭开引擎盖，亲手写 4 行梯度下降 ↗
         </Button>
       </Show>
     </div>

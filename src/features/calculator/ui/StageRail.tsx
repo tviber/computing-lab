@@ -1,7 +1,6 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, For, Show } from "solid-js";
-import { StageLink } from "../../../shared/lab/StageRail";
-import { Disclosure } from "../../../shared/ui/Disclosure";
+import { OptionalChallengeGroup, StageLink } from "../../../shared/lab/StageRail";
 import { Icon } from "../../../shared/ui/Icon";
 import type { ComponentDef } from "../domain/graph";
 import {
@@ -83,34 +82,25 @@ function OptionalBranch(props: {
   return (
     <Show when={stages.length > 0}>
       <li class="stage-branch-item">
-        <Disclosure
-          class="stage-branch"
+        <OptionalChallengeGroup
+          afterStage={props.anchor}
           open={active()}
-          summary={
-            <>
-              <span>支线练习 · 第 {props.anchor} 关后</span>
-              <span>
-                {passed()} / {stages.length}
-              </span>
-            </>
-          }
-          summaryClass="stage-branch-summary"
+          passedCount={passed()}
+          totalCount={stages.length}
         >
-          <ol class="stage-list stage-branch-list">
-            <For each={stages}>
-              {(stage) => (
-                <StageItem
-                  freeNavigation={props.freeNavigation}
-                  onSelectStage={props.onSelectStage}
-                  optional
-                  passedStages={props.passedStages}
-                  stage={stage}
-                  stageIndex={props.stageIndex}
-                />
-              )}
-            </For>
-          </ol>
-        </Disclosure>
+          <For each={stages}>
+            {(stage) => (
+              <StageItem
+                freeNavigation={props.freeNavigation}
+                onSelectStage={props.onSelectStage}
+                optional
+                passedStages={props.passedStages}
+                stage={stage}
+                stageIndex={props.stageIndex}
+              />
+            )}
+          </For>
+        </OptionalChallengeGroup>
       </li>
     </Show>
   );
@@ -171,36 +161,31 @@ export function StageRail(props: StageRailProps) {
       </div>
 
       <div class="stage-group">
-        <Disclosure
-          class="stage-branch stage-branch-late"
-          open={lateChallengeActive()}
-          summary={
-            <>
-              <span>选做挑战</span>
-              <span>
-                {lateChallengesPassed()} / {LATE_CHALLENGES.length}
-              </span>
-            </>
+        <OptionalChallengeGroup
+          class="stage-branch-late"
+          note={
+            <Show when={!lateChallengesUnlocked()}>
+              <p class="stage-group-note">通过全部主线关卡（1–6）后解锁。</p>
+            </Show>
           }
-          summaryClass="stage-group-title stage-branch-summary"
+          open={lateChallengeActive()}
+          passedCount={lateChallengesPassed()}
+          summaryClass="stage-group-title"
+          totalCount={LATE_CHALLENGES.length}
         >
-          <Show when={!lateChallengesUnlocked()}>
-            <p class="stage-group-note">通过全部主线关卡（1–6）后解锁。</p>
-          </Show>
-          <ol class="stage-list">
-            <For each={LATE_CHALLENGES}>
-              {(stage) => (
-                <StageItem
-                  freeNavigation={freeNavigation()}
-                  onSelectStage={props.onSelectStage}
-                  passedStages={props.passedStages}
-                  stage={stage}
-                  stageIndex={props.stageIndex}
-                />
-              )}
-            </For>
-          </ol>
-        </Disclosure>
+          <For each={LATE_CHALLENGES}>
+            {(stage) => (
+              <StageItem
+                freeNavigation={freeNavigation()}
+                onSelectStage={props.onSelectStage}
+                optional
+                passedStages={props.passedStages}
+                stage={stage}
+                stageIndex={props.stageIndex}
+              />
+            )}
+          </For>
+        </OptionalChallengeGroup>
       </div>
 
       <div class="my-components">

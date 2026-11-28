@@ -5,10 +5,9 @@ import { LabSaveIndicator, useLabSession } from "../../../shared/lab/useLabSessi
 import { LabPageShell } from "../../../shared/lab/LabPageShell";
 import { labMetadata, labStageTitle } from "../../../shared/lab/labMetadata";
 import { StageBrief } from "../../../shared/lab/StageBrief";
-import { StageLink } from "../../../shared/lab/StageRail";
+import { OptionalChallengeGroup, StageLink } from "../../../shared/lab/StageRail";
 import { AppPageLayout } from "../../../shared/layout/AppTopbar";
 import { DismissibleAlert } from "../../../shared/ui/DismissibleAlert";
-import { Disclosure } from "../../../shared/ui/Disclosure";
 import type {
   AiDraft,
   AiIntakeDraft,
@@ -147,21 +146,24 @@ export function LunchShiftLabPage() {
                       />
                     </li>
                     <Show when={item.index === 3}>
-                      <li>
-                        <Disclosure
-                          class="lab-stage-bonus"
+                      <li class="stage-branch-item">
+                        <OptionalChallengeGroup
+                          afterStage={3}
                           open={state().stageIndex === 5}
-                          summary="附加挑战（选做）"
+                          passedCount={passedStages().includes(5) ? 1 : 0}
+                          totalCount={1}
                         >
-                          <StageLink
-                            active={state().stageIndex === 5}
-                            onSelect={() => dispatch({ type: "select-stage", stageIndex: 5 })}
-                            optional
-                            passed={passedStages().includes(5)}
-                            title="补偿超时单"
-                            unlocked={isStageUnlocked(state(), 5)}
-                          />
-                        </Disclosure>
+                          <li>
+                            <StageLink
+                              active={state().stageIndex === 5}
+                              onSelect={() => dispatch({ type: "select-stage", stageIndex: 5 })}
+                              optional
+                              passed={passedStages().includes(5)}
+                              title="补偿超时单"
+                              unlocked={isStageUnlocked(state(), 5)}
+                            />
+                          </li>
+                        </OptionalChallengeGroup>
                       </li>
                     </Show>
                   </>

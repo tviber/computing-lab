@@ -8,6 +8,7 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, For, Show, untrack } from "solid-js";
 import { api, describeApiError } from "../../../shared/api/client";
+import { formatDateTime, formatFullDateTime } from "../../../shared/ui/formatDateTime";
 import type { SheetSchema } from "../domain/schema";
 import { TaskCheckbox } from "./TaskCheckbox";
 import { TaskReviewDrawer } from "./TaskReviewDrawer";
@@ -80,14 +81,6 @@ const STATUS_LABELS: Record<string, string> = {
   reviewed: "已批改",
   returned: "待重做",
 };
-
-function timeOf(iso: string | null): string {
-  if (!iso) return "—";
-  const date = new Date(iso);
-  return Number.isNaN(date.getTime())
-    ? "—"
-    : `${date.getMonth() + 1}/${date.getDate()} ${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
-}
 
 function pct(rate: number): string {
   return `${Math.round(rate * 100)}%`;
@@ -248,7 +241,7 @@ export function TaskDashboard(props: {
             <p class="dashboard-submeta">
               已交 {current().submittedCount}/{current().studentCount}
               {current().needsReviewCount > 0 ? ` · ${current().needsReviewCount} 份待批` : ""}
-              {current().dueAt ? ` · 截止 ${timeOf(current().dueAt)}` : ""}
+              {current().dueAt ? ` · 截止 ${formatDateTime(current().dueAt)}` : ""}
               <Show when={!current().archived}>
                 {" "}
                 ·{" "}
@@ -326,7 +319,9 @@ export function TaskDashboard(props: {
                         <td>
                           {row.finalScore !== null ? `${row.finalScore}/${row.finalTotal}` : "—"}
                         </td>
-                        <td>{timeOf(row.submittedAt)}</td>
+                        <td title={formatFullDateTime(row.submittedAt)}>
+                          {formatDateTime(row.submittedAt)}
+                        </td>
                         <td>
                           <Show fallback={<span class="cell-empty">—</span>} when={row.responseId}>
                             {(responseId) => (

@@ -4,8 +4,7 @@ import { MAX_PASSWORD_LENGTH, hashPassword, minPasswordLength } from "../auth/pa
 import type { AccountRole } from "../auth/session.ts";
 import { newId, withTransaction } from "../db/client.ts";
 import { jsonError, requireMembership, type AppVariables } from "../http/context.ts";
-
-const STUDENT_NO = /^[A-Za-z0-9_-]{2,32}$/;
+import { STUDENT_NO, readJsonObject, readString, readTrimmedNonEmpty } from "../http/validation.ts";
 const MAX_NAME_LENGTH = 64;
 
 type MemberRow = { userId: string; studentNo: string; name: string };
@@ -59,10 +58,9 @@ export function classMemberRoutes() {
   app.post("/", async (c) => {
     const auth = requireMembership(c, "teacher");
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
-    const studentNo =
-      body && typeof body === "object" ? (body as Record<string, unknown>).studentNo : undefined;
-    if (typeof studentNo !== "string" || studentNo.trim() === "") {
+    const body = await readJsonObject(c);
+    const studentNo = body ? readTrimmedNonEmpty(body, "studentNo") : null;
+    if (studentNo === null) {
       return jsonError(c, 400, "invalid-body");
     }
 
@@ -70,7 +68,7 @@ export function classMemberRoutes() {
     const classId = auth.membership.classId;
     const target = db
       .prepare("SELECT id, student_no AS studentNo, name, role FROM users WHERE student_no = ?")
-      .get(studentNo.trim()) as
+      .get(studentNo) as
       { id: string; studentNo: string; name: string; role: AccountRole } | undefined;
     if (!target) return jsonError(c, 404, "user-not-found");
     if (target.role !== "user") return jsonError(c, 400, "not-a-student-account");
@@ -92,10 +90,12 @@ export function classMemberRoutes() {
   app.post("/students", async (c) => {
     const auth = requireMembership(c, "teacher");
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body !== "object") return jsonError(c, 400, "invalid-body");
-    const { studentNo, name, password } = body as Record<string, unknown>;
-    if (typeof studentNo !== "string" || typeof name !== "string" || typeof password !== "string") {
+    const body = await readJsonObject(c);
+    if (!body) return jsonError(c, 400, "invalid-body");
+    const studentNo = readString(body, "studentNo");
+    const name = readString(body, "name");
+    const password = readString(body, "password");
+    if (studentNo === null || name === null || password === null) {
       return jsonError(c, 400, "invalid-body");
     }
     if (!STUDENT_NO.test(studentNo)) return jsonError(c, 400, "invalid-student-no");
@@ -129,10 +129,9 @@ export function classMemberRoutes() {
   app.patch("/:userId", async (c) => {
     const auth = requireMembership(c, "teacher");
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
-    const name =
-      body && typeof body === "object" ? (body as Record<string, unknown>).name : undefined;
-    if (typeof name !== "string" || name.trim().length === 0 || name.length > MAX_NAME_LENGTH) {
+    const body = await readJsonObject(c);
+    const name = body ? readString(body, "name") : null;
+    if (name === null || name.trim().length === 0 || name.length > MAX_NAME_LENGTH) {
       return jsonError(c, 400, "invalid-name");
     }
 
@@ -152,10 +151,9 @@ export function classMemberRoutes() {
   app.put("/:userId/password", async (c) => {
     const auth = requireMembership(c, "teacher");
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
-    const password =
-      body && typeof body === "object" ? (body as Record<string, unknown>).password : undefined;
-    if (typeof password !== "string") return jsonError(c, 400, "invalid-body");
+    const body = await readJsonObject(c);
+    const password = body ? readString(body, "password") : null;
+    if (password === null) return jsonError(c, 400, "invalid-body");
 
     const db = c.get("db");
     const classId = auth.membership.classId;

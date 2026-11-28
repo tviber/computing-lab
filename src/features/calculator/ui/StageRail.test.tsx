@@ -63,6 +63,9 @@ describe("StageRail custom components", () => {
       "aria-expanded",
       "false",
     );
+    expect(branches[0].querySelector(".stage-branch-summary")).toHaveTextContent(
+      "选做挑战 · 第 1 关后",
+    );
     expect(branches[1].querySelector(".stage-branch-summary")).toHaveAttribute(
       "aria-expanded",
       "false",
@@ -71,6 +74,7 @@ describe("StageRail custom components", () => {
       "aria-expanded",
       "false",
     );
+    expect(branches[2].querySelector(".stage-branch-summary")).toHaveTextContent("选做挑战");
 
     const exactCase = branches[0].querySelector(".lab-stage-link")!;
     expect(exactCase).toBeDisabled();
