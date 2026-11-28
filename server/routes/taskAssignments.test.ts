@@ -70,6 +70,37 @@ describe("task assignment JSON request contracts", () => {
     });
   }
 
+  function delayedJsonRequest(method: string, path: string, body: unknown, user = "teacher") {
+    let bodyRead!: () => void;
+    const reading = new Promise<void>((resolve) => {
+      bodyRead = resolve;
+    });
+    let release!: () => void;
+    const gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const encoded = new TextEncoder().encode(JSON.stringify(body));
+    const stream = new ReadableStream<Uint8Array>({
+      async pull(controller) {
+        bodyRead();
+        await gate;
+        controller.enqueue(encoded);
+        controller.close();
+      },
+    });
+    const input = new Request(`http://localhost/api/classes/class/task-assignments${path}`, {
+      method,
+      headers: { "content-type": "application/json", "x-test-user": user },
+      body: stream,
+      duplex: "half",
+    } as RequestInit);
+    return {
+      bodyRead: reading,
+      release,
+      response: Promise.resolve(app.request(input)),
+    };
+  }
+
   it.each(nonObjects)("keeps endpoint-specific behavior for %s", async (_label, body) => {
     for (const [method, path] of [
       ["POST", ""],
@@ -186,6 +217,29 @@ describe("task assignment JSON request contracts", () => {
     }
   });
 
+  it("requires an explicit UTC offset on due dates", async () => {
+    for (const dueAt of [
+      "2026-11-28",
+      "2026-11-28 10:00:00",
+      "2026-11-28T10:00:00",
+      "2026-13-01T10:00:00Z",
+    ]) {
+      const response = await request("PATCH", "/assignment", JSON.stringify({ dueAt }));
+      expect(response.status).toBe(400);
+      expect(await response.json()).toEqual({ error: "invalid-due-at" });
+    }
+    for (const dueAt of [
+      "2026-11-28T10:00:00Z",
+      "2026-11-28T10:00:00.000Z",
+      "2026-11-28T10:00:00+08:00",
+      "2026-11-28T10:00:00-05:00",
+    ]) {
+      const response = await request("PATCH", "/assignment", JSON.stringify({ dueAt }));
+      expect(response.status).toBe(200);
+      expect(await response.json()).toMatchObject({ assignment: { due_at: dueAt } });
+    }
+  });
+
   it("rejects non-finite review scores", () => {
     expect(isValidReviewScore(NaN, 5)).toBe(false);
     expect(isValidReviewScore(Infinity, 5)).toBe(false);
@@ -236,6 +290,54 @@ describe("task assignment JSON request contracts", () => {
       .get() as { status: string; autoScore: number | null };
     expect(row.status).toBe("submitted");
     expect(row.autoScore).toBe(0);
+  });
+
+  it("does not let a delayed autosave reopen a submitted response", async () => {
+    const delayed = delayedJsonRequest(
+      "PUT",
+      "/assignment/response",
+      { answers: { q1: { type: "short", text: "迟到的自动保存" } } },
+      "student",
+    );
+    await delayed.bodyRead;
+
+    const submitted = await request("POST", "/assignment/response/submit", undefined, "student");
+    expect(submitted.status).toBe(200);
+
+    delayed.release();
+    const saved = await delayed.response;
+    expect(saved.status).toBe(409);
+    expect(await saved.json()).toEqual({ error: "response-locked" });
+
+    const row = db
+      .prepare(
+        "SELECT status, answers_json AS answersJson FROM task_responses WHERE id = 'response'",
+      )
+      .get() as { status: string; answersJson: string };
+    expect(row.status).toBe("submitted");
+    expect(JSON.parse(row.answersJson)).toEqual(answers);
+  });
+
+  it("does not let a delayed review revive a returned response", async () => {
+    db.prepare("UPDATE task_responses SET status = 'submitted'").run();
+    const delayed = delayedJsonRequest("PATCH", "/assignment/responses/response/review", {
+      questions: { q1: { score: 4 } },
+    });
+    await delayed.bodyRead;
+
+    const returned = await request("POST", "/assignment/responses/response/return");
+    expect(returned.status).toBe(200);
+
+    delayed.release();
+    const reviewed = await delayed.response;
+    expect(reviewed.status).toBe(409);
+    expect(await reviewed.json()).toEqual({ error: "response-not-submitted" });
+
+    const row = db
+      .prepare("SELECT status, review_json AS reviewJson FROM task_responses WHERE id = 'response'")
+      .get() as { status: string; reviewJson: string | null };
+    expect(row.status).toBe("returned");
+    expect(row.reviewJson).toBeNull();
   });
 
   it("rolls back a created response when the submit write fails", async () => {
