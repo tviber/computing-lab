@@ -333,7 +333,7 @@
   position: fixed;
   z-index: 70;
   inset: 0;
-  background: rgb(23 40 61 / 30%);
+  background: color-mix(in srgb, var(--primary) 30%, transparent);
 }
 
 .custom-component-dialog {

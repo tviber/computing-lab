@@ -74,7 +74,8 @@ export const CALCULATOR_STAGES: StageDef[] = [
     id: "half-adder",
     title: "半加器",
     englishTitle: "Half Adder",
-    description: "用逻辑门实现 1 位加法：输入 A 和 B，输出和位 Sum 与进位 Carry。",
+    description:
+      "用逻辑门实现 1 位加法：输入 A 和 B，输出和位 Sum 与进位 Carry，满足 $A+B=2\\,\\mathrm{Carry}+\\mathrm{Sum}$。",
     track: "core",
     buses: [{ name: "结果（2 位）", pins: ["Carry", "Sum"], role: "output", signed: false }],
     inputs: ["A", "B"],
@@ -90,14 +91,15 @@ export const CALCULATOR_STAGES: StageDef[] = [
     id: "full-adder",
     title: "全加器",
     englishTitle: "Full Adder",
-    description: "加入进位输入 Cin：三个 1 位相加，输出 Sum 与 Cout。",
+    description:
+      "加入进位输入 Cin：三个 1 位相加，输出 Sum 与 Cout，满足 $A+B+\\mathrm{Cin}=2\\,\\mathrm{Cout}+\\mathrm{Sum}$。",
     track: "core",
     buses: [{ name: "结果（2 位）", pins: ["Cout", "Sum"], role: "output", signed: false }],
     inputs: ["A", "B", "Cin"],
     outputs: ["Sum", "Cout"],
     primitives: ALL_GATES,
     unlocks: "FullAdder",
-    hint: "可以用两个 HalfAdder 级联：先加 A+B，再加 Cin；两次进位取或。",
+    hint: "可以用两个 HalfAdder 级联：先加 $A+B$，再加 Cin；两次进位取或。",
     takeaway: "两个半加器负责相加，OR 门合并两次进位，就得到能处理进位输入的全加器。",
   },
   {
@@ -105,7 +107,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     id: "add4",
     title: "4 位加法器",
     englishTitle: "4-bit Addition",
-    description: "把四个全加器串成进位链，计算 A + B（4 位无符号）。",
+    description: "把四个全加器串成进位链，计算 $A + B$（4 位无符号）。",
     track: "core",
     buses: [
       { name: "A", pins: busNib("A"), role: "input", signed: false },
@@ -139,7 +141,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     description:
       "计算机用固定位数的二进制补码表示有符号整数时，最高位（最左边一位）是符号位。0 表示零或正数，1 表示负数。例如用 5 位表示时，3 写作 00011，−3 写作 11101。本关只需把 A 的低 4 位逐位取反再加 1，输出结果的低 4 位 R3～R0。",
     details:
-      "把 A 看作一个 5 位二进制补码正数的低 4 位（1≤A≤15；A=0 仅作为零的边界用例）：最高位是符号位，恒为 0，不出现在引脚上。求 −A 的 5 位补码：−15≤−A≤0，在 5 位补码范围（−16～15）内不会溢出，其符号位恒为 1（A=0 时结果为全 0），已由题意确定，不需要用电路实现。对 A 按位取反再加 1，计算固定在 4 位内，超出第 4 位的进位不保留。",
+      "把 A 看作一个 5 位二进制补码正数的低 4 位（$1\\le A\\le15$；$A=0$ 仅作为零的边界用例）：最高位是符号位，恒为 0，不出现在引脚上。求 $-A$ 的 5 位补码：$-15\\le -A\\le0$，在 5 位补码范围（$[-16,15]$）内不会溢出，其符号位恒为 1（$A=0$ 时结果为全 0），已由题意确定，不需要用电路实现。对 A 按位取反再加 1，计算固定在 4 位内，超出第 4 位的进位不保留。",
     track: "core",
     buses: [
       {
@@ -171,9 +173,9 @@ export const CALCULATOR_STAGES: StageDef[] = [
     title: "4 位减法器",
     englishTitle: "Subtraction",
     description:
-      "计算 A − B，输出低 4 位 R3～R0。减法就是加上补码：先用 Neg4 求 −B，再用 Add4 相加，超出第 4 位的进位不保留。",
+      "计算 $A-B$，输出低 4 位 R3～R0。减法就是加上补码：先用 Neg4 求 $-B$，再用 Add4 相加，超出第 4 位的进位不保留。",
     details:
-      "把 A、B 看作两个 5 位二进制补码正数的低 4 位（0≤A,B≤15）：最高位是符号位，恒为 0，不出现在引脚上。计算 A − B 的 5 位补码：−15≤A−B≤15，在 5 位补码范围（−16～15）内不会溢出；符号位为 1 当且仅当 A < B，由输入决定，不需要用电路实现。",
+      "把 A、B 看作两个 5 位二进制补码正数的低 4 位（$0\\le A,B\\le15$）：最高位是符号位，恒为 0，不出现在引脚上。计算 $A-B$ 的 5 位补码：$-15\\le A-B\\le15$，在 5 位补码范围（$[-16,15]$）内不会溢出；符号位为 1 当且仅当 $A<B$，由输入决定，不需要用电路实现。",
     track: "core",
     buses: [
       {
@@ -203,7 +205,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     primitives: ALL_GATES,
     constants: true,
     unlocks: "Sub4",
-    hint: "Neg4 求出 −B，再用 Add4 相加。减法就是加上补码。",
+    hint: "Neg4 求出 $-B$，再用 Add4 相加。减法就是加上补码。",
     takeaway: "减法可以转成加法：先求 B 的补码，再与 A 相加。",
   },
   {
@@ -212,7 +214,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     title: "4 位乘法器",
     englishTitle: "Multiplication",
     description:
-      "计算 A × B，输出 8 位乘积 P。例如可把 A0～A3 分别与同一个 Bi 做 AND，框选后封装成一组部分积组件，再反复使用。",
+      "计算 $A\\times B$，输出 8 位乘积 P。例如可把 A0～A3 分别与同一个 Bi 做 AND，框选后封装成一组部分积组件，再反复使用。",
     track: "challenge",
     buses: [
       { name: "A", pins: busNib("A"), role: "input", signed: false },
@@ -253,7 +255,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     title: "只有一行亮",
     englishTitle: "One Exact Case",
     description:
-      "四种输入里，只有 A=0、B=1 时 Y=1；其他三种组合都为 0。把这个条件拆成可以逐段检查的小块。",
+      "四种输入里，只有 $A=0$、$B=1$ 时 $Y=1$；其他三种组合都为 0。把这个条件拆成可以逐段检查的小块。",
     track: "challenge",
     railAfter: 1,
     unlockAfter: [1],
@@ -263,7 +265,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     primitives: ["not", "and"],
     unlocks: null,
     hint: "先让 A 变成“不是 A”，再让两个条件同时成立。",
-    takeaway: "一个只在 A=0、B=1 时成立的输出条件，可以拆成 NOT 和 AND 逐段检查。",
+    takeaway: "一个只在 $A=0$、$B=1$ 时成立的输出条件，可以拆成 NOT 和 AND 逐段检查。",
   },
   {
     index: 10,
@@ -271,7 +273,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     title: "三个输入的奇偶",
     englishTitle: "Odd Signals",
     description:
-      "当 A、B、C 中有奇数个 1 时输出 Y=1，有偶数个 1 时输出 Y=0。这个行为会在全加器的和位再次出现。",
+      "当 A、B、C 中有奇数个 1 时输出 $Y=1$，有偶数个 1 时输出 $Y=0$。这个行为会在全加器的和位再次出现。",
     track: "challenge",
     railAfter: 2,
     unlockAfter: [2],
@@ -289,7 +291,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     title: "至少两个为 1",
     englishTitle: "Double Trouble",
     description:
-      "当 A、B、C 中至少两个为 1 时输出 Y=1。先找出所有能让结果为 1 的成对条件，再把它们合起来。",
+      "当 A、B、C 中至少两个为 1 时输出 $Y=1$。先找出所有能让结果为 1 的成对条件，再把它们合起来。",
     track: "challenge",
     railAfter: 2,
     unlockAfter: [2],
@@ -298,7 +300,7 @@ export const CALCULATOR_STAGES: StageDef[] = [
     outputs: ["Y"],
     primitives: ["and", "or"],
     unlocks: null,
-    hint: "分别判断 A&B、A&C、B&C，三个条件只要有一个成立就输出 1。",
+    hint: "分别判断 $A\\land B$、$A\\land C$、$B\\land C$，三个条件只要有一个成立就输出 1。",
     takeaway:
       "把三组成对条件分别用 AND 判断，再用 OR 合并，就得到多数决；全加器的进位输出也采用这个结构。",
   },

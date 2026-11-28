@@ -1,3 +1,4 @@
+import { MathText } from "../../../shared/ui/MathFormula";
 import type { JSX } from "@solidjs/web";
 import { createMemo, For } from "solid-js";
 import { Disclosure } from "../../../shared/ui/Disclosure";
@@ -53,6 +54,10 @@ const TERM_PATTERN = new RegExp(
 
 export function CalculatorTerm(props: { term: CalculatorTerm }) {
   return <abbr title={`${props.term}：${CALCULATOR_TERM_NOTES[props.term]}`}>{props.term}</abbr>;
+}
+
+export function AnnotatedMathText(props: { text: string }) {
+  return <MathText renderText={(text) => <AnnotatedText text={text} />}>{props.text}</MathText>;
 }
 
 export function AnnotatedText(props: { text: string }) {

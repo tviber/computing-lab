@@ -6,11 +6,6 @@ for (const width of [1440, 390]) {
   }, testInfo) => {
     test.setTimeout(30_000);
     const errors: string[] = [];
-    const mathAssets: string[] = [];
-    page.on("request", (req) => {
-      const path = new URL(req.url()).pathname;
-      if (/\/assets\/(?:MathFormula-|KaTeX_)/.test(path)) mathAssets.push(path);
-    });
     page.on("pageerror", (error) => errors.push(error.message));
     page.on("console", (message) => {
       if (message.type() === "error") errors.push(message.text());
@@ -63,7 +58,6 @@ for (const width of [1440, 390]) {
     await reader.getByRole("button", { name: /展开其余/ }).click();
     await expect(table.getByRole("cell").last()).toHaveAttribute("title", "data[245]");
 
-    expect(mathAssets).toEqual([]);
     await reader.getByRole("button", { name: "试读图像高度" }).click();
     const practice = reader.getByRole("form", { name: "试读图像高度" });
     const source = practice.getByRole("radio", { name: /^从 #18 开始/ });
@@ -79,7 +73,8 @@ for (const width of [1440, 390]) {
     await practice.getByRole("button", { name: "核对读数" }).click();
     await expect(practice.getByRole("status")).toContainText("还原 8 行像素");
     await expect(practice.locator(".katex-html")).toBeVisible();
-    expect(mathAssets.some((path) => path.endsWith(".js"))).toBe(true);
+    await expect(practice.locator("math")).toBeAttached();
+    await expect(practice.locator(".katex-error")).toHaveCount(0);
     await expect(practice.locator("td.is-field")).toHaveCount(4);
     await reader.screenshot({ path: testInfo.outputPath("height-practice.png") });
     await reader.getByRole("button", { name: "返回字段导览" }).click();
@@ -89,11 +84,11 @@ for (const width of [1440, 390]) {
     await expect(page.getByRole("button", { name: "重置进度" })).toBeEnabled();
     const receiver = page.getByRole("button", { name: /接收端看到的/ });
     await receiver.press("Enter");
-    await expect(page.getByRole("status").filter({ hasText: "格子 (0, 0)" })).toContainText(
-      "不到一半。内置规则发 0",
-    );
+    const inspector = page.getByRole("status").filter({ has: page.locator(".bitmap-canvas") });
+    await expect(inspector.locator("strong annotation")).toHaveText("(0,0)");
+    await expect(inspector).toContainText("不到一半。内置规则发 0");
     await receiver.press("ArrowRight");
-    await expect(page.getByRole("status").filter({ hasText: "格子 (1, 0)" })).toBeVisible();
+    await expect(inspector.locator("strong annotation")).toHaveText("(1,0)");
     await page
       .locator(".cell-inspector")
       .screenshot({ path: testInfo.outputPath("sample-cell.png") });

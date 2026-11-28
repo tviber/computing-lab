@@ -369,7 +369,7 @@ p {
 .segmented-picker-item[aria-checked="true"] {
   background: var(--surface);
   color: var(--primary);
-  box-shadow: 0 1px 2px rgb(23 40 61 / 12%);
+  box-shadow: 0 1px 2px color-mix(in srgb, var(--primary) 12%, transparent);
 }
 
 .segmented-picker-item:disabled {
@@ -729,7 +729,7 @@ p {
   margin-top: 1px;
   border-radius: 50%;
   background: var(--success);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .concept-checklist-options {

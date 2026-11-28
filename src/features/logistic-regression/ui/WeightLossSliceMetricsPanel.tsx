@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, For, Show } from "solid-js";
 import type {
@@ -73,7 +74,9 @@ export function WeightLossSliceMetricsPanel(props: WeightLossSliceMetricsPanelPr
 
       <div class="logistic-regression-micro-metrics">
         <div class="logistic-regression-stat-box">
-          <span>当前权重 w</span>
+          <span>
+            当前权重 <MathFormula>{String.raw`w`}</MathFormula>
+          </span>
           <strong class="logistic-regression-mono">{fmtSigned(props.currentEval.w)}</strong>
           <small>可直接在曲线上左右拖动圆点</small>
         </div>
@@ -171,7 +174,7 @@ export function WeightLossSliceMetricsPanel(props: WeightLossSliceMetricsPanelPr
               {(pt, idx) => (
                 <li class="logistic-regression-trail-chip">
                   <span class="logistic-regression-mono">
-                    P{idx()}: w={pt.w.toFixed(2)}
+                    <MathFormula>{String.raw`P_{${idx()}}:w=${pt.w.toFixed(2)}`}</MathFormula>
                   </span>
                   <Show when={pt.deltaW !== null}>
                     <small class="logistic-regression-mono">({fmtSigned(pt.deltaW!, 2)})</small>

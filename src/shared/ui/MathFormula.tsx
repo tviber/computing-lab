@@ -1,3 +1,4 @@
+import type { JSX } from "@solidjs/web";
 import { renderToString } from "katex";
 import { createMemo, For, Show } from "solid-js";
 import "katex/dist/katex.min.css";
@@ -13,16 +14,26 @@ export function MathFormula(props: { children: string; display?: boolean }) {
       throwOnError: false,
     }),
   );
-  return <span class={props.display ? "math-formula-block" : undefined} innerHTML={html()} />;
+  return (
+    <span
+      class={props.display ? "math-formula math-formula-block" : "math-formula"}
+      innerHTML={html()}
+    />
+  );
 }
 
-/** Inline $TeX$ in authored lesson prose. */
-export function MathText(props: { children: string }) {
+/**
+ * Explicit inline $TeX$ in repository-authored lesson prose only.
+ * Never pass student input, task-sheet content, code, or arbitrary API messages.
+ * Keep dynamic prose outside formulas; interpolate only validated numeric values.
+ * Use MathFormula with display for standalone or multiline derivations.
+ */
+export function MathText(props: { children: string; renderText?: (text: string) => JSX.Element }) {
   const parts = createMemo(() => props.children.split(/\$([^$\n]+)\$/g));
   return (
     <For each={parts()}>
       {(part, i) => (
-        <Show fallback={part} when={i() % 2 === 1}>
+        <Show fallback={props.renderText ? props.renderText(part) : part} when={i() % 2 === 1}>
           <MathFormula>{part}</MathFormula>
         </Show>
       )}

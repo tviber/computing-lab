@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 /**
  * Guided coding task (stage 1): complete `nearest_toner(r, g, b, toners)` —
  * the one line of judgment inside the printer's fixed mapping rule. The
@@ -163,7 +164,9 @@ export function GuidedTonerTask(props: { code: string; onCodeChange: (code: stri
       <p>
         刚才实验台里的印刷效果，就是这么一个颜色一个颜色算出来的。规则只有一条：
         <strong>每种源色落到离它最近的候选色</strong>
-        ，候选色包括纸白和已装的墨粉。距离按 RGB 三个通道的平方差相加计算。
+        ，候选色包括纸白和已装的墨粉。距离按 RGB 三个通道的平方差相加计算：
+        <MathFormula>{String.raw`d^2=(R-R_c)^2+(G-G_c)^2+(B-B_c)^2`}</MathFormula>。欧氏距离是{" "}
+        <MathFormula>{String.raw`d=\sqrt{d^2}`}</MathFormula>，比较最近色时无需开平方。
       </p>
       <TonerPrediction outputs={current()?.outputs ?? null} />
 

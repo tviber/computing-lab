@@ -1,3 +1,5 @@
+import { dynamic } from "@solidjs/web";
+import type { SubmissionCheck } from "../../shared/lab/submissionPresentation";
 import { useLocation, useNavigate, useParams, useSearchParams } from "@solidjs/router";
 import { Button } from "@ui-sdk/solid/button";
 import { Dialog, DialogBackdrop, DialogClose, DialogContent } from "@ui-sdk/solid/dialog";
@@ -32,6 +34,7 @@ type LabOption = {
   title: string;
   stages: readonly DashboardStage[];
   supportsCanvasPreview: boolean;
+  submissionCheck?: AppLabEntry["submissionCheck"];
 };
 
 const LAB_OPTIONS: LabOption[] = LAB_IDS.map((id) => {
@@ -41,6 +44,7 @@ const LAB_OPTIONS: LabOption[] = LAB_IDS.map((id) => {
     title: labMetadata[id].title,
     stages: appLab.dashboardStages,
     supportsCanvasPreview: appLab.supportsCanvasPreview ?? false,
+    submissionCheck: appLab.submissionCheck,
   };
 });
 
@@ -75,15 +79,13 @@ type SubmissionDetail = {
   submittedAt: string;
   testSummary: {
     categories?: Record<string, { passed: number; total: number }>;
-    parts?: { id: string; label: string; ok: boolean; detail: string | null }[];
+    parts?: (SubmissionCheck & { ok: boolean })[];
     error?: string | null;
     detail?: string;
   };
 };
 
-type DrawerCheck = {
-  id: string;
-  label: string;
+type DrawerCheck = SubmissionCheck & {
   passed: number;
   total: number;
   detail?: string | null;
@@ -109,6 +111,8 @@ function drawerChecks(summary: SubmissionDetail["testSummary"]): DrawerCheck[] {
     passed: part.ok ? 1 : 0,
     total: 1,
     detail: part.detail,
+    feedback: part.feedback,
+    answerSummary: part.answerSummary,
   }));
 }
 
@@ -707,12 +711,25 @@ export function TeacherDashboardPage() {
                           <For each={drawerChecks(d().testSummary)}>
                             {(check) => {
                               const ok = check.passed === check.total;
+                              const CheckContent = dynamic(() => lab().submissionCheck);
                               return (
                                 <li class={ok ? "is-pass" : "is-fail"}>
                                   <span>
-                                    {check.label}
-                                    <Show when={check.detail}>
-                                      {(det) => <small>{det()}</small>}
+                                    <Show
+                                      when={lab().submissionCheck}
+                                      fallback={
+                                        <>
+                                          {check.label}
+                                          <Show when={check.detail}>
+                                            {(detail) => <small>{detail()}</small>}
+                                          </Show>
+                                        </>
+                                      }
+                                    >
+                                      <CheckContent
+                                        check={check}
+                                        summary={d().testSummary.detail}
+                                      />
                                     </Show>
                                   </span>
                                   <span class="drawer-category-score">

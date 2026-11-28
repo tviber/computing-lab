@@ -99,6 +99,69 @@ describe("TeacherDashboardPage", () => {
     expect(screen.getByText("第 1 个字符不符")).toBeInTheDocument();
   });
 
+  it("uses the registered statistics renderer and preserves raw answers", async () => {
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const path = String(input);
+      if (path.includes("/submissions/stats-sub")) {
+        return Response.json({
+          id: "stats-sub",
+          studentNo: "20260101",
+          name: "张三",
+          stageIndex: 2,
+          score: 0,
+          total: 1,
+          passed: false,
+          submittedAt: "2026-10-11T00:00:00.000Z",
+          testSummary: {
+            parts: [
+              {
+                id: "conditional-probability",
+                label: "概率核对",
+                ok: false,
+                detail: "legacy value",
+                feedback: "请核对 $P(A)$。",
+                answerSummary: "$x^2$",
+              },
+            ],
+          },
+        });
+      }
+      if (path.includes("dashboard?lab=stats-foundations")) {
+        return Response.json({
+          classId: "c11",
+          className: "实验班",
+          rows: [
+            {
+              userId: "student",
+              studentNo: "20260101",
+              name: "张三",
+              currentStage: 2,
+              lastActiveAt: null,
+              cells: {
+                2: {
+                  stageIndex: 2,
+                  score: 0,
+                  total: 1,
+                  passed: false,
+                  submissionId: "stats-sub",
+                  submittedAt: "2026-10-11T00:00:00.000Z",
+                },
+              },
+            },
+          ],
+        });
+      }
+      return Response.json({ labs: [] });
+    });
+    await renderAppAt("/classes/c11/dashboard?lab=stats-foundations", { auth: multiClassTeacher });
+    await userEvent.click(await screen.findByRole("button", { name: "0/1" }));
+    expect(await screen.findByText("概率核对")).toBeInTheDocument();
+    const dialog = screen.getByRole("dialog");
+    await waitFor(() => expect(dialog.querySelector("annotation")).toHaveTextContent("P(A)"));
+    expect(dialog).toHaveTextContent("$x^2$");
+    expect(dialog.querySelectorAll("math")).toHaveLength(1);
+  });
+
   it("shows concise Chinese stage names and keeps preview separate from destructive actions", async () => {
     vi.spyOn(globalThis, "fetch").mockImplementation(async (input) =>
       String(input).endsWith("/api/labs")

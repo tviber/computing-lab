@@ -1,7 +1,7 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
-import { MathFormula } from "../../../shared/ui/MathFormula";
+import { MathFormula, MathText } from "../../../shared/ui/MathFormula";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import type { LikelihoodDraft } from "../domain/protocol.ts";
 import type { StatsConceptQuestion } from "../domain/stages.ts";
@@ -34,8 +34,8 @@ const CURVE = sampleLikelihoodCurve(90);
 const MAX_L = coinLikelihood(COIN_MLE_OPTIMAL);
 const MAX_NLL = Math.max(...CURVE.map((point) => point.nll));
 const VIEW_OPTIONS: readonly { value: LikelihoodDraft["viewMode"]; label: string }[] = [
-  { value: "likelihood", label: "似然 L(p)" },
-  { value: "nll", label: "负对数似然 −ln L(p)" },
+  { value: "likelihood", label: "似然 $L(p)$" },
+  { value: "nll", label: "负对数似然 $-\\ln L(p)$" },
 ];
 
 export function LikelihoodPanel(props: Props) {
@@ -75,7 +75,7 @@ export function LikelihoodPanel(props: Props) {
       if (Math.random() < props.draft.p) heads += 1;
     }
     setSimResult(
-      `按你猜的 p = ${roundTo(props.draft.p, 2)} 模拟抛 10 次：出现 ${heads} 正 ${10 - heads} 反`,
+      `按你猜的 $p = ${roundTo(props.draft.p, 2)}$ 模拟抛 10 次：出现 ${heads} 正 ${10 - heads} 反`,
     );
   };
 
@@ -101,7 +101,9 @@ export function LikelihoodPanel(props: Props) {
 
       <div class="sf-metrics-row">
         <div class={`sf-metric-card ${isNearPeak() ? "is-good" : ""}`}>
-          <span class="sf-metric-label">你猜的正面概率 p</span>
+          <span class="sf-metric-label">
+            你猜的正面概率 <MathFormula>{String.raw`p`}</MathFormula>
+          </span>
           <strong class="sf-metric-value sf-mono">{roundTo(props.draft.p, 2)}</strong>
           <span class="sf-metric-sub">
             {isNearPeak() ? "已到达似然峰顶附近。" : "拖动滑块寻找峰顶 / 谷底。"}
@@ -112,12 +114,14 @@ export function LikelihoodPanel(props: Props) {
             似然 <MathFormula>{String.raw`L(p)=p^7(1-p)^3`}</MathFormula>
           </span>
           <strong class="sf-metric-value sf-mono">
-            {expParts()[0]} × 10<sup>{Number(expParts()[1])}</sup>
+            <MathFormula>{String.raw`${expParts()[0]}\times10^{${Number(expParts()[1])}}`}</MathFormula>
           </strong>
           <span class="sf-metric-sub">越大表示该参数下这串记录越可能出现</span>
         </div>
         <div class="sf-metric-card">
-          <span class="sf-metric-label">负对数似然 −ln L(p)</span>
+          <span class="sf-metric-label">
+            负对数似然 <MathFormula>{String.raw`-\ln L(p)`}</MathFormula>
+          </span>
           <strong class="sf-metric-value sf-mono">{roundTo(currentNll(), 3)}</strong>
           <span class="sf-metric-sub">越小越好（逻辑回归的损失函数）</span>
         </div>
@@ -126,11 +130,20 @@ export function LikelihoodPanel(props: Props) {
       <div class="sf-workspace-grid">
         <div class="sf-chart-card">
           <div class="sf-chart-header">
-            <h3>{isNll() ? "负对数似然曲线 −ln L(p)（找最低谷）" : "似然曲线 L(p)（找最高峰）"}</h3>
+            <h3>
+              <MathText>
+                {isNll()
+                  ? "负对数似然曲线 $-\\ln L(p)$（找最低谷）"
+                  : "似然曲线 $L(p)$（找最高峰）"}
+              </MathText>
+            </h3>
             <SegmentedPicker
               label="曲线视图"
               onChange={(viewMode) => props.onChange({ ...props.draft, viewMode })}
-              options={VIEW_OPTIONS}
+              options={VIEW_OPTIONS.map((option) => ({
+                ...option,
+                label: <MathText>{option.label}</MathText>,
+              }))}
               value={props.draft.viewMode}
             />
           </div>
@@ -173,7 +186,7 @@ export function LikelihoodPanel(props: Props) {
               y2={SVG_H - PAD.bottom}
             />
             <text class="sf-axis-label" text-anchor="middle" x={SVG_W / 2} y={SVG_H - 4}>
-              猜测的正面概率 p
+              猜测的正面概率
             </text>
 
             <For each={yTicks()}>
@@ -201,7 +214,11 @@ export function LikelihoodPanel(props: Props) {
         <div class="sf-controls-card">
           <h3>猜测硬币的偏向程度</h3>
           <LabeledSlider
-            label="正面朝上的概率 p"
+            label={
+              <>
+                正面朝上的概率 <MathFormula>{String.raw`p`}</MathFormula>
+              </>
+            }
             max={Math.round(COIN_P_MAX * 100)}
             min={Math.round(COIN_P_MIN * 100)}
             onChange={(percent) => props.onChange({ ...props.draft, p: percent / 100 })}
@@ -216,16 +233,21 @@ export function LikelihoodPanel(props: Props) {
             <br />
             每次抛硬币相互独立，所以按上面的顺序抛出这 10 个结果的联合概率是：
             <div class="sf-formula-line sf-mono">
-              L({roundTo(props.draft.p, 2)}) = {roundTo(props.draft.p, 2)}⁷ ×{" "}
-              {roundTo(1 - props.draft.p, 2)}³
+              <MathFormula>{String.raw`L(${roundTo(props.draft.p, 2)})=${roundTo(props.draft.p, 2)}^{${COIN_HEADS}}\times${roundTo(1 - props.draft.p, 2)}^{${COIN_TAILS}}`}</MathFormula>
             </div>
           </div>
 
           <div class="sf-sim-box">
             <Button class="sf-secondary-btn" onClick={runSimulation} type="button">
-              用当前 p 模拟再抛 10 次
+              用当前 <MathFormula>{String.raw`p`}</MathFormula> 模拟再抛 10 次
             </Button>
-            <Show when={simResult()}>{(result) => <p class="sf-sim-result">{result()}</p>}</Show>
+            <Show when={simResult()}>
+              {(result) => (
+                <p class="sf-sim-result">
+                  <MathText>{result()}</MathText>
+                </p>
+              )}
+            </Show>
           </div>
         </div>
       </div>

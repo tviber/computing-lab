@@ -309,7 +309,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   }
   if (stage4Viewport) await page.setViewportSize(stage4Viewport);
 
-  await page.getByRole("radio", { name: "适中 η = 0.1" }).click();
+  await page.getByRole("radio", { name: /适中/ }).click();
   const s4RespPromise = page.waitForResponse(
     (res) =>
       res.request().method() === "POST" && res.url().endsWith("/labs/logistic-regression/judge"),

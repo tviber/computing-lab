@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { ScenarioLinkButton } from "../../../shared/lab/ScenarioLinkButton";
@@ -81,7 +82,7 @@ function ResolutionInputs(
             when={props.stage.mode === "square"}
           >
             <label>
-              n × n
+              <MathFormula>{String.raw`n\times n`}</MathFormula>
               <input
                 aria-label="正方形边长 n"
                 max={64}
@@ -497,14 +498,19 @@ export function DownsampleExplorer(props: ExplorerProps) {
                 />
                 <div>
                   <strong>
-                    格子 ({info().cx}, {info().cy})
+                    格子 <MathFormula>{String.raw`(${info().cx},${info().cy})`}</MathFormula>
                   </strong>
                   <p>
-                    原图第 {info().bounds.x0}–{info().bounds.x1 - 1} 列，第 {info().bounds.y0}–
-                    {info().bounds.y1 - 1} 行（从 0 数）。
+                    原图列范围{" "}
+                    <MathFormula>{String.raw`${info().bounds.x0}\le x<${info().bounds.x1}`}</MathFormula>
+                    ，行范围{" "}
+                    <MathFormula>{String.raw`${info().bounds.y0}\le y<${info().bounds.y1}`}</MathFormula>
+                    （从 0 数）。
                   </p>
                   <p>
-                    黑色占 {info().on} / {info().total}，
+                    黑色占{" "}
+                    <MathFormula>{String.raw`\frac{${info().on}}{${info().total}} ${info().on * 2 === info().total ? "=" : info().majority ? ">" : "<"} \frac12`}</MathFormula>
+                    ，
                     {info().on * 2 === info().total
                       ? "刚好一半"
                       : info().majority

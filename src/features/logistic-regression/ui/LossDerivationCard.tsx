@@ -13,14 +13,18 @@ export function LossDerivationCard() {
             <span class="logistic-regression-badge-neutral">交叉熵损失</span>
           </div>
           <p class="logistic-regression-role-desc">
-            模型给真实类别的概率越高，损失越接近 0。真实类别是垃圾时看 p，是正常时看 1−p。
-            例如，一条垃圾短信的预测垃圾概率只有 2%，损失为 −ln(0.02) ≈ 3.91；预测为 98%
+            模型给真实类别的概率越高，损失越接近 0。真实类别是垃圾时看{" "}
+            <MathFormula>{String.raw`p`}</MathFormula>，是正常时看{" "}
+            <MathFormula>{String.raw`1-p`}</MathFormula>。 例如，一条垃圾短信的预测垃圾概率只有
+            2%，损失为 <MathFormula>{String.raw`-\ln(0.02)\approx3.91`}</MathFormula>；预测为 98%
             时，损失约为 0.02。
           </p>
           <p class="logistic-regression-old-knowledge">
-            联系线性回归：单样本平方误差的梯度是 2×（预测 − 真实）× 输入；若损失前带 1/2，系数 2
+            联系线性回归：单样本平方误差的梯度是{" "}
+            <MathFormula>{String.raw`2(\hat y-y)x_j`}</MathFormula>；若损失前带{" "}
+            <MathFormula>{String.raw`\frac12`}</MathFormula>，系数 2
             就会抵消。逻辑回归配合交叉熵后，梯度也有“预测 −
-            真实，再乘输入”的形式，其中预测是垃圾概率 p。
+            真实，再乘输入”的形式，其中预测是垃圾概率 <MathFormula>{String.raw`p`}</MathFormula>。
           </p>
           <p class="logistic-regression-formula-conclusion">
             <MathFormula>{String.raw`\text{损失} = -\ln\!\left(\text{模型给真实标签的概率}\right)`}</MathFormula>

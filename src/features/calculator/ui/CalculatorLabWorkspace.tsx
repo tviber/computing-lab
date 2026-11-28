@@ -15,7 +15,7 @@ import {
   type CalculatorLessonState,
 } from "../lesson/state";
 import { BusReadout } from "./BusReadout";
-import { AnnotatedText, CalculatorTermGuide } from "./CalculatorTerms";
+import { AnnotatedText, AnnotatedMathText, CalculatorTermGuide } from "./CalculatorTerms";
 import { CircuitCanvas } from "./CircuitCanvas";
 import { CustomComponentDialog, type ComponentizeForm } from "./CustomComponentDialog";
 import { nodeDropPosition } from "./geometry";
@@ -108,16 +108,16 @@ export function CalculatorLabWorkspace(props: CalculatorLabWorkspaceProps) {
             {(currentStage) => (
               <StageBrief
                 footer={<CalculatorTermGuide />}
-                hints={[<AnnotatedText text={currentStage().hint} />]}
+                hints={[<AnnotatedMathText text={currentStage().hint} />]}
                 passed={props.state.passedStages.includes(currentStage().index)}
-                takeaway={currentStage().takeaway}
-                task={<AnnotatedText text={currentStage().description} />}
+                takeaway={<AnnotatedMathText text={currentStage().takeaway} />}
+                task={<AnnotatedMathText text={currentStage().description} />}
               >
                 <Show when={currentStage().details}>
                   {(details) => (
                     <Disclosure class="stage-details" summary="为什么？">
                       <p>
-                        <AnnotatedText text={details()} />
+                        <AnnotatedMathText text={details()} />
                       </p>
                     </Disclosure>
                   )}

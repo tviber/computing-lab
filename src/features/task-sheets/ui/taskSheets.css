@@ -671,7 +671,7 @@
 
 .ts-preview-scrim {
   align-items: flex-start;
-  background: rgb(23 40 61 / 32%);
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
   display: flex;
   inset: 0;
   justify-content: center;
@@ -726,7 +726,7 @@
   position: fixed;
   inset: 0;
   z-index: 60;
-  background: rgb(23 40 61 / 32%);
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
 }
 
 [data-slot="drawer-viewport"]:has(> .ts-review-drawer) {
