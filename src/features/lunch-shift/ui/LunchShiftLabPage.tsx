@@ -32,6 +32,7 @@ import {
 } from "../lesson/state.ts";
 import { AiIntakePanel } from "./AiIntakePanel.tsx";
 import { CompensatePanel } from "./CompensatePanel.tsx";
+import { RushGame } from "./RushGame.tsx";
 import { warmPyodide } from "./pyodideRunner.ts";
 import { QueuePanel } from "./QueuePanel.tsx";
 import { TrainingPanel } from "./TrainingPanel.tsx";
@@ -211,6 +212,7 @@ export function LunchShiftLabPage() {
               </Show>
 
               <Show when={project.projectLoaded && stage()?.index === 1}>
+                <RushGame />
                 <TrainingPanel
                   draft={draftOf(state(), 1) as TrainingDraft}
                   onChange={(draft) => dispatch({ type: "update-training", draft })}
