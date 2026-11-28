@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@solidjs/testing-library";
-import { flush } from "solid-js";
-import { describe, expect, it, vi } from "vitest";
+import { createSignal, flush } from "solid-js";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { halfAdderGraph } from "../domain/fixtures";
 import type { CircuitGraph } from "../domain/graph";
 import { CircuitCanvas } from "./CircuitCanvas";
@@ -28,6 +28,94 @@ const legacyAdd4Graph: CircuitGraph = {
 };
 
 describe("CircuitCanvas", () => {
+  const originalAnimate = Object.getOwnPropertyDescriptor(SVGElement.prototype, "animate");
+  afterEach(() => {
+    if (originalAnimate) Object.defineProperty(SVGElement.prototype, "animate", originalAnimate);
+    else delete (SVGElement.prototype as Partial<SVGElement>).animate;
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("pulses evaluated changes but stays still after collapse, expansion or a floating signal", () => {
+    vi.stubGlobal("matchMedia", () => Object.assign(new EventTarget(), { matches: true }));
+    const animate = vi.fn(() => {
+      const animation = Object.assign(new EventTarget(), {
+        playState: "running",
+        cancel: vi.fn(() => {
+          animation.playState = "idle";
+          animation.dispatchEvent(new Event("cancel"));
+        }),
+      });
+      return animation;
+    });
+    Object.defineProperty(SVGElement.prototype, "animate", { configurable: true, value: animate });
+    const [collapsed, setCollapsed] = createSignal(false);
+    const [value, setValue] = createSignal<0 | 1 | null | undefined>(0);
+    const { container, unmount } = render(() => (
+      <CircuitCanvas
+        components={{ HalfAdder: halfAdderGraph() }}
+        dispatch={vi.fn()}
+        graph={{
+          nodes: [
+            {
+              id: "half-adder",
+              kind: "component",
+              name: "HalfAdder",
+              x: 120,
+              y: 80,
+              collapsed: collapsed(),
+            },
+            { id: "out", kind: "output", name: "Sum", x: 420, y: 80 },
+          ],
+          edges: [
+            {
+              id: "signal",
+              from: { node: "half-adder", port: "Sum" },
+              to: { node: "out", port: "in" },
+            },
+          ],
+        }}
+        pendingWire={null}
+        portValues={value() === undefined ? {} : { "half-adder#Sum": value()! }}
+        selectedNodeId={null}
+      />
+    ));
+    flush();
+    expect(animate).not.toHaveBeenCalled();
+    setValue(1);
+    flush();
+    expect(animate).toHaveBeenCalledOnce();
+    const oldPath = container.querySelector(".wire-signal");
+    setCollapsed(true);
+    flush();
+    expect(container.querySelector(".wire-signal")).toBeNull();
+    expect(animate.mock.results[0].value.cancel).toHaveBeenCalledOnce();
+    setValue(0);
+    flush();
+    setCollapsed(false);
+    flush();
+    expect(container.querySelector(".wire-signal")).not.toBe(oldPath);
+    expect(animate).toHaveBeenCalledOnce();
+    setValue(null);
+    flush();
+    setValue(1);
+    flush();
+    expect(animate).toHaveBeenCalledOnce();
+    setValue(undefined);
+    flush();
+    setValue(1);
+    flush();
+    expect(animate).toHaveBeenCalledOnce();
+    setValue(0);
+    flush();
+    expect(animate).toHaveBeenCalledTimes(2);
+    expect(container.querySelector(".wire")).toHaveAttribute(
+      "d",
+      container.querySelector(".wire-signal")!.getAttribute("d"),
+    );
+    unmount();
+  });
+
   it("labels component output ports at the exit side", () => {
     render(() => (
       <CircuitCanvas

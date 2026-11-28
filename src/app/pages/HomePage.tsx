@@ -18,6 +18,7 @@ import { Icon } from "../../shared/ui/Icon";
 import { SegmentedPicker } from "../../shared/ui/SegmentedPicker";
 import { APP_LABS, type AppLabEntry } from "../labRegistry";
 import { AtlasPlate } from "../atlas/AtlasPlate";
+import { FeaturedLabDeck } from "../atlas/FeaturedLabDeck";
 import "./home.css";
 
 type ProjectSummary = { currentStage: number };
@@ -38,12 +39,12 @@ const CATEGORY_ORDER: readonly LabCategory[] = [
   "artificial-intelligence",
 ];
 
-const SHOWCASE_LABS: readonly LabId[] = [
+const SHOWCASE_LABS = [
   "image-sampling",
   "calculator",
   "lunch-shift",
   "logistic-regression",
-];
+] as const satisfies readonly LabId[];
 
 const HOME_LABS = LAB_IDS.map((id, index) => {
   const meta: LabMetadataEntry = labMetadata[id];
@@ -169,8 +170,6 @@ function StudentTasks(props: { classId: string }) {
 }
 
 function AnonymousLanding() {
-  const [previewLab, setPreviewLab] = createSignal<LabId>(SHOWCASE_LABS[0]);
-
   return (
     <AppPageLayout class="home-page" topbarProps={{ showAccount: false, showHomeLink: false }}>
       <main class="page-content">
@@ -188,24 +187,7 @@ function AnonymousLanding() {
             </div>
           </div>
           <div class="home-hero-showcase">
-            <AtlasPlate featured labId={previewLab()} />
-            <SegmentedPicker
-              class="home-specimen-tabs"
-              itemClass="home-specimen-tab"
-              label="切换实验示意"
-              onChange={setPreviewLab}
-              options={SHOWCASE_LABS.map((labId) => ({
-                value: labId,
-                label: (
-                  <>
-                    <span aria-hidden="true" class="topic-dot" />
-                    {labMetadata[labId].title}
-                  </>
-                ),
-                data: { "data-category": labMetadata[labId].category },
-              }))}
-              value={previewLab()}
-            />
+            <FeaturedLabDeck labs={SHOWCASE_LABS} />
           </div>
         </section>
       </main>

@@ -12,9 +12,11 @@ const FEATURED_LABS: readonly LabId[] = [
 ];
 
 /** A manually selected deck; every specimen stays mounted in its own spatial slot. */
-export function FeaturedLabDeck() {
-  const [selected, setSelected] = createSignal<LabId>(FEATURED_LABS[0]);
-  const selectedIndex = () => FEATURED_LABS.indexOf(selected());
+export function FeaturedLabDeck(props: { labs?: readonly [LabId, ...LabId[]] }) {
+  const labs = () => props.labs ?? FEATURED_LABS;
+  const [selection, setSelected] = createSignal<LabId>(labs()[0]);
+  const selected = () => (labs().includes(selection()) ? selection() : labs()[0]);
+  const selectedIndex = () => labs().indexOf(selected());
   const descriptionRef = useChangeAnimation<HTMLParagraphElement>(
     () => selected(),
     [
@@ -26,15 +28,20 @@ export function FeaturedLabDeck() {
   return (
     <div class="featured-lab-deck">
       <div aria-label="实验示意" class="featured-lab-stage">
-        <For each={FEATURED_LABS}>
+        <For each={labs()}>
           {(id, index) => {
-            const slot = () =>
-              (index() - selectedIndex() + FEATURED_LABS.length) % FEATURED_LABS.length;
+            const role = () => {
+              const slot = (index() - selectedIndex() + labs().length) % labs().length;
+              if (slot === 0) return "active";
+              if (slot === 1) return "next";
+              if (slot === labs().length - 1) return "prev";
+              return "back";
+            };
             return (
               <div
                 aria-hidden={selected() !== id ? "true" : undefined}
                 class="featured-lab-card"
-                data-slot={slot()}
+                data-role={role()}
               >
                 <AtlasPlate featured labId={id} />
               </div>
@@ -47,7 +54,7 @@ export function FeaturedLabDeck() {
         itemClass="home-specimen-tab"
         label="切换实验示意"
         onChange={setSelected}
-        options={FEATURED_LABS.map((id) => ({
+        options={labs().map((id) => ({
           value: id,
           label: (
             <>

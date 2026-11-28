@@ -5,7 +5,7 @@ test("featured deck keeps its selection, keyboard focus and layout on desktop an
 }) => {
   const errors: string[] = [];
   page.on("pageerror", (error) => errors.push(error.message));
-  for (const width of [1280, 390]) {
+  for (const width of [1280, 390, 360, 320]) {
     await page.setViewportSize({ width, height: 850 });
     await page.goto("/");
     const tabs = page.getByRole("radiogroup", { name: "切换实验示意" });
@@ -40,17 +40,28 @@ test("circuit feedback follows changes without delaying the value or removing th
   const wire = page.locator(".wires .wire");
   await expect(wire).toHaveCount(1);
   await expect(wire).toHaveClass(/is-low/);
+  // Observe WAAPI calls before the interaction; the evidence outlives the 480ms pulse.
+  const signal = page.locator(".wire-signal");
+  await signal.evaluate((element) => {
+    const animate = element.animate.bind(element);
+    element.setAttribute("data-observed-animations", "0");
+    element.animate = (...args) => {
+      const animation = animate(...args);
+      element.setAttribute(
+        "data-observed-animations",
+        String(Number(element.getAttribute("data-observed-animations")) + 1),
+      );
+      return animation;
+    };
+  });
   await page.getByRole("button", { name: "切换 A，当前 0", exact: true }).click();
   await expect(wire).toHaveClass(/is-high/);
-  await expect
-    .poll(() => page.locator(".wire-signal").evaluate((el) => el.getAnimations().length))
-    .toBe(1);
+  await expect(signal).toHaveAttribute("data-observed-animations", "1");
   await page.emulateMedia({ reducedMotion: "reduce" });
   await page.getByRole("button", { name: "切换 A，当前 1", exact: true }).click();
   await expect(wire).toHaveClass(/is-low/);
-  await expect
-    .poll(() => page.locator(".wire-signal").evaluate((el) => el.getAnimations().length))
-    .toBe(0);
+  await expect(signal).toHaveAttribute("data-observed-animations", "1");
+  await expect.poll(() => signal.evaluate((el) => el.getAnimations().length)).toBe(0);
 });
 
 test("reduced motion leaves the deck, catalog and changed sampling result visible", async ({
@@ -138,6 +149,20 @@ test("loss history stays accurate while feedback and keyboard epoch selection ru
   await point.press("Enter");
   await expect(point).toHaveAttribute("aria-pressed", "true");
   await expect(point).toBeFocused();
+  await expect(page.getByRole("slider", { name: "回放轮次" })).toHaveValue("1");
+  const epochs = page.getByRole("toolbar", { name: "损失曲线轮次" });
+  await expect(epochs.locator('[tabindex="0"]')).toHaveCount(1);
+  await point.press("ArrowRight");
+  const next = epochs.getByRole("button", { name: /^查看第 2 轮，验证损失/ });
+  await expect(next).toBeFocused();
+  await expect(page.getByRole("slider", { name: "回放轮次" })).toHaveValue("2");
+  await next.press("Tab");
+  await expect(epochs.locator(":focus")).toHaveCount(0);
+  // Click outside the small visible dot, inside the transparent hit circle.
+  const hitArea = point.locator(".logistic-regression-epoch-hit-area");
+  const box = await hitArea.boundingBox();
+  expect(box).not.toBeNull();
+  await hitArea.click({ position: { x: box!.width / 2, y: box!.height * 0.8 } });
   await expect(page.getByRole("slider", { name: "回放轮次" })).toHaveValue("1");
   const series = page.locator(".logistic-regression-loss-series");
   const before = await series.locator("polyline").first().getAttribute("points");

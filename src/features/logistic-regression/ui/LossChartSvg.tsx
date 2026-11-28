@@ -1,5 +1,5 @@
 import { MathFormula } from "../../../shared/ui/MathFormula";
-import { createMemo, For, Show } from "solid-js";
+import { createMemo, createSignal, For, onCleanup, Show, untrack } from "solid-js";
 import { useChangeAnimation } from "../../../shared/ui/useChangeAnimation";
 import {
   BLIND_GUESS_LOSS,
@@ -74,6 +74,62 @@ export function LossChartSvg(props: {
         (h) => `${xOfEp(h.epoch).toFixed(1)},${yOfLoss(h.valLoss).toFixed(1)}`,
       ) ?? [],
   );
+  const pointElements = new Map<number, SVGGElement>();
+  const [focusedEpoch, setFocusedEpoch] = createSignal<number>();
+  const tabEpoch = createMemo(() => {
+    const epochs = props.history.map((h) => h.epoch);
+    const preferred = focusedEpoch() ?? props.inspectEpoch;
+    return preferred !== undefined && epochs.includes(preferred)
+      ? preferred
+      : epochs[epochs.length - 1];
+  });
+
+  const onPointKeyDown = (event: KeyboardEvent, epoch: number) => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      if (event.key === "Enter") props.onSelectEpoch?.(epoch);
+      return;
+    }
+    const index = props.history.findIndex((h) => h.epoch === epoch);
+    const next =
+      event.key === "ArrowRight"
+        ? index + 1
+        : event.key === "ArrowLeft"
+          ? index - 1
+          : event.key === "Home"
+            ? 0
+            : event.key === "End"
+              ? props.history.length - 1
+              : -1;
+    const target = props.history[next];
+    if (!target || target.epoch === epoch) return;
+    event.preventDefault();
+    const point = pointElements.get(target.epoch);
+    point?.focus();
+    point?.scrollIntoView({ block: "nearest", inline: "nearest" });
+    props.onSelectEpoch?.(target.epoch);
+  };
+
+  const selectPoint = (event: MouseEvent, fallbackEpoch: number, point: SVGGElement) => {
+    let epoch = fallbackEpoch;
+    const matrix = event.detail > 0 ? point.ownerSVGElement?.getScreenCTM() : undefined;
+    if (matrix) {
+      // Expanded touch targets can overlap: choose the closest visible dot.
+      const position = new DOMPoint(event.clientX, event.clientY).matrixTransform(matrix.inverse());
+      let nearest = Infinity;
+      for (const h of props.history) {
+        const distance =
+          (xOfEp(h.epoch) - position.x) ** 2 + (yOfLoss(h.valLoss) - position.y) ** 2;
+        if (distance < nearest) {
+          nearest = distance;
+          epoch = h.epoch;
+        }
+      }
+    }
+    pointElements.get(epoch)?.focus();
+    props.onSelectEpoch?.(epoch);
+  };
 
   return (
     <div class="logistic-regression-charts-grid">
@@ -185,43 +241,90 @@ export function LossChartSvg(props: {
               />
             </g>
           </Show>
-          <For each={props.history}>
-            {(h) => (
-              <circle
-                aria-label={
-                  props.onSelectEpoch
-                    ? `查看第 ${h.epoch} 轮，验证损失 ${h.valLoss.toFixed(3)}`
-                    : undefined
-                }
-                aria-pressed={
-                  props.onSelectEpoch
-                    ? props.inspectEpoch === h.epoch
-                      ? "true"
-                      : "false"
-                    : undefined
-                }
-                class="logistic-regression-epoch-point"
-                cx={xOfEp(h.epoch)}
-                cy={yOfLoss(h.valLoss)}
-                fill={props.inspectEpoch === h.epoch ? "var(--ink)" : "var(--success)"}
-                onClick={props.onSelectEpoch ? () => props.onSelectEpoch?.(h.epoch) : undefined}
-                onKeyDown={
-                  props.onSelectEpoch
-                    ? (event) => {
-                        if (event.key === "Enter" || event.key === " ") {
-                          event.preventDefault();
-                          props.onSelectEpoch?.(h.epoch);
-                        }
-                      }
-                    : undefined
-                }
-                r={props.inspectEpoch === h.epoch ? 4.2 : 2.6}
-                style={props.onSelectEpoch ? { cursor: "pointer" } : undefined}
-                role={props.onSelectEpoch ? "button" : undefined}
-                tabindex={props.onSelectEpoch ? 0 : undefined}
-              />
-            )}
-          </For>
+          <g
+            aria-label={props.onSelectEpoch ? "损失曲线轮次" : undefined}
+            aria-description={
+              props.onSelectEpoch ? "左右方向键切换轮次，Home 和 End 跳到首尾。" : undefined
+            }
+            role={props.onSelectEpoch ? "toolbar" : undefined}
+          >
+            <For each={props.history} keyed={(h) => h.epoch}>
+              {(h) => {
+                const epoch = untrack(() => h().epoch);
+                let point: SVGGElement | undefined;
+                onCleanup(() => {
+                  pointElements.delete(epoch);
+                  if (document.activeElement !== point) return;
+                  setFocusedEpoch(undefined);
+                  // Restore focus only if removing this point left it on the document body.
+                  queueMicrotask(() => {
+                    if (document.activeElement !== document.body || !pointElements.size) return;
+                    const next = pointElements.get(tabEpoch()!);
+                    if (next?.isConnected) next.focus();
+                  });
+                });
+                return (
+                  <g
+                    aria-label={
+                      props.onSelectEpoch
+                        ? `查看第 ${epoch} 轮，验证损失 ${h().valLoss.toFixed(3)}`
+                        : undefined
+                    }
+                    aria-pressed={
+                      props.onSelectEpoch
+                        ? props.inspectEpoch === epoch
+                          ? "true"
+                          : "false"
+                        : undefined
+                    }
+                    class="logistic-regression-epoch-point"
+                    onBlur={() => setFocusedEpoch(undefined)}
+                    onFocus={() => setFocusedEpoch(epoch)}
+                    onClick={
+                      props.onSelectEpoch
+                        ? (event) => selectPoint(event, epoch, event.currentTarget)
+                        : undefined
+                    }
+                    onKeyDown={
+                      props.onSelectEpoch ? (event) => onPointKeyDown(event, epoch) : undefined
+                    }
+                    onKeyUp={
+                      props.onSelectEpoch
+                        ? (event) => {
+                            if (event.key === " ") {
+                              event.preventDefault();
+                              props.onSelectEpoch?.(epoch);
+                            }
+                          }
+                        : undefined
+                    }
+                    ref={(element) => {
+                      point = element;
+                      pointElements.set(epoch, element);
+                    }}
+                    role={props.onSelectEpoch ? "button" : undefined}
+                    tabindex={props.onSelectEpoch ? (tabEpoch() === epoch ? 0 : -1) : undefined}
+                    transform={`translate(${xOfEp(epoch)} ${yOfLoss(h().valLoss)})`}
+                  >
+                    <Show when={props.onSelectEpoch}>
+                      <circle
+                        class="logistic-regression-epoch-hit-area"
+                        fill="transparent"
+                        r={12}
+                        stroke="transparent"
+                        vector-effect="non-scaling-stroke"
+                      />
+                    </Show>
+                    <circle
+                      fill={props.inspectEpoch === epoch ? "var(--ink)" : "var(--success)"}
+                      pointer-events="none"
+                      r={props.inspectEpoch === epoch ? 4.2 : 2.6}
+                    />
+                  </g>
+                );
+              }}
+            </For>
+          </g>
           <text fill="var(--muted)" font-size="9" x={PAD_L} y={H - 8}>
             Epoch 0
           </text>
