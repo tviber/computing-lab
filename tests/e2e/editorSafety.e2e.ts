@@ -38,7 +38,9 @@ test("partial reset removes a lost FullAdder from a retained draft and resumes a
   await page.getByRole("button", { name: "XOR", exact: true }).click();
   await page.getByRole("button", { name: "FullAdder 输出 Sum", exact: true }).click();
   await page.getByRole("button", { name: "XOR 输入 in0", exact: true }).click();
-  await expect(page.locator(".wires path")).toHaveCount(1);
+  // Count editable connections; the decorative signal trace is a separate SVG path.
+  const wires = page.getByRole("button", { name: /^连线 / });
+  await expect(wires).toHaveCount(1);
   await page.getByRole("button", { name: /全加器/ }).click();
   await page.getByRole("button", { name: "重置进度" }).click();
   await page.getByRole("button", { name: "确认重置" }).click();
@@ -47,6 +49,8 @@ test("partial reset removes a lost FullAdder from a retained draft and resumes a
   ).toBeVisible();
   await page.getByRole("button", { name: /半加器/ }).click();
   await expect(page.locator(".kind-xor")).toHaveCount(1);
+  await expect(wires).toHaveCount(0);
+  // Reset must remove both the connection and its decorative trace.
   await expect(page.locator(".kind-component, .wires path")).toHaveCount(0);
   const saved = page.waitForResponse(
     (r) => r.url().endsWith("/draft") && r.request().method() === "PUT",
@@ -56,6 +60,7 @@ test("partial reset removes a lost FullAdder from a retained draft and resumes a
   await page.reload();
   await expect(page.locator(".kind-and")).toHaveCount(1);
   await expect(page.locator(".kind-xor")).toHaveCount(1);
+  await expect(wires).toHaveCount(0);
   await expect(page.locator(".kind-component, .wires path")).toHaveCount(0);
 });
 

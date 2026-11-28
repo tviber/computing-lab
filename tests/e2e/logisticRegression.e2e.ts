@@ -101,7 +101,7 @@ test("walks through all 5 stages of logistic-regression and tries the trained SM
   );
   await page.getByRole("button", { name: "登录" }).click();
   expect((await loginResp).status()).toBe(200);
-  await page.waitForURL("**/");
+  await expect(page.getByRole("heading", { name: "实验课程", exact: true })).toBeVisible();
 
   await page.goto("labs/logistic-regression", { waitUntil: "networkidle" });
   await expect(page.getByRole("main", { name: "逻辑回归实验区" })).toBeVisible();
@@ -552,7 +552,8 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   await page.getByLabel("学号").fill("admin");
   await page.getByLabel("密码").fill("admin-dev-password");
   await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForURL("**/");
+  // Login completes through SPA navigation; wait for the usable home, not a document load.
+  await expect(page.getByRole("heading", { name: "实验课程", exact: true })).toBeVisible();
 
   await page.goto("admin/labs", { waitUntil: "networkidle" });
   await expect(page.getByRole("heading", { name: "实验管理" })).toBeVisible();
@@ -573,7 +574,7 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   await page.getByLabel("学号").fill("teacher");
   await page.getByLabel("密码").fill("teacher-dev-password");
   await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForURL("**/");
+  await expect(page.getByRole("heading", { name: "实验课程", exact: true })).toBeVisible();
 
   await page.goto("teacher/labs", { waitUntil: "networkidle" });
   await expect(page.getByRole("row", { name: /逻辑回归/ })).toHaveCount(0);
@@ -589,7 +590,7 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   await page.getByLabel("学号").fill("admin");
   await page.getByLabel("密码").fill("admin-dev-password");
   await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForURL("**/");
+  await expect(page.getByRole("heading", { name: "实验课程", exact: true })).toBeVisible();
 
   await page.goto("admin/labs", { waitUntil: "networkidle" });
   await expect(logisticRegressionRow).toBeVisible();
@@ -605,7 +606,7 @@ test("lists logistic-regression in admin/teacher lab management and renders its 
   await page.getByLabel("学号").fill("teacher");
   await page.getByLabel("密码").fill("teacher-dev-password");
   await page.getByRole("button", { name: "登录" }).click();
-  await page.waitForURL("**/");
+  await expect(page.getByRole("heading", { name: "实验课程", exact: true })).toBeVisible();
 
   await page.goto("teacher/labs", { waitUntil: "networkidle" });
   await expect(page.getByRole("row", { name: /逻辑回归\s*logistic-regression\s*5/ })).toBeVisible();
