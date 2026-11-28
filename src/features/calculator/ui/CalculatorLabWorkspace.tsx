@@ -291,7 +291,11 @@ export function CalculatorLabWorkspace(props: CalculatorLabWorkspaceProps) {
                     }
                     type="button"
                   >
-                    <DisclosureChevron open={!selected().collapsed} size={13} />
+                    <DisclosureChevron
+                      expandDirection="up"
+                      open={!selected().collapsed}
+                      size={13}
+                    />
                     {selected().collapsed ? "展开组件" : "折叠组件"}
                   </Button>
                 )}

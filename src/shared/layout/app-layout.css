@@ -272,14 +272,6 @@
   color: var(--primary);
 }
 
-.optional-challenge-group .disclosure-trigger .disclosure-chevron .ui-icon {
-  rotate: -90deg;
-}
-
-.optional-challenge-group .disclosure-trigger[aria-expanded="true"] .disclosure-chevron .ui-icon {
-  rotate: 0deg;
-}
-
 .stage-branch-summary span:last-child {
   margin-inline-start: auto;
   padding-inline-start: var(--space-1);

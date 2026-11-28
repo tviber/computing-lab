@@ -113,7 +113,7 @@ function BmpBytes(props: { bytes: number[]; allowHeightPractice: boolean }) {
                   onClick={() => setExpanded((e) => !e)}
                   type="button"
                 >
-                  <DisclosureChevron open={expanded()} size={12} />
+                  <DisclosureChevron expandDirection="up" open={expanded()} size={12} />
                   {expanded()
                     ? "收起后续字节"
                     : `展开其余 ${props.bytes.length - previewLength} 字节`}

@@ -1,7 +1,7 @@
 import { Collapsible, CollapsiblePanel, CollapsibleTrigger } from "@ui-sdk/solid/collapsible";
 import type { JSX } from "@solidjs/web";
 import { createEffect, createSignal, Show, untrack } from "solid-js";
-import { DisclosureChevron } from "./DisclosureChevron";
+import { DisclosureChevron, type DisclosureChevronDirection } from "./DisclosureChevron";
 
 export type DisclosureProps = {
   summary: JSX.Element;
@@ -17,6 +17,8 @@ export type DisclosureProps = {
   disabled?: boolean;
   chevronSize?: number;
   chevronColor?: string;
+  /** Where the expanded panel sits relative to the trigger. Defaults to below. */
+  expandDirection?: DisclosureChevronDirection;
 };
 
 /**
@@ -52,6 +54,7 @@ export function Disclosure(props: DisclosureProps) {
         <Show when={props.chevronSize !== 0}>
           <DisclosureChevron
             color={props.chevronColor}
+            expandDirection={props.expandDirection}
             open={innerOpen()}
             size={props.chevronSize}
           />
