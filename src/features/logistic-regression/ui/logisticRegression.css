@@ -551,6 +551,17 @@ button.logistic-regression-triage-card {
   display: block;
 }
 
+.logistic-regression-epoch-point:focus-visible {
+  outline: 1px solid var(--focus);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .logistic-regression-epoch-cursor {
+    transition: transform 160ms ease-out;
+  }
+}
+
 .logistic-regression-micro-controls {
   display: flex;
   flex-wrap: wrap;

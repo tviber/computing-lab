@@ -3,6 +3,7 @@ import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { ScenarioLinkButton } from "../../../shared/lab/ScenarioLinkButton";
 import { Icon } from "../../../shared/ui/Icon";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
+import { useChangeAnimation } from "../../../shared/ui/useChangeAnimation";
 import { diffBounds, imageFromLists, makeImage, type BinaryImage } from "../domain/bitmap.ts";
 import {
   cellBounds,
@@ -209,6 +210,13 @@ export function DownsampleExplorer(props: ExplorerProps) {
     return p?.code === customCode() && p?.source === builtinCompressed() ? p : null;
   });
   const compressed = createMemo(() => activePreview()?.grid ?? builtinCompressed());
+  const resultRef = useChangeAnimation<HTMLElement>(
+    () => compressed(),
+    [
+      { opacity: 0.78, transform: "translateX(4px)" },
+      { opacity: 1, transform: "translateX(0)" },
+    ],
+  );
 
   const sweep = createMemo(() => {
     const g = gallery();
@@ -452,7 +460,7 @@ export function DownsampleExplorer(props: ExplorerProps) {
             <span aria-hidden="true" class="preview-arrow">
               <Icon name="arrow-right" size={18} />
             </span>
-            <figure>
+            <figure class="sampling-result" ref={resultRef}>
               <BitmapCanvas
                 ariaLabel={`接收端看到的 ${props.width}×${props.height} 格子图`}
                 grid

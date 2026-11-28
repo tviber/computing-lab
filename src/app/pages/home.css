@@ -83,6 +83,115 @@
   gap: var(--space-3);
 }
 
+.home-availability {
+  max-width: 32em;
+  margin-top: var(--space-3);
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.75;
+}
+
+.featured-lab-deck {
+  display: grid;
+  gap: var(--space-3);
+  min-width: 0;
+}
+
+.featured-lab-stage {
+  position: relative;
+  display: grid;
+  padding: 26px 20px 10px;
+  isolation: isolate;
+}
+
+.featured-lab-card {
+  grid-area: 1 / 1;
+  min-width: 0;
+  transform-origin: 50% 100%;
+  pointer-events: none;
+}
+
+.featured-lab-card[data-slot="0"] {
+  z-index: 4;
+  opacity: 1;
+  transform: translateY(0) rotate(0) scale(1);
+}
+
+.featured-lab-card[data-slot="1"] {
+  z-index: 2;
+  opacity: 0.55;
+  transform: translate(16px, -18px) rotate(3deg) scale(0.96);
+}
+
+.featured-lab-card[data-slot="3"] {
+  z-index: 3;
+  opacity: 0.65;
+  transform: translate(-16px, -12px) rotate(-3deg) scale(0.96);
+}
+
+.featured-lab-card[data-slot="2"] {
+  z-index: 1;
+  opacity: 0;
+  transform: translateY(-22px) scale(0.92);
+}
+
+.featured-lab-card[data-slot="0"] .atlas-plate-featured {
+  box-shadow: var(--shadow-md);
+}
+
+.featured-lab-tabs {
+  justify-content: center;
+}
+
+.featured-lab-description {
+  min-height: 3.3em;
+  margin: 0;
+  padding-inline: var(--space-4);
+  color: var(--secondary);
+  font-size: 12px;
+  line-height: 1.65;
+  text-align: center;
+  text-wrap: pretty;
+}
+
+@media (pointer: coarse) {
+  .featured-lab-tabs .home-specimen-tab {
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .featured-lab-card {
+    transition:
+      transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+      opacity 240ms ease;
+  }
+
+  /* Decorative only: unsupported browsers keep the complete, static catalog. */
+  @supports ((animation-timeline: view()) and (animation-range: entry)) {
+    .home-catalog-reveal {
+      animation: home-catalog-enter auto linear both;
+      animation-timeline: view();
+      animation-range: entry 0% entry 35%;
+    }
+
+    .home-catalog-reveal:focus-within {
+      animation: none;
+    }
+  }
+}
+
+@keyframes home-catalog-enter {
+  from {
+    opacity: 0.75;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
 .home-specimen-tabs {
   display: flex;
   flex-wrap: wrap;

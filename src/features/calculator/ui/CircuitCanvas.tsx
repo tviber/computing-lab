@@ -1,6 +1,7 @@
 import { Button } from "@ui-sdk/solid/button";
 import { createEffect, createMemo, createSignal, For, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
+import { useChangeAnimation } from "../../../shared/ui/useChangeAnimation";
 import { inspectComponentSelection } from "../domain/componentize";
 import { GATE_LABEL, type Bit, type CircuitGraph, type CircuitNode } from "../domain/graph";
 import {
@@ -371,24 +372,43 @@ export function CircuitCanvas(props: CircuitCanvasProps) {
                   value: props.portValues[`${current.from.node}#${current.from.port}`],
                 };
               });
+              // This traces changed values, not simulated electrical propagation time.
+              const signalRef = useChangeAnimation<SVGPathElement>(
+                () => endpoints()?.value,
+                [
+                  { strokeDashoffset: "0.14", opacity: 0 },
+                  { opacity: 0.85, offset: 0.2 },
+                  { strokeDashoffset: "-1", opacity: 0 },
+                ],
+                { duration: 480, easing: "ease-out" },
+              );
               return (
                 <Show when={endpoints()}>
                   {(ep) => (
-                    <path
-                      aria-label={
-                        readOnly()
-                          ? `连线 ${nodeLabel(ep().fromNode)} → ${nodeLabel(ep().toNode)}`
-                          : `连线 ${nodeLabel(ep().fromNode)} → ${nodeLabel(ep().toNode)}，删除`
-                      }
-                      class={`wire${valueClass(ep().value)}`}
-                      d={wirePath(ep().from, ep().to)}
-                      onClick={(event) => {
-                        if (readOnly()) return;
-                        event.stopPropagation();
-                        props.dispatch({ type: "delete-edge", id: ep().edge.id });
-                      }}
-                      role="button"
-                    />
+                    <g>
+                      <path
+                        aria-label={
+                          readOnly()
+                            ? `连线 ${nodeLabel(ep().fromNode)} → ${nodeLabel(ep().toNode)}`
+                            : `连线 ${nodeLabel(ep().fromNode)} → ${nodeLabel(ep().toNode)}，删除`
+                        }
+                        class={`wire${valueClass(ep().value)}`}
+                        d={wirePath(ep().from, ep().to)}
+                        onClick={(event) => {
+                          if (readOnly()) return;
+                          event.stopPropagation();
+                          props.dispatch({ type: "delete-edge", id: ep().edge.id });
+                        }}
+                        role="button"
+                      />
+                      <path
+                        aria-hidden="true"
+                        class="wire-signal"
+                        d={wirePath(ep().from, ep().to)}
+                        pathLength={1}
+                        ref={signalRef}
+                      />
+                    </g>
                   )}
                 </Show>
               );
