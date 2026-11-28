@@ -9,6 +9,7 @@ import {
   type GuardFailure,
   type Membership,
 } from "../http/context.ts";
+import { readJsonObject } from "../http/validation.ts";
 import type { SessionUser } from "../auth/session.ts";
 import {
   publicSchema,
@@ -170,9 +171,9 @@ export function taskAssignmentRoutes() {
   app.post("/", async (c) => {
     const auth = teacherOnly(c);
     if ("error" in auth) return jsonError(c, auth.status, auth.error);
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body !== "object") return jsonError(c, 400, "invalid-body");
-    const { sheetId, title, dueAt } = body as Record<string, unknown>;
+    const body = await readJsonObject(c);
+    if (!body) return jsonError(c, 400, "invalid-body");
+    const { sheetId, title, dueAt } = body;
     if (typeof sheetId !== "string") return jsonError(c, 400, "invalid-sheet");
 
     const db = c.get("db");
@@ -291,9 +292,9 @@ export function taskAssignmentRoutes() {
     const db = c.get("db");
     const row = assignmentOf(db, auth.membership.classId, c.req.param("id"));
     if (!row) return jsonError(c, 404, "assignment-not-found");
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body !== "object") return jsonError(c, 400, "invalid-body");
-    const patch = body as Record<string, unknown>;
+    const body = await readJsonObject(c);
+    if (!body) return jsonError(c, 400, "invalid-body");
+    const patch = body;
 
     let title = row.title;
     let dueAt = row.due_at;
@@ -391,8 +392,8 @@ export function taskAssignmentRoutes() {
     if (existing && (existing.status === "submitted" || existing.status === "reviewed")) {
       return jsonError(c, 409, "response-locked");
     }
-    const body = await c.req.json().catch(() => null);
-    const answers = sanitizeAnswers(schema, (body as { answers?: unknown })?.answers);
+    const body = await readJsonObject(c);
+    const answers = sanitizeAnswers(schema, body?.answers);
     // Create-if-missing plus the answer write commit together.
     withTransaction(db, () => {
       const resp = existing ?? getOrCreateResponse(db, row.id, auth.user.id);
@@ -555,12 +556,9 @@ export function taskAssignmentRoutes() {
     if (target.status !== "submitted" && target.status !== "reviewed") {
       return jsonError(c, 409, "response-not-submitted");
     }
-    const body = await c.req.json().catch(() => null);
-    if (!body || typeof body !== "object") return jsonError(c, 400, "invalid-body");
-    const patch = body as {
-      questions?: Record<string, { score?: unknown; comment?: unknown }>;
-      comment?: unknown;
-    };
+    const body = await readJsonObject(c);
+    if (!body) return jsonError(c, 400, "invalid-body");
+    const patch = body;
     const schema = assignmentSchema(row);
     const grading = parseJsonColumn<Record<string, QuestionGrading>>(target.grading_json, {});
     const review = parseReview(target.review_json);

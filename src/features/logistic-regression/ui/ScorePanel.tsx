@@ -319,8 +319,9 @@ export function ScorePanel(props: {
       <div class="logistic-regression-score-layout">
         <section class="logistic-regression-panel">
           <p class="logistic-regression-bridge-note">
-            联系前面的复习时长例子：先把输入算成分数 z，再交给 Sigmoid 转成概率。
-            这里把单个输入扩展为多个词的 0/1 特征，分数是 z = w · x + b。
+            联系前面的复习时长例子：先把输入算成分数 <MathFormula>{String.raw`z`}</MathFormula>
+            ，再交给 Sigmoid 转成概率。 这里把单个输入扩展为多个词的 0/1 特征，分数是{" "}
+            <MathFormula>{String.raw`z=w\cdot x+b`}</MathFormula>。
           </p>
           <div class="logistic-regression-panel-head">
             <h3>权重与偏置</h3>
@@ -331,14 +332,19 @@ export function ScorePanel(props: {
           <p class="logistic-regression-muted-note">
             起始模型只给广告常用词设置了正权重，偏置是 <MathFormula>b=+0.4</MathFormula>。
             因此，即使短信里没有已知词，模型估计的垃圾概率也超过 50%。你可以先调低
-            <strong>偏置 b</strong>，再给「同学」「明天」「一起」设置负权重，检查正常短信能否分对。
+            <strong>
+              偏置 <MathFormula>{String.raw`b`}</MathFormula>
+            </strong>
+            ，再给「同学」「明天」「一起」设置负权重，检查正常短信能否分对。
           </p>
 
           <LabeledSlider
             class="logistic-regression-slider-row is-bias"
             label={
               <>
-                <strong>偏置 b</strong>
+                <strong>
+                  偏置 <MathFormula>{String.raw`b`}</MathFormula>
+                </strong>
                 <small>
                   没有已知词时的垃圾概率：{(evalSummary().emptyProbability * 100).toFixed(1)}%
                 </small>

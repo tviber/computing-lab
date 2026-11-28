@@ -20,6 +20,7 @@ describe("slice context changes", () => {
   it("expires trained-model history when the model is replaced, but preserves zero-context history", () => {
     const [trainedModel, setTrainedModel] = createSignal(model(0));
     render(() => <WeightLossSliceExplorer trainedModel={trainedModel()} />);
+    expect(screen.getByText(/其余参数全为 0 时，当前绘图区间/)).toBeInTheDocument();
     const step = () => {
       fireEvent.click(screen.getByRole("button", { name: "按梯度更新一步" }));
       flush();
@@ -37,6 +38,7 @@ describe("slice context changes", () => {
     );
     flush();
     expect(screen.queryByRole("list", { name: /跳跃历史轨迹/ })).not.toBeInTheDocument();
+    expect(screen.queryByText(/其余参数全为 0 时，当前绘图区间/)).not.toBeInTheDocument();
     step();
     expect(screen.getByRole("list", { name: /跳跃历史轨迹/ })).toBeInTheDocument();
     setTrainedModel(model(-1));

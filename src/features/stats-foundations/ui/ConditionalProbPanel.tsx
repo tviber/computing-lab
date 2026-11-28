@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
@@ -133,7 +134,9 @@ export function ConditionalProbPanel(props: Props) {
 
           <div class="sf-input-stack">
             <label class="sf-input-row">
-              <span>1. P(真下雨) =</span>
+              <span>
+                1. <MathFormula>{String.raw`P(\text{真下雨})=`}</MathFormula>
+              </span>
               <div class="sf-pct-input">
                 <input
                   aria-label="P(真下雨) 百分比"
@@ -148,7 +151,9 @@ export function ConditionalProbPanel(props: Props) {
               </div>
             </label>
             <label class="sf-input-row">
-              <span>2. P(真下雨 | 预报下雨) =</span>
+              <span>
+                2. <MathFormula>{String.raw`P(\text{真下雨}\mid\text{预报下雨})=`}</MathFormula>
+              </span>
               <div class="sf-pct-input">
                 <input
                   aria-label="P(真下雨 | 预报下雨) 百分比"
@@ -165,7 +170,9 @@ export function ConditionalProbPanel(props: Props) {
               </div>
             </label>
             <label class="sf-input-row">
-              <span>3. P(预报下雨 | 真下雨) =</span>
+              <span>
+                3. <MathFormula>{String.raw`P(\text{预报下雨}\mid\text{真下雨})=`}</MathFormula>
+              </span>
               <div class="sf-pct-input">
                 <input
                   aria-label="P(预报下雨 | 真下雨) 百分比"
@@ -189,15 +196,23 @@ export function ConditionalProbPanel(props: Props) {
         <div class="sf-sandbox-head">
           <h4>贝叶斯直觉沙盒：如果搬去「沙漠城市」会怎样？</h4>
           <span class="sf-mono">
-            预报下雨时真下雨的概率 ≈ <strong>{roundTo(bayes().pRainGivenForecastPct, 1)}%</strong>
+            预报下雨时真下雨的概率 ≈{" "}
+            <strong>
+              <MathFormula>{String.raw`${roundTo(bayes().pRainGivenForecastPct, 1)}\%`}</MathFormula>
+            </strong>
           </span>
         </div>
         <p class="sf-sandbox-desc">
-          假设气象台水平不变（真下雨时 80% 能报准，没下雨时约 23%（16/70）
+          假设气象台水平不变（真下雨时 80% 能报准，没下雨时约 23%（
+          <MathFormula>{String.raw`16/70`}</MathFormula>）
           会误报）。拖动下方滑块改变当地原本的下雨频率，看看预报的可信度怎么变：
         </p>
         <LabeledSlider
-          label="当地基础下雨率 P(真下雨)"
+          label={
+            <>
+              当地基础下雨率 <MathFormula>{String.raw`P(\text{真下雨})`}</MathFormula>
+            </>
+          }
           max={70}
           min={5}
           onChange={setBaseRainPct}

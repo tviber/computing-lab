@@ -1,6 +1,6 @@
-import { createMemo, createSignal } from "solid-js";
+import { createMemo, createSignal, Show } from "solid-js";
 import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
-import { MathFormula } from "../../../shared/ui/MathFormula";
+import { MathFormula, MathText } from "../../../shared/ui/MathFormula";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import { getPublicCorpus } from "../domain/corpus.ts";
 import type { TrainedModel } from "../domain/logisticRegression.ts";
@@ -21,10 +21,10 @@ import { fmtSigned, type ContextMode, type TrailPoint } from "./weightLossSliceG
 import { WeightLossSliceMetricsPanel } from "./WeightLossSliceMetricsPanel.tsx";
 
 const ETA_QUICK_PRESETS = [
-  { label: "稳步 η = 0.8", eta: 0.8 },
-  { label: "适中 η = 2.0", eta: 2.0 },
-  { label: "跨谷反弹 η = 5.5", eta: 5.5 },
-  { label: "大幅震荡 η = 7.5", eta: 7.5 },
+  { label: "稳步 $\\eta=0.8$", eta: 0.8 },
+  { label: "适中 $\\eta=2.0$", eta: 2.0 },
+  { label: "跨谷反弹 $\\eta=5.5$", eta: 5.5 },
+  { label: "大幅震荡 $\\eta=7.5$", eta: 7.5 },
 ] as const;
 
 const DEFAULT_START_W = 2.0;
@@ -173,7 +173,7 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
     setSliceEta(6.5);
     setPointAt(
       2.0,
-      "已选中「好」，η = 6.5。连续点击两次「按梯度更新一步」，比较起点和第二步结束的位置。",
+      "已选中「好」，学习率为 6.5。连续点击两次「按梯度更新一步」，比较起点和第二步结束的位置。",
     );
   };
 
@@ -230,17 +230,26 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
 
       <p class="logistic-regression-muted-note">
         {wordMeta().note}
-        {contextMode() === "trained" && learnedW() !== undefined
-          ? Math.abs(learnedW()! - curve().minPoint.w) <= 0.35
-            ? ` 当前模型为「${selectedWord()}」学到的权重是 ${fmtSigned(learnedW()!)}，已经靠近当前绘图区间内的最低点 w* ≈ ${fmtSigned(curve().minPoint.w, 2)}。`
-            : ` 当前模型为「${selectedWord()}」学到的权重是 ${fmtSigned(learnedW()!)}，与当前绘图区间内的最低点 w* ≈ ${fmtSigned(curve().minPoint.w, 2)} 仍有差距（可能上方学习率/轮数尚未收敛或波动较大）。`
-          : ` 其余参数全为 0 时，当前绘图区间内的最低点位于 w* ≈ ${fmtSigned(curve().minPoint.w, 2)}。`}
+        <Show when={contextMode() === "trained" && learnedW() !== undefined}>
+          当前模型为「{selectedWord()}」学到的权重是{" "}
+          <MathFormula>{`w=${fmtSigned(learnedW()!)}`}</MathFormula>，
+          {Math.abs(learnedW()! - curve().minPoint.w) <= 0.35
+            ? "已经靠近区间最低点。"
+            : "与区间最低点仍有差距（可能学习率/轮数尚未收敛或波动较大）。"}
+        </Show>
+        <Show when={contextMode() === "zero"}>其余参数全为 0 时，</Show>
+        当前绘图区间内的最低点位于{" "}
+        <MathFormula>{String.raw`w^*\approx ${fmtSigned(curve().minPoint.w, 2)}`}</MathFormula>。
       </p>
 
       <div class="logistic-regression-slice-eta-bar">
         <LabeledSlider
           class="logistic-regression-inline-slider"
-          label="单步步长系数 η"
+          label={
+            <>
+              单步步长系数 <MathFormula>{String.raw`\eta`}</MathFormula>
+            </>
+          }
           max={SLICE_MAX_ETA}
           min={SLICE_MIN_ETA}
           onChange={(next) => setSliceEta(clampSliceEta(next))}
@@ -258,7 +267,7 @@ export function WeightLossSliceExplorer(props: { trainedModel: TrainedModel }) {
           }}
           options={ETA_QUICK_PRESETS.map((preset) => ({
             value: String(preset.eta),
-            label: preset.label,
+            label: <MathText>{preset.label}</MathText>,
           }))}
           value={
             ETA_QUICK_PRESETS.find(

@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { createMemo, createSignal, For, Show } from "solid-js";
 import {
   clampSliceW,
@@ -121,6 +122,14 @@ export function WeightLossSliceChart(props: WeightLossSliceChartProps) {
         </div>
       </div>
 
+      <p class="logistic-regression-muted-note">
+        区间最低点{" "}
+        <MathFormula>{String.raw`w^*\approx${props.curve.minPoint.w.toFixed(2)}`}</MathFormula>
+        ；当前 <MathFormula>{String.raw`w=${props.currentEval.w.toFixed(2)}`}</MathFormula>。
+        <Show when={props.contextMode === "trained" && props.learnedW !== undefined}>
+          模型权重 <MathFormula>{`w=${props.learnedW!.toFixed(2)}`}</MathFormula>。
+        </Show>
+      </p>
       <svg
         aria-label={`词「${props.selectedWord}」权重与交叉熵损失切片图`}
         class={`logistic-regression-svg-chart logistic-regression-slice-svg${dragging() ? " is-dragging" : ""}`}
@@ -202,7 +211,7 @@ export function WeightLossSliceChart(props: WeightLossSliceChartProps) {
           )}
           y={SLICE_PAD_T - 4}
         >
-          区间最低点 w*≈{props.curve.minPoint.w.toFixed(2)}
+          区间最低点
         </text>
 
         <Show
@@ -237,7 +246,7 @@ export function WeightLossSliceChart(props: WeightLossSliceChartProps) {
                 )}
                 y={SLICE_CHART_H - SLICE_PAD_B - 4}
               >
-                模型 w={lw().toFixed(2)}
+                模型权重
               </text>
             </g>
           )}

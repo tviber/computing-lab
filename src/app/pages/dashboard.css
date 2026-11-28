@@ -107,7 +107,11 @@
 }
 
 .matrix-scroll[data-more-right] {
-  mask-image: linear-gradient(to right, black calc(100% - 14px), rgb(0 0 0 / 35%));
+  mask-image: linear-gradient(
+    to right,
+    black calc(100% - 14px),
+    color-mix(in srgb, black 35%, transparent)
+  );
 }
 
 .matrix-table th,
@@ -283,7 +287,7 @@ button.cell-score:hover {
   inset: 0;
   display: flex;
   justify-content: flex-end;
-  background: rgb(23 40 61 / 32%);
+  background: color-mix(in srgb, var(--primary) 32%, transparent);
 }
 
 .drawer {

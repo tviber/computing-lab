@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 import { Button } from "@ui-sdk/solid/button";
 import { createSignal, createUniqueId, For, lazy, Loading, Match, Show, Switch } from "solid-js";
 import { Disclosure } from "../../../shared/ui/Disclosure";
@@ -70,8 +71,9 @@ function BmpBytes(props: { bytes: number[]; allowHeightPractice: boolean }) {
         </Show>
         <Disclosure class="decoding-bit-clue" summary="四格怎么合成一个数？">
           <p>
-            从左往右，四格分别乘以 1、256、256²、256³，再相加。例如 <code>[2, 1, 0, 0]</code> 读作 2
-            + 1 × 256 = 258。
+            从左往右，四格分别乘以 <MathFormula>{String.raw`1,256,256^2,256^3`}</MathFormula>
+            ，再相加。例如 <code>[2, 1, 0, 0]</code> 读作{" "}
+            <MathFormula>{String.raw`2+1\times256=258`}</MathFormula>。
           </p>
         </Disclosure>
         <Show when={props.allowHeightPractice}>
@@ -173,10 +175,12 @@ export function BytePanel(props: { payload: LabPayload; allowHeightPractice?: bo
                   <Disclosure class="decoding-bit-clue" summary="试读第一组">
                     <p>
                       <code>{bits().groups[0]}</code> 中为 1 的位相加：
-                      {[...bits().groups[0]]
-                        .flatMap((bit, index) => (bit === "1" ? [2 ** (7 - index)] : []))
-                        .join(" + ") || "0"}{" "}
-                      = {bitsToByte(bits().groups[0])}。在字符编码表里找这个数。
+                      <MathFormula>{`${
+                        [...bits().groups[0]]
+                          .flatMap((bit, index) => (bit === "1" ? [2 ** (7 - index)] : []))
+                          .join(" + ") || "0"
+                      } = ${bitsToByte(bits().groups[0])}`}</MathFormula>
+                      。在字符编码表里找这个数。
                     </p>
                   </Disclosure>
                 </Show>

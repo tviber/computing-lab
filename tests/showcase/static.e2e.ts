@@ -16,8 +16,12 @@ test("built showcase includes no classroom chunks or API requests; every lab ope
 }) => {
   const requests: string[] = [];
   const errors: string[] = [];
+  const mathAssets: string[] = [];
   page.on("request", (request) => {
     if (new URL(request.url()).pathname.startsWith("/api/")) requests.push(request.url());
+    if (/\/assets\/(?:MathFormula-|KaTeX_)/.test(new URL(request.url()).pathname)) {
+      mathAssets.push(request.url());
+    }
   });
   page.on("pageerror", (error) => errors.push(error.message));
   const manifest = readFileSync("dist/.vite/manifest.json", "utf8");
@@ -31,6 +35,8 @@ test("built showcase includes no classroom chunks or API requests; every lab ope
   }
   await page.goto("/");
   await expect(page.getByRole("link", { name: "进入实验" })).toHaveCount(LAB_IDS.length);
+  expect(mathAssets).toEqual([]);
+  await expect(page.locator(".atlas-spec math")).toHaveCount(0);
   for (const id of LAB_IDS) {
     await page.goto(`/labs/${id}`);
     await expect(

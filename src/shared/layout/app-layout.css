@@ -358,10 +358,10 @@
 .lab-rail-scroll:is([data-more-above], [data-more-below]) {
   mask-image: linear-gradient(
     to bottom,
-    rgb(0 0 0 / var(--top-alpha, 1)),
+    color-mix(in srgb, black calc(var(--top-alpha, 1) * 100%), transparent),
     black 10px,
     black calc(100% - 10px),
-    rgb(0 0 0 / var(--bottom-alpha, 1))
+    color-mix(in srgb, black calc(var(--bottom-alpha, 1) * 100%), transparent)
   );
 }
 

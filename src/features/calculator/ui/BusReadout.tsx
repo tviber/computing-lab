@@ -1,3 +1,4 @@
+import { MathFormula } from "../../../shared/ui/MathFormula";
 /**
  * Live numeric readout for the current stage's buses. Sits above the
  * circuit canvas so toggling an input pin immediately shows the whole
@@ -67,7 +68,12 @@ function BusCard(props: { reading: BusReading }) {
         </p>
       </Show>
       <Show when={props.reading.placeValue}>
-        {(placeValue) => <p class="bus-place-value">{placeValue()}</p>}
+        {(placeValue) => (
+          <p class="bus-place-value">
+            {/* Generated solely from numeric bus weights/bits, never names. */}
+            <MathFormula>{placeValue().replaceAll("×", "\\times ")}</MathFormula>
+          </p>
+        )}
       </Show>
     </article>
   );

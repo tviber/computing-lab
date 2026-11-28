@@ -555,7 +555,7 @@ ul.lunch-order-fix {
 }
 .lunch-consequence-step b {
   min-width: 4em;
-  color: var(--danger, #b23b2d);
+  color: var(--danger);
 }
 
 @keyframes lunch-consequence-in {
@@ -755,12 +755,12 @@ ul.lunch-order-fix {
   stroke-width: 1.5;
 }
 .lunch-scatter-dot.right {
-  fill: var(--success, #3f7d52);
-  stroke: var(--success-border, #3f7d52);
+  fill: var(--success);
+  stroke: var(--success-border);
 }
 .lunch-scatter-dot.wrong {
-  fill: var(--danger, #b23b2d);
-  stroke: var(--danger-border, #b23b2d);
+  fill: var(--danger);
+  stroke: var(--danger-border);
 }
 .lunch-scatter-dot.neutral {
   fill: var(--accent);
@@ -818,10 +818,10 @@ ul.lunch-order-fix {
   border-radius: 50%;
 }
 .lunch-scatter-legend i.right {
-  background: var(--success, #3f7d52);
+  background: var(--success);
 }
 .lunch-scatter-legend i.wrong {
-  background: var(--danger, #b23b2d);
+  background: var(--danger);
 }
 .lunch-scatter-legend i.ring {
   border: 2px solid var(--secondary);

@@ -11,7 +11,7 @@ import {
   readString,
   readTrimmedNonEmpty,
   STUDENT_NO,
-} from "./adminValidation.ts";
+} from "../http/validation.ts";
 
 type ImportRow = {
   line: number;

@@ -1,6 +1,6 @@
 import { createMemo, For, Show } from "solid-js";
 import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
-import { MathFormula } from "../../../shared/ui/MathFormula";
+import { MathFormula, MathText } from "../../../shared/ui/MathFormula";
 import type { LinearRegressionDraft } from "../domain/protocol.ts";
 import type { StatsConceptQuestion } from "../domain/stages.ts";
 import {
@@ -48,19 +48,23 @@ export function LinearRegressionPanel(props: Props) {
     <div class="sf-panel">
       <div class="sf-metrics-row">
         <div class={`sf-metric-card ${mseGood() ? "is-good" : ""}`}>
-          <span class="sf-metric-label">均方误差 MSE</span>
+          <span class="sf-metric-label">
+            均方误差 <MathFormula>{String.raw`\mathrm{MSE}`}</MathFormula>
+          </span>
           <strong class="sf-metric-value">{roundTo(fit().mse, 2)}</strong>
           <span class="sf-metric-sub">
-            目标 ≤ {LINEAR_MSE_THRESHOLD}（理论最优 ≈ {roundTo(optimal.mse, 2)}）
+            目标 <MathFormula>{String.raw`\le ${LINEAR_MSE_THRESHOLD}`}</MathFormula>（理论最优{" "}
+            <MathFormula>{String.raw`\approx ${roundTo(optimal.mse, 2)}`}</MathFormula>）
           </span>
         </div>
         <div class="sf-metric-card">
           <span class="sf-metric-label">当前直线公式</span>
           <strong class="sf-metric-value sf-mono">
-            y = {roundTo(fit().slope, 2)}x {fit().intercept >= 0 ? "+" : "−"}{" "}
-            {Math.abs(roundTo(fit().intercept, 1))}
+            <MathFormula>{String.raw`y=${roundTo(fit().slope, 2)}x ${fit().intercept >= 0 ? "+" : "-"} ${Math.abs(roundTo(fit().intercept, 1))}`}</MathFormula>
           </strong>
-          <span class="sf-metric-sub">调斜率 w，直线绕 (0, b) 旋转；调截距 b，直线上下平移</span>
+          <span class="sf-metric-sub">
+            <MathText>{String.raw`调斜率 $w$，直线绕 $(0,b)$ 旋转；调截距 $b$，直线上下平移`}</MathText>
+          </span>
         </div>
         <div class="sf-metric-card">
           <span class="sf-metric-label">预测 30°C 销量</span>
@@ -81,7 +85,9 @@ export function LinearRegressionPanel(props: Props) {
                 }
                 type="checkbox"
               />
-              <span>显示残差方块（面积 = 误差²）</span>
+              <span>
+                <MathText>{String.raw`显示残差方块（$\text{面积}=\text{误差}^2$）`}</MathText>
+              </span>
             </label>
           </div>
 
@@ -217,7 +223,7 @@ export function LinearRegressionPanel(props: Props) {
         <div class="sf-controls-card">
           <h3>动手调直线</h3>
           <LabeledSlider
-            label="斜率 w（每升高 1°C 多卖几杯）"
+            label={<MathText>{String.raw`斜率 $w$（每升高 1°C 多卖几杯）`}</MathText>}
             max={LINEAR_SLOPE_MAX}
             min={LINEAR_SLOPE_MIN}
             onChange={(slope) => props.onChange({ ...props.draft, slope })}
@@ -225,7 +231,7 @@ export function LinearRegressionPanel(props: Props) {
             value={props.draft.slope}
           />
           <LabeledSlider
-            label="截距 b（基准偏移量）"
+            label={<MathText>{String.raw`截距 $b$（基准偏移量）`}</MathText>}
             max={LINEAR_INTERCEPT_MAX}
             min={LINEAR_INTERCEPT_MIN}
             onChange={(intercept) => props.onChange({ ...props.draft, intercept })}

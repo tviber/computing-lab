@@ -24,7 +24,9 @@ describe("BusReadout", () => {
     );
     expect(cardA).toHaveTextContent("无符号");
     expect(cardA).toHaveTextContent("5");
-    expect(cardA).toHaveTextContent("-16×0 + 8×0 + 4×1 + 2×0 + 1×1 = 5");
+    expect(cardA.querySelector("annotation")).toHaveTextContent(
+      String.raw`-16\times 0 + 8\times 0 + 4\times 1 + 2\times 0 + 1\times 1 = 5`,
+    );
   });
 
   it("shows unsigned and two's-complement readings for a signed bus", () => {
@@ -39,7 +41,9 @@ describe("BusReadout", () => {
     expect(cardR).toHaveTextContent("11");
     expect(cardR).toHaveTextContent("补码");
     expect(cardR).toHaveTextContent("-5");
-    expect(cardR).toHaveTextContent("-16×1 + 8×1 + 4×0 + 2×1 + 1×1 = -5");
+    expect(cardR.querySelector("annotation")).toHaveTextContent(
+      String.raw`-16\times 1 + 8\times 1 + 4\times 0 + 2\times 1 + 1\times 1 = -5`,
+    );
     expect(cardR.querySelector(".bus-bits")!.textContent).toContain("符号位1");
   });
 

@@ -6,6 +6,7 @@ import { IMAGE_SAMPLING_STAGES } from "../features/image-sampling/domain/stages"
 import { LUNCH_STAGES } from "../features/lunch-shift/domain/stages";
 import { LOGISTIC_REGRESSION_CORE_STAGES } from "../features/logistic-regression/domain/stages";
 import { STATS_FOUNDATIONS_STAGES } from "../features/stats-foundations/domain/stages";
+import type { SubmissionCheckProps } from "../shared/lab/submissionPresentation";
 import type { LabId } from "../shared/lab/labMetadata";
 
 export type DashboardStage = {
@@ -22,6 +23,7 @@ export type AppLabEntry = {
   dashboardStages: readonly DashboardStage[];
   homeProgressStages: number | null;
   supportsCanvasPreview?: true;
+  submissionCheck?: Component<SubmissionCheckProps>;
   component: LazyLabComponent;
 };
 
@@ -49,6 +51,9 @@ export const APP_LABS = {
     }),
   },
   "stats-foundations": {
+    submissionCheck: lazy(() => import("../features/stats-foundations/ui/SubmissionCheck"), {
+      export: "SubmissionCheck",
+    }),
     dashboardStages: STATS_FOUNDATIONS_STAGES,
     homeProgressStages: STATS_FOUNDATIONS_STAGES.length,
     component: lazy(() => import("../features/stats-foundations/ui/StatsFoundationsLabPage"), {
@@ -56,6 +61,9 @@ export const APP_LABS = {
     }),
   },
   "logistic-regression": {
+    submissionCheck: lazy(() => import("../features/logistic-regression/ui/SubmissionCheck"), {
+      export: "SubmissionCheck",
+    }),
     dashboardStages: LOGISTIC_REGRESSION_CORE_STAGES,
     homeProgressStages: LOGISTIC_REGRESSION_CORE_STAGES.length,
     component: lazy(() => import("../features/logistic-regression/ui/LogisticRegressionLabPage"), {

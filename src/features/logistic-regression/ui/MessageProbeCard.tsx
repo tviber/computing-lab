@@ -169,7 +169,7 @@ export function MessageProbeCard(props: {
               阈值 {(safeThreshold() * 100).toFixed(0)}%
             </text>
             <text fill="var(--muted)" font-size="9" text-anchor="middle" x={xOfZ(0)} y={H - 6}>
-              z = 0
+              零分
             </text>
           </svg>
         </div>

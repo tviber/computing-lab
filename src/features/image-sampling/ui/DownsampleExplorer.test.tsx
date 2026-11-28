@@ -35,8 +35,9 @@ it("explains under, exactly and over half using the selected source region", () 
     const { cell, on, total } = cells.find((item) => Math.sign(item.on * 2 - item.total) === sign)!;
     setSelectedCell(cell);
     flush();
-    expect(screen.getByRole("status")).toHaveTextContent(
-      `黑色占 ${on} / ${total}，${text}。内置规则发 ${output}。`,
+    expect(screen.getByRole("status")).toHaveTextContent(`${text}。内置规则发 ${output}。`);
+    expect(screen.getByRole("status").querySelectorAll("annotation")[3]).toHaveTextContent(
+      String.raw`\frac{${on}}{${total}} ${sign < 0 ? "<" : sign > 0 ? ">" : "="} \frac12`,
     );
   }
 });

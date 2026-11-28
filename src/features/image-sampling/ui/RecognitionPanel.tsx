@@ -1,3 +1,4 @@
+import { MathFormula, MathText } from "../../../shared/ui/MathFormula";
 /**
  * Judge verdict display: accuracy vs requirement, cells vs budget, and the
  * counterexample triptych — original → your compressed grid → the member it
@@ -41,7 +42,9 @@ export function RecognitionPanel(props: { outcome: SamplingJudgeResult; stage: S
           <dt>接收端仍能认出</dt>
           <dd>
             {props.outcome.identified} / {props.outcome.total} 张
-            <span class="verdict-sub">（要求 ≥ {required()} 张）</span>
+            <span class="verdict-sub">
+              （要求 <MathFormula>{String.raw`\ge ${required()}`}</MathFormula> 张）
+            </span>
           </dd>
         </div>
         <div>
@@ -64,7 +67,7 @@ export function RecognitionPanel(props: { outcome: SamplingJudgeResult; stage: S
 
       <Show when={props.outcome.passed}>
         <p class="stage-takeaway">
-          这一关验证了：{props.stage.takeaway}
+          这一关验证了：<MathText>{props.stage.takeaway}</MathText>
           {props.outcome.resolution.cells > Math.ceil(props.outcome.cellBudget * 0.6)
             ? " 还能再少用一些格子吗？"
             : ""}

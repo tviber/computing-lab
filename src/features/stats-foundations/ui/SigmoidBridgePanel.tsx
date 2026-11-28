@@ -1,7 +1,7 @@
 import { createMemo, createSignal, For, Show } from "solid-js";
 import { Icon } from "../../../shared/ui/Icon";
 import { LabeledSlider } from "../../../shared/ui/LabeledSlider";
-import { MathFormula } from "../../../shared/ui/MathFormula";
+import { MathFormula, MathText } from "../../../shared/ui/MathFormula";
 import { SegmentedPicker } from "../../../shared/ui/SegmentedPicker";
 import type { SigmoidBridgeDraft } from "../domain/protocol.ts";
 import {
@@ -78,16 +78,22 @@ export function SigmoidBridgePanel(props: Props) {
               {Math.round(fit().accuracy * 100)}% ({fit().correctCount}/10)
             </strong>
             <span class="sf-metric-sub">
-              目标 ≥ {Math.round(SIGMOID_ACCURACY_THRESHOLD * 100)}%
+              目标{" "}
+              <MathFormula>{String.raw`\ge ${Math.round(SIGMOID_ACCURACY_THRESHOLD * 100)}\%`}</MathFormula>
             </span>
           </div>
           <div class={`sf-metric-card ${lossGood() ? "is-good" : ""}`}>
             <span class="sf-metric-label">平均对数损失 (负对数似然)</span>
             <strong class="sf-metric-value sf-mono">{roundTo(fit().logLoss, 3)}</strong>
-            <span class="sf-metric-sub">目标 ≤ {SIGMOID_LOGLOSS_THRESHOLD}（越小越好）</span>
+            <span class="sf-metric-sub">
+              目标 <MathFormula>{String.raw`\le ${SIGMOID_LOGLOSS_THRESHOLD}`}</MathFormula>
+              （越小越好）
+            </span>
           </div>
           <div class="sf-metric-card">
-            <span class="sf-metric-label">50% 分界点 x₀ = −b / w</span>
+            <span class="sf-metric-label">
+              50% 分界点 <MathFormula>{String.raw`x_0=-b/w`}</MathFormula>
+            </span>
             <strong class="sf-metric-value sf-mono">{roundTo(fit().boundaryX, 2)} 小时</strong>
             <span class="sf-metric-sub">超过此时长预测为「通过」</span>
           </div>
@@ -96,7 +102,10 @@ export function SigmoidBridgePanel(props: Props) {
       <div class="sf-workspace-grid">
         <div class="sf-chart-card">
           <div class="sf-chart-header">
-            <h3>考前复习时长 (小时) → 通过概率 P(通过 | 时长)</h3>
+            <h3>
+              考前复习时长 (小时) → 通过概率{" "}
+              <MathFormula>{String.raw`P(\text{通过}\mid\text{时长})`}</MathFormula>
+            </h3>
             <SegmentedPicker
               label="拟合模式"
               onChange={(curveMode) => props.onChange({ ...props.draft, curveMode })}
@@ -178,7 +187,7 @@ export function SigmoidBridgePanel(props: Props) {
               y2={SVG_H - PAD.bottom}
             />
             <text class="sf-axis-label" text-anchor="middle" x={SVG_W / 2} y={SVG_H - 4}>
-              考前复习时长 x (小时)
+              考前复习时长 (小时)
             </text>
 
             {/* Decision boundary line */}
@@ -231,7 +240,8 @@ export function SigmoidBridgePanel(props: Props) {
             <div class="sf-warn-box">
               <strong>直线会越过概率边界：</strong>
               复习 0.5 小时时，直线给出负概率；复习 9 小时时，直线超过 100%。概率必须在 0% 到 100%
-              之间，所以我们需要用 <strong>Sigmoid</strong> 把直线「压扁」进 (0, 1)。
+              之间，所以我们需要用 <strong>Sigmoid</strong> 把直线「压扁」进{" "}
+              <MathFormula>{String.raw`(0,1)`}</MathFormula>。
             </div>
           </Show>
         </div>
@@ -239,7 +249,7 @@ export function SigmoidBridgePanel(props: Props) {
         <div class="sf-controls-card">
           <h3>调整 Sigmoid 曲线</h3>
           <LabeledSlider
-            label="斜率 w（曲线陡峭程度）"
+            label={<MathText>{String.raw`斜率 $w$（曲线陡峭程度）`}</MathText>}
             max={SIGMOID_W_MAX}
             min={SIGMOID_W_MIN}
             onChange={(w) => props.onChange({ ...props.draft, curveMode: "sigmoid", w })}
@@ -248,7 +258,7 @@ export function SigmoidBridgePanel(props: Props) {
           />
 
           <LabeledSlider
-            label="偏移 b（控制左右移动）"
+            label={<MathText>{String.raw`偏移 $b$（控制左右移动）`}</MathText>}
             max={SIGMOID_B_MAX}
             min={SIGMOID_B_MIN}
             onChange={(b) => props.onChange({ ...props.draft, curveMode: "sigmoid", b })}
@@ -272,7 +282,11 @@ export function SigmoidBridgePanel(props: Props) {
             </div>
             <ul class="sf-inspector-list">
               <li>
-                复习时长 <span class="sf-mono">x = {selectedPoint().hours}h</span>，实际结果：
+                复习时长{" "}
+                <span class="sf-mono">
+                  <MathFormula>{String.raw`x=${selectedPoint().hours}\,\mathrm{h}`}</MathFormula>
+                </span>
+                ，实际结果：
                 <strong>{selectedPoint().passed === 1 ? "通过 (1)" : "未通过 (0)"}</strong>
               </li>
               <Show
@@ -280,13 +294,15 @@ export function SigmoidBridgePanel(props: Props) {
                   <>
                     <li>
                       先算直线得分{" "}
-                      <span class="sf-mono">z = wx + b = {roundTo(selectedPoint().z, 2)}</span>
+                      <span class="sf-mono">
+                        <MathFormula>{String.raw`z=wx+b=${roundTo(selectedPoint().z, 2)}`}</MathFormula>
+                      </span>
                     </li>
                     <li>
                       用 <MathFormula>{String.raw`\sigma(z)=1/(1+e^{-z})`}</MathFormula>{" "}
                       得到条件概率{" "}
                       <span class="sf-mono">
-                        P(通过|x) = {Math.round(selectedPoint().prob * 100)}%
+                        <MathFormula>{String.raw`P(\text{通过}\mid x)=${Math.round(selectedPoint().prob * 100)}\%`}</MathFormula>
                       </span>
                     </li>
                     <li>

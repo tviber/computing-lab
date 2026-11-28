@@ -3,8 +3,8 @@ import { Hono } from "hono";
 import { describe, expect, it } from "vitest";
 import type { AccountRole } from "../auth/session.ts";
 import { openMemoryDb } from "../db/client.ts";
-import type { AppVariables } from "../http/context.ts";
-import { adminRoutes } from "./admin.ts";
+import type { AppVariables } from "./context.ts";
+import { adminRoutes } from "../routes/admin.ts";
 
 function appFor(role: AccountRole | null = "admin") {
   const app = new Hono<{ Variables: AppVariables }>();
