@@ -3,8 +3,8 @@ import { CALCULATOR_STAGES, coreStages } from "../features/calculator/domain/sta
 import { COLOR_QUANT_STAGES } from "../features/color-quantization/domain/stages";
 import { DECODING_CORE_STAGES, DECODING_STAGES } from "../features/decoding/domain/stages";
 import { IMAGE_SAMPLING_STAGES } from "../features/image-sampling/domain/stages";
+import { LOGISTIC_REGRESSION_DASHBOARD_STAGES } from "../features/logistic-regression/domain/dashboardStages";
 import { LUNCH_STAGES } from "../features/lunch-shift/domain/stages";
-import { LOGISTIC_REGRESSION_CORE_STAGES } from "../features/logistic-regression/domain/stages";
 import { STATS_FOUNDATIONS_STAGES } from "../features/stats-foundations/domain/stages";
 import type { SubmissionCheckProps } from "../shared/lab/submissionPresentation";
 import type { LabId } from "../shared/lab/labMetadata";
@@ -64,8 +64,8 @@ export const APP_LABS = {
     submissionCheck: lazy(() => import("../features/logistic-regression/ui/SubmissionCheck"), {
       export: "SubmissionCheck",
     }),
-    dashboardStages: LOGISTIC_REGRESSION_CORE_STAGES,
-    homeProgressStages: LOGISTIC_REGRESSION_CORE_STAGES.length,
+    dashboardStages: LOGISTIC_REGRESSION_DASHBOARD_STAGES,
+    homeProgressStages: LOGISTIC_REGRESSION_DASHBOARD_STAGES.length,
     component: lazy(() => import("../features/logistic-regression/ui/LogisticRegressionLabPage"), {
       export: "LogisticRegressionLabPage",
     }),
